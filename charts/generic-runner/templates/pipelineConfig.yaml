@@ -1,0 +1,48 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# this config is used for GUI to find pipeline config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.cloud.tibco.com/created-by: {{ .Values.createdBy }}
+    app.kubernetes.io/name: {{ .Values.name }}-scripts
+    app.kubernetes.io/part-of: {{ .Values.partOf }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+    env.cloud.tibco.com/config: {{ .Values.pipelineConfigLabel }}
+  annotations:
+    env.cloud.tibco.com/config-groups: |
+      {{ .Values.pipelineConfigGroups | toJson }}
+data:
+  config: |
+    {{ .Values.name }}:
+      name: {{ .Values.name }}-task
+      description: |
+{{ tpl (.Files.Get "docs/guiConfig.md") . | indent 8 }}
+      defaultValue: |
+{{ .Files.Get "docs/defaultValue.yaml" | indent 8 }}
+      pipelineRun:
+        apiVersion: {{ .Values.pipelineApiVersion }}
+        kind: PipelineRun
+        metadata:
+          name: {{ .Values.name }}
+          namespace: {{ .Values.namespace }}
+          labels:
+            env.cloud.tibco.com/name: {{ .Values.name }}
+        spec:
+          params: []
+          timeouts:
+            pipeline: "{{ .Values.pipelineRunTimeout }}"
+            tasks: "{{ .Values.taskRunTimeout }}"
+            finally: "{{ .Values.finallyTimout }}"
+          taskRunTemplate:
+            serviceAccountName: {{ .Values.serviceAccount }}
+          pipelineRef:
+            name: {{ .Values.name }}
+

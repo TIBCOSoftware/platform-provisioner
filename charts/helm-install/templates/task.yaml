@@ -1,0 +1,81 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: {{ .Values.pipelineApiVersion }}
+kind: Task
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  params:
+    - name: {{ .Values.pipelineParams.account.name }}
+      type: string
+    - name: {{ .Values.pipelineParams.region.name }}
+      type: string
+      default: "{{ .Values.pipelineParams.region.default }}"
+    - name: {{ .Values.pipelineParams.input.name }}
+      type: string
+      default: ""
+  volumes:
+    - name: {{ .Values.commonScriptConfigmapName }}
+      configMap:
+        name: {{ .Values.commonScriptConfigmapName }}
+    - name: task-scripts
+      configMap:
+        name: {{ .Values.name }}-scripts
+    - name: common-dependency-secret-github
+      secret:
+        secretName: common-dependency-secret-github
+  steps:
+    - name: {{ .Values.name }}
+      image: {{ .Values.pipelineImage }}
+      workingDir: /workspace
+      timeout: "{{ .Values.taskRunTimeout }}"
+      volumeMounts:
+        - name: {{ .Values.commonScriptConfigmapName }}
+          mountPath: /tmp/common-scripts-original
+        - name: task-scripts
+          mountPath: /tmp/task-scripts-original
+        - name: common-dependency-secret-github
+          mountPath: /tmp/secret-github
+          readOnly: true
+      args:
+        - "$(params.{{ .Values.pipelineParams.account.name }})"
+        - "$(params.{{ .Values.pipelineParams.region.name }})"
+        - "$(params.{{ .Values.pipelineParams.input.name }})"
+      script: |
+        #!/bin/bash
+
+        set +x
+        set -o pipefail  # trace ERR through pipes
+        set -o errtrace  # trace ERR through 'time command' and other functions
+        set -o errexit   ## set -e : exit the script if any statement returns a non-success return value
+
+        declare -xr AWS_ACCOUNT="${1}"
+        declare -xr AWS_REGION="${2}"
+        declare -xr INPUT=${3}
+
+        declare -xr PIPELINE_SCRIPTS="/workspace/task-scripts"
+        mkdir -p "${PIPELINE_SCRIPTS}"
+        # we need to copy because we can not change configmap and original file is a link
+        cp -LR /tmp/common-scripts-original/* "${PIPELINE_SCRIPTS}"
+        cp -LR /tmp/task-scripts-original/* "${PIPELINE_SCRIPTS}"
+        chmod +x "${PIPELINE_SCRIPTS}"/*.sh
+
+        cd "${PIPELINE_SCRIPTS}"
+
+        if [[ ! -f ./_functions.sh ]]; then
+          echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')][ERROR]: error: depend _functions does not exist" >&2
+          exit 1
+        fi
+        # set -a will export _functions.sh to all subshell. see: https://unix.stackexchange.com/questions/79064/how-to-export-variables-from-a-file
+        [[ -f _functions.sh ]] && set -a && . _functions.sh && set +a
+
+        # run the actual script
+        if ! ./run.sh "${AWS_ACCOUNT}" "${AWS_REGION}" "${INPUT}"; then
+          echo "run.sh error"
+          exit 1
+        fi

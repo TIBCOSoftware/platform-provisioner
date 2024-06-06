@@ -1,0 +1,24 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.cloud.tibco.com/created-by: {{ .Values.createdBy }}
+    app.kubernetes.io/name: {{ .Values.name }}-config
+    app.kubernetes.io/part-of: {{ .Values.partOf }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+data:
+  {{ $currentScope := .}}
+  {{- range $path, $bytes := .Files.Glob "config/*" }}
+  {{ base $path }}: |
+    {{- with $currentScope}}
+{{ tpl (.Files.Get $path) . | indent 4 }}
+    {{- end }}
+  {{- end }}

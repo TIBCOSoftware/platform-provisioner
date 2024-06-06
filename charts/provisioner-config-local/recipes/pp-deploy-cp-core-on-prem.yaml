@@ -1,0 +1,1012 @@
+apiVersion: v1
+kind: helm-install
+meta:
+  guiEnv:
+    note: "deploy-cp-on-prem"
+    # github
+    GUI_GITHUB_TOKEN: ""
+    GUI_CP_CHART_REPO: ""
+    GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
+    # env
+    GUI_CP_INSTANCE_ID: cp1
+    GUI_CP_ENV: vagrant
+    # container registry
+    GUI_CP_CONTAINER_REGISTRY: csgprduswrepoedge.jfrog.io
+    GUI_CP_CONTAINER_REGISTRY_USERNAME: ""
+    GUI_CP_CONTAINER_REGISTRY_PASSWORD: ""
+    # TLS
+    GUI_TP_TLS_CERT: ""
+    GUI_TP_TLS_KEY: ""
+    # version
+    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.2.23
+    GUI_CP_PLATFORM_BASE_VERSION: 1.2.140
+    # storage
+    GUI_CP_STORAGE_CLASS: standard
+    GUI_CP_STORAGE_CREATE_PV: false
+    GUI_CP_STORAGE_PV_NAME: "" # control-plane-pv the name of PV for kind
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    # GitHub credentials
+    GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}" # You need to set GITHUB_TOKEN for private repo
+    GITHUB_USER_NAME: ${GUI_GITHUB_USER_NAME:-"cp-test"}
+    CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
+    # env
+    CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
+    CP_PROVIDER: local # deployment target. Example: aws, azure, local.
+    CP_ENVIRONMENT: ${GUI_CP_ENVIRONMENT:-"vagrant"} # options: dev, vagrant, qa, staging, prod. default is dev. qa, staging, prod will use DB with SSL
+    CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"cp-cluster"}
+    CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
+    # domain
+    CP_DNS_DOMAIN: ${GUI_CP_SANDBOX:-"localhost"}.dataplanes.pro
+    CP_SERVICE_DNS_DOMAIN: ${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}
+    CP_TUNNEL_DNS_DOMAIN: ${CP_INSTANCE_ID}-tunnel.${CP_DNS_DOMAIN}
+    # storage
+    CP_STORAGE_CLASS: ${GUI_CP_STORAGE_CLASS:-"standard"} # standard, gp2, hostpath, efs-sc
+    CP_STORAGE_PV_NAME: "" # control-plane-pv the name of PV for kind, works with CP_STORAGE_CREATE_PV flag
+    # container registry
+    CP_CONTAINER_REGISTRY: ${GUI_CP_CONTAINER_REGISTRY:-"csgprduswrepoedge.jfrog.io"}
+    CP_CONTAINER_REGISTRY_USERNAME: "${GUI_CP_CONTAINER_REGISTRY_USERNAME}"
+    CP_CONTAINER_REGISTRY_PASSWORD: "${GUI_CP_CONTAINER_REGISTRY_PASSWORD}"
+    # node
+    CP_NODE_CIDR: 10.180.0.0/16
+    CP_POD_CIDR: 10.180.0.0/16
+    CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
+    # third party
+    CP_EXT_NAMESPACE: tibco-ext
+    # network policies
+    CP_CREATE_NETWORK_POLICIES: ${GUI_CP_CREATE_NETWORK_POLICIES:-false}
+    # CP DB setup env
+    CP_DB_HOST: ${GUI_CP_DB_HOST:-"postgresql.tibco-ext.svc.cluster.local"} #
+    CP_DB_PORT: "5432"
+    CP_DB_USER_NAME: ${GUI_CP_DB_USER_NAME:-"postgres"} # CP_RDS_USERNAME in create-rds.sh
+    CP_DB_PASSWORD: ${GUI_CP_DB_PASSWORD:-"postgres"} # CP_RDS_MASTER_PASSWORD in create-rds.sh
+    CP_DB_NAME: postgres
+    CP_DB_SECRET_NAME: provider-cp-database-credentials
+    CP_DB_SSL_MODE: ${GUI_CP_DB_SSL_MODE:-"disable"} # verify-full, disable
+    CP_DB_DELETE_ON_UNINSTALL: ${GUI_CP_DB_DELETE_ON_UNINSTALL:-"false"}
+    # SSO
+    CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: ${GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD:-"easy-to-remember"}
+    CP_IDM_SENDGRID_SERVICE_API_KEY: "${GUI_CP_IDM_SENDGRID_SERVICE_API_KEY}"
+    CP_IDM_CP_ENCRYPTION_SECRET: ${GUI_CP_IDM_CP_ENCRYPTION_SECRET:-"dummy-encryption-secret"}
+    # CP ingress
+    CP_INGRESS_CLASSNAME: nginx
+    CP_SKIP_BOOTSTRAP_INGRESS: false
+    CP_ALB_CERTIFICATE_ARN: ""
+    CP_NLB_CERTIFICATE_ARN: ""
+    TP_TLS_CERT: ${GUI_TP_TLS_CERT}
+    TP_TLS_KEY: ${GUI_TP_TLS_KEY}
+    # CP version
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.2.23} # 1.2 GA release. use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.2.140} # 1.2 GA release. use ^1.0.0 for latest
+    # flow control
+    CP_CREATE_NAMESPACE: true
+    CP_INSTALL_MAILDEV: true
+    CP_INSTALL_MAILDEV_INGRESS: true
+    CP_STORAGE_CREATE_PV: false # create PV for control-plane-pv for Kind and MicroK8s use case
+    CP_INSTALL_PLATFORM_BOOTSTRAP: true
+    CP_INSTALL_PLATFORM_BASE: true
+  tools:
+    yq: "4.40"
+    helm: "3.13"
+    kubectl: "1.28"
+preTasks:
+- condition: ${CP_CREATE_NAMESPACE}
+  clusters:
+    - name: ${CP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      # namespace
+      kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: ${CP_NAMESPACE}
+        labels:
+          app.cloud.tibco.com/content: tibco-core
+          platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
+      EOF
+
+      # service account
+      kubectl create -n ${CP_NAMESPACE} serviceaccount ${CP_INSTANCE_ID}-sa
+      kubectl create clusterrolebinding ${CP_INSTANCE_ID}-sa --clusterrole=cluster-admin --serviceaccount=${CP_NAMESPACE}:${CP_INSTANCE_ID}-sa
+      
+      # DB password
+      kubectl apply -f - <<EOF
+      kind: Secret
+      apiVersion: v1
+      metadata:
+        name: ${CP_DB_SECRET_NAME}
+        namespace: ${CP_NAMESPACE}
+        labels:
+          app.kubernetes.io/managed-by: pipeline
+      data:
+        PASSWORD: $(echo ${CP_DB_PASSWORD} | base64) 
+        USERNAME: $(echo ${CP_DB_USER_NAME} | base64)
+      type: Opaque
+      EOF
+      
+      # create TP TLS secret if provided
+      if [[ -n "${TP_TLS_CERT}" ]]; then
+        kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: tp-certificate
+        namespace: ${CP_NAMESPACE}
+      type: Opaque
+      data:
+        tls.crt: ${TP_TLS_CERT}
+        tls.key: ${TP_TLS_KEY}
+      EOF
+      fi
+      
+      # add label to ext namespace
+      kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: ${CP_EXT_NAMESPACE}
+        labels:
+          networking.platform.tibco.com/non-cp-ns: enable
+      EOF
+      
+      # create TP TLS secret if provided
+      if [[ -n "${TP_TLS_CERT}" ]]; then
+        kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: tp-certificate
+        namespace: ${CP_EXT_NAMESPACE}
+      type: Opaque
+      data:
+        tls.crt: ${TP_TLS_CERT}
+        tls.key: ${TP_TLS_KEY}
+      EOF
+      fi
+- condition: ${CP_INSTALL_MAILDEV}
+  clusters:
+    - name: ${CP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      # install maildev
+      function configureLocalSMTP {
+        _ext_namespace=${CP_EXT_NAMESPACE}
+        #declare variables
+        local EMAIL_SERVICE_DEPLOYMENT_NAME=tp-cp-email-service
+        local DEVMAIL_SERVICE_NAME=development-mailserver.${_ext_namespace}.svc.cluster.local
+        local DEVMAIL_DEPLOYMENT_NAME=maildev
+        local DEVMAIL_POD_NAME=maildev
+      
+        #install maildev deployment
+        kubectl apply -f - << EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: maildev
+          namespace: ${_ext_namespace}
+          labels:
+            app: maildev
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: maildev
+          template:
+            metadata:
+              labels:
+                app: maildev
+            spec:
+              containers:
+                - name: maildev
+                  image: maildev/maildev
+                  args: ["-s", "1025", "-w", "1080"]
+      EOF
+      
+        #install maildev service:
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: development-mailserver
+          namespace: ${_ext_namespace}
+        spec:
+          selector:
+            app: maildev
+          ports:
+            - name: smtp
+              protocol: TCP
+              port: 1025
+              targetPort: 1025
+            - name: http
+              protocol: TCP
+              port: 1080
+              targetPort: 1080
+      EOF
+        # wait for pod to be ready
+        # echo "waiting for $DEVMAIL_DEPLOYMENT_NAME pod to be ready"
+        # kubectl wait deployment $DEVMAIL_DEPLOYMENT_NAME -n ${_ext_namespace} --for=condition=Available=True --timeout=300s
+      }
+      configureLocalSMTP
+- condition: ${CP_INSTALL_MAILDEV_INGRESS}
+  clusters:
+    - name: ${CP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      if [[ -n "${TP_TLS_CERT}" ]]; then
+        kubectl apply -f - <<EOF
+      kind: Ingress
+      apiVersion: networking.k8s.io/v1
+      metadata:
+        name: maildev
+        namespace: ${CP_EXT_NAMESPACE}
+        labels:
+          app.cloud.tibco.com/created-by: pipeline
+        annotations:
+          kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+          nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+      spec:
+        ingressClassName: ${CP_INGRESS_CLASSNAME}
+        tls:
+        - hosts:
+          - '*.${CP_DNS_DOMAIN}'
+          secretName: tp-certificate
+        rules:
+          - host: 'mail.${CP_DNS_DOMAIN}'
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: development-mailserver
+                      port:
+                        number: 1080
+      EOF
+      else
+        kubectl apply -f - <<EOF
+      kind: Ingress
+      apiVersion: networking.k8s.io/v1
+      metadata:
+        name: maildev
+        namespace: ${CP_EXT_NAMESPACE}
+        labels:
+          app.cloud.tibco.com/created-by: pipeline
+        annotations:
+          kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+          nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+      spec:
+        ingressClassName: ${CP_INGRESS_CLASSNAME}
+        rules:
+          - host: 'mail.${CP_DNS_DOMAIN}'
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: development-mailserver
+                      port:
+                        number: 1080
+      EOF
+      fi
+- condition: ${CP_STORAGE_CREATE_PV}
+  clusters:
+    - name: ${CP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: ${CP_STORAGE_PV_NAME}
+      spec:
+        accessModes:
+          - ReadWriteMany
+        capacity:
+          storage: 2Gi
+        hostPath:
+          path: /private/tibco/cp/${CP_STORAGE_PV_NAME}/k8s/volumes/core
+          type: DirectoryOrCreate
+        persistentVolumeReclaimPolicy: Retain
+        volumeMode: Filesystem
+        storageClassName: ${CP_STORAGE_CLASS}
+      EOF
+helmCharts:
+- name: platform-bootstrap # router hybrid-proxy compute-service cp-evn certificates
+  version: ${CP_PLATFORM_BOOTSTRAP_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_BOOTSTRAP}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+  values:
+    keepPrevious: false
+    content: |
+      tp-cp-bootstrap:
+        compute-services:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 50Mi
+            limits:
+              cpu: 1250m
+              memory: 1000Mi
+          dpHelmRepositories:
+            - alias: default
+              conf:
+                auth:
+                  password: ${GITHUB_TOKEN}
+                  username: ${GITHUB_USER_NAME}
+                repoUrl: https://tibcosoftware.github.io/tp-helm-charts
+              default: true
+              type: chart-museum
+          dpMetadata:
+            dpConfigureNamespaceChartVersion: '*'
+            dpCoreInfrastructureChartVersion: '*'
+          enabled: true
+        hybrid-proxy:
+          enabled: true
+          resources:
+            limits:
+              cpu: 1250m
+              memory: 1000Mi
+            requests:
+              cpu: 20m
+              memory: 50Mi
+        resource-set-operator:
+          enabled: true
+        router-operator:
+          enabled: true
+      global:
+        external:
+          ingress:
+            ingressClassName: ${CP_INGRESS_CLASSNAME}
+            annotations:
+              kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME} # used for external DNS to create the record
+          aws:
+            tunnelService:
+              annotations: 
+                kubernetes.io/ingress.class: alb # used for external DNS to create the record
+              loadBalancerClass: service.k8s.aws/nlb
+          clusterInfo:
+            nodeCIDR: ${CP_NODE_CIDR}
+            podCIDR: ${CP_POD_CIDR}
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+          dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
+          provider: ${CP_PROVIDER}
+          storage:
+            resources:
+              requests:
+                storage: 2Gi
+            volumeName: ${CP_STORAGE_PV_NAME}
+            storageClassName: ${CP_STORAGE_CLASS}
+        tibco:
+          logging:
+            fluentbit:
+              enabled: false
+          containerRegistry:
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            url: ${CP_CONTAINER_REGISTRY}
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          enableLogging: true
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          createNetworkPolicy: ${CP_CREATE_NETWORK_POLICIES}
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: platform-bootstrap
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+  hooks:
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: ${CP_SKIP_BOOTSTRAP_INGRESS}
+      content: |
+        if [[ -n "${TP_TLS_CERT}" ]]; then
+          kubectl apply -f - <<EOF
+        kind: Ingress
+        apiVersion: networking.k8s.io/v1
+        metadata:
+          name: router
+          namespace: ${CP_NAMESPACE}
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
+          annotations:
+            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+        spec:
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          tls:
+          - hosts:
+            - '*.${CP_SERVICE_DNS_DOMAIN}'
+            secretName: tp-certificate
+          rules:
+            - host: '*.${CP_SERVICE_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: router
+                        port:
+                          number: 100
+        EOF
+        
+          kubectl apply -f - <<EOF
+        kind: Ingress
+        apiVersion: networking.k8s.io/v1
+        metadata:
+          name: hybrid-proxy
+          namespace: ${CP_NAMESPACE}
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
+          annotations:
+            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+        spec:
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          tls:
+          - hosts:
+            - '*.${CP_SERVICE_DNS_DOMAIN}'
+            secretName: tp-certificate
+          rules:
+            - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: hybrid-proxy
+                        port:
+                          number: 105
+        EOF
+        
+        else
+          kubectl apply -f - <<EOF
+        kind: Ingress
+        apiVersion: networking.k8s.io/v1
+        metadata:
+          name: router
+          namespace: ${CP_NAMESPACE}
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
+          annotations:
+            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+        spec:
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          rules:
+            - host: '*.${CP_SERVICE_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: router
+                        port:
+                          number: 100
+        EOF
+        
+          kubectl apply -f - <<EOF
+        kind: Ingress
+        apiVersion: networking.k8s.io/v1
+        metadata:
+          name: hybrid-proxy
+          namespace: ${CP_NAMESPACE}
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
+          annotations:
+            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+        spec:
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          rules:
+            - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: hybrid-proxy
+                        port:
+                          number: 105
+        EOF
+        fi
+- name: platform-base
+  version: ${CP_PLATFORM_BASE_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_BASE}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        cp:
+          data:
+            PRODUCTION_PATH: "" # TODO PCP-5070
+          deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
+        external:
+          db_host: ${CP_DB_HOST}
+          db_name: ${CP_DB_NAME}
+          db_password: ${CP_DB_PASSWORD}
+          db_port: "${CP_DB_PORT}"
+          db_secret_name: ${CP_DB_SECRET_NAME}
+          db_ssl_mode: ${CP_DB_SSL_MODE}
+          db_ssl_root_cert: ""
+          db_username: ${CP_DB_USER_NAME}
+          emailServer:
+            ses:
+              arn: ""
+            smtp:
+              password: ""
+              port: "1025"
+              server: development-mailserver.${CP_EXT_NAMESPACE}.svc.cluster.local
+              username: ""
+          admin:
+            email: ${CP_ADMIN_EMAIL}
+            firstname: "admin"
+            lastname: "admin"
+          enableLogging: false
+          environment: ${CP_ENVIRONMENT}
+          IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
+          REGION_SECRET: "${CP_IDM_REGION_SECRET}"
+          SENDGRID_SERVICE_API_KEY: "${CP_IDM_SENDGRID_SERVICE_API_KEY}" # for email service
+          CP_ENCRYPTION_SECRET: "${CP_IDM_CP_ENCRYPTION_SECRET}"
+        podSecurityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          fsGroup: 0
+          fsGroupChangePolicy: "Always"
+          seccompProfile:
+            type: RuntimeDefault
+        securityContext: {}
+        containerSecurityContext: 
+          hawkinfrajobs: 
+            runAsNonRoot: false
+      tp-cp-recipes:
+        tp-cp-infra-recipes:
+          podSecurityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+            fsGroupChangePolicy: "Always"
+            seccompProfile:
+              type: RuntimeDefault
+          securityContext: {}
+        tp-cp-bwce-recipes:
+          podSecurityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+            fsGroupChangePolicy: "Always"
+            seccompProfile:
+              type: RuntimeDefault
+          securityContext: {}
+        tp-cp-flogo-recipes:
+          podSecurityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+            fsGroupChangePolicy: "Always"
+            seccompProfile:
+              type: RuntimeDefault
+          securityContext: {}
+        tp-cp-tibcohub-recipes:
+          podSecurityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+            fsGroupChangePolicy: "Always"
+            seccompProfile:
+              type: RuntimeDefault
+          securityContext: {}
+        dp-oauth2proxy-recipes:
+          podSecurityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+            fsGroupChangePolicy: "Always"
+            seccompProfile:
+              type: RuntimeDefault
+          securityContext: {}
+        tp-cp-servicemesh-recipes:
+          podSecurityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+            fsGroupChangePolicy: "Always"
+            seccompProfile:
+              type: RuntimeDefault
+          securityContext: {}
+      tp-cp-integration:
+        tp-cp-integration-common:
+          fileserver:
+            resources:
+              requests:
+                cpu: 80m
+                memory: 100Mi
+              limits:
+                cpu: 200m
+                memory: 200Mi
+        tp-cp-integration-bwce:
+          bw-webserver:
+            securityContext: {}
+            global:
+              fluentbit:
+                securityContext: {}
+            bwwebserver:
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 100Mi
+                limits:
+                  cpu: 200m
+                  memory: 200Mi
+            fluentbit:
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "100Mi"
+                limits:
+                  cpu: "150m"
+                  memory: "150Mi"
+        tp-cp-integration-bw5:
+          bw5-webserver:
+            bw5webserver:
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 100Mi
+                limits:
+                  cpu: 200m
+                  memory: 200Mi
+            fluentbit:
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "100Mi"
+                limits:
+                  cpu: "150m"
+                  memory: "150Mi"
+        tp-cp-integration-flogo:
+          flogo-webserver:
+            flogowebserver:
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 100Mi
+                limits:
+                  cpu: 200m
+                  memory: 200Mi
+            fluentbit:
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "100Mi"
+                limits:
+                  cpu: "150m"
+                  memory: "150Mi"
+        tp-cp-bwce-utilities:
+            resources:
+              requests:
+                cpu: 80m
+                memory: 100Mi
+              limits:
+                cpu: 200m
+                memory: 200Mi
+        tp-cp-flogo-utilities:
+            resources:
+              requests:
+                cpu: 80m
+                memory: 100Mi
+              limits:
+                cpu: 200m
+                memory: 200Mi
+      tp-cp-core:
+        admin-webserver:
+          replicaCount: 1
+          cpadminwebserver:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 60m
+                memory: 100Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+        cronjobs:
+          replicaCount: 1
+          cpcronjobservice:
+            resources:
+              limits:
+                cpu: 100m
+                memory: 100Mi
+              requests:
+                cpu: 50m
+                memory: 50Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+        email-service:
+          replicaCount: 1
+          providerName: ${CP_PROVIDER} # local or aws, for local will use smtp server
+          cpemailservice:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 80m
+                memory: 80Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+        identity-management:
+          replicaCount: 1
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+          idm:
+            resources:
+              limits:
+                cpu: 400m
+                memory: 400Mi
+              requests:
+                cpu: 100m
+                memory: 250Mi
+        identity-provider:
+          replicaCount: 1
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+          tp-cp-identity-provider:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 60m
+                memory: 100Mi
+        orchestrator:
+          replicaCount: 1
+          cporchservice:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 80m
+                memory: 80Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+        pengine:
+          replicaCount: 1
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+          tpcppengineservice:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 80m
+                memory: 80Mi
+        user-subscriptions:
+          replicaCount: 1
+          cpusersubservice:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 80m
+                memory: 80Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+        web-server:
+          replicaCount: 1
+          cpwebserver:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+      tp-cp-core-finops:
+        finops-otel-collector:
+          resources:
+            limits:
+              cpu: 300m
+              memory: 12Gi
+            requests:
+              cpu: 200m
+              memory: 100Mi
+        finops-prometheus:
+          finopsprometheus:
+            resources:
+              limits:
+                cpu: 300m
+                memory: 12Gi
+              requests:
+                cpu: 200m
+                memory: 100Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+        finops-service:
+          finopsservice:
+            resources:
+              limits:
+                cpu: 250m
+                memory: 1024Mi
+              requests:
+                cpu: 125m
+                memory: 100Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+        finops-web-server:
+          finopswebserver:
+            resources:
+              limits:
+                cpu: 200m
+                memory: 200Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+          replicaCount: "1"
+        monitoring-service:
+          fluentbit:
+            resources:
+              limits:
+                cpu: 150m
+                memory: 150Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+          monitoringservice:
+            resources:
+              limits:
+                cpu: 250m
+                memory: 1024Mi
+              requests:
+                cpu: 125m
+                memory: 100Mi
+          monitoringtibtunnel:
+            resources:
+              requests:
+                cpu: "80m"
+                memory: "10Mi"
+              limits:
+                cpu: "80m"
+                memory: "10Mi"
+          monitoringhomepagemetrics:
+            resources:
+              requests:
+                cpu: "80m"
+                memory: "10Mi"
+              limits:
+                cpu: "80m"
+                memory: "10Mi"
+          replicaCount: "1"
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: platform-base
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+  hooks:
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # manually adjust to 1 to save resources
+        kubectl patch hpa -n ${CP_NAMESPACE} tp-identity-management --type='json' -p='[{"op": "replace", "path": "/spec/maxReplicas", "value":1}]'
+        kubectl patch hpa -n ${CP_NAMESPACE} tp-cp-pengine --type='json' -p='[{"op": "replace", "path": "/spec/maxReplicas", "value":1}]'

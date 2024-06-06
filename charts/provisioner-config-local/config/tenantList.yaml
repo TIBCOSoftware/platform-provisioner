@@ -1,0 +1,20 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# This file is used to config the pipeline for the provisioner-config-local pipeline
+tenants:
+  mock:
+    basicAuth: ""
+    accounts:
+      - id: on-prem
+        description: "on-prem mock account"
+
+users:
+  - email: admin@cloud.com
+    roles: 
+      - tenant
+    groups: 
+      - mock

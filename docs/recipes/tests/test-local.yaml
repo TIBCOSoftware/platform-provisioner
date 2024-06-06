@@ -1,0 +1,27 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# sample recipe
+# this will use the current kubeconfig context to run the kubectl command
+apiVersion: v1
+kind: generic-runner
+meta:
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_INITIAL_ASSUME_ROLE: true
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    RUN1: true
+tasks:
+  - condition: ${RUN1}
+    script:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      fileName: script.sh
+      content: |
+        echo "A normal case to test assume role and conditions"
+        kubectl get nodes

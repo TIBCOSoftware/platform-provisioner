@@ -1,0 +1,33 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: {{ .Values.pipelineApiVersion }}
+kind: Pipeline
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  params:
+    - name: {{ .Values.pipelineParams.account.name }}
+      type: string
+    - name: {{ .Values.pipelineParams.region.name }}
+      type: string
+      default: "{{ .Values.pipelineParams.region.default }}"
+    - name: {{ .Values.pipelineParams.input.name }}
+      type: string
+      default: ""
+  tasks:
+    - name: {{ .Values.name }}
+      taskRef:
+        name: {{ .Values.name }}
+      timeout: "{{ .Values.taskRunTimeout }}"
+      params:
+        - name: {{ .Values.pipelineParams.account.name }}
+          value: "$(params.{{ .Values.pipelineParams.account.name }})"
+        - name: {{ .Values.pipelineParams.region.name }}
+          value: "$(params.{{ .Values.pipelineParams.region.name }})"
+        - name: {{ .Values.pipelineParams.input.name }}
+          value: "$(params.{{ .Values.pipelineParams.input.name }})"

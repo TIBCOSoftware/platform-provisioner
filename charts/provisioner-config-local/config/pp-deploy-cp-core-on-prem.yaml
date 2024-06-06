@@ -1,0 +1,90 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Deploy Control Plane On-Prem Stack"
+description: |
+  This pipeline will deploy TIBCO Control Plane on-premises.
+  We have to use github token to access the dev helm charts.
+  After the deployment, you will get an email in MailDev to reset the password.
+  You need to use port-forward to access MailDev. 
+  ```bash
+  kubectl port-forward svc/development-mailserver -n tibco-ext 1080:1080
+  ```
+  Then you can access MailDev at `http://localhost:1080`
+options:
+- name: "GUI_GITHUB_TOKEN"
+  type: string
+  guiType: input
+  required: false
+  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
+  description: "The github token"
+- name: "GUI_CP_ADMIN_EMAIL"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_ADMIN_EMAIL"
+  description: "The CP admin email. You will get the email in MailDev to reset the password"
+- name: "GUI_CP_INSTANCE_ID"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
+  description: "The CP instance ID"
+- name: "GUI_CP_CONTAINER_REGISTRY"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY"
+  description: "The container registry to deploy CP"
+- name: "GUI_CP_CONTAINER_REGISTRY_USERNAME"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_USERNAME"
+  description: "The container registry user name to deploy CP"
+- name: "GUI_CP_CONTAINER_REGISTRY_PASSWORD"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_PASSWORD"
+  description: "The container registry password to deploy CP"
+- name: "GUI_TP_TLS_CERT"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_TLS_CERT"
+  description: "base64 encoding of validate certificate for the domain. You can get it from <a href='https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=certificate-localhost-dp' target='_blank'>Platform Provisioner</a>"
+- name: "GUI_TP_TLS_KEY"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_TLS_KEY"
+  description: "base64 encoding of validate certificate for the domain You can get it from <a href='https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=certificate-localhost-dp' target='_blank'>Platform Provisioner</a>"
+- name: "GUI_CP_PLATFORM_BOOTSTRAP_VERSION"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_BOOTSTRAP_VERSION"
+  description: "The version of CP platform bootstrap. TP 1.2 GA release version is: 1.2.23. use ^1.0.0 for latest"
+- name: "GUI_CP_PLATFORM_BASE_VERSION"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION"
+  description: "The version of CP platform base. TP 1.2 GA release version is: 1.2.140. use ^1.0.0 for latest"
+- name: "GUI_CP_STORAGE_CLASS"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_STORAGE_CLASS"
+  description: "hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s"
+- name: "GUI_CP_INGRESS_USE_HOSTPORT"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INGRESS_USE_HOSTPORT"
+  description: "When deploy on kid we need to use hostport for ingress controller"
+- name: "GUI_CP_STORAGE_CREATE_PV"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_STORAGE_CREATE_PV"
+  description: "Pre-create PV for control-plane-pv for Kind and MicroK8s use case"
+- name: "GUI_CP_STORAGE_PV_NAME"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_STORAGE_PV_NAME"
+  description: "Pre-create PV name for control-plane-pv for Kind and MicroK8s use case"
+recipe: |
+{{ .Files.Get "recipes/pp-deploy-cp-core-on-prem.yaml" | indent 2 }}

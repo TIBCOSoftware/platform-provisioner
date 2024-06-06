@@ -1,0 +1,48 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Deploy Control Plane On-Prem Stack with certificate"
+description: |
+  This pipeline will deploy supporting tools for on-prem use case with a validate certificate for main ingress
+  We will use `localhost.dataplanes.pro` as domain for on-prem use case. This domain will point to `0.0.0.0`. 
+  You can get validate public certificate from [Platform Provisioner](https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=certificate-localhost-dp)
+  The certificate use Subject Alternative Name (SAN) with star domains for CP and DP services.
+  We will have CP service as 
+  * `https://*.cp1-my.localhost.dataplanes.pro/`
+  * `https://*.cp1-tunnel.localhost.dataplanes.pro/`
+options:
+- name: "GUI_TP_DNS_DOMAIN"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
+  description: "We have a special domain for on-prem use case. localhost.dataplanes.pro"
+- name: "GUI_TP_TLS_CERT"
+  type: string
+  guiType: input
+  required: true
+  reference: "meta.guiEnv.GUI_TP_TLS_CERT"
+  description: "base64 encoding of validate certificate for the domain. You can get it from <a href='https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=certificate-localhost-dp' target='_blank'>Platform Provisioner</a>"
+- name: "GUI_TP_TLS_KEY"
+  type: string
+  guiType: input
+  required: true
+  reference: "meta.guiEnv.GUI_TP_TLS_KEY"
+  description: "base64 encoding of validate certificate for the domain You can get it from <a href='https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=certificate-localhost-dp' target='_blank'>Platform Provisioner</a>"
+- name: "Install Nginx Ingress"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_NGINX_INGRESS"
+- name: "Install Traefik Ingress"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_TRAEFIK_INGRESS"
+  description: "Traefik dashboard will be available at: https://dashboard.localhost.dataplanes.pro/dashboard/#/"
+- name: "GUI_PIPELINE_LOG_DEBUG"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+{{ .Files.Get "recipes/pp-deploy-cp-tools-on-prem-cert.yaml" | indent 2 }}

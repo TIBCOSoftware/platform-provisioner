@@ -1,0 +1,75 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Register Production Data Plane with Control Plane"
+description: |
+  This pipeline is a helper to register data plane with the control plane.
+  This is production use case that all docker image will be pulled from `JFrog`.
+options:
+  - name: "1. Namespace creation"
+    type: string
+    guiType: textarea
+    lang: SH
+    reference: "tasks[0].script.content"
+    required: true
+    description: "Script to create namespace"
+  - name: "2. Service Account creation"
+    type: string
+    guiType: textarea
+    lang: SH
+    reference: "tasks[1].script.content"
+    required: true
+    description: "Script to create service account"
+  - name: "3. Cluster Registration"
+    type: string
+    guiType: textarea
+    lang: SH
+    reference: "tasks[2].script.content"
+    required: true
+    description: "Script to register the cluster and deploy dp core infrastructure"
+  - name: "GUI_PIPELINE_LOG_DEBUG"
+    type: boolean
+    guiType: checkbox
+    reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+  apiVersion: v1
+  kind: generic-runner
+  meta:
+    guiEnv:
+      note: "register-dp-prod"
+      GUI_DP_DATAPLANE_ID: ""
+      GUI_DP_NAMESPACE: ""
+      GUI_DP_ECR_TOKEN: ""
+      GUI_PIPELINE_LOG_DEBUG: false
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      # DP settings
+      DP_DATAPLANE_ID: ${GUI_DP_DATAPLANE_ID}
+      DP_NAMESPACE: ${GUI_DP_NAMESPACE}
+      DP_ECR_TOKEN: ${GUI_DP_ECR_TOKEN}
+  tasks:
+    - condition: true
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          # install namespace
+
+    - condition: true
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          # install dp-configure-namespace
+
+    - condition: true
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          # install dp-core-infrastructure

@@ -1,0 +1,682 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Recipe for installing TIBCO Platform AKS
+apiVersion: v1
+kind: helm-install
+meta:
+  globalEnvVariable:
+    # piepline env
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    # github
+    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
+    TP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+    # cluster
+    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
+    CLUSTER_NAME: ${TP_CLUSTER_NAME} # pipeline aks internal variable
+    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-1.29}
+    TP_AZURE_REGION: ${GUI_TP_AZURE_REGION:-"westus2"} # the default region for the azure account
+    # Azure env
+    TP_RESOURCE_GROUP: ${GUI_TP_RESOURCE_GROUP} # Azure resource group name
+    AZURE_RESOURCE_GROUP: ${TP_RESOURCE_GROUP} # provisioner pipeline assume role needed
+    TP_AUTHORIZED_IP: ${GUI_TP_AUTHORIZED_IP} # your ip x.x.x.x/32
+    # domain
+    TP_TOP_LEVEL_DOMAIN: ${GUI_TP_TOP_LEVEL_DOMAIN} # the top level domain for the main ingress
+    TP_SANDBOX: ${GUI_TP_SANDBOX} # the sandbox for the main ingress
+    TP_DOMAIN: ${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN} # the actual domain for the TIBCO platform. Sample format: <cp/dp-env>.${SANDBOX}.${TP_TOP_LEVEL_DOMAIN}
+    # ingress
+    TP_MAIN_INGRESS_CLASS_NAME: "azure-application-gateway" # name of azure application gateway ingress controller
+    TP_DNS_RESOURCE_GROUP: ${GUI_TP_DNS_RESOURCE_GROUP} # must provide
+    TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-"nginx"} # name of main ingress class used by capabilities
+    TP_INGRESS_RELEASE_NAME: dp-config-aks-ingress
+    # network policy
+    TP_CLUSTER_ENABLE_NETWORK_POLICY: ${GUI_TP_CLUSTER_ENABLE_NETWORK_POLICY:-false}
+    # storage
+    TP_DISK_ENABLED: "true" # name of azure disk storage class
+    TP_DISK_STORAGE_CLASS: "azure-disk-sc" # name of azure disk storage class
+    TP_FILE_ENABLED: "true" # to enable azure files storage class
+    TP_FILE_STORAGE_CLASS: "azure-files-sc" # name of azure files storage class
+    ## please note: to support nfs protocol the storage account tier should be Premium with kind FileStorage in supported regions: https://learn.microsoft.com/en-us/troubleshoot/azure/azure-storage/files-troubleshoot-linux-nfs?tabs=RHEL#unable-to-create-an-nfs-share
+    TP_STORAGE_ACCOUNT_NAME: "" # replace with name of existing storage account to be used for azure file shares
+    TP_STORAGE_ACCOUNT_RESOURCE_GROUP: "" # replace with name of storage account resource group
+    # o11y
+    TP_ES_RELEASE_NAME: "dp-config-es" # name of dp-config-es release name
+    # flow control
+    TP_INSTALL_K8S: true # change to true to install k8s
+    TP_INSTALL_RESOURCE_FOLDER: "/workspace/resources"
+    TP_INSTALL_CHART_VALUES_FILE: "/workspace/resources/global-values.yaml"
+    TP_SCRIPT_BRANCH: main
+    TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-true}
+    TP_INSTALL_O11Y: ${GUI_TP_INSTALL_O11Y:-false}
+    # Do not change, variables to configure nginx/kong related resources based on ingressclass passed
+    TP_ENABLE_NGINX: $([[ "$TP_INGRESS_CLASS" == "nginx" ]] && echo "true" || echo "false")
+    TP_ENABLE_KONG: $([[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
+    TP_ENABLE_NGINX_WITH_KONG: $([[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
+    TP_HTTP_INGRESS_BACKEND_SERVICE: ${TP_INGRESS_RELEASE_NAME}-$( ( [[  "$TP_INGRESS_CLASS" == "nginx" ]] && echo "ingress-nginx-controller" ) || ( [[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "kong-proxy" ) )
+    TP_ENABLE_O11Y_DAEMONSET: ${GUI_TP_ENABLE_O11Y_DAEMONSET:-true}
+  tools:
+    yq: "4.40"
+    helm: "3.13"
+    kubectl: "1.28"
+preTasks:
+- condition: ${TP_INSTALL_K8S}
+  repo:
+    git:
+      github:
+        repo: github.com/TIBCOSoftware/platform-provisioner
+        path: docs/recipes/k8s/cloud/scripts/aks
+        branch: ${TP_SCRIPT_BRANCH}
+  script:
+    ignoreErrors: false
+    fileName: pre-aks-cluster-script.sh
+- condition: ${TP_INSTALL_K8S}
+  repo:
+    git:
+      github:
+        repo: github.com/TIBCOSoftware/platform-provisioner
+        path: docs/recipes/k8s/cloud/scripts/aks
+        branch: ${TP_SCRIPT_BRANCH}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      #!/bin/bash
+      # This script is used to create aks cluster
+      echo "listing az extensions"
+      az extension list
+      echo "installing az extensions aks-preview"
+      az extension add --name aks-preview
+      az extension update --name aks-preview
+      chmod +x aks-cluster-create.sh
+      ./create-aks.sh
+- condition: ${TP_INSTALL_K8S}
+  repo:
+    git:
+      github:
+        repo: github.com/TIBCOSoftware/platform-provisioner
+        path: docs/recipes/k8s/cloud/scripts/aks
+        branch: ${TP_SCRIPT_BRANCH}
+  script:
+    ignoreErrors: false
+    fileName: post-aks-cluster-script.sh
+helmCharts:
+- name: cert-manager
+  version: v1.13.2
+  repo:
+    helm:
+      url: https://charts.jetstack.io
+  values:
+    keepPrevious: true
+    content: |
+      installCRDs: true
+      podLabels:
+        azure.workload.identity/use: "true"
+      serviceAccount:
+        labels:
+          azure.workload.identity/use: "true"
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: cert-manager
+  namespace: cert-manager
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: external-dns
+  version: 1.13.1
+  repo:
+    helm:
+      url: https://kubernetes-sigs.github.io/external-dns/
+  values:
+    keepPrevious: true
+    content: |
+      provider: azure
+      sources:
+        - service
+        - ingress
+      domainFilters:
+        - ${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}   # must be the sandbox domain as we create DNS zone for this
+      extraVolumes: # for azure.json
+      - name: azure-config-file
+        secret:
+          secretName: azure-config-file
+      extraVolumeMounts:
+      - name: azure-config-file
+        mountPath: /etc/kubernetes
+        readOnly: true
+      extraArgs:
+        # add filter to only sync only public Ingresses with this annotation
+      - "--ingress-class=${TP_MAIN_INGRESS_CLASS_NAME}"
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: external-dns
+  namespace: external-dns-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: dp-config-aks
+  version: "1.2.3"
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+  values:
+    keepPrevious: true
+    base64Encoded: false
+    content: |
+      global:
+        dnsSandboxSubdomain: "${TP_SANDBOX}"          # must be the sandbox domain as we create DNS zone for this
+        dnsGlobalTopDomain: "${TP_TOP_LEVEL_DOMAIN}"  # must be the top level domain
+        azureSubscriptionDnsResourceGroup: "${TP_DNS_RESOURCE_GROUP}"
+      dns:
+        domain: "${TP_DOMAIN}"
+      httpIngress:
+        enabled: true
+        name: ${TP_INGRESS_CLASS}
+        backend:
+          serviceName: ${TP_HTTP_INGRESS_BACKEND_SERVICE}
+        ingressClassName: ${TP_MAIN_INGRESS_CLASS_NAME}
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+          # this will be used for external-dns annotation filter
+      storageClass:
+        azuredisk:
+          enabled: false
+        azurefile:
+          enabled: false
+      ingress-nginx:
+        enabled: ${TP_ENABLE_NGINX}
+        controller:
+          config:
+            # required by apps swagger
+            use-forwarded-headers: "true"
+      ## following section is required to send traces using nginx
+      ## uncomment the below commented section to run/re-run the command, once TP_NAMESPACE is available
+          # enable-opentelemetry: "true"
+          # log-level: debug
+          # opentelemetry-config: /etc/nginx/opentelemetry.toml
+          # opentelemetry-operation-name: HTTP $request_method $service_name $uri
+          # opentelemetry-trust-incoming-span: "true"
+          # otel-max-export-batch-size: "512"
+          # otel-max-queuesize: "2048"
+          # otel-sampler: AlwaysOn
+          # otel-sampler-parent-based: "false"
+          # otel-sampler-ratio: "1.0"
+          # otel-schedule-delay-millis: "5000"
+          # otel-service-name: nginx-proxy
+          # otlp-collector-host: otel-userapp.${TP_NAMESPACE}.svc
+          # otlp-collector-port: "4317"
+        # opentelemetry:
+          # enabled: true
+      kong:
+        enabled: ${TP_ENABLE_KONG}
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: ${TP_INGRESS_RELEASE_NAME}
+  namespace: ingress-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+    extra: "--values ${TP_INSTALL_CHART_VALUES_FILE}"
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        mkdir -p "${TP_INSTALL_RESOURCE_FOLDER}"
+        touch "${TP_INSTALL_CHART_VALUES_FILE}"
+        export client_id=$(az aks show --resource-group "${TP_RESOURCE_GROUP}" --name "${TP_CLUSTER_NAME}" --query "identityProfile.kubeletidentity.clientId" --output tsv)
+        export subscription_id=$(az account show --query id -o tsv)
+        yq eval '.global += {"azureAwiAsoDnsClientId": env(client_id), "azureSubscriptionId": env(subscription_id)}' "${TP_INSTALL_CHART_VALUES_FILE}" -i
+        echo "injected values:"
+        cat "${TP_INSTALL_CHART_VALUES_FILE}"
+- name: dp-config-aks
+  condition: ${TP_ENABLE_NGINX_WITH_KONG}
+  version: "1.2.2"
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+  values:
+    keepPrevious: false
+    content: |
+      dns:
+        domain: "${TP_DOMAIN}"
+      httpIngress:
+        enabled: true
+        name: nginx-kong
+        annotations: null
+        path: '/tibco/(hub|bw|flogo)/?(.*)'
+        ingressClassName: kong
+        backend:
+          serviceName: ${TP_INGRESS_RELEASE_NAME}-nginx-controller
+      ingress-nginx:
+        enabled: true
+        controller:
+          config:
+            use-forwarded-headers: 'true'          # PDP-945
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: ${TP_INGRESS_RELEASE_NAME}-nginx
+  namespace: ingress-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: dp-config-aks
+  version: "1.2.2"
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+  values:
+    keepPrevious: true
+    base64Encoded: false
+    content: |
+      dns:
+        domain: "${TP_DOMAIN}"
+      httpIngress:
+        enabled: false
+      clusterIssuer:
+        create: false
+      storageClass:
+        azuredisk:
+          enabled: ${TP_DISK_ENABLED}
+          name: ${TP_DISK_STORAGE_CLASS}
+          # reclaimPolicy: "Retain" # uncomment for TIBCO Enterprise Message Service™ (EMS) recommended production configuration (default is Delete)
+      ## uncomment following section, if you want to use TIBCO Enterprise Message Service™ (EMS) recommended production configuration
+          # parameters:
+          #   skuName: Premium_LRS # other values: Premium_ZRS, StandardSSD_LRS (default)
+        azurefile:
+          enabled: ${TP_FILE_ENABLED}
+          name: ${TP_FILE_STORAGE_CLASS}
+          # reclaimPolicy: "Retain" # uncomment for TIBCO Enterprise Message Service™ (EMS) recommended production configuration (default is Delete)
+      ## following section is required if you want to use an existing storage account. Otherwise, storage account is created in the same resource group.
+          # parameters:
+          #   storageAccount: ${TP_STORAGE_ACCOUNT_NAME}
+          #   resourceGroup: ${TP_STORAGE_ACCOUNT_RESOURCE_GROUP}
+      ## uncomment following lines for skuName and protocol, if you want to use EMS recommended production configuration
+          #   skuName: Premium_LRS # other values: Premium_ZRS
+          #   protocol: nfs
+          ## TIBCO Enterprise Message Service™ (EMS) recommended production values for mountOptions
+          # mountOptions:
+          #   - soft
+          #   - timeo=300
+          #   - actimeo=1
+          #   - retrans=2
+          #   - _netdev
+      ingress-nginx:
+        enabled: false
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: dp-config-aks-storage
+  namespace: storage-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: postgresql
+  version: 11.9.13 # 14.3.3 use postgresql 16.2.0, 11.9.13 use postgresql 14.5.0 PCP-4922
+  namespace: tibco-ext
+  releaseName: postgresql
+  condition: ${TP_INSTALL_POSTGRES}
+  repo:
+    helm:
+      url: https://charts.bitnami.com/bitnami
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      auth:
+        postgresPassword: postgres
+        username: postgres
+        password: postgres
+        database: "postgres"
+      persistence:
+        storageClass: ${TP_STORAGE_CLASS}
+  flags:
+    createNamespace: true
+    timeout: 1h
+- name: eck-operator
+  version: 2.10.0
+  repo:
+    helm:
+      url: https://helm.elastic.co
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: eck-operator
+  namespace: elastic-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: dp-config-es
+  version: "1.2.0"
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+  values:
+    keepPrevious: true
+    content: |
+      domain: ${TP_DOMAIN}
+      es:
+        version: "8.11.1"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-es-http
+        storage:
+          name: ${TP_DISK_STORAGE_CLASS}
+      kibana:
+        version: "8.11.1"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-kb-http
+      apm:
+        enabled: true
+        version: "8.11.1"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-apm-http
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: ${TP_ES_RELEASE_NAME}
+  namespace: elastic-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: kube-prometheus-stack
+  version: "54.2.1"
+  condition: ${TP_INSTALL_O11Y}
+  repo:
+    helm:
+      url: https://prometheus-community.github.io/helm-charts
+  values:
+    keepPrevious: true
+    content: |
+      grafana:
+        plugins:
+          - grafana-piechart-panel
+        ingress:
+          enabled: true
+          ingressClassName: ${TP_INGRESS_CLASS}
+          hosts:
+          - grafana.${TP_DOMAIN}
+      prometheus:
+        prometheusSpec:
+          enableRemoteWriteReceiver: true
+          remoteWriteDashboards: true
+          additionalScrapeConfigs:
+          - job_name: otel-collector
+            kubernetes_sd_configs:
+            - role: pod
+            relabel_configs:
+            - action: keep
+              regex: "true"
+              source_labels:
+              - __meta_kubernetes_pod_label_prometheus_io_scrape
+            - action: keep
+              regex: "infra"
+              source_labels:
+              - __meta_kubernetes_pod_label_platform_tibco_com_workload_type
+            - action: keepequal
+              source_labels: [__meta_kubernetes_pod_container_port_number]
+              target_label: __meta_kubernetes_pod_label_prometheus_io_port
+            - action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              source_labels:
+              - __address__
+              - __meta_kubernetes_pod_label_prometheus_io_port
+              target_label: __address__
+            - source_labels: [__meta_kubernetes_pod_label_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+              replacement: /$1
+        ingress:
+          enabled: true
+          ingressClassName: ${TP_INGRESS_CLASS}
+          hosts:
+          - prometheus-internal.${TP_DOMAIN}
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: kube-prometheus-stack
+  namespace: prometheus-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: opentelemetry-collector
+  version: "0.74.1"
+  condition: ${TP_ENABLE_O11Y_DAEMONSET}
+  repo:
+    helm:
+      url: https://open-telemetry.github.io/opentelemetry-helm-charts
+  values:
+    keepPrevious: true
+    content: |
+      mode: "daemonset"
+      fullnameOverride: otel-kubelet-stats
+      podLabels:
+        platform.tibco.com/workload-type: "infra"
+        networking.platform.tibco.com/kubernetes-api: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "metrics"
+        prometheus.io/port: "4319"
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 10
+        behavior:
+          scaleUp:
+            stabilizationWindowSeconds: 15
+          scaleDown:
+            stabilizationWindowSeconds: 15
+        targetCPUUtilizationPercentage: 80
+        targetMemoryUtilizationPercentage: 80
+      serviceAccount:
+        create: true
+      clusterRole:
+        create: true
+        rules:
+        - apiGroups: [""]
+          resources: ["pods", "namespaces"]
+          verbs: ["get", "watch", "list"]
+        - apiGroups: [""]
+          resources: ["nodes/stats", "nodes/proxy"]
+          verbs: ["get"]
+      extraEnvs:
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+      ports:
+        metrics:
+          enabled: true
+          containerPort: 8888
+          servicePort: 8888
+          hostPort: 8888
+          protocol: TCP
+        prometheus:
+          enabled: true
+          containerPort: 4319
+          servicePort: 4319
+          hostPort: 4319
+          protocol: TCP
+      config:
+        receivers:
+          kubeletstats:
+            collection_interval: 20s
+            auth_type: "serviceAccount"
+            endpoint: "https://${env:KUBE_NODE_NAME}:10250"
+            insecure_skip_verify: true
+            metric_groups:
+              - pod
+              - container
+            extra_metadata_labels:
+              - container.id
+            metrics:
+              k8s.container.memory_limit_utilization:
+                enabled: true
+              k8s.container.cpu_limit_utilization:
+                enabled: true
+              k8s.pod.cpu_limit_utilization:
+                enabled: true
+              k8s.pod.memory_limit_utilization:
+                enabled: true
+              k8s.pod.filesystem.available:
+                enabled: false
+              k8s.pod.filesystem.capacity:
+                enabled: false
+              k8s.pod.filesystem.usage:
+                enabled: false
+              k8s.pod.memory.major_page_faults:
+                enabled: false
+              k8s.pod.memory.page_faults:
+                enabled: false
+              k8s.pod.memory.rss:
+                enabled: false
+              k8s.pod.memory.working_set:
+                enabled: false
+        processors:
+          memory_limiter:
+            check_interval: 5s
+            limit_percentage: 80
+            spike_limit_percentage: 25
+          batch: {}
+          k8sattributes/kubeletstats:
+            auth_type: "serviceAccount"
+            passthrough: false
+            extract:
+              metadata:
+                - k8s.pod.name
+                - k8s.pod.uid
+                - k8s.namespace.name
+                - k8s.pod.start_time
+              annotations:
+                - tag_name: connectors
+                  key: platform.tibco.com/connectors
+                  from: pod
+              labels:
+                - tag_name: app_id
+                  key: platform.tibco.com/app-id
+                  from: pod
+                - tag_name: app_type
+                  key: platform.tibco.com/app-type
+                  from: pod
+                - tag_name: dataplane_id
+                  key: platform.tibco.com/dataplane-id
+                  from: pod
+                - tag_name: workload_type
+                  key: platform.tibco.com/workload-type
+                  from: pod
+                - tag_name: app_name
+                  key: platform.tibco.com/app-name
+                  from: pod
+                - tag_name: app_version
+                  key: platform.tibco.com/app-version
+                  from: pod
+                - tag_name: app_tags
+                  key: platform.tibco.com/tags
+                  from: pod
+                - tag_name: capability_instance_id
+                  key: platform.tibco.com/capability-instance-id
+                  from: pod
+                - tag_name: tib-msg-stsrole
+                  key: tib-msg-stsrole
+                  from: pod
+                - tag_name: tib-msg-group-name
+                  key: tib-msg-group-name
+                  from: pod
+            pod_association:
+              - sources:
+                  - from: resource_attribute
+                    name: k8s.pod.uid
+          filter/workload:
+            metrics:
+              include:
+                match_type: regexp
+                resource_attributes:
+                  - key: workload_type
+                    value: (user-app|capability-service)$
+          transform/metrics:
+            metric_statements:
+            - context: datapoint
+              statements:
+                - set(attributes["pod_name"], resource.attributes["k8s.pod.name"])
+                - set(attributes["pod_namespace"], resource.attributes["k8s.namespace.name"])
+                - set(attributes["app_id"], resource.attributes["app_id"])
+                - set(attributes["app_id"], resource.attributes["capability-instance-id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
+                - set(attributes["app_type"], resource.attributes["app_type"])
+                - set(attributes["dataplane_id"], resource.attributes["dataplane_id"])
+                - set(attributes["workload_type"], resource.attributes["workload_type"])
+                - set(attributes["app_tags"], resource.attributes["app_tags"])
+                - set(attributes["app_name"], resource.attributes["app_name"])
+                - set(attributes["app_version"], resource.attributes["app_version"])
+                - set(attributes["connectors"], resource.attributes["connectors"])
+          filter/include:
+            metrics:
+              include:
+                match_type: regexp
+                metric_names:
+                  - .*memory.*
+                  - .*cpu.*
+        exporters:
+          prometheus/user:
+            endpoint: 0.0.0.0:4319
+            enable_open_metrics: true
+            resource_to_telemetry_conversion:
+              enabled: true
+        extensions:
+          health_check: {}
+          memory_ballast:
+            size_in_percentage: 40
+        service:
+          telemetry:
+            logs: {}
+            metrics:
+              address: :8888
+          extensions:
+            - health_check
+            - memory_ballast
+          pipelines:
+            logs: null
+            traces: null
+            metrics:
+              receivers:
+                - kubeletstats
+              processors:
+                - k8sattributes/kubeletstats
+                - filter/workload
+                - filter/include
+                - transform/metrics
+                - batch
+              exporters:
+                - prometheus/user
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: otel-collector-daemon
+  namespace: prometheus-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true

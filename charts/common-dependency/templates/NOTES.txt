@@ -1,0 +1,1 @@
+The pipeline {{ .Values.name }} is deployed in {{ .Values.namespace }} with version {{ .Chart.Version }}

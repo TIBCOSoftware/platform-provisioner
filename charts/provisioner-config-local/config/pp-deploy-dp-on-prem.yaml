@@ -1,0 +1,30 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Deploy Data Plane On-Prem Stack"
+description: |
+  This pipeline will deploy third party supporting tools for on-prem use case
+options:
+  - name: "GUI_TP_DNS_DOMAIN"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
+    description: "normally we use localhost as on-perm domain. The service will be like: https://kibana.localhost/"
+  - name: "Install Nginx Ingress"
+    type: boolean
+    guiType: checkbox
+    reference: "meta.guiEnv.GUI_TP_INSTALL_NGINX_INGRESS"
+  - name: "Install Traefik Ingress"
+    type: boolean
+    guiType: checkbox
+    reference: "meta.guiEnv.GUI_TP_INSTALL_TRAEFIK_INGRESS"
+    description: "Traefik dashboard will be available at: https://dashboard.localhost/dashboard/#/"
+  - name: "GUI_PIPELINE_LOG_DEBUG"
+    type: boolean
+    guiType: checkbox
+    reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+{{ .Files.Get "recipes/pp-deploy-dp-on-prem.yaml" | indent 2 }}

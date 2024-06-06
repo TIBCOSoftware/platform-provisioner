@@ -1,0 +1,76 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Refresh ECR token for Data Plane"
+description: |
+  This pipeline is a helper to refresh the ECR token for the Data Plane.
+options:
+- name: "DATAPLANE_ID"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_DATAPLANE_ID"
+  required: true
+  description: "Data Plane ID used for ECR secret"
+- name: "DP_NAMESPACE"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_NAMESPACE"
+  required: true
+  description: "Namespace to install the ECR secret"
+- name: "GUI_DP_CONTAINER_REGISTRY"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_CONTAINER_REGISTRY"
+  description: "The container registry URL"
+- name: "GUI_DP_CONTAINER_REGISTRY_USERNAME"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_CONTAINER_REGISTRY_USERNAME"
+  description: "The container registry user name"
+- name: "GUI_DP_CONTAINER_REGISTRY_PASSWORD"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_CONTAINER_REGISTRY_PASSWORD"
+  required: true
+  description: "The container registry password"
+- name: "GUI_PIPELINE_LOG_DEBUG"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+  apiVersion: v1
+  kind: generic-runner
+  meta:
+    guiEnv:
+      note: "aws-refresh-ecr-token"
+      GUI_DP_DATAPLANE_ID: ""
+      GUI_DP_NAMESPACE: ""
+      GUI_DP_ECR_TOKEN: ""
+      GUI_PIPELINE_LOG_DEBUG: false
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      # DP settings
+      DP_DATAPLANE_ID: ${GUI_DP_DATAPLANE_ID}
+      DP_NAMESPACE: ${GUI_DP_NAMESPACE}
+      DP_ECR_TOKEN: ${GUI_DP_ECR_TOKEN}
+  tasks:
+    - condition: true
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          # install ECR secret
+          AWS_REGION=${AWS_REGION:-us-west-2}
+          
+          kubectl delete secret --namespace ${DP_NAMESPACE} ${DP_DATAPLANE_ID} 2>/dev/null
+          kubectl create secret docker-registry ${DP_DATAPLANE_ID} \
+          --docker-server=${DP_CONTAINER_REGISTRY} \
+          --docker-username=${DP_CONTAINER_REGISTRY_USERNAME} \
+          --docker-password=${DP_CONTAINER_REGISTRY_PASSWORD} \
+          --namespace=${DP_NAMESPACE}
+

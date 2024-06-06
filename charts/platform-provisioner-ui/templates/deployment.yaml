@@ -1,0 +1,120 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "platform-provisioner-ui.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "platform-provisioner-ui.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "platform-provisioner-ui.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "platform-provisioner-ui.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "platform-provisioner-ui.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: PIPELINE_NAMESPACE
+              value: "{{ .Values.guiConfig.pipelineNamespace }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKey }}"
+            - name: PIPELINE_TEMPLATE_LABEL_VALUE
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelValue }}"
+            - name: PIPELINE_RUN_CANCELLED
+              value: "{{ .Values.guiConfig.pipelineRunCancelled }}"
+            - name: START_FROM_SOURCE
+              value: "{{ .Values.guiConfig.startLocally }}"
+            - name: ON_PREM_MODE
+              value: "{{ .Values.guiConfig.onPremMode }}"
+            - name: TEKTON_API_VERSION
+              value: "{{ .Values.guiConfig.tektonAPIVersion }}"
+            - name: PIPELINES_CLEAN_UP_ENABLED
+              value: "{{ .Values.guiConfig.pipelinesCleanUpEnabled }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          {{- if .Values.guiConfig.dataConfigMapName }}
+            - name: {{ .Values.guiConfig.dataConfigMapName }}
+              mountPath: /workspace/data
+              readOnly: true
+          {{- else }}
+            - name: {{ include "platform-provisioner-ui.fullname" . }}-config
+              mountPath: /workspace/data
+              readOnly: true
+          {{- end }}
+          {{- if .Values.sso.pem.private }}
+            - name: {{ include "platform-provisioner-ui.fullname" . }}-secret
+              mountPath: /workspace/secret
+              readOnly: true
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        {{- if .Values.guiConfig.dataConfigMapName }}
+        - name: {{ .Values.guiConfig.dataConfigMapName }}
+          configMap:
+            name: {{ .Values.guiConfig.dataConfigMapName }}
+        {{- else }}
+        - name: {{ include "platform-provisioner-ui.fullname" . }}-config
+          configMap:
+            name: {{ include "platform-provisioner-ui.fullname" . }}-config
+        {{- end }}
+        {{- if .Values.sso.pem.private }}
+        - name: {{ include "platform-provisioner-ui.fullname" . }}-secret
+          secret:
+            secretName: {{ include "platform-provisioner-ui.fullname" . }}-secret
+        {{- end }}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

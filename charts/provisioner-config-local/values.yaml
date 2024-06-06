@@ -1,0 +1,6 @@
+# name of the pipeline
+name: provisioner-config-local
+# label indicating which project this pipeline belongs to (Don't change)
+partOf: platform-provisioner
+# indicating which tools are used to generate this template (Don't change)
+createdBy: generator-v2

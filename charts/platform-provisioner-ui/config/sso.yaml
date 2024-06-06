@@ -1,0 +1,16 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+sso:
+  entryPoint: {{ .Values.sso.entryPoint }}
+  issuer: {{ .Values.sso.issuer }}
+  signatureAlgorithm: sha256
+  pathToPublicCert: /workspace/secret/ta-public.pem
+  privateKey: /workspace/secret/sso-private.pem
+  logoutUrl: {{ .Values.sso.logoutUrl }}
+  timeoutInHours: {{ .Values.sso.timeoutInHours }}
+  loginCallbackPath: {{ .Values.sso.loginCallbackPath }}
+  logoutCallbackPath: {{ .Values.sso.logoutCallbackPath }}

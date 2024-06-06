@@ -1,0 +1,16 @@
+# default pipeline payload
+apiVersion: v1
+kind: generic-runner
+meta:
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    PIPELINE_INITIAL_ASSUME_ROLE: false
+    RUN1: true
+tasks:
+  - condition: ${RUN1}
+    script:
+      content: |
+        echo "A normal case to test assume role and conditions"
+        aws sts get-caller-identity --no-cli-pager

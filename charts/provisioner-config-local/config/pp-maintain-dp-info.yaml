@@ -1,0 +1,44 @@
+pipelineName: "Data Plane information"
+description: |
+  This pipeline will output TIBCO Data Plane information.
+recipe: |
+  apiVersion: v1
+  kind: generic-runner
+  meta:
+    guiEnv:
+      note: "get-dp-info"
+      GUI_DP_CLUSTER_NAME: ''
+      GUI_PIPELINE_LOG_DEBUG: false
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      DP_CLUSTER_NAME: ${GUI_DP_CLUSTER_NAME}
+  tasks:
+    - condition: true
+      clusters:
+        - name: ${DP_CLUSTER_NAME}
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          echo "### Get storage class"
+          kubectl get storageclass
+          
+          echo "### Get ingress class"
+          kubectl get ingressclass
+          
+          echo "### Get ingress"
+          kubectl get ingress -A
+  
+          echo "### main domain for nginx ingress if exists"  
+          kubectl get ingress -n ingress-system nginx 2>/dev/null | awk 'NR==2 { print $3 }'
+  
+          echo "### Get elastic ingress if exists"
+          kubectl get ingress -n elastic-system dp-config-es-elastic 2>/dev/null | awk 'NR==2 { print $3 }' 
+          
+          echo "### Get elastic user secret. The user is elastic"
+          kubectl get secret dp-config-es-es-elastic-user -n elastic-system -o jsonpath="{.data.elastic}" 2>/dev/null | base64 --decode; echo
+  
+          echo "### Get Grafana ingress if exists"
+          kubectl get ingress -n prometheus-system kube-prometheus-stack-grafana 2>/dev/null | awk 'NR==2 { print $3 }'

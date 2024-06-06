@@ -1,0 +1,32 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# name of the pipeline
+name: common-dependency
+# the namespace that the pipeline will be deployed to
+namespace: tekton-tasks
+# label indicating which project this pipeline belongs to (Don't change)
+partOf: platform-provisioner
+# indicating which tools are used to generate this template (Don't change)
+createdBy: generator-v2
+# the matching label name for GUI to find this pipeline (Don't change)
+pipelineConfigLabel: pipeline-gui-config
+# the api version of the pipeline (Don't change)
+pipelineApiVersion: tekton.dev/v1
+# the docker image that the pipeline will be used to run
+pipelineImage: ""
+# the shared script configmap name
+commonScriptConfigmapName: common-dependency-scripts
+# the timeout of pipelinerun
+pipelineRunTimeout: 2h
+# the timeout of taskrun
+taskRunTimeout: 1h55m0s
+# the timeout of finally task
+finallyTimout: 5m
+# the service account that this pipeline will be attached to
+serviceAccount: tekton-task
+# read-only GitHub token which is used to share between pipelines
+githubToken: ""

@@ -1,0 +1,28 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# sample recipe
+# once AWS_PROFILE environment is set; we can use this pipeline to connect to AWS
+apiVersion: v1
+kind: generic-runner
+meta:
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_INITIAL_ASSUME_ROLE: false
+    RUN1: true
+tasks:
+  - condition: ${RUN1}
+    script:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      fileName: script.sh
+      content: |
+        echo "aws profile: $AWS_PROFILE"
+        echo "aws account: $AWS_ACCOUNT"
+        echo "A normal case to test assume role and conditions"
+        aws sts get-caller-identity --no-cli-pager

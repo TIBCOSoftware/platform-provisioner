@@ -1,0 +1,110 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+aws:
+  region:
+    values:
+    - 'ap-south-1'
+    - 'ap-southeast-2'
+    - 'eu-central-1'
+    - 'eu-west-1'
+    - 'us-east-1'
+    - 'us-east-2'
+    - 'us-west-2'
+    defaultValue: 'us-west-2'
+menuConfig:
+- label: "Deploy"
+  icon: 'pi pi-fw pi-cloud-upload'
+  items:
+  - label: "Data Plane"
+    items:
+    - label: "Prepare Data Plane"
+      items:
+      - label: "Standard on-prem"
+        to: "/pipelines/helm-install?title=dp-standard-on-prem"
+        config: pp-deploy-dp-on-prem.yaml
+      - label: "Standard on-prem with certificate"
+        to: "/pipelines/helm-install?title=dp-standard-on-prem-cert"
+        config: pp-deploy-dp-on-prem-cert.yaml
+    - label: "Register Data Plane"
+      items:
+      - label: "Register Dev DP"
+        to: "/pipelines/generic-runner?title=dp-register-dev-dp"
+        config: pp-register-dp-dev.yaml
+      - label: "Register Production DP"
+        to: "/pipelines/generic-runner?title=dp-register-production-dp"
+        config: pp-register-dp-prod.yaml
+  - label: "Control Plane"
+    items:
+    - label: "Prepare Control Plane"
+      items:
+      - label: "Standard on-prem"
+        to: "/pipelines/helm-install?title=cp-standard-on-prem"
+        config: pp-deploy-cp-tools-on-prem.yaml
+      - label: "Standard on-prem with certificate"
+        to: "/pipelines/helm-install?title=cp-standard-on-prem-cert"
+        config: pp-deploy-cp-tools-on-prem-cert.yaml
+    - label: "Deploy Control Plane"
+      items:
+      - label: "Standard Control Plane"
+        to: "/pipelines/helm-install?title=cp-deploy-on-prem"
+        config: pp-deploy-cp-core-on-prem.yaml
+  - separator: true
+  - label: "Observability"
+    items:
+    - label: "O11y fully Stack"
+      to: "/pipelines/helm-install?title=Deploy-o11y-stack"
+      config: pp-o11y-full.yaml
+    - label: "dp-config-es"
+      to: "/pipelines/helm-install?title=dp-config-es"
+      config: pp-o11y-dp-config-es.yaml
+    - label: "OTel Collector deamonset"
+      to: "/pipelines/helm-install?title=OTel Collector deamonset"
+      config: pp-o11y-otel-daemon.yaml
+  - label: "Ingress"
+    items:
+    - label: "ingress tracing"
+      to: "/pipelines/helm-install?title=Deploy ingress tracing"
+      config: pp-ingress-tracing.yaml
+      disabled: true
+  - label: "Secrets"
+    items:
+    - label: "TIBCO Hub"
+      to: "/pipelines/generic-runner?title=secret-tibco-hub"
+      config: pp-deploy-secret-tibco-hub.yaml
+- label: "Undeploy"
+  icon: 'pi pi-fw pi-cloud-download'
+  items:
+  - label: "Data Plane"
+    items:
+    - label: "Data Plane"
+      to: "/pipelines/generic-runner?title=Undeploy-dp"
+      config: pp-undeploy-dp.yaml
+- label: "Maintenance"
+  icon: 'pi pi-fw pi-wrench'
+  items:
+  - label: "Data Plane"
+    items:
+    - label: "Info"
+      to: "/pipelines/generic-runner?title=data-plane-info"
+      config: pp-maintain-dp-info.yaml
+  - label: "AWS"
+    items:
+    - label: "Refresh ECR token"
+      to: "/pipelines/generic-runner?title=Refresh ECR token"
+      config: pp-maintain-aws-refresh-ecr-token.yaml
+- label: "Pipelines"
+  to: "/pipelines"
+  icon: 'pi pi-fw pi-list'
+- label: "Status"
+  to: "/status"
+  icon: 'pi pi-fw pi-cog' # see the list in https://primevue.org/icons/#list
+- label: "Docs"
+  icon: 'pi pi-fw pi-book'
+  items:
+  - label: "Connect K8S"
+    to: "/docs/connectDetailsPage"
+    icon: 'pi pi-fw pi-link'

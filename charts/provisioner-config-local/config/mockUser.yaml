@@ -1,0 +1,15 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+mockUser:
+  email: admin@cloud.com
+  firstName: Admin
+  lastName:
+  issuer: http://www.okta.com/exk6a63kq9TLznq1V697
+  nameID: admin@cloud.com
+  nameIDFormat: urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified
+  sessionIndex:
+  noLogout: true

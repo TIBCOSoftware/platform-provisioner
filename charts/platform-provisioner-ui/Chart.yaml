@@ -1,0 +1,16 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: v2
+name: platform-provisioner-ui
+version: 1.0.1
+appVersion: "2.0.0"
+description: A Helm chart for platform-provisioner-ui
+type: application
+home: https://github.com/TIBCOSoftware/tp-helm-charts
+maintainers:
+  - name: TIBCO Cloud Dev Team
+    email: cloud@tibco.com

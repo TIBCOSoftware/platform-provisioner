@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: helm-install
+helmCharts:
+- condition: true # possible values: true, false
+  name: ingress-nginx # chart name
+  version: 4.0.5 # chart version
+  namespace: ingress # namespace to install the chart
+  releaseName: ingress-nginx-release
+  repo:
+    helm:
+      url: https://kubernetes.github.io/ingress-nginx
+  cluster:
+    names:
+      - cp-s01
+  values:
+    keepPrevious: true
+    content: |
+      abc: def
+  flags:
+    dryRun: false
+    createNamespace: true
+    timeout: 1h
+    compare: false
+    debug: false
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        echo "preDeploy hook"
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        echo "postDeploy hook"
