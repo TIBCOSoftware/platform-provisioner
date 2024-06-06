@@ -511,25 +511,29 @@ function common::git_clone() {
 # git_hash is optional
 function git_clone() {
 
-  if [ -z "${GITHUB_TOKEN}" ]; then
-    # read github
-    common::debug "try to read github token from secret volume"
-    GITHUB_TOKEN=$(cat /tmp/secret-github/GITHUB_TOKEN)
-    if [ $? -ne 0 ]; then
-      common::err "GITHUB_TOKEN is not set and pipeline container does not mount secret for GITHUB_TOKEN as well."
-      return 1
-    fi
-  fi
-
   local REPO=${1}
   local BRANCH_NAME=${2}
   local GIT_FOLDER=${3}
   local GIT_HASH=${4} # optional
 
+  # by default use public repo
+  _git_url="https://${REPO}"
+  if [ -z "${GITHUB_TOKEN}" ]; then
+    # try token on secret volume
+    common::debug "try to read github token from secret volume"
+    if [[ -f /tmp/secret-github/GITHUB_TOKEN ]]; then
+      common::debug "read github token from secret volume"
+      GITHUB_TOKEN=$(cat /tmp/secret-github/GITHUB_TOKEN)
+      _git_url="https://${GITHUB_TOKEN}:x-oauth-basic@${REPO}"
+    fi
+  else
+    _git_url="https://${GITHUB_TOKEN}:x-oauth-basic@${REPO}"
+  fi
+
   mkdir -p ${GIT_FOLDER}
 
   if [ -n "${GIT_HASH}" ]; then
-    git clone -q --branch "${BRANCH_NAME}" https://"${GITHUB_TOKEN}":x-oauth-basic@"${REPO}" "${GIT_FOLDER}"
+    git clone -q --branch "${BRANCH_NAME}" "${_git_url}" "${GIT_FOLDER}"
     if [ $? -ne 0 ]; then
       common::err "git clone error"
       return 1
@@ -549,7 +553,7 @@ function git_clone() {
     fi
     cd "${CURRENT_PATH}" || exit
   else
-    git clone -q --branch "${BRANCH_NAME}" --depth 1 https://"${GITHUB_TOKEN}":x-oauth-basic@"${REPO}" "${GIT_FOLDER}"
+    git clone -q --branch "${BRANCH_NAME}" --depth 1 "${_git_url}" "${GIT_FOLDER}"
     if [ $? -ne 0 ]; then
       common::err "git clone with branch ${BRANCH_NAME} error"
       return 1
