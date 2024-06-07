@@ -163,7 +163,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-aks
-  version: "1.2.3"
+  version: "1.2.4"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -242,7 +242,7 @@ helmCharts:
         cat "${TP_INSTALL_CHART_VALUES_FILE}"
 - name: dp-config-aks
   condition: ${TP_ENABLE_NGINX_WITH_KONG}
-  version: "1.2.2"
+  version: "1.2.4"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -274,7 +274,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-aks
-  version: "1.2.2"
+  version: "1.2.4"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -364,7 +364,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-es
-  version: "1.2.0"
+  version: "1.2.1"
   repo:
     helm:
       url: ${TP_CHART_REPO}
