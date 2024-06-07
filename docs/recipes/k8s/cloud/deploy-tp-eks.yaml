@@ -166,7 +166,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-aws
-  version: "1.0.25"
+  version: "1.2.11"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -202,7 +202,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-aws
-  version: "1.0.25"
+  version: "1.2.11"
   condition: ${TP_INSTALL_STORAGE}
   repo:
     helm:
@@ -271,7 +271,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-es
-  version: "1.0.17"
+  version: "1.2.1"
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
