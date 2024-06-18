@@ -483,12 +483,13 @@ helmCharts:
                     pathType: Prefix
                     backend:
                       service:
-                        name: hybrid-proxy
+                        name: hybrid-proxy  # CP_PROVIDER must set to local to create this service
                         port:
                           number: 105
         EOF
         
         else
+        # create ingress for router and hybrid-proxy without TLS use case
           kubectl apply -f - <<EOF
         kind: Ingress
         apiVersion: networking.k8s.io/v1
@@ -538,7 +539,7 @@ helmCharts:
                     pathType: Prefix
                     backend:
                       service:
-                        name: hybrid-proxy-${CP_INSTANCE_ID}
+                        name: hybrid-proxy # CP_PROVIDER must set to local to create this service
                         port:
                           number: 105
         EOF
