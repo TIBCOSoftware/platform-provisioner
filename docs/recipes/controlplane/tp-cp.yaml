@@ -13,22 +13,23 @@ meta:
     PIPELINE_LOG_DEBUG: false
     PIPELINE_CHECK_DOCKER_STATUS: false
     # GitHub credentials
-    GITHUB_TOKEN: "" # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
+    GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}" # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
     GITHUB_USER_NAME: ${GUI_GITHUB_USER_NAME:-"cp-test"}
-    CP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+    CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform public repo
     # env
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
-    CP_PROVIDER: local # deployment target. Example: aws, azure, local.
+    CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
     CP_ENVIRONMENT: ${GUI_CP_ENVIRONMENT:-"vagrant"} # options: dev, vagrant, qa, staging, prod. default is dev. qa, staging, prod will use DB with SSL
     CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"cp-cluster"}
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
     # domain
-    CP_DNS_DOMAIN: ${GUI_CP_SANDBOX:-"localhost"}.dataplanes.pro
+    CP_DNS_DOMAIN: ${GUI_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     CP_SERVICE_DNS_DOMAIN: ${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}
     CP_TUNNEL_DNS_DOMAIN: ${CP_INSTANCE_ID}-tunnel.${CP_DNS_DOMAIN}
     # storage
     CP_STORAGE_CLASS: ${GUI_CP_STORAGE_CLASS:-"standard"} # standard, gp2, hostpath, efs-sc
-    CP_STORAGE_PV_NAME: "" # control-plane-pv the name of PV for kind, works with CP_STORAGE_CREATE_PV flag
+    CP_STORAGE_PV_NAME: "${GUI_CP_STORAGE_PV_NAME}" # control-plane-pv the name of PV for kind, works with CP_STORAGE_CREATE_PV flag
+    CP_STORAGE_PV_SIZE: "${GUI_CP_STORAGE_PV_SIZE:-10Gi}"
     # container registry
     CP_CONTAINER_REGISTRY: ${GUI_CP_CONTAINER_REGISTRY:-"csgprduswrepoedge.jfrog.io"}
     CP_CONTAINER_REGISTRY_USERNAME: "${GUI_CP_CONTAINER_REGISTRY_USERNAME}"
@@ -55,20 +56,23 @@ meta:
     CP_IDM_SENDGRID_SERVICE_API_KEY: "${GUI_CP_IDM_SENDGRID_SERVICE_API_KEY}"
     CP_IDM_CP_ENCRYPTION_SECRET: ${GUI_CP_IDM_CP_ENCRYPTION_SECRET:-"dummy-encryption-secret"}
     # CP ingress
-    CP_INGRESS_CLASSNAME: nginx
-    CP_SKIP_BOOTSTRAP_INGRESS: false
-    CP_ALB_CERTIFICATE_ARN: ""
-    CP_NLB_CERTIFICATE_ARN: ""
-    TP_TLS_CERT: ""
+    CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
+    CP_SKIP_BOOTSTRAP_INGRESS: false # set to false will create ingress for router and hybrid-prox
+    CP_ALB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for ALB
+    CP_NLB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for NLB
+    TP_TLS_CERT: "" # if provided; will create secret tp-certificate with tls.crt and tls.key and create ingress
     TP_TLS_KEY: ""
+    TP_GENERATE_CERTIFICATES: ${GUI_TP_GENERATE_CERTIFICATES:-true} # if true, will create cluster issuer and certificate for tp-certificate using cert-manager. For local use set to false
+    TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
+    TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     # CP version
     CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.2.23} # 1.2 GA release. use ^1.0.0 for latest
     CP_PLATFORM_BASE_VERSION: ${CP_PLATFORM_BASE_VERSION:-1.2.140} # 1.2 GA release. use ^1.0.0 for latest
     # flow control
     CP_CREATE_NAMESPACE: true
     CP_INSTALL_MAILDEV: true
-    CP_INSTALL_MAILDEV_INGRESS: true
-    CP_STORAGE_CREATE_PV: false # create PV for control-plane-pv for Kind and MicroK8s use case
+    CP_INSTALL_MAILDEV_INGRESS: ${GUI_CP_INSTALL_MAILDEV_INGRESS:-true}
+    CP_STORAGE_CREATE_PV: ${GUI_CP_STORAGE_CREATE_PV:-false} # create PV for control-plane-pv for Kind, MicroK8s and Azure use case
     CP_INSTALL_PLATFORM_BOOTSTRAP: true
     CP_INSTALL_PLATFORM_BASE: true
   tools:
@@ -119,7 +123,7 @@ preTasks:
       apiVersion: v1
       kind: Secret
       metadata:
-        name: tp-certificate
+        name: ${TP_GENERATE_CERTIFICATE_NAME}
         namespace: ${CP_NAMESPACE}
       type: Opaque
       data:
@@ -144,7 +148,7 @@ preTasks:
       apiVersion: v1
       kind: Secret
       metadata:
-        name: tp-certificate
+        name: ${TP_GENERATE_CERTIFICATE_NAME}
         namespace: ${CP_EXT_NAMESPACE}
       type: Opaque
       data:
@@ -152,6 +156,28 @@ preTasks:
         tls.key: ${TP_TLS_KEY}
       EOF
       fi
+- condition: ${TP_GENERATE_CERTIFICATES}
+  clusters:
+    - name: ${CP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      kubectl apply -f - << EOF
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: ${TP_GENERATE_CERTIFICATE_NAME}
+        namespace: ${CP_NAMESPACE}
+      spec:
+        secretName: ${TP_GENERATE_CERTIFICATE_NAME}
+        issuerRef:
+          name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+          kind: ClusterIssuer
+        dnsNames:
+          - '*.${CP_SERVICE_DNS_DOMAIN}'
+          - '*.${CP_TUNNEL_DNS_DOMAIN}'
+      EOF
 - condition: ${CP_INSTALL_MAILDEV}
   clusters:
     - name: ${CP_CLUSTER_NAME}
@@ -242,7 +268,7 @@ preTasks:
         tls:
         - hosts:
           - '*.${CP_DNS_DOMAIN}'
-          secretName: tp-certificate
+          secretName: ${TP_GENERATE_CERTIFICATE_NAME}
         rules:
           - host: 'mail.${CP_DNS_DOMAIN}'
             http:
@@ -298,7 +324,7 @@ preTasks:
         accessModes:
           - ReadWriteMany
         capacity:
-          storage: 2Gi
+          storage: ${CP_STORAGE_PV_SIZE}
         hostPath:
           path: /private/tibco/cp/${CP_STORAGE_PV_NAME}/k8s/volumes/core
           type: DirectoryOrCreate
@@ -355,15 +381,11 @@ helmCharts:
         external:
           ingress:
             ingressClassName: ${CP_INGRESS_CLASSNAME}
-            certificateArn: ${CP_ALB_CERTIFICATE_ARN}
-            annotations:
-              kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME} # used for external DNS to create the record
-          aws:
-            tunnelService:
-              annotations: 
-                kubernetes.io/ingress.class: alb # used for external DNS to create the record
-              certificateArn: ${CP_NLB_CERTIFICATE_ARN}
-              loadBalancerClass: service.k8s.aws/nlb
+            # certificateArn: ${CP_ALB_CERTIFICATE_ARN}
+          # aws:
+            # tunnelService:
+              # certificateArn: ${CP_NLB_CERTIFICATE_ARN}
+              # loadBalancerClass: service.k8s.aws/nlb
           clusterInfo:
             nodeCIDR: ${CP_NODE_CIDR}
             podCIDR: ${CP_POD_CIDR}
@@ -373,7 +395,7 @@ helmCharts:
           storage:
             resources:
               requests:
-                storage: 2Gi
+                storage: ${CP_STORAGE_PV_SIZE}
             volumeName: ${CP_STORAGE_PV_NAME}
             storageClassName: ${CP_STORAGE_CLASS}
         tibco:
@@ -403,7 +425,7 @@ helmCharts:
       base64Encoded: false
       skip: ${CP_SKIP_BOOTSTRAP_INGRESS}
       content: |
-        if [[ -n "${TP_TLS_CERT}" ]]; then
+        if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
           kubectl apply -f - <<EOF
         kind: Ingress
         apiVersion: networking.k8s.io/v1
@@ -414,14 +436,14 @@ helmCharts:
             app.cloud.tibco.com/created-by: pipeline
             platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
           annotations:
-            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"   
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
         spec:
           ingressClassName: ${CP_INGRESS_CLASSNAME}
           tls:
           - hosts:
             - '*.${CP_SERVICE_DNS_DOMAIN}'
-            secretName: tp-certificate
+            secretName: ${TP_GENERATE_CERTIFICATE_NAME}
           rules:
             - host: '*.${CP_SERVICE_DNS_DOMAIN}'
               http:
@@ -445,14 +467,14 @@ helmCharts:
             app.cloud.tibco.com/created-by: pipeline
             platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
           annotations:
-            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
         spec:
           ingressClassName: ${CP_INGRESS_CLASSNAME}
           tls:
           - hosts:
-            - '*.${CP_SERVICE_DNS_DOMAIN}'
-            secretName: tp-certificate
+            - '*.${CP_TUNNEL_DNS_DOMAIN}'
+            secretName: ${TP_GENERATE_CERTIFICATE_NAME}
           rules:
             - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
               http:
@@ -477,7 +499,7 @@ helmCharts:
             app.cloud.tibco.com/created-by: pipeline
             platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
           annotations:
-            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
         spec:
           ingressClassName: ${CP_INGRESS_CLASSNAME}
@@ -504,7 +526,7 @@ helmCharts:
             app.cloud.tibco.com/created-by: pipeline
             platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
           annotations:
-            kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
         spec:
           ingressClassName: ${CP_INGRESS_CLASSNAME}
@@ -516,7 +538,7 @@ helmCharts:
                     pathType: Prefix
                     backend:
                       service:
-                        name: hybrid-proxy
+                        name: hybrid-proxy-${CP_INSTANCE_ID}
                         port:
                           number: 105
         EOF
@@ -574,6 +596,28 @@ helmCharts:
         containerSecurityContext: 
           hawkinfrajobs: 
             runAsNonRoot: false
+          idm:
+            runAsNonRoot: false
+      tp-cp-configuration: # need to set for Azure files 
+        podSecurityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          fsGroup: 0
+          fsGroupChangePolicy: "Always"
+          seccompProfile:
+            type: RuntimeDefault
+        securityContext: {}
+      tp-cp-tibcohub-contrib: # need to set for Azure files
+        podSecurityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          fsGroup: 0
+          fsGroupChangePolicy: "Always"
+          seccompProfile:
+            type: RuntimeDefault
+        securityContext: {}      
       tp-cp-recipes:
         tp-cp-infra-recipes:
           podSecurityContext:
@@ -647,6 +691,14 @@ helmCharts:
                 memory: 200Mi
         tp-cp-integration-bwce:
           bw-webserver:
+            podSecurityContext:
+              runAsNonRoot: false
+              runAsUser: 0
+              runAsGroup: 0
+              fsGroup: 0
+              fsGroupChangePolicy: "Always"
+              seccompProfile:
+                type: RuntimeDefault
             securityContext: {}
             global:
               fluentbit:

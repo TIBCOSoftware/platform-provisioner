@@ -84,8 +84,8 @@ else
 fi
 
 # will only pass the content of the recipe file to the container
-export PIPLINE_INPUT_RECIPE_CONTENT=""
-[[ -f "${PIPELINE_INPUT_RECIPE}" ]] && PIPLINE_INPUT_RECIPE_CONTENT=$(cat ${PIPELINE_INPUT_RECIPE})
+export PIPELINE_INPUT_RECIPE_CONTENT=""
+[[ -f "${PIPELINE_INPUT_RECIPE}" ]] && PIPELINE_INPUT_RECIPE_CONTENT=$(cat ${PIPELINE_INPUT_RECIPE})
 
 echo "Using platform provisioner docker image: ${PIPELINE_DOCKER_IMAGE}"
 
@@ -102,7 +102,7 @@ docker run -it --rm \
   -e GITHUB_TOKEN \
   -e PIPELINE_TRIGGER_RUN_SH \
   -e PIPELINE_INPUT_RECIPE \
-  -e PIPLINE_INPUT_RECIPE_CONTENT \
+  -e PIPELINE_INPUT_RECIPE_CONTENT \
   -e PIPELINE_MOCK \
   -e PIPELINE_LOG_DEBUG \
   -e PIPELINE_CHECK_DOCKER_STATUS \
@@ -124,8 +124,8 @@ docker run -it --rm \
   "${PIPELINE_DOCKER_IMAGE}" bash -c 'export REGION=${REGION:-"us-west-2"} \
   && declare -xr WORKING_PATH=/workspace \
   && declare -xr SCRIPTS=${WORKING_PATH}/task-scripts \
-  && declare -xr INPUT="${PIPLINE_INPUT_RECIPE_CONTENT}" \
-  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPLINE_INPUT_RECIPE_CONTENT}" | yq ".kind | select(. != null)" ) \
+  && declare -xr INPUT="${PIPELINE_INPUT_RECIPE_CONTENT}" \
+  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | yq ".kind | select(. != null)" ) \
   && echo "using pipeline: ${PIPELINE_NAME}" \
   && [[ -z ${PIPELINE_NAME} ]] && { echo "PIPELINE_NAME can not be empty"; exit 1; } || true \
   && mkdir -p "${SCRIPTS}" \
