@@ -8,11 +8,11 @@
 #######################################
 # platform-provisioner-install.sh: this will deploy all supporting components for Platform Provisioner in headless mode with tekton pipeline
 # Globals:
-#   PIPLINE_GUI_DOCKER_IMAGE_REPO: the ECR repo to pull Platform Provisioner images
-#   PIPLINE_GUI_DOCKER_IMAGE_USERNAME: the username for ECR to pull Platform Provisioner images
-#   PIPLINE_GUI_DOCKER_IMAGE_TOKEN: the read-only token for ECR to pull Platform Provisioner images
-#   PIPLINE_NAMESPACE: the namespace to deploy the pipeline and provisioner GUI
-#   PLATFORM_PROVISIONER_PIPLINE_REPO: the repo to pull the pipeline and provisioner GUI helm charts
+#   PIPELINE_GUI_DOCKER_IMAGE_REPO: the ECR repo to pull Platform Provisioner images
+#   PIPELINE_GUI_DOCKER_IMAGE_USERNAME: the username for ECR to pull Platform Provisioner images
+#   PIPELINE_GUI_DOCKER_IMAGE_TOKEN: the read-only token for ECR to pull Platform Provisioner images
+#   PIPELINE_NAMESPACE: the namespace to deploy the pipeline and provisioner GUI
+#   PLATFORM_PROVISIONER_PIPELINE_REPO: the repo to pull the pipeline and provisioner GUI helm charts
 #   PIPELINE_DOCKER_IMAGE: the docker image for the pipeline
 #   PIPELINE_SKIP_PROVISIONER_UI: true or other string if true, will skip installing platform-provisioner GUI
 #   PIPELINE_SKIP_TEKTON_DASHBOARD: true or other string if true, will skip installing tekton dashboard
@@ -24,11 +24,11 @@
 # Notes:
 #   By default without any input, it will install tekton, common-dependency, generic-runner, helm-install pipelines
 #   If we want to add tekton official dashboard, we can set PIPELINE_SKIP_TEKTON_DASHBOARD to false
-#   If we want to add platform-provisioner GUI, we need to set PIPLINE_GUI_DOCKER_IMAGE_REPO, PIPLINE_GUI_DOCKER_IMAGE_USERNAME, PIPLINE_GUI_DOCKER_IMAGE_TOKEN
+#   If we want to add platform-provisioner GUI, we need to set PIPELINE_GUI_DOCKER_IMAGE_REPO, PIPELINE_GUI_DOCKER_IMAGE_USERNAME, PIPELINE_GUI_DOCKER_IMAGE_TOKEN
 #      and set PIPELINE_SKIP_PROVISIONER_UI to false to install provisioner GUI
 # Samples:
-#    export PIPLINE_GUI_DOCKER_IMAGE_TOKEN="your-ecr-token"
-#    export PIPLINE_GUI_DOCKER_IMAGE_REPO="your-ecr-repo"
+#    export PIPELINE_GUI_DOCKER_IMAGE_TOKEN="your-ecr-token"
+#    export PIPELINE_GUI_DOCKER_IMAGE_REPO="your-ecr-repo"
 #   ./platform-provisioner-install.sh
 #######################################
 
@@ -40,16 +40,16 @@
 
 if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "false" ]]; then
   # your ECR read-only token
-  if [[ -z ${PIPLINE_GUI_DOCKER_IMAGE_TOKEN} ]]; then
-    echo "PIPLINE_GUI_DOCKER_IMAGE_TOKEN is not set"
+  if [[ -z ${PIPELINE_GUI_DOCKER_IMAGE_TOKEN} ]]; then
+    echo "PIPELINE_GUI_DOCKER_IMAGE_TOKEN is not set"
     exit 1
   fi
 
-  if [[ -z ${PIPLINE_GUI_DOCKER_IMAGE_REPO} ]]; then
-    echo "PIPLINE_GUI_DOCKER_IMAGE_REPO is not set"
+  if [[ -z ${PIPELINE_GUI_DOCKER_IMAGE_REPO} ]]; then
+    echo "PIPELINE_GUI_DOCKER_IMAGE_REPO is not set"
     exit 1
   fi
-  [[ -z "${PIPLINE_GUI_DOCKER_IMAGE_USERNAME}" ]] && export PIPLINE_GUI_DOCKER_IMAGE_USERNAME=${PIPLINE_GUI_DOCKER_IMAGE_USERNAME:-"AWS"}
+  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_USERNAME}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_USERNAME=${PIPELINE_GUI_DOCKER_IMAGE_USERNAME:-"AWS"}
 fi
 
 # The tekton version to install
@@ -91,20 +91,20 @@ k8s-waitfor-deployment "tekton-pipelines" "tekton-pipelines-webhook" "120s"
 kubectl create -n tekton-tasks serviceaccount pipeline-cluster-admin
 kubectl create clusterrolebinding pipeline-cluster-admin --clusterrole=cluster-admin --serviceaccount=tekton-tasks:pipeline-cluster-admin
 
-export PLATFORM_PROVISIONER_PIPLINE_REPO=${PLATFORM_PROVISIONER_PIPLINE_REPO:-"https://tibcosoftware.github.io/platform-provisioner"}
-export PIPLINE_NAMESPACE=${PIPLINE_NAMESPACE:-"tekton-tasks"}
+export PLATFORM_PROVISIONER_PIPELINE_REPO=${PLATFORM_PROVISIONER_PIPELINE_REPO:-"https://tibcosoftware.github.io/platform-provisioner"}
+export PIPELINE_NAMESPACE=${PIPELINE_NAMESPACE:-"tekton-tasks"}
 
 # install a sample pipeline with docker image that can run locally
-helm upgrade --install -n "${PIPLINE_NAMESPACE}" common-dependency common-dependency \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPLINE_REPO}" \
+helm upgrade --install -n "${PIPELINE_NAMESPACE}" common-dependency common-dependency \
+  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --set githubToken="${GITHUB_TOKEN}"
 if [[ $? -ne 0 ]]; then
   echo "failed to install common-dependency"
   exit 1
 fi
 
-helm upgrade --install -n "${PIPLINE_NAMESPACE}" generic-runner generic-runner \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPLINE_REPO}" \
+helm upgrade --install -n "${PIPELINE_NAMESPACE}" generic-runner generic-runner \
+  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --set serviceAccount=pipeline-cluster-admin \
   --set pipelineImage="${PIPELINE_DOCKER_IMAGE}"
 if [[ $? -ne 0 ]]; then
@@ -112,8 +112,8 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 
-helm upgrade --install -n "${PIPLINE_NAMESPACE}" helm-install helm-install \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPLINE_REPO}" \
+helm upgrade --install -n "${PIPELINE_NAMESPACE}" helm-install helm-install \
+  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --set serviceAccount=pipeline-cluster-admin \
   --set pipelineImage="${PIPELINE_DOCKER_IMAGE}"
 if [[ $? -ne 0 ]]; then
@@ -128,30 +128,30 @@ if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "true" ]]; then
 fi
 
 # install provisioner config
-helm upgrade --install -n "${PIPLINE_NAMESPACE}" provisioner-config-local provisioner-config-local \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPLINE_REPO}"
+helm upgrade --install -n "${PIPELINE_NAMESPACE}" provisioner-config-local provisioner-config-local \
+  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}"
 if [[ $? -ne 0 ]]; then
   echo "failed to install provisioner-config-local"
   exit 1
 fi
 
 _image_pull_secret_name="platform-provisioner-ui-image-pull"
-if kubectl get secret -n "${PIPLINE_NAMESPACE}" ${_image_pull_secret_name} > /dev/null 2>&1; then
-  kubectl delete secret -n "${PIPLINE_NAMESPACE}" ${_image_pull_secret_name}
+if kubectl get secret -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name} > /dev/null 2>&1; then
+  kubectl delete secret -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name}
 fi
-kubectl create secret docker-registry -n "${PIPLINE_NAMESPACE}" ${_image_pull_secret_name} \
-  --docker-server="${PIPLINE_GUI_DOCKER_IMAGE_REPO}" \
-  --docker-username="${PIPLINE_GUI_DOCKER_IMAGE_USERNAME}" \
-  --docker-password="${PIPLINE_GUI_DOCKER_IMAGE_TOKEN}"
+kubectl create secret docker-registry -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name} \
+  --docker-server="${PIPELINE_GUI_DOCKER_IMAGE_REPO}" \
+  --docker-username="${PIPELINE_GUI_DOCKER_IMAGE_USERNAME}" \
+  --docker-password="${PIPELINE_GUI_DOCKER_IMAGE_TOKEN}"
 if [[ $? -ne 0 ]]; then
   echo "failed to create image pull secret"
   exit 1
 fi
 
 # install provisioner web ui
-helm upgrade --install -n "${PIPLINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_PIPLINE_REPO}" \
+helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --version ^1.0.0 \
-  --set image.repository="${PIPLINE_GUI_DOCKER_IMAGE_REPO}"/stratosphere/cic2-provisioner-webui \
+  --set image.repository="${PIPELINE_GUI_DOCKER_IMAGE_REPO}"/stratosphere/cic2-provisioner-webui \
   --set image.tag=latest \
   --set "imagePullSecrets[0].name=${_image_pull_secret_name}" \
   --set guiConfig.onPremMode=true \
@@ -162,4 +162,4 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 
-k8s-waitfor-deployment "${PIPLINE_NAMESPACE}" "platform-provisioner-ui" "300s"
+k8s-waitfor-deployment "${PIPELINE_NAMESPACE}" "platform-provisioner-ui" "300s"

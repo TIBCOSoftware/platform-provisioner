@@ -9,10 +9,12 @@
 # pre-aks-cluster-script - create pre-requisites for AKS cluster
 # Globals:
 #   TP_SUBSCRIPTION_ID: azure subscription id
-#   TP_CLUSTER_NAME: aks cluster name 📝
-#   TP_RESOURCE_GROUP: resource group name 📝
+#   TP_CLUSTER_NAME: aks cluster name
+#   TP_CLUSTER_VERSION: aks cluster version
+#   TP_CLUSTER_INSTANCE_TYPE: aks cluster instance type. Standard_D8_v5: 8 vCPUs, 32 GiB memory
+#   TP_RESOURCE_GROUP: resource group name
 #   TP_USER_ASSIGNED_IDENTITY_NAME: user assigned identity to be associated with cluster
-#   TP_AUTHORIZED_IP: authorized ip address access to api server (add your public ip) 📝
+#   TP_AUTHORIZED_IP: authorized ip address access to api server (add your public ip)
 #   TP_NETWORK_POLICY: "" # possible values "" (to disable network policy), "azure", "calico"
 #   TP_VNET_NAME: virtual network name
 #   TP_APPLICATION_GW_SUBNET_NAME: application gateway subnet name
@@ -32,6 +34,7 @@
 export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export TP_CLUSTER_NAME=${TP_CLUSTER_NAME:-"tp-cluster"}
 export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.29"}
+export TP_CLUSTER_INSTANCE_TYPE=${TP_CLUSTER_INSTANCE_TYPE:-"Standard_D8_v5"}
 export TP_RESOURCE_GROUP=${TP_RESOURCE_GROUP:-"tp-resource-group"}
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity"
 export TP_NETWORK_POLICY=${TP_NETWORK_POLICY:-"azure"}
