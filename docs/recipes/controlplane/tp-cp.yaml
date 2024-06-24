@@ -16,6 +16,7 @@ meta:
     GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}" # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
     GITHUB_USER_NAME: ${GUI_GITHUB_USER_NAME:-"cp-test"}
     CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform public repo
+    DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # The repo that Data Plane will use
     # env
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
     CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
@@ -57,7 +58,7 @@ meta:
     CP_IDM_CP_ENCRYPTION_SECRET: ${GUI_CP_IDM_CP_ENCRYPTION_SECRET:-"dummy-encryption-secret"}
     # CP ingress
     CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
-    CP_SKIP_BOOTSTRAP_INGRESS: false # set to false will create ingress for router and hybrid-prox
+    CP_SKIP_BOOTSTRAP_INGRESS: false # set to false will create ingress for router and hybrid-proxy
     CP_ALB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for ALB
     CP_NLB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for NLB
     TP_TLS_CERT: "" # if provided; will create secret tp-certificate with tls.crt and tls.key and create ingress
@@ -357,7 +358,7 @@ helmCharts:
                 auth:
                   password: ${GITHUB_TOKEN}
                   username: ${GITHUB_USER_NAME}
-                repoUrl: https://tibcosoftware.github.io/tp-helm-charts
+                repoUrl: ${DP_CHART_REPO}
               default: true
               type: chart-museum
           dpMetadata:
@@ -585,101 +586,6 @@ helmCharts:
           REGION_SECRET: "${CP_IDM_REGION_SECRET}"
           SENDGRID_SERVICE_API_KEY: "${CP_IDM_SENDGRID_SERVICE_API_KEY}" # for email service
           CP_ENCRYPTION_SECRET: "${CP_IDM_CP_ENCRYPTION_SECRET}"
-        podSecurityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          runAsGroup: 0
-          fsGroup: 0
-          fsGroupChangePolicy: "Always"
-          seccompProfile:
-            type: RuntimeDefault
-        securityContext: {}
-        containerSecurityContext: 
-          hawkinfrajobs: 
-            runAsNonRoot: false
-          idm:
-            runAsNonRoot: false
-      tp-cp-configuration: # need to set for Azure files 
-        podSecurityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          runAsGroup: 0
-          fsGroup: 0
-          fsGroupChangePolicy: "Always"
-          seccompProfile:
-            type: RuntimeDefault
-        securityContext: {}
-      tp-cp-tibcohub-contrib: # need to set for Azure files
-        podSecurityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          runAsGroup: 0
-          fsGroup: 0
-          fsGroupChangePolicy: "Always"
-          seccompProfile:
-            type: RuntimeDefault
-        securityContext: {}      
-      tp-cp-recipes:
-        tp-cp-infra-recipes:
-          podSecurityContext:
-            runAsNonRoot: false
-            runAsUser: 0
-            runAsGroup: 0
-            fsGroup: 0
-            fsGroupChangePolicy: "Always"
-            seccompProfile:
-              type: RuntimeDefault
-          securityContext: {}
-        tp-cp-bwce-recipes:
-          podSecurityContext:
-            runAsNonRoot: false
-            runAsUser: 0
-            runAsGroup: 0
-            fsGroup: 0
-            fsGroupChangePolicy: "Always"
-            seccompProfile:
-              type: RuntimeDefault
-          securityContext: {}
-        tp-cp-flogo-recipes:
-          podSecurityContext:
-            runAsNonRoot: false
-            runAsUser: 0
-            runAsGroup: 0
-            fsGroup: 0
-            fsGroupChangePolicy: "Always"
-            seccompProfile:
-              type: RuntimeDefault
-          securityContext: {}
-        tp-cp-tibcohub-recipes:
-          podSecurityContext:
-            runAsNonRoot: false
-            runAsUser: 0
-            runAsGroup: 0
-            fsGroup: 0
-            fsGroupChangePolicy: "Always"
-            seccompProfile:
-              type: RuntimeDefault
-          securityContext: {}
-        dp-oauth2proxy-recipes:
-          podSecurityContext:
-            runAsNonRoot: false
-            runAsUser: 0
-            runAsGroup: 0
-            fsGroup: 0
-            fsGroupChangePolicy: "Always"
-            seccompProfile:
-              type: RuntimeDefault
-          securityContext: {}
-        tp-cp-servicemesh-recipes:
-          podSecurityContext:
-            runAsNonRoot: false
-            runAsUser: 0
-            runAsGroup: 0
-            fsGroup: 0
-            fsGroupChangePolicy: "Always"
-            seccompProfile:
-              type: RuntimeDefault
-          securityContext: {}
       tp-cp-integration:
         tp-cp-integration-common:
           fileserver:
@@ -692,18 +598,6 @@ helmCharts:
                 memory: 200Mi
         tp-cp-integration-bwce:
           bw-webserver:
-            podSecurityContext:
-              runAsNonRoot: false
-              runAsUser: 0
-              runAsGroup: 0
-              fsGroup: 0
-              fsGroupChangePolicy: "Always"
-              seccompProfile:
-                type: RuntimeDefault
-            securityContext: {}
-            global:
-              fluentbit:
-                securityContext: {}
             bwwebserver:
               resources:
                 requests:

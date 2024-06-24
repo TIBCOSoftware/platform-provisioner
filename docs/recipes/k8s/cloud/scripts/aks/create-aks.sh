@@ -81,6 +81,7 @@ _apiserver_subnet_id="/subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_R
 # create aks cluster
 echo "start to create AKS: ${TP_RESOURCE_GROUP}/${TP_CLUSTER_NAME}"
 az aks create -g "${TP_RESOURCE_GROUP}" -n "${TP_CLUSTER_NAME}" \
+  --node-vm-size "${TP_CLUSTER_INSTANCE_TYPE}" \
   --node-count 1 \
   --enable-cluster-autoscaler \
   --min-count 1 \
