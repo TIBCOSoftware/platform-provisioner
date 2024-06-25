@@ -24,6 +24,11 @@ export PIPELINE_INPUT_RECIPE="docs/recipes/k8s/cloud/deploy-tp-aks.yaml"
 
 We now have a new AKS to be ready to deploy TIBCO Platform.
 
+For Azure, the pipeline needs to set a special account name as environment variable. So that the pipeline knows to try Azure.
+```bash
+export ACCOUNT="azure-"
+```
+
 Environment variables that need to set in the recipe:
 ```yaml
 meta:
@@ -31,7 +36,10 @@ meta:
     TP_RESOURCE_GROUP: ""
     TP_AUTHORIZED_IP: "" # Your public IP
     TP_CLUSTER_NAME: ""
-    TP_DOMAIN: ""
+    TP_TOP_LEVEL_DOMAIN: "" # Your top level domain name eg: azure.dataplanes.pro
+    TP_SANDBOX: "" # Your sandbox name
+    TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN: "" # Your main ingress subdomain name. full domain will be: <TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN>.<TP_SANDBOX>.<TP_TOP_LEVEL_DOMAIN>
+    TP_DNS_RESOURCE_GROUP: "" # The resource group for the DNS zone
 ```
 
 ## Deploy TIBCO Control Plane on AKS
