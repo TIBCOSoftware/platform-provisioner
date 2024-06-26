@@ -61,7 +61,8 @@ meta:
     CP_PROVIDER: "azure"
     CP_CLUSTER_NAME: ""
     CP_DNS_DOMAIN: ""
-    CP_STORAGE_CLASS: ""
+    CP_STORAGE_CLASS: "" # eg: azure-files-sc
+    TP_CERTIFICATE_CLUSTER_ISSUER: "cic-cert-subscription-scope-production-main"
 
     # container registry
     CP_CONTAINER_REGISTRY: "" # use jFrog for CP production deployment
