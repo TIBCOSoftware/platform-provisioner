@@ -24,11 +24,6 @@ export PIPELINE_INPUT_RECIPE="docs/recipes/k8s/cloud/deploy-tp-aks.yaml"
 
 We now have a new AKS to be ready to deploy TIBCO Platform.
 
-For Azure, the pipeline needs to set a special account name as environment variable. So that the pipeline knows to try Azure.
-```bash
-export ACCOUNT="azure-"
-```
-
 Environment variables that need to set in the recipe:
 ```yaml
 meta:
@@ -58,6 +53,11 @@ Environment variables that need to set in the recipe:
 ```yaml
 meta:
   globalEnvVariable:
+    # add new variables
+    ACCOUNT: "azure-" # Azure account prefix to trigger authenticating with Azure
+    AZURE_RESOURCE_GROUP: ""
+
+    # change existing variables
     CP_PROVIDER: "azure"
     CP_CLUSTER_NAME: ""
     CP_DNS_DOMAIN: ""
