@@ -1,23 +1,25 @@
 pipelineName: "Data Plane information"
 description: |
-  This pipeline will output TIBCO Data Plane information.
+  This pipeline will print basic information about TIBCO Platform Cluster.
 recipe: |
   apiVersion: v1
   kind: generic-runner
   meta:
     guiEnv:
-      note: "get-dp-info"
-      GUI_DP_CLUSTER_NAME: ''
+      note: "get-tp-info"
+      GUI_TP_CLUSTER_NAME: ''
+      GUI_AZURE_RESOURCE_GROUP: ""
       GUI_PIPELINE_LOG_DEBUG: false
     globalEnvVariable:
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
       PIPELINE_CHECK_DOCKER_STATUS: false
-      DP_CLUSTER_NAME: ${GUI_DP_CLUSTER_NAME}
+      AZURE_RESOURCE_GROUP: ${GUI_AZURE_RESOURCE_GROUP}
+      TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
   tasks:
     - condition: true
       clusters:
-        - name: ${DP_CLUSTER_NAME}
+        - name: ${TP_CLUSTER_NAME}
       script:
         ignoreErrors: false
         fileName: script.sh

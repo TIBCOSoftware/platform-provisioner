@@ -17,6 +17,7 @@ export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-azure.yaml"
 After making sure that the pipeline can access the AWS account, we can now use deploy-tp-aks.yaml recipe to create a new AKS for TIBCO Platform.
 
 ```bash
+export ACCOUNT="azure-" # Azure account prefix to trigger authenticating with Azure
 export PIPELINE_INPUT_RECIPE="docs/recipes/k8s/cloud/deploy-tp-aks.yaml"
 
 ./dev/platform-provisioner.sh
@@ -39,15 +40,16 @@ meta:
 
 ## Deploy TIBCO Control Plane on AKS
 
-Make sure that your kubeconfig can connect to the target AKS cluster. Then we can install CP on minikube with the following command:
+Make sure that your kubeconfig can connect to the target AKS cluster. Then we can install CP on AKS with the following command:
 
 ```bash
+export ACCOUNT="azure-" # Azure account prefix to trigger authenticating with Azure
 export PIPELINE_INPUT_RECIPE="docs/recipes/controlplane/tp-cp.yaml"
 
 ./dev/platform-provisioner.sh
 ```
 
-By default; maildev will be installed. You can access maildev using: http://maildev.localhost.dataplanes.pro
+By default; maildev will be installed. You can access maildev using: http://mail.<CP_DNS_DOMAIN>
 
 Environment variables that need to set in the recipe:
 ```yaml
@@ -58,7 +60,6 @@ meta:
     AZURE_RESOURCE_GROUP: ""
 
     # change existing variables
-    CP_PROVIDER: "azure"
     CP_CLUSTER_NAME: ""
     CP_DNS_DOMAIN: ""
     CP_STORAGE_CLASS: "" # eg: azure-files-sc

@@ -1,0 +1,45 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Deploy TIBCO Platform On-Prem Stack"
+description: |
+  This pipeline will deploy supporting tools for TP Cluster on-prem with out certificate.
+options:
+- name: "GUI_TP_DNS_DOMAIN"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
+  description: "The TP Cluster DNS domain. localhost.dataplanes.pro is designed for local use"
+- name: "GUI_TP_STORAGE_CLASS"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
+  description: |
+    docker for mac: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
+- name: "GUI_TP_INGRESS_SERVICE_TYPE"
+  labels:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+    - "hostPort"
+  values:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+    - "hostPort"
+  type: string
+  guiType: radio
+  reference: "meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE"
+  description: |
+    We suggest to use "ClusterIP" and use kubectl port-forward for local cluster.
+- name: "Install Postgres"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_POSTGRES"
+  description: |
+    Install Postgres database for TP Cluster
+recipe: |
+{{ .Files.Get "recipes/tp-base-on-prem.yaml" | indent 2 }}

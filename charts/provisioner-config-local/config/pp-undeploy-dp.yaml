@@ -1,6 +1,6 @@
 pipelineName: "Data Plane information"
 description: |
-  This pipeline will output TIBCO Data Plane information.
+  This pipeline will undeploy TIBCO Data Plane.
 options:
   - name: "DP_NAMESPACE"
     type: string

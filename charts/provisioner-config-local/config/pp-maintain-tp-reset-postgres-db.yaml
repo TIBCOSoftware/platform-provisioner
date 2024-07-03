@@ -1,0 +1,62 @@
+pipelineName: "Reset Postgres DB"
+description: |
+  This pipeline will delete the old Postgres DB and create a new one. So that we can reset CP without delete the TP cluster.
+options:
+- name: "GUI_TP_CLUSTER_STORAGE_CLASS_NAME"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CLUSTER_STORAGE_CLASS_NAME"
+  required: true
+  description: "This TP cluster storage class name for Postgres DB, EKS: ebs-gp3, AKS: default"
+recipe: |
+  apiVersion: v1
+  kind: helm-install
+  meta:
+    guiEnv:
+      note: "reset-postgres-db"
+      GUI_TP_CLUSTER_NAME: ''
+      GUI_AZURE_RESOURCE_GROUP: ""
+      GUI_PIPELINE_LOG_DEBUG: false
+      GUI_TP_CLUSTER_STORAGE_CLASS_NAME: "ebs-gp3"
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: false
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      AZURE_RESOURCE_GROUP: ${GUI_AZURE_RESOURCE_GROUP}
+      TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
+      TP_CLUSTER_STORAGE_CLASS_NAME: ${GUI_TP_CLUSTER_STORAGE_CLASS_NAME:-ebs-gp3}
+  helmCharts:
+    - name: postgresql # chart name
+      version: 11.9.13 # 14.3.3 use postgresql 16.2.0, 11.9.13 use postgresql 14.5.0
+      namespace: tibco-ext # namespace to install the chart
+      releaseName: postgresql
+      condition: true # possible values: true, false
+      repo:
+        helm:
+          url: https://charts.bitnami.com/bitnami
+      cluster:
+        names:
+          - ${TP_CLUSTER_NAME}
+      values:
+        keepPrevious: true
+        content: |
+          auth:
+            postgresPassword: postgres
+            username: postgres
+            password: postgres
+            database: "postgres"
+          persistence:
+            storageClass: ${TP_CLUSTER_STORAGE_CLASS_NAME}
+      flags:
+        createNamespace: true
+        timeout: 1h
+      hooks:
+        preDeploy:
+          ignoreErrors: false
+          base64Encoded: false
+          skip: false
+          content: |
+            helm del -n tibco-ext postgresql && \
+            kubectl delete pvc -n tibco-ext --all
+            echo "sleep for 60 seconds to let PV and PVC to be deleted."
+            sleep 60  

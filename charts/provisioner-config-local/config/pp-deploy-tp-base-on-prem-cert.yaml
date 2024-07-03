@@ -1,0 +1,73 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Deploy TIBCO Platform On-Prem Stack with certificate"
+description: |
+  This pipeline will deploy supporting tools for TP Cluster on-prem with certificate.
+options:
+- name: "GUI_TP_DNS_DOMAIN"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
+  description: "We have a special domain for on-prem use case. localhost.dataplanes.pro"
+- name: "GUI_TP_TLS_CERT"
+  type: string
+  guiType: input
+  required: true
+  reference: "meta.guiEnv.GUI_TP_TLS_CERT"
+  description: |
+    base64 encoding of validate certificate for the domain. You can get it from <a href='https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=certificate-localhost-dp' target='_blank'>Platform Provisioner</a>
+- name: "GUI_TP_TLS_KEY"
+  type: string
+  guiType: input
+  required: true
+  reference: "meta.guiEnv.GUI_TP_TLS_KEY"
+  description: |
+    base64 encoding of validate certificate for the domain You can get it from <a href='https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=certificate-localhost-dp' target='_blank'>Platform Provisioner</a>
+- name: "GUI_TP_STORAGE_CLASS"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
+  description: |
+    docker for mac: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
+- name: "GUI_TP_INGRESS_SERVICE_TYPE"
+  labels:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+    - "hostPort"
+  values:
+    - "ClusterIP"
+    - "LoadBalancer"
+    - "NodePort"
+    - "hostPort"
+  type: string
+  guiType: radio
+  reference: "meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE"
+  description: |
+    We suggest to use "ClusterIP" and use kubectl port-forward for local cluster.
+- name: "Install Nginx Ingress"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_NGINX_INGRESS"
+- name: "Install Traefik Ingress"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_TRAEFIK_INGRESS"
+  description: |
+    Traefik dashboard will be available at: https://dashboard.localhost.dataplanes.pro/dashboard/#/
+- name: "Install Postgres"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_POSTGRES"
+  description: |
+    Install Postgres database for TP Cluster
+- name: "GUI_PIPELINE_LOG_DEBUG"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+{{ .Files.Get "recipes/tp-base-on-prem-https.yaml" | indent 2 }}
