@@ -30,7 +30,7 @@ meta:
     # third party
     TP_EXT_NAMESPACE: tibco-ext
     # CP DB setup env
-    TP_INSTALL_POSTGRES: true
+    TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-"true"}
     TP_DB_USER_NAME: ${GUI_TP_DB_USER_NAME:-"postgres"} # TP_RDS_USERNAME in create-rds.sh
     TP_DB_PASSWORD: ${GUI_TP_DB_PASSWORD:-"postgres"} # TP_RDS_MASTER_PASSWORD in create-rds.sh
     TP_DB_NAME: postgres

@@ -18,9 +18,15 @@ options:
 - name: "GUI_GITHUB_TOKEN"
   type: string
   guiType: input
-  required: false
   reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
-  description: "The github token"
+  description: |
+    The GitHub token to access the dev helm charts. For public helm chart you don't need to set this.
+- name: "GUI_CP_CHART_REPO"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CHART_REPO"
+  description: |
+    The helm chart repository to deploy CP. The default value is public repo. To use private repo set: https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
 - name: "GUI_CP_ADMIN_EMAIL"
   type: string
   guiType: input
@@ -75,7 +81,7 @@ options:
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INGRESS_USE_HOSTPORT"
-  description: "When deploy on kid we need to use hostport for ingress controller"
+  description: "When deploy on kind we need to use hostport for ingress controller"
 - name: "GUI_CP_STORAGE_CREATE_PV"
   type: string
   guiType: input

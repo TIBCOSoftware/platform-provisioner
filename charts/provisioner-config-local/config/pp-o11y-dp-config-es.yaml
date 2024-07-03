@@ -5,7 +5,7 @@
 #
 
 pipelineName: "Deploy Elasticsearch (dp-config-es)"
-description: "This will deploy or upgrade ES and ES index templates. Chart: <a href='https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/charts/dp-config-es' target='_blank'>link</a>"
+description: "This will deploy or upgrade ES and ES index templates. Chart: <a href='https://github.com/tibco/tp-helm-charts/tree/main/charts/dp-config-es' target='_blank'>link</a>"
 options:
   - name: "GUI_DP_PUBLIC_DOMAIN"
     type: string
@@ -17,14 +17,14 @@ options:
     type: string
     guiType: input
     reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
-    required: false
+    required: true
     description: "The github token for the private repo"
   - name: "GUI_DP_CONFIG_CHART_VERSION"
     type: string
     guiType: input
     reference: "meta.guiEnv.GUI_DP_CONFIG_CHART_VERSION"
     required: true
-    description: "The version of dp-config-es helm chart. see: <a href='https://github.com/TIBCOSoftware/tp-helm-charts/tree/gh-pages' target='_blank'>link</a>"
+    description: "The version of dp-config-es helm chart. see: <a href='https://github.com/tibco/tp-helm-charts/tree/gh-pages' target='_blank'>link</a>"
   - name: "GUI_DP_CONFIG_ES_VERSION"
     type: string
     guiType: input
@@ -104,7 +104,7 @@ recipe: |
       DP_ECK_VERSION: "${GUI_DP_ECK_VERSION}"
       DP_ES_RELEASE_NAME: dp-config-es
       GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}"
-      DP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+      DP_CHART_REPO: https://${GUI_GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
     tools:
       yq: "4.40"
       helm: "3.13"

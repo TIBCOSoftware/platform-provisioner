@@ -1,0 +1,95 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Refresh Container Registry token"
+description: |
+  This pipeline is a helper to refresh the Container Registry token for TIBCO Platform clusters.
+options:
+- name: "SECRET_KEY"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_SECRET_KEY"
+  required: true
+  description: |
+    For Data Plane: Use Data Plane ID for ECR secret key<br/>
+    For Control Plane: Use `tibco-container-registry-credentials` for ECR secret key
+- name: "SECRET_NAMESPACE"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_SECRET_NAMESPACE"
+  required: true
+  description: |
+    Namespace to install the ECR secret<br/>
+    For Control Plane: default is `cp1-ns`, but it could be different<br/>
+- name: "GUI_CONTAINER_REGISTRY_SERVER"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CONTAINER_REGISTRY_SERVER"
+  required: true
+  description: |
+    The server of the container registry.
+- name: "GUI_CONTAINER_REGISTRY_USERNAME"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CONTAINER_REGISTRY_USERNAME"
+  required: true
+  description: |
+    The user name of the container registry. For aws, it is `AWS`
+- name: "GUI_CONTAINER_REGISTRY_PASSWORD"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CONTAINER_REGISTRY_PASSWORD"
+  required: true
+  description: |
+    The container registry password.
+    For AWS we can get the token from aws cli command `aws ecr get-login-password --region <region>` or run it in <a href='https://provisioner.cic2.tibcocloud.com/pipelines/generic-runner?title=ECR%20token' target='_blank'>Platform Provisioner</a> and paste the token here
+- name: "GUI_PIPELINE_LOG_DEBUG"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+  apiVersion: v1
+  kind: generic-runner
+  meta:
+    guiEnv:
+      note: "tp-refresh-container-token"
+      GUI_TP_RESOURCE_GROUP: ""
+      GUI_TP_CLUSTER_NAME: "tp-cluster"
+      GUI_SECRET_KEY: ""
+      GUI_SECRET_NAMESPACE: ""
+      GUI_CONTAINER_REGISTRY_SERVER: "664529841144.dkr.ecr.us-west-2.amazonaws.com"
+      GUI_CONTAINER_REGISTRY_USERNAME: "AWS"
+      GUI_CONTAINER_REGISTRY_PASSWORD: ""
+      GUI_PIPELINE_LOG_DEBUG: false
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      # settings
+      TP_RESOURCE_GROUP: ${GUI_TP_RESOURCE_GROUP} # Azure resource group name
+      AZURE_RESOURCE_GROUP: ${TP_RESOURCE_GROUP} # provisioner pipeline assume role needed
+      TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
+      SECRET_KEY: ${GUI_SECRET_KEY}
+      SECRET_NAMESPACE: ${GUI_SECRET_NAMESPACE}
+      CONTAINER_REGISTRY_SERVER: ${GUI_CONTAINER_REGISTRY_SERVER}
+      CONTAINER_REGISTRY_PASSWORD: ${GUI_CONTAINER_REGISTRY_PASSWORD}
+      CONTAINER_REGISTRY_USERNAME: ${GUI_CONTAINER_REGISTRY_USERNAME}
+  tasks:
+    - condition: true
+      clusters:
+      - name: '${TP_CLUSTER_NAME}'
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          # install ECR secret
+          kubectl delete secret --namespace ${SECRET_NAMESPACE} ${SECRET_KEY} 2>/dev/null
+          kubectl create secret docker-registry ${SECRET_KEY} \
+          --docker-server=${CONTAINER_REGISTRY_SERVER} \
+          --docker-username=${CONTAINER_REGISTRY_USERNAME} \
+          --docker-password=${CONTAINER_REGISTRY_PASSWORD} \
+          --namespace=${SECRET_NAMESPACE}
+

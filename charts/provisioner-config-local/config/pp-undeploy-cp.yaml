@@ -1,0 +1,54 @@
+pipelineName: "Data Plane information"
+description: |
+  This pipeline will undeploy TIBCO Control Plane.
+options:
+  - name: "GUI_CP_INSTANCE_ID"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
+    required: true
+    description: "The CP instance name."
+  - name: "GUI_CP_CLUSTER_NAME"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_CP_CLUSTER_NAME"
+    required: true
+    description: "This CP cluster name"
+  - name: "CP_NAMESPACE"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_CP_NAMESPACE"
+    required: true
+    description: "Namespace to install the ECR secret"
+recipe: |
+  apiVersion: v1
+  kind: generic-runner
+  meta:
+    guiEnv:
+      note: "undeploy-cp"
+      GUI_CP_INSTANCE_ID: "cp1"
+      GUI_CP_NAMESPACE: 'cp1-ns'
+      GUI_CP_CLUSTER_NAME: ''
+      GUI_PIPELINE_LOG_DEBUG: false
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID}
+      CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME}
+      CP_NAMESPACE: ${GUI_CP_NAMESPACE}
+  tasks:
+    - condition: true
+      clusters:
+        - name: ${CP_CLUSTER_NAME}
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          NS=${CP_NAMESPACE} && \
+          kubectl delete -n ${NS} --all tibcoresourceset --ignore-not-found && \
+          helm del -n ${NS} \
+            platform-base \
+            platform-bootstrap \
+            --ignore-not-found --no-hooks && \
+          kubectl delete namespace ${NS}

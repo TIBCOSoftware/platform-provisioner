@@ -1,32 +1,49 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Recipe for installing TIBCO Control Plane on-premises
+# This recipe provides a basic thrird-party tools that needed for TIBCO Control Plane
+# cert-manager
+# metrics-server
+# ingress-nginx
+# postgresql
 apiVersion: v1
 kind: helm-install
 meta:
   guiEnv:
-    note: "deploy-cp-on-prem"
-    GUI_TP_INGRESS_SERVICE_TYPE: ClusterIP
-    GUI_TP_INGRESS_USE_HOSTPORT: false
-    GUI_TP_DNS_DOMAIN: localhost.dataplanes.pro
-    GUI_TP_STORAGE_CLASS: standard
-    GUI_PIPELINE_LOG_DEBUG: false
+      note: "deploy-tp-base-on-prem-cert"
+      GUI_TP_DNS_DOMAIN: localhost.dataplanes.pro
+      GUI_TP_TLS_CERT: ""
+      GUI_TP_TLS_KEY: ""
+      GUI_TP_INSTALL_NGINX_INGRESS: true
+      GUI_TP_INGRESS_SERVICE_TYPE: ClusterIP
+      GUI_TP_STORAGE_CLASS: standard
+      GUI_TP_INSTALL_POSTGRES: true
+      GUI_PIPELINE_LOG_DEBUG: false
   globalEnvVariable:
     REPLACE_RECIPE: true
-    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+    PIPELINE_LOG_DEBUG: false
     PIPELINE_CHECK_DOCKER_STATUS: false
     # env
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
     # domain
     TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
     TP_INGRESS_NAMESPACE: ingress-system
-    TP_DNS_DOMAIN: ${GUI_TP_DNS_DOMAIN:-"localhost"}
-    TP_INGRESS_SERVICE_TYPE: ${GUI_TP_INGRESS_SERVICE_TYPE:-ClusterIP} # LoadBalancer used for minikube with tunel, NodePort used for kind, ClusterIP used for kubectl port-forward
-    TP_INGRESS_USE_HOSTPORT: ${GUI_TP_INGRESS_USE_HOSTPORT:-false} # true for kind
+    TP_DNS_DOMAIN: ${GUI_TP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
+    TP_INGRESS_SERVICE_TYPE: ${GUI_TP_INGRESS_SERVICE_TYPE:-"ClusterIP"} # LoadBalancer used for minikube with tunel, NodePort used for kind, ClusterIP used for kubectl port-forward
+    TP_INGRESS_USE_HOSTPORT: false # true for kind
     TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"false"}
+    TP_TLS_CERT: ${GUI_TP_TLS_CERT}
+    TP_TLS_KEY: ${GUI_TP_TLS_KEY}
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard"} # hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s
     # third party
     TP_EXT_NAMESPACE: tibco-ext
     # CP DB setup env
-    TP_INSTALL_POSTGRES: true
+    TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-"true"}
     TP_DB_USER_NAME: ${GUI_TP_DB_USER_NAME:-"postgres"} # TP_RDS_USERNAME in create-rds.sh
     TP_DB_PASSWORD: ${GUI_TP_DB_PASSWORD:-"postgres"} # TP_RDS_MASTER_PASSWORD in create-rds.sh
     TP_DB_NAME: postgres
@@ -115,6 +132,10 @@ helmCharts:
           allowExternalNameServices: true
       additionalArguments:
         - '--serversTransport.insecureSkipVerify=true'
+      tlsStore: # for default certificate
+        default:
+          defaultCertificate:
+            secretName: default-certificate
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -123,6 +144,24 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: default-certificate
+          namespace: ${TP_INGRESS_NAMESPACE}
+        type: Opaque
+        data:
+          tls.crt: ${TP_TLS_CERT}
+          tls.key: ${TP_TLS_KEY}
+        EOF
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
@@ -143,6 +182,8 @@ helmCharts:
           type: ${TP_INGRESS_SERVICE_TYPE} # NodePort for kind, LoadBalancer for others
         ingressClass:
           - nginx
+        extraArgs:
+          default-ssl-certificate: ${TP_INGRESS_NAMESPACE}/default-certificate
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -151,6 +192,24 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: default-certificate
+          namespace: ${TP_INGRESS_NAMESPACE}
+        type: Opaque
+        data:
+          tls.crt: ${TP_TLS_CERT}
+          tls.key: ${TP_TLS_KEY}
+        EOF
 - name: postgresql
   version: 11.9.13 # 14.3.3 use postgresql 16.2.0, 11.9.13 use postgresql 14.5.0 PCP-4922
   namespace: ${TP_EXT_NAMESPACE}

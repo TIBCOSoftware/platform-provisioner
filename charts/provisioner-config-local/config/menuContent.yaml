@@ -19,16 +19,17 @@ menuConfig:
 - label: "Deploy"
   icon: 'pi pi-fw pi-cloud-upload'
   items:
+  - label: "TP Cluster"
+    items:
+    - label: "TP base on-prem"
+      to: "/pipelines/helm-install?title=tp-base-on-prem"
+      config: pp-deploy-tp-base-on-prem.yaml
+    - label: "TP base on-perm with certificate"
+      to: "/pipelines/helm-install?title=tp-base-on-prem-cert"
+      config: pp-deploy-tp-base-on-prem-cert.yaml
+  - separator: true
   - label: "Data Plane"
     items:
-    - label: "Prepare Data Plane"
-      items:
-      - label: "Standard on-prem"
-        to: "/pipelines/helm-install?title=dp-standard-on-prem"
-        config: pp-deploy-dp-on-prem.yaml
-      - label: "Standard on-prem with certificate"
-        to: "/pipelines/helm-install?title=dp-standard-on-prem-cert"
-        config: pp-deploy-dp-on-prem-cert.yaml
     - label: "Register Data Plane"
       items:
       - label: "Register Dev DP"
@@ -39,14 +40,6 @@ menuConfig:
         config: pp-register-dp-prod.yaml
   - label: "Control Plane"
     items:
-    - label: "Prepare Control Plane"
-      items:
-      - label: "Standard on-prem"
-        to: "/pipelines/helm-install?title=cp-standard-on-prem"
-        config: pp-deploy-cp-tools-on-prem.yaml
-      - label: "Standard on-prem with certificate"
-        to: "/pipelines/helm-install?title=cp-standard-on-prem-cert"
-        config: pp-deploy-cp-tools-on-prem-cert.yaml
     - label: "Deploy Control Plane"
       items:
       - label: "Standard Control Plane"
@@ -81,21 +74,28 @@ menuConfig:
   - label: "Data Plane"
     items:
     - label: "Data Plane"
-      to: "/pipelines/generic-runner?title=Undeploy-dp"
+      to: "/pipelines/generic-runner?title=undeploy-dp"
       config: pp-undeploy-dp.yaml
+  - label: "Control Plane"
+    items:
+      - label: "Control Plane"
+        to: "/pipelines/generic-runner?title=undeploy-cp"
+        config: pp-undeploy-cp.yaml
 - label: "Maintenance"
   icon: 'pi pi-fw pi-wrench'
   items:
-  - label: "Data Plane"
+  - label: "TP Cluster"
+    icon: 'pi pi-th-large'
     items:
-    - label: "Info"
-      to: "/pipelines/generic-runner?title=data-plane-info"
-      config: pp-maintain-dp-info.yaml
-  - label: "AWS"
-    items:
-    - label: "Refresh ECR token"
-      to: "/pipelines/generic-runner?title=Refresh ECR token"
-      config: pp-maintain-aws-refresh-ecr-token.yaml
+    - label: "TP Cluster Info"
+      to: "/pipelines/generic-runner?title=tp-info"
+      config: pp-maintain-tp-info.yaml
+    - label: "Reset Postgres DB"
+      to: "/pipelines/helm-install?title=reset-postgres-db"
+      config: pp-maintain-tp-reset-postgres-db.yaml
+    - label: "Refresh Docker Registry token"
+      to: "/pipelines/generic-runner?title=refresh-docker-registry-token"
+      config: pp-maintain-tp-refresh-docker-token.yaml
 - label: "Pipelines"
   to: "/pipelines"
   icon: 'pi pi-fw pi-list'
