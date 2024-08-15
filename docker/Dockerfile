@@ -134,8 +134,8 @@ RUN CMD_NAME=yq && \
     curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
     chmod +x /usr/local/bin/${CMD_NAME}-4.40
 
-# vcluster for vcluster
-ARG VCLUSTER_VERSION=v0.19.6
+# vcluster for vcluster https://github.com/loft-sh/vcluster/releases
+ARG VCLUSTER_VERSION=v0.20.0
 RUN export CMD_NAME=vcluster && \
     curl --silent --location -o /tmp/${CMD_NAME} "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/${CMD_NAME}-${TARGETOS}-${TARGETARCH}" && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} && \
