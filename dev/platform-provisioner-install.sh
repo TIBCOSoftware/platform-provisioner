@@ -50,6 +50,7 @@ if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "false" ]]; then
     exit 1
   fi
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_USERNAME}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_USERNAME=${PIPELINE_GUI_DOCKER_IMAGE_USERNAME:-"AWS"}
+  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL=${PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL:-"${PIPELINE_GUI_DOCKER_IMAGE_REPO}/stratosphere/cic2-provisioner-webui"}
 fi
 
 # The tekton version to install
@@ -151,7 +152,7 @@ fi
 # install provisioner web ui
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --version ^1.0.0 \
-  --set image.repository="${PIPELINE_GUI_DOCKER_IMAGE_REPO}"/stratosphere/cic2-provisioner-webui \
+  --set image.repository="${PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL}" \
   --set image.tag=latest \
   --set "imagePullSecrets[0].name=${_image_pull_secret_name}" \
   --set guiConfig.onPremMode=true \

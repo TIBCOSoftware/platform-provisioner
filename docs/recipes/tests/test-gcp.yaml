@@ -1,0 +1,28 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# sample recipe
+# We can use this recipe to test the GCP connection
+apiVersion: v1
+kind: generic-runner
+meta:
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    GCP_PROJECT_ID: ""
+    # GCP_REGION: us-west1
+    PIPELINE_INITIAL_ASSUME_ROLE: false
+    RUN1: true
+tasks:
+  - condition: ${RUN1}
+    script:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      fileName: script.sh
+      content: |
+        gcloud auth list
+        gcloud compute instances list

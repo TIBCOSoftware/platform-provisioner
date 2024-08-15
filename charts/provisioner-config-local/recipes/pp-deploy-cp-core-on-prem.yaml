@@ -21,6 +21,7 @@ meta:
     GUI_CP_CONTAINER_REGISTRY: csgprduswrepoedge.jfrog.io
     GUI_CP_CONTAINER_REGISTRY_USERNAME: ""
     GUI_CP_CONTAINER_REGISTRY_PASSWORD: ""
+    GUI_CP_CONTAINER_REGISTRY_REPOSITORY: tibco-platform-docker-prod
     # TLS
     GUI_TP_TLS_CERT: ""
     GUI_TP_TLS_KEY: ""
@@ -58,6 +59,7 @@ meta:
     CP_CONTAINER_REGISTRY: ${GUI_CP_CONTAINER_REGISTRY:-"csgprduswrepoedge.jfrog.io"}
     CP_CONTAINER_REGISTRY_USERNAME: "${GUI_CP_CONTAINER_REGISTRY_USERNAME}"
     CP_CONTAINER_REGISTRY_PASSWORD: "${GUI_CP_CONTAINER_REGISTRY_PASSWORD}"
+    CP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_CP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
     # node
     CP_NODE_CIDR: 10.180.0.0/16
     CP_POD_CIDR: 10.180.0.0/16
@@ -91,7 +93,7 @@ meta:
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     # CP version
     CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.2.23} # 1.2 GA release. use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${CP_PLATFORM_BASE_VERSION:-1.2.140} # 1.2 GA release. use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.2.140} # 1.2 GA release. use ^1.0.0 for latest
     # flow control
     CP_CREATE_NAMESPACE: true
     CP_INSTALL_MAILDEV: true
@@ -427,9 +429,10 @@ helmCharts:
             fluentbit:
               enabled: false
           containerRegistry:
-            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
             url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
             username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           enableLogging: true
           serviceAccount: ${CP_INSTANCE_ID}-sa

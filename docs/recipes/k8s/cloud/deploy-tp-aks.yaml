@@ -16,6 +16,7 @@ meta:
     # github
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
     TP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+    PLATFORM_PROVISIONER_REPO: github.com/TIBCOSoftware/platform-provisioner
     # cluster
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
     TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-1.29}
@@ -75,7 +76,7 @@ preTasks:
   repo:
     git:
       github:
-        repo: github.com/TIBCOSoftware/platform-provisioner
+        repo: ${PLATFORM_PROVISIONER_REPO}
         path: docs/recipes/k8s/cloud/scripts/aks
         branch: ${TP_SCRIPT_BRANCH}
   script:
@@ -85,7 +86,7 @@ preTasks:
   repo:
     git:
       github:
-        repo: github.com/TIBCOSoftware/platform-provisioner
+        repo: ${PLATFORM_PROVISIONER_REPO}
         path: docs/recipes/k8s/cloud/scripts/aks
         branch: ${TP_SCRIPT_BRANCH}
   script:
@@ -105,7 +106,7 @@ preTasks:
   repo:
     git:
       github:
-        repo: github.com/TIBCOSoftware/platform-provisioner
+        repo: ${PLATFORM_PROVISIONER_REPO}
         path: docs/recipes/k8s/cloud/scripts/aks
         branch: ${TP_SCRIPT_BRANCH}
   script:

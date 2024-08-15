@@ -4,7 +4,7 @@
 
 Under the project root; run the following command to test the pipeline and aws role. Use your own AWS account and AWS profile.
 You need to make sure that you have login to your AWS account. The platform provisioner script will create a docker container to run the pipeline scripts with the given recipe.
-It will mount `.aws` folder to the docker container to access the AWS profile.
+It will mount `"${HOME}"/.aws` folder to the docker container to access the AWS profile.
 
 ```bash
 export ACCOUNT=""
