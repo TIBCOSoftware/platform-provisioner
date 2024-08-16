@@ -9,6 +9,7 @@
 # build.sh this will docker image for platform-provisioner
 # Globals:
 #   IMAGE_TAG: tag to use for the image. If not specified, latest will be used
+#   IMAGE_NAME: name of the image to build
 #   DOCKER_REGISTRY: docker registry to push the image to. If not specified, image will be built locally
 #   PUSH_DOCKER_IMAGE: if true, image will be pushed to DOCKER_REGISTRY
 #   PLATFORM: platform to build the image for. If not specified, linux/amd64,linux/arm64 will be used for multiarch build, linux/amd64 for local build
@@ -20,7 +21,9 @@
 # Notes:
 #   None
 # Samples:
-#   ./build.sh
+#   Case 1: ./build.sh # this will build image for local platform with ${IMAGE_NAME}:latest
+#   Case 2: DOCKER_REGISTRY=<your registry> IMAGE_TAG=v1 ./build.sh # this will build image with tag v1 eg: <your registry>/${IMAGE_NAME}:v1
+#   Case 3: DOCKER_REGISTRY=<your registry> PUSH_DOCKER_IMAGE=true ./build.sh # this will build and push image to the registry
 #######################################
 
 # build-push-multiarch build and push multiarch image
@@ -75,21 +78,22 @@ function build-local() {
 
 # main
 function main() {
+  IMAGE_NAME=${IMAGE_NAME:-"platform-provisioner"}
   IMAGE_TAG=${IMAGE_TAG:-"latest"}
-  IMAGE_NAME="platform-provisioner:${IMAGE_TAG}"
-  DOCKERFILE="Dockerfile"
+  _image_and_tag="${IMAGE_NAME}:${IMAGE_TAG}"
+  DOCKERFILE=${DOCKERFILE:"Dockerfile"}
   BUILD_ARGS=${BUILD_ARGS:-"--build-arg AWS_CLI_VERSION=${AWS_CLI_VERSION} --build-arg EKSCTL_VERSION=${EKSCTL_VERSION}"}
 
   if [[ "${DOCKER_REGISTRY}" != "" ]]; then
-    IMAGE_NAME="${DOCKER_REGISTRY}/${IMAGE_NAME}"
+    _image_and_tag="${DOCKER_REGISTRY}/${_image_and_tag}"
   fi
 
   if [[ "${PUSH_DOCKER_IMAGE}" == "true" ]] && [[ "${DOCKER_REGISTRY}" != "" ]]; then
-    # more infor about platform flag: https://docs.docker.com/engine/reference/commandline/buildx_build/#platform
+    # more info about platform flag: https://docs.docker.com/engine/reference/commandline/buildx_build/#platform
     PLATFORM=${PLATFORM:-"linux/amd64,linux/arm64"}
-    echo "Building and pushing to ${IMAGE_NAME}"
-    if ! build-push-multiarch "${PLATFORM}" "${IMAGE_NAME}" "${DOCKERFILE}" "${BUILD_ARGS}"; then
-      echo "Failed to build and push image ${IMAGE_NAME}"
+    echo "Building and pushing to ${_image_and_tag}"
+    if ! build-push-multiarch "${PLATFORM}" "${_image_and_tag}" "${DOCKERFILE}" "${BUILD_ARGS}"; then
+      echo "Failed to build and push image ${_image_and_tag}"
       return 1
     fi
   else
@@ -103,8 +107,8 @@ function main() {
       fi
     fi
     echo "Building locally for ${PLATFORM}"
-    if ! build-local "${PLATFORM}" "${IMAGE_NAME}" "${DOCKERFILE}" "${BUILD_ARGS}"; then
-      echo "Failed to build image ${IMAGE_NAME}"
+    if ! build-local "${PLATFORM}" "${_image_and_tag}" "${DOCKERFILE}" "${BUILD_ARGS}"; then
+      echo "Failed to build image ${_image_and_tag}"
       return 1
     fi
   fi

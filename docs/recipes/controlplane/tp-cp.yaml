@@ -36,8 +36,8 @@ meta:
     CP_CONTAINER_REGISTRY_USERNAME: "${GUI_CP_CONTAINER_REGISTRY_USERNAME}"
     CP_CONTAINER_REGISTRY_PASSWORD: "${GUI_CP_CONTAINER_REGISTRY_PASSWORD}"
     # node
-    CP_NODE_CIDR: 10.180.0.0/16
-    CP_POD_CIDR: 10.180.0.0/16
+    CP_NODE_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.180.0.0/16"}
+    CP_POD_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.180.0.0/16"}
     CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
     # third party
     CP_EXT_NAMESPACE: tibco-ext
@@ -78,8 +78,6 @@ meta:
     CP_INSTALL_PLATFORM_BASE: true
   tools:
     yq: "4.40"
-    helm: "3.13"
-    kubectl: "1.28"
 preTasks:
 - condition: ${CP_CREATE_NAMESPACE}
   clusters:

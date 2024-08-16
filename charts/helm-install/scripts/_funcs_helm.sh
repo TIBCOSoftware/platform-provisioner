@@ -331,7 +331,7 @@ function process_chart_flags() {
   local _values_flag=${5}
 
   # start of helm command
-  echo -n "${HELM_COMMAND_LINE} " > "${_install_cmd_file}"
+  echo -n "${HELM_COMMAND_LINE} " >> "${_install_cmd_file}"
 
   local _chart_debug=""
   _chart_debug=$(echo "${_chart_flags_section}" | common::yq4-get '.debug')
@@ -442,7 +442,7 @@ function installChart() {
     return 0
   fi
 
-  local _install_cmd_file=chart-install-cmd.txt
+  local _install_cmd_file=${PIPELINE_HELM_INSTALL_CMD_FILE_NAME:-"chart-install-cmd.txt"}
 
   process_chart_flags "${_chart_name}" "${_chart_namespace}" "${_chart_flags_section}" "${_install_cmd_file}" "${_values_flag}"
 

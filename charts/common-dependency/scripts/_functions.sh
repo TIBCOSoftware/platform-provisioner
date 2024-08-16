@@ -308,6 +308,65 @@ function aks-pp-assume-role() {
   fi
 }
 
+# gcp-federation-assume-role use AWS GCP Federation role to assume to GCP account
+# GCPFederation --> aws-federation
+function gcp-federation-assume-role() {
+  if [ -z "${GCP_PROJECT_ID}" ]; then
+    common::err "GCP_PROJECT_ID is not set"
+    return 1
+  fi
+
+  if [[ "${PIPELINE_USE_LOCAL_CREDS}" == "true" ]]; then
+    common::debug "detect PIPELINE_USE_LOCAL_CREDS is true, skip assume role"
+    return 0
+  fi
+
+  common::debug "assume AWS federation role: ${PIPELINE_GCP_FEDERATION_ROLE}"
+  pp-aws-assume-role "${PIPELINE_GCP_FEDERATION_ROLE}"
+  if [ $? -ne 0 ]; then
+    common::err "pp-aws-assume-role error"
+    return 1
+  fi
+
+  common::debug "gcloud auth login"
+  gcloud auth login --brief --quiet --cred-file="${HOME}/.config/gcloud/aws_gcp_federation.json"
+  if [ $? -ne 0 ]; then
+    common::err "gcp auth login error"
+    return 1
+  fi
+
+  common::debug "set to GCP project: ${GCP_PROJECT_ID}"
+  gcloud config set project --quiet "${GCP_PROJECT_ID}"
+  if [ $? -ne 0 ]; then
+    common::err "gcloud config set project error"
+    return 1
+  fi
+}
+
+# gcp-federation-k8s-cluster generate GKE kubeconfig
+function gcp-federation-k8s-cluster() {
+  if ! gcp-federation-assume-role; then
+    common::err "gcp-federation-assume-role error"
+    return 1
+  fi
+
+  if [ -z "${CLUSTER_NAME}" ]; then
+    common::err "Please set CLUSTER_NAME environment variable"
+    return 1
+  fi
+
+  if [ -z "${GCP_REGION}" ]; then
+    common::err "Please set GCP_REGION environment variable"
+    return 1
+  fi
+
+  gcloud container clusters get-credentials "${CLUSTER_NAME}" --zone "${GCP_REGION}" --project "${GCP_PROJECT_ID}"
+  if [ $? -ne 0 ]; then
+    common::err "generate kubeconfig for GKE ${GCP_PROJECT_ID}/${CLUSTER_NAME} failed"
+    return 1
+  fi
+}
+
 #######################################
 # common::assume_role will automatically detect if it is on-prem, Azure or AWS account and try to connect to target account
 # after connecting to target account if CLUSTER_NAME is set, it will try to refresh kubeconfig token for CLUSTER_NAME
@@ -368,6 +427,34 @@ function common::assume_role() {
 
   if [[ "${_account}" == "on-prem" ]]; then
     common::debug "Looks like select on-prem without setting PIPELINE_ON_PREM_KUBECONFIG or PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME"
+    return 0
+  fi
+
+  # GCP use case
+  if echo "${_account}" | grep -q "gcp-"; then
+    common::debug "Looks like select GCP account ${_account}"
+
+    # check if we have get-azure-sub-id function
+    if declare -F get-gcp-project > /dev/null; then
+      if ! get-gcp-project "${_account}"; then
+        common::err "get GCP project error"
+        return 1
+      fi
+    fi
+
+    # if we set CLUSTER_NAME then we will try to generate kubeconfig
+    if [[ -n "${_cluster_name}" ]]; then
+      common::debug "detect CLUSTER_NAME is set to ${_cluster_name}"
+      gcp-federation-k8s-cluster
+      return $?
+    else
+      # if not then we will just assume to Azure account
+      if ! gcp-federation-assume-role; then
+        common::err "gcp-federation-assume-role error"
+        return 1
+      fi
+    fi
+
     return 0
   fi
 
@@ -1064,8 +1151,12 @@ function init() {
     exit 1
   fi
 
+  # pipeline outbound ip address
+  export PIPELINE_OUTBOUND_IP_ADDRESS=${PIPELINE_OUTBOUND_IP_ADDRESS:-"${TIBCO_PROVISIONER_OUTBOUND_IP_ADDRESS}"}
   # setup cloud account roles
   export PIPELINE_AWS_MANAGED_ACCOUNT_ROLE=${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE:-"${TIBCO_AWS_CONTROLLED_ACCOUNT_ROLE}"}
+  # Cloud provider federation roles
+  export PIPELINE_GCP_FEDERATION_ROLE=${PIPELINE_GCP_FEDERATION_ROLE:-"${TIBCO_GCP_FEDERATION_ROLE}"}
   export PIPELINE_AZURE_FEDERATION_ROLE=${PIPELINE_AZURE_FEDERATION_ROLE:-"${TIBCO_AZURE_FEDERATION_ROLE}"}
   export PIPELINE_AWS_COGNITO_IDENTITY_POOL=${PIPELINE_AWS_COGNITO_IDENTITY_POOL:-"${TIBCO_AWS_COGNITO_IDENTITY_POOL}"}
   export PIPELINE_AWS_COGNITO_IDENTITY_POOL_LOGINS=${PIPELINE_AWS_COGNITO_IDENTITY_POOL_LOGINS:-"${TIBCO_AWS_COGNITO_IDENTITY_POOL_LOGINS}"}

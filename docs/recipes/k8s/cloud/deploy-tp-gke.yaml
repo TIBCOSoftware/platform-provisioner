@@ -1,0 +1,380 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Recipe for installing TIBCO Platform GKE
+apiVersion: v1
+kind: helm-install
+meta:
+  globalEnvVariable:
+    # piepline env
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    # github
+    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
+    TP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+    PLATFORM_PROVISIONER_REPO: github.com/TIBCOSoftware/platform-provisioner
+    # cluster
+    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-tp-cluster}
+    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-"1.29.7-gke.1008000"}
+    TP_CLUSTER_REGION: ${GUI_TP_CLUSTER_REGION:-"us-west1"}
+    TP_AUTHORIZED_IP: ${GUI_TP_AUTHORIZED_IP} # your ip x.x.x.x/32
+    TP_CLUSTER_VPC_CIDR: ${GUI_TP_CLUSTER_VPC_CIDR:-"10.0.0.0/20"}
+    TP_CLUSTER_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.1.0.0/16"}
+    TP_CLUSTER_SERVICE_CIDR: ${GUI_TP_CLUSTER_SERVICE_CIDR:-"10.2.0.0/20"}
+    # GCP setting
+    GCP_PROJECT_ID: ${GUI_GCP_PROJECT_ID} # GCP project is required
+    GCP_REGION: ${TP_CLUSTER_REGION:-us-west1} # GCP region is required to connect to GKE
+    GCP_SA_CERT_MANAGER_NAME: tp-cert-manager-sa # GCP service account name for cert-manager
+    GCP_SA_EXTERNAL_DNS_NAME: tp-external-dns-sa # GCP service account name for external-dns
+    # domain
+    TP_TOP_LEVEL_DOMAIN: ${GUI_TP_TOP_LEVEL_DOMAIN} # the top level domain for the main ingress
+    TP_SANDBOX: ${GUI_TP_SANDBOX} # the sandbox for the main ingress
+    TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN: ${GUI_TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}
+    TP_DOMAIN: ${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}.${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN} # the actual domain for the TIBCO platform. Sample format: <cp/dp-env>.${SANDBOX}.${TP_TOP_LEVEL_DOMAIN}
+    # ingress
+    TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
+    TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-"nginx"}
+    TP_INGRESS_NAMESPACE: ingress-system
+    TP_INGRESS_SERVICE_TYPE: LoadBalancer # NodePort for kind, LoadBalancer for others
+    TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
+    TP_ES_RELEASE_NAME: dp-config-es
+    # storage
+    TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard-rwx-tp"}
+    # flow control
+    TP_INSTALL_K8S: ${GUI_TP_INSTALL_K8S:-true} # change to true to install k8s
+    TP_SCRIPT_BRANCH: main
+    TP_SCRIPT_NAME_SH_GCP: create-gke.sh
+    TP_SKIP_GENERATE_CLUSTER_ISSUER: false
+    TP_INSTALL_CERT_MANAGER: true
+    TP_INSTALL_EXTERNAL_DNS: true
+    TP_INSTALL_METRICS_SERVER: true
+    TP_INSTALL_POSTGRES: true
+    TP_INSTALL_O11Y: ${GUI_TP_INSTALL_O11Y:-false}
+    TP_GENERATE_STORAGE_CLASS_GENERIC: true # storage class for GCP Filestore
+  tools:
+    yq: "4.40"
+preTasks:
+- condition: ${TP_INSTALL_K8S}
+  repo:
+    git:
+      github:
+        repo: ${PLATFORM_PROVISIONER_REPO}
+        path: docs/recipes/k8s/cloud/scripts/gke
+        branch: ${TP_SCRIPT_BRANCH}
+  script:
+    ignoreErrors: false
+    fileName: ${TP_SCRIPT_NAME_SH_GCP}
+- condition: ${TP_GENERATE_STORAGE_CLASS_GENERIC}
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      kubectl apply -f - <<EOF
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: ${TP_STORAGE_CLASS}
+      parameters:
+        tier: standard
+        network: "projects/${GCP_PROJECT_ID}/global/networks/${TP_CLUSTER_NAME}" # GCP VPC network name
+      provisioner: filestore.csi.storage.gke.io
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+      allowVolumeExpansion: true
+      EOF
+helmCharts:
+- condition: ${TP_INSTALL_CERT_MANAGER}
+  name: cert-manager
+  version: v1.15.0
+  repo:
+    helm:
+      url: https://charts.jetstack.io
+  values:
+    keepPrevious: true
+    content: |
+      installCRDs: true
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: cert-manager
+  namespace: cert-manager
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+    extra: "--values extra_values.yaml"
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # we need to inject GCP_PROJECT_ID to GCP service account
+        cat >extra_values.yaml<<EOF
+        serviceAccount:
+          create: true
+          name: cert-manager
+          annotations:
+            iam.gke.io/gcp-service-account: ${GCP_SA_CERT_MANAGER_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com
+        EOF
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: ${TP_SKIP_GENERATE_CLUSTER_ISSUER}
+      content: |
+        kubectl apply -f - <<EOF
+        apiVersion: cert-manager.io/v1
+        kind: ClusterIssuer
+        metadata:
+          name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+        spec:
+          acme:
+            # The ACME server URL
+            server: https://acme-v02.api.letsencrypt.org/directory
+            # Email address used for ACME registration
+            email: cloud@tibco.com
+            # Name of a secret used to store the ACME account private key
+            privateKeySecretRef:
+              name: letsencrypt-prod
+            # Enable the DNS-01 challenge provider
+            solvers:
+              - dns01:
+                  cloudDNS:
+                    # The ID of the GCP project
+                    project: ${GCP_PROJECT_ID}
+        EOF
+- condition: ${TP_INSTALL_EXTERNAL_DNS}
+  name: external-dns
+  version: 1.14.2
+  repo:
+    helm:
+      url: https://kubernetes-sigs.github.io/external-dns/
+  values:
+    keepPrevious: true
+    content: |
+      extraArgs:
+        # only register DNS for these ingress classes
+        - "--ingress-class=${TP_INGRESS_CLASS}"
+      provider: google
+      sources:
+        - ingress
+        - service
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: external-dns
+  namespace: external-dns-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+    extra: "--values extra_values.yaml"
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # we need to inject GCP_PROJECT_ID to GCP service account
+        cat >extra_values.yaml<<EOF
+        serviceAccount:
+          create: true
+          name: external-dns
+          annotations:
+            iam.gke.io/gcp-service-account: ${GCP_SA_EXTERNAL_DNS_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com
+        EOF
+- condition: ${TP_INSTALL_NGINX_INGRESS}
+  name: ingress-nginx
+  namespace: ${TP_INGRESS_NAMESPACE}
+  version: 4.10.0 # release: https://github.com/kubernetes/ingress-nginx/releases
+  repo:
+    helm:
+      url: https://kubernetes.github.io/ingress-nginx
+  values:
+    keepPrevious: true
+    content: |
+      # ingress-nginx doc: https://docs.nginx.com/nginx-ingress-controller/
+      # ingress-nginx chart values: https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
+      controller:
+        allowSnippetAnnotations: true # https://github.com/kubernetes/ingress-nginx/pull/10393
+        service:
+          enableHttp: false
+          type: ${TP_INGRESS_SERVICE_TYPE} # NodePort for kind, LoadBalancer for others
+        ingressClass:
+          - nginx
+        extraArgs:
+          default-ssl-certificate: ${TP_INGRESS_NAMESPACE}/tp-certificate-main-ingress
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: ingress-nginx
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        kubectl apply -f  - <<EOF
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: tp-certificate-main-ingress
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          secretName: tp-certificate-main-ingress
+          issuerRef:
+            name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+            kind: ClusterIssuer
+          dnsNames:
+            - '*.${TP_DOMAIN}'
+        EOF
+- name: postgresql
+  version: 11.9.13 # 14.3.3 use postgresql 16.2.0, 11.9.13 use postgresql 14.5.0 PCP-4922
+  namespace: tibco-ext
+  releaseName: postgresql
+  condition: ${TP_INSTALL_POSTGRES}
+  repo:
+    helm:
+      url: https://charts.bitnami.com/bitnami
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      auth:
+        postgresPassword: postgres
+        username: postgres
+        password: postgres
+        database: "postgres"
+      persistence:
+        storageClass: ${TP_STORAGE_CLASS}
+  flags:
+    createNamespace: true
+    timeout: 1h
+- name: eck-operator
+  version: 2.10.0
+  condition: ${TP_INSTALL_O11Y}
+  repo:
+    helm:
+      url: https://helm.elastic.co
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: eck-operator
+  namespace: elastic-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: dp-config-es
+  version: "1.2.1"
+  condition: ${TP_INSTALL_O11Y}
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+  values:
+    keepPrevious: true
+    content: |
+      domain: ${TP_DOMAIN}
+      es:
+        version: "8.11.1"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-es-http
+        storage:
+          name: ${TP_STORAGE_CLASS}
+      kibana:
+        version: "8.11.1"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-kb-http
+      apm:
+        enabled: true
+        version: "8.11.1"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-apm-http
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: ${TP_ES_RELEASE_NAME}
+  namespace: elastic-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: kube-prometheus-stack
+  version: "54.2.1"
+  condition: ${TP_INSTALL_O11Y}
+  repo:
+    helm:
+      url: https://prometheus-community.github.io/helm-charts
+  values:
+    keepPrevious: true
+    content: |
+      grafana:
+        plugins:
+          - grafana-piechart-panel
+        ingress:
+          enabled: true
+          ingressClassName: ${TP_INGRESS_CLASS}
+          hosts:
+          - grafana.${TP_DOMAIN}
+      prometheus:
+        prometheusSpec:
+          enableRemoteWriteReceiver: true
+          remoteWriteDashboards: true
+          additionalScrapeConfigs:
+          - job_name: otel-collector
+            kubernetes_sd_configs:
+            - role: pod
+            relabel_configs:
+            - action: keep
+              regex: "true"
+              source_labels:
+              - __meta_kubernetes_pod_label_prometheus_io_scrape
+            - action: keep
+              regex: "infra"
+              source_labels:
+              - __meta_kubernetes_pod_label_platform_tibco_com_workload_type
+            - action: keepequal
+              source_labels: [__meta_kubernetes_pod_container_port_number]
+              target_label: __meta_kubernetes_pod_label_prometheus_io_port
+            - action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              source_labels:
+              - __address__
+              - __meta_kubernetes_pod_label_prometheus_io_port
+              target_label: __address__
+            - source_labels: [__meta_kubernetes_pod_label_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+              replacement: /$1
+        ingress:
+          enabled: true
+          ingressClassName: ${TP_INGRESS_CLASS}
+          hosts:
+          - prometheus-internal.${TP_DOMAIN}
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: kube-prometheus-stack
+  namespace: prometheus-system
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true

@@ -52,6 +52,11 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_PASSWORD"
   description: "The container registry password to deploy CP"
+- name: "GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
+  description: "The container registry repository to deploy CP"
 - name: "GUI_TP_TLS_CERT"
   type: string
   guiType: input

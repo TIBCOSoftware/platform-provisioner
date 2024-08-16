@@ -98,7 +98,8 @@ keys='$account, $region, $pipeline_service_account_name $user_name, $random_numb
 recipe_replaced=$(envsubst "${keys}" <<< "${recipe_template}")
 echo "create tekton ${pipeline_name} pipelinerun ${account}-${random_number} for ${user_name}"
 #echo "${recipe_replaced}"
-if ! kubectl apply -f <(echo "${recipe_replaced}"); then
+# works for windows git bash as well
+if ! echo "${recipe_replaced}" | kubectl apply -f -; then
     echo "kubectl apply error"
     exit 1
 fi

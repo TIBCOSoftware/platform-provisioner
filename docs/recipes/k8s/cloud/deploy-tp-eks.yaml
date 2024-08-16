@@ -16,6 +16,7 @@ meta:
     # github
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
     TP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+    PLATFORM_PROVISIONER_REPO: github.com/TIBCOSoftware/platform-provisioner
     # cluster
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
     TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-1.29}
@@ -49,7 +50,6 @@ meta:
     TP_SCRIPT_NAME_SH_EKS: create-eks.sh # the script that DP will run
     TP_SCRIPT_NAME_SH_EFS: create-efs.sh # the script that DP will run
     TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-true}
-    TP_ENABLE_O11Y_DAEMONSET: ${GUI_TP_ENABLE_O11Y_DAEMONSET:-true}
     # Do not change, variables to configure nginx/kong related resources based on ingressclass passed
     TP_ENABLE_NGINX: $([[ "$TP_INGRESS_CLASS" == "nginx" ]] && echo "true" || echo "false")
     TP_ENABLE_SECONDARY_KONG: $([[ "$TP_SECONDARY_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
@@ -66,7 +66,7 @@ preTasks:
   repo:
     git:
       github:
-        repo: github.com/TIBCOSoftware/platform-provisioner
+        repo: ${PLATFORM_PROVISIONER_REPO}
         path: docs/recipes/k8s/cloud/scripts/eks
         branch: ${TP_SCRIPT_BRANCH}
   script:
@@ -78,7 +78,7 @@ preTasks:
   repo:
     git:
       github:
-        repo: github.com/TIBCOSoftware/platform-provisioner
+        repo: ${PLATFORM_PROVISIONER_REPO}
         path: docs/recipes/k8s/cloud/scripts/eks
         branch: ${TP_SCRIPT_BRANCH}
   script:
