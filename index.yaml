@@ -1,162 +1,204 @@
 apiVersion: v1
 entries:
   common-dependency:
-    - apiVersion: v2
-      appVersion: 1.0.0
-      created: "2024-08-19T11:34:53.3965-05:00"
-      description: common-dependency
-      digest: 8acf5cadc07000db16858cf65d9c81d1744c6badbe31da65296cebac3c7563cb
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: common-dependency
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.10/common-dependency-1.0.10.tgz
-      version: 1.0.10
-    - apiVersion: v2
-      appVersion: 1.0.0
-      created: "2024-06-25T14:58:45.271908453Z"
-      description: common-dependency
-      digest: 9be9a3d10796150147378b80babf23639013c4fe856c30d935f43b2802728833
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: common-dependency
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.8/common-dependency-1.0.8.tgz
-      version: 1.0.8
-    - apiVersion: v2
-      appVersion: 1.0.0
-      created: "2024-06-07T04:16:36.956439699Z"
-      description: common-dependency
-      digest: 7f25b5409d42e598ff01846834270fc146dd0c82374ab6c75468119642470e3f
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: common-dependency
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.6/common-dependency-1.0.6.tgz
-      version: 1.0.6
-    - apiVersion: v2
-      appVersion: 1.0.0
-      created: "2024-06-05T15:45:02.397882272Z"
-      description: common-dependency
-      digest: c5dac43b1e8e9c3bbc81a05e0f56e49816ded93a8595ff66646e038933e01702
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: common-dependency
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.5/common-dependency-1.0.5.tgz
-      version: 1.0.5
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-08-20T14:46:54.30620946Z"
+    description: common-dependency
+    digest: 08afe1d41abd57fb7c6ff42cf682e0e840ea2c48cbde08fff85da2fcec9c53e6
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: common-dependency
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.11/common-dependency-1.0.11.tgz
+    version: 1.0.11
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-08-19T11:34:53.3965-05:00"
+    description: common-dependency
+    digest: 8acf5cadc07000db16858cf65d9c81d1744c6badbe31da65296cebac3c7563cb
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: common-dependency
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.10/common-dependency-1.0.10.tgz
+    version: 1.0.10
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-06-25T14:58:45.271908453Z"
+    description: common-dependency
+    digest: 9be9a3d10796150147378b80babf23639013c4fe856c30d935f43b2802728833
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: common-dependency
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.8/common-dependency-1.0.8.tgz
+    version: 1.0.8
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-06-07T04:16:36.956439699Z"
+    description: common-dependency
+    digest: 7f25b5409d42e598ff01846834270fc146dd0c82374ab6c75468119642470e3f
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: common-dependency
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.6/common-dependency-1.0.6.tgz
+    version: 1.0.6
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-06-05T15:45:02.397882272Z"
+    description: common-dependency
+    digest: c5dac43b1e8e9c3bbc81a05e0f56e49816ded93a8595ff66646e038933e01702
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: common-dependency
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.5/common-dependency-1.0.5.tgz
+    version: 1.0.5
   generic-runner:
-    - apiVersion: v2
-      appVersion: 1.0.0
-      created: "2024-06-05T15:45:02.653104281Z"
-      description: generic-runner
-      digest: f99b20ffd303b2263f59c1aba8ec5f0c388bf4d081b7b52954bd57732d5c6a77
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: generic-runner
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/generic-runner-1.0.5/generic-runner-1.0.5.tgz
-      version: 1.0.5
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-06-05T15:45:02.653104281Z"
+    description: generic-runner
+    digest: f99b20ffd303b2263f59c1aba8ec5f0c388bf4d081b7b52954bd57732d5c6a77
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: generic-runner
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/generic-runner-1.0.5/generic-runner-1.0.5.tgz
+    version: 1.0.5
   helm-install:
-    - apiVersion: v2
-      appVersion: 1.0.0
-      created: "2024-08-19T11:34:53.6713-05:00"
-      description: helm-install
-      digest: 90f044a0b2e47526bdff321b348aae97e20a23b448f53b35233a58fb07c39e9b
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: helm-install
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/helm-install-1.0.6/helm-install-1.0.6.tgz
-      version: 1.0.6
-    - apiVersion: v2
-      appVersion: 1.0.0
-      created: "2024-06-05T15:45:02.853184739Z"
-      description: helm-install
-      digest: 64aabc451aef66bb0fb18fb54546a690b5d64ed657019a880dd5960ea81630df
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: helm-install
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/helm-install-1.0.5/helm-install-1.0.5.tgz
-      version: 1.0.5
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-08-20T14:46:54.436535316Z"
+    description: helm-install
+    digest: e51d073db89ae2ee20da48f71ec4ab82377ead2a49005bb69f4e685288757b79
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: helm-install
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/helm-install-1.0.7/helm-install-1.0.7.tgz
+    version: 1.0.7
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-08-19T11:34:53.6713-05:00"
+    description: helm-install
+    digest: 90f044a0b2e47526bdff321b348aae97e20a23b448f53b35233a58fb07c39e9b
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: helm-install
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/helm-install-1.0.6/helm-install-1.0.6.tgz
+    version: 1.0.6
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2024-06-05T15:45:02.853184739Z"
+    description: helm-install
+    digest: 64aabc451aef66bb0fb18fb54546a690b5d64ed657019a880dd5960ea81630df
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: helm-install
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/helm-install-1.0.5/helm-install-1.0.5.tgz
+    version: 1.0.5
   platform-provisioner-ui:
-    - apiVersion: v2
-      appVersion: 2.0.0
-      created: "2024-06-05T15:45:03.029253005Z"
-      description: A Helm chart for platform-provisioner-ui
-      digest: 8b7a8c645a276d32a5b511db753ec29f01524362f4c352bac07a9bb53304eddb
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: platform-provisioner-ui
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/platform-provisioner-ui-1.0.1/platform-provisioner-ui-1.0.1.tgz
-      version: 1.0.1
+  - apiVersion: v2
+    appVersion: 2.0.0
+    created: "2024-06-05T15:45:03.029253005Z"
+    description: A Helm chart for platform-provisioner-ui
+    digest: 8b7a8c645a276d32a5b511db753ec29f01524362f4c352bac07a9bb53304eddb
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: platform-provisioner-ui
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/platform-provisioner-ui-1.0.1/platform-provisioner-ui-1.0.1.tgz
+    version: 1.0.1
   provisioner-config-local:
-    - apiVersion: v2
-      appVersion: 2.0.0
-      created: "2024-08-19T11:34:53.989705-05:00"
-      description: Platform Provisioner local config
-      digest: bf0c987f4dbf374d3fd507a1b885ed03f823ad3922bac4792324e713f12b09b2
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: provisioner-config-local
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.30/provisioner-config-local-1.0.30.tgz
-      version: 1.0.30
-    - apiVersion: v2
-      appVersion: 2.0.0
-      created: "2024-07-03T21:09:10.32094566Z"
-      description: Platform Provisioner local config
-      digest: 096d540ba9494b0a9e9b847c49bda89a76ec63b0704faf4629edfb89d6dc9f45
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: provisioner-config-local
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.29/provisioner-config-local-1.0.29.tgz
-      version: 1.0.29
-    - apiVersion: v2
-      appVersion: 2.0.0
-      created: "2024-06-05T15:45:03.230325704Z"
-      description: Platform Provisioner local config
-      digest: bb9f3ab4ec0905ac53a879156bf668dfdd215eda8bb4917a4514f485e036d121
-      home: https://github.com/TIBCOSoftware/tp-helm-charts
-      maintainers:
-        - email: cloud@tibco.com
-          name: TIBCO Cloud Dev Team
-      name: provisioner-config-local
-      type: application
-      urls:
-        - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
-      version: 1.0.25
-generated: "2024-08-19T11:34:53.989777-05:00"
+  - apiVersion: v2
+    appVersion: 2.0.0
+    created: "2024-08-20T14:46:54.548134234Z"
+    description: Platform Provisioner local config
+    digest: 24062ca4c9935359fa4c5b1bfc2cfd00e484b747ae1f68d0965cec97bd30262b
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.31/provisioner-config-local-1.0.31.tgz
+    version: 1.0.31
+  - apiVersion: v2
+    appVersion: 2.0.0
+    created: "2024-08-19T11:34:53.989705-05:00"
+    description: Platform Provisioner local config
+    digest: bf0c987f4dbf374d3fd507a1b885ed03f823ad3922bac4792324e713f12b09b2
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.30/provisioner-config-local-1.0.30.tgz
+    version: 1.0.30
+  - apiVersion: v2
+    appVersion: 2.0.0
+    created: "2024-07-03T21:09:10.32094566Z"
+    description: Platform Provisioner local config
+    digest: 096d540ba9494b0a9e9b847c49bda89a76ec63b0704faf4629edfb89d6dc9f45
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.29/provisioner-config-local-1.0.29.tgz
+    version: 1.0.29
+  - apiVersion: v2
+    appVersion: 2.0.0
+    created: "2024-06-05T15:45:03.230325704Z"
+    description: Platform Provisioner local config
+    digest: bb9f3ab4ec0905ac53a879156bf668dfdd215eda8bb4917a4514f485e036d121
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
+    version: 1.0.25
+generated: "2024-08-20T14:46:54.548175592Z"
