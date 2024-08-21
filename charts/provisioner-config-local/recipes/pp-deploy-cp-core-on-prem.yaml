@@ -103,8 +103,6 @@ meta:
     CP_INSTALL_PLATFORM_BASE: true
   tools:
     yq: "4.40"
-    helm: "3.13"
-    kubectl: "1.28"
 preTasks:
 - condition: ${CP_CREATE_NAMESPACE}
   clusters:

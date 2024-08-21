@@ -43,8 +43,6 @@ meta:
     TP_INSTALL_METRICS_SERVER: true
   tools:
     yq: "4.40"
-    helm: "3.13"
-    kubectl: "1.28"
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager

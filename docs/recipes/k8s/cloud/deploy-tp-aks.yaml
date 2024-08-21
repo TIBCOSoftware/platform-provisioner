@@ -69,8 +69,6 @@ meta:
     TP_SKIP_GENERATE_SECONDARY_INGRESS_CERTIFICATE: false
   tools:
     yq: "4.40"
-    helm: "3.13"
-    kubectl: "1.28"
 preTasks:
 - condition: ${TP_INSTALL_K8S}
   repo:
