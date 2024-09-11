@@ -124,7 +124,13 @@ affinity: {}
 
 guiConfig:
   pipelineNamespace: "tekton-tasks"
-  pipelineTemplateLabelKey: "env.cloud.tibco.com/config"
+  pipelineTemplateLabelKeyAccount: "env.cloud.tibco.com/account"
+  pipelineTemplateLabelKeyAction: "env.cloud.tibco.com/action"
+  pipelineTemplateLabelKeyConfig: "env.cloud.tibco.com/config"
+  pipelineTemplateLabelKeyConfigGroups: "env.cloud.tibco.com/config-groups"
+  pipelineTemplateLabelKeyCreateBy: "env.cloud.tibco.com/create-by"
+  pipelineTemplateLabelKeyName: "env.cloud.tibco.com/name"
+  pipelineTemplateLabelKeyNote: "env.cloud.tibco.com/note"
   pipelineTemplateLabelValue: "pipeline-gui-config"
   pipelineRunCancelled: "Cancelled"
   startLocally: "false"

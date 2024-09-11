@@ -14,6 +14,8 @@ meta:
     GUI_GITHUB_TOKEN: ""
     GUI_CP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
     GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
+    GUI_DP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
+    GUI_DP_CHART_REPO_TOKEN: ""
     # env
     GUI_CP_INSTANCE_ID: cp1
     GUI_CP_ENV: vagrant
@@ -37,10 +39,12 @@ meta:
     PIPELINE_LOG_DEBUG: false
     PIPELINE_CHECK_DOCKER_STATUS: false
     # GitHub credentials
-    GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}" # You need to set GITHUB_TOKEN for local use.
+    GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}" # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
     GITHUB_USER_NAME: ${GUI_GITHUB_USER_NAME:-"cp-test"}
     CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform public repo
     DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # The repo that Data Plane will use
+    DP_CHART_REPO_TOKEN: ${GUI_DP_CHART_REPO_TOKEN:-""}
+    DP_CHART_REPO_USER_NAME: ${GUI_DP_CHART_REPO_USER_NAME:-"cp-test"}
     # env
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
     CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
@@ -379,8 +383,8 @@ helmCharts:
             - alias: default
               conf:
                 auth:
-                  password: ${GITHUB_TOKEN}
-                  username: ${GITHUB_USER_NAME}
+                  password: ${DP_CHART_REPO_TOKEN}
+                  username: ${DP_CHART_REPO_USER_NAME}
                 repoUrl: ${DP_CHART_REPO}
               default: true
               type: chart-museum
@@ -584,6 +588,7 @@ helmCharts:
             PRODUCTION_PATH: "" # TODO PCP-5070
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
         external:
+          helmRepo: ${GUI_CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
           db_name: ${CP_DB_NAME}
           db_password: ${CP_DB_PASSWORD}
@@ -607,7 +612,6 @@ helmCharts:
           enableLogging: false
           environment: ${CP_ENVIRONMENT}
           IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
-          REGION_SECRET: "${CP_IDM_REGION_SECRET}"
           SENDGRID_SERVICE_API_KEY: "${CP_IDM_SENDGRID_SERVICE_API_KEY}" # for email service
           CP_ENCRYPTION_SECRET: "${CP_IDM_CP_ENCRYPTION_SECRET}"
       tp-cp-integration:

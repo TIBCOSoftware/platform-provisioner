@@ -29,7 +29,6 @@
 # Returns:
 #   0 if thing was deleted, non-zero on error
 # Notes:
-#   This script needs to be run in the dev folder
 #   Recipe: The full path of the recipe file. The script will automatically load this recipe as input
 #   Docker run command: It will mount necessary folder and bring environment variables to the container.
 #                       It will also run the command defined in all pipeline task.
