@@ -37,6 +37,11 @@
 [[ -z "${PIPELINE_SKIP_TEKTON_DASHBOARD}" ]] && export PIPELINE_SKIP_TEKTON_DASHBOARD=${PIPELINE_SKIP_TEKTON_DASHBOARD:-true}
 [[ -z "${TEKTON_PIPELINE_RELEASE}" ]] && export TEKTON_PIPELINE_RELEASE=${TEKTON_PIPELINE_RELEASE:-"v0.59.0"}
 [[ -z "${TEKTON_DASHBOARD_RELEASE}" ]] && export TEKTON_DASHBOARD_RELEASE=${TEKTON_DASHBOARD_RELEASE:-"v0.46.0"}
+[[ -z "${PIPELINE_CHART_VERSION_COMMON}" ]] && export PIPELINE_CHART_VERSION_COMMON=${PIPELINE_CHART_VERSION_COMMON:-"^1.0.0"}
+[[ -z "${PIPELINE_CHART_VERSION_GENERIC_RUNNER}" ]] && export PIPELINE_CHART_VERSION_GENERIC_RUNNER=${PIPELINE_CHART_VERSION_GENERIC_RUNNER:-"^1.0.0"}
+[[ -z "${PIPELINE_CHART_VERSION_HELM_INSTALL}" ]] && export PIPELINE_CHART_VERSION_HELM_INSTALL=${PIPELINE_CHART_VERSION_HELM_INSTALL:-"^1.0.0"}
+[[ -z "${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL}" ]] && export PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL=${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL:-"^1.0.0"}
+[[ -z "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" ]] && export PIPELINE_CHART_VERSION_PROVISIONER_UI=${PIPELINE_CHART_VERSION_PROVISIONER_UI:-"^1.0.0"}
 
 if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "false" ]]; then
   # your ECR read-only token
@@ -50,11 +55,13 @@ if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "false" ]]; then
     exit 1
   fi
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_USERNAME}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_USERNAME=${PIPELINE_GUI_DOCKER_IMAGE_USERNAME:-"AWS"}
-  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL=${PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL:-"${PIPELINE_GUI_DOCKER_IMAGE_REPO}/stratosphere/cic2-provisioner-webui"}
+  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_REPO}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_REPO=${PIPELINE_GUI_DOCKER_IMAGE_REPO:-"ghcr.io"}
+  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_PATH}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_PATH=${PIPELINE_GUI_DOCKER_IMAGE_PATH:-"tibco/cicinfra-cic2-provisioner-webui/cic2-web-server"}
+  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_TAG}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_TAG=${PIPELINE_GUI_DOCKER_IMAGE_TAG:-"latest"}
 fi
 
 # The tekton version to install
-kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/${TEKTON_PIPELINE_RELEASE}/release.yaml
+kubectl apply -f "https://storage.googleapis.com/tekton-releases/pipeline/previous/${TEKTON_PIPELINE_RELEASE}/release.yaml"
 if [[ $? -ne 0 ]]; then
   echo "failed to install tekton pipeline"
   exit 1
@@ -62,7 +69,7 @@ fi
 
 if [[ ${PIPELINE_SKIP_TEKTON_DASHBOARD} != "true" ]]; then
   echo "#### installing tekton dashboard"
-  kubectl apply --filename https://storage.googleapis.com/tekton-releases/dashboard/previous/${TEKTON_DASHBOARD_RELEASE}/release.yaml
+  kubectl apply --filename "https://storage.googleapis.com/tekton-releases/dashboard/previous/${TEKTON_DASHBOARD_RELEASE}/release.yaml"
   if [[ $? -ne 0 ]]; then
     echo "failed to install tekton dashboard"
     exit 1
@@ -76,7 +83,7 @@ function k8s-waitfor-deployment() {
   _deployment_name=$2
   _timeout=$3
   echo "waiting for ${_deployment_name} in namespace: ${_deployment_namespace} to be ready..."
-  kubectl wait --for=condition=available -n ${_deployment_namespace} "deployment/${_deployment_name}" --timeout=${_timeout}
+  kubectl wait --for=condition=available -n "${_deployment_namespace}" "deployment/${_deployment_name}" --timeout="${_timeout}"
   if [ $? -ne 0 ]; then
     echo "Timeout: Deployment '${_deployment_name}' did not become available within ${_timeout}."
     return 1
@@ -97,7 +104,7 @@ export PIPELINE_NAMESPACE=${PIPELINE_NAMESPACE:-"tekton-tasks"}
 
 # install a sample pipeline with docker image that can run locally
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" common-dependency common-dependency \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
+  --version "${PIPELINE_CHART_VERSION_COMMON}" --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --set githubToken="${GITHUB_TOKEN}"
 if [[ $? -ne 0 ]]; then
   echo "failed to install common-dependency"
@@ -105,7 +112,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" generic-runner generic-runner \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
+  --version "${PIPELINE_CHART_VERSION_GENERIC_RUNNER}" --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --set serviceAccount=pipeline-cluster-admin \
   --set pipelineImage="${PIPELINE_DOCKER_IMAGE}"
 if [[ $? -ne 0 ]]; then
@@ -114,7 +121,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" helm-install helm-install \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
+  --version "${PIPELINE_CHART_VERSION_HELM_INSTALL}" --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
   --set serviceAccount=pipeline-cluster-admin \
   --set pipelineImage="${PIPELINE_DOCKER_IMAGE}"
 if [[ $? -ne 0 ]]; then
@@ -130,7 +137,7 @@ fi
 
 # install provisioner config
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" provisioner-config-local provisioner-config-local \
-  --version ^1.0.0 --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}"
+  --version "${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL}" --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}"
 if [[ $? -ne 0 ]]; then
   echo "failed to install provisioner-config-local"
   exit 1
@@ -151,9 +158,9 @@ fi
 
 # install provisioner web ui
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
-  --version ^1.0.0 \
-  --set image.repository="${PIPELINE_GUI_DOCKER_IMAGE_REPO_FULL_URL}" \
-  --set image.tag=latest \
+  --version "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" \
+  --set image.repository="${PIPELINE_GUI_DOCKER_IMAGE_REPO}/${PIPELINE_GUI_DOCKER_IMAGE_PATH}" \
+  --set image.tag="${PIPELINE_GUI_DOCKER_IMAGE_TAG}" \
   --set "imagePullSecrets[0].name=${_image_pull_secret_name}" \
   --set guiConfig.onPremMode=true \
   --set guiConfig.pipelinesCleanUpEnabled=true \

@@ -46,8 +46,20 @@ spec:
           env:
             - name: PIPELINE_NAMESPACE
               value: "{{ .Values.guiConfig.pipelineNamespace }}"
-            - name: PIPELINE_TEMPLATE_LABEL_KEY
-              value: "{{ .Values.guiConfig.pipelineTemplateLabelKey }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY_ACCOUNT
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKeyAccount }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY_ACTION
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKeyAction }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY_CONFIG
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKeyConfig }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY_CONFIG_GROUPS
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKeyConfigGroups }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY_CREATE_BY
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKeyCreateBy }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY_NAME
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKeyName }}"
+            - name: PIPELINE_TEMPLATE_LABEL_KEY_NOTE
+              value: "{{ .Values.guiConfig.pipelineTemplateLabelKeyNote }}"
             - name: PIPELINE_TEMPLATE_LABEL_VALUE
               value: "{{ .Values.guiConfig.pipelineTemplateLabelValue }}"
             - name: PIPELINE_RUN_CANCELLED

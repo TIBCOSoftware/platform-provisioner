@@ -17,15 +17,15 @@ aws:
     defaultValue: 'us-west-2'
 menuConfig:
   - label: "Pipelines"
-    to: "/pipelines"
+    url: "/pipelines"
     icon: 'pi pi-fw pi-list'
   - label: "Status"
-    to: "/status"
+    url: "/status"
     icon: 'pi pi-fw pi-cog' # see the list in https://primevue.org/icons/#list
   - label: "Docs"
     icon: 'pi pi-fw pi-book'
     items:
       - label: "Connect K8S"
-        to: "/connect"
+        url: "/connect"
         icon: 'pi pi-fw pi-link'
 

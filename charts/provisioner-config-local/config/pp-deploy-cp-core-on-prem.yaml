@@ -27,6 +27,17 @@ options:
   reference: "meta.guiEnv.GUI_CP_CHART_REPO"
   description: |
     The helm chart repository to deploy CP. The default value is public repo. To use private repo set: https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
+- name: "GUI_DP_CHART_REPO"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_CHART_REPO"
+  description: |
+    The helm chart repository to deploy DP. The default value is public repo. To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_DP_CHART_REPO_TOKEN`
+- name: "GUI_DP_CHART_REPO_TOKEN"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_CHART_REPO_TOKEN"
+  description: "The helm chart registry password to deploy DP"
 - name: "GUI_CP_ADMIN_EMAIL"
   type: string
   guiType: input
