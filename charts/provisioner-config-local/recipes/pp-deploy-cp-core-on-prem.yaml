@@ -29,7 +29,7 @@ meta:
     GUI_TP_TLS_KEY: ""
     # version
     GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.3.36
-    GUI_CP_PLATFORM_BASE_VERSION: 1.3.335
+    GUI_CP_PLATFORM_BASE_VERSION: 1.3.337
     # storage
     GUI_CP_STORAGE_CLASS: standard
     GUI_CP_STORAGE_CREATE_PV: false
@@ -97,7 +97,7 @@ meta:
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     # CP version
     CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.36} # 1.3 GA release. use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.335} # 1.3 GA release. use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.337} # 1.3 GA release. use ^1.0.0 for latest
     # flow control
     CP_CREATE_NAMESPACE: true
     CP_INSTALL_MAILDEV: true
