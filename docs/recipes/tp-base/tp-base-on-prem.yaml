@@ -23,7 +23,7 @@ meta:
     TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
     TP_INGRESS_NAMESPACE: ingress-system
     TP_DNS_DOMAIN: ${GUI_TP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
-    TP_INGRESS_SERVICE_TYPE: ClusterIP # LoadBalancer used for minikube with tunel, NodePort used for kind, ClusterIP used for kubectl port-forward
+    TP_INGRESS_SERVICE_TYPE: ${GUI_TP_INGRESS_SERVICE_TYPE:-"ClusterIP"} # LoadBalancer used for minikube with tunel, NodePort used for kind, ClusterIP used for kubectl port-forward
     TP_INGRESS_USE_HOSTPORT: false # true for kind
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard"} # hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s
@@ -43,7 +43,7 @@ meta:
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager
-  version: v1.13.2 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.15.3 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -65,7 +65,7 @@ helmCharts:
     createNamespace: true
 - condition: ${TP_INSTALL_METRICS_SERVER}
   name: metrics-server
-  version: "3.12.0"
+  version: "3.12.1"
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/metrics-server/
@@ -91,7 +91,7 @@ helmCharts:
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 4.10.0 # release: https://github.com/kubernetes/ingress-nginx/releases
+  version: 4.11.2 # release: https://github.com/kubernetes/ingress-nginx/releases
   repo:
     helm:
       url: https://kubernetes.github.io/ingress-nginx

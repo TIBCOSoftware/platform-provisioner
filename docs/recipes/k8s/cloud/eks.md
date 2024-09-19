@@ -39,7 +39,7 @@ meta:
 
 ## Deploy TIBCO Control Plane on EKS
 
-Make sure that your kubeconfig can connect to the target EKS cluster. Then we can install CP on minikube with the following command:
+Make sure that your kubeconfig can connect to the target EKS cluster. Then we can install CP on EKS with the following command:
 
 ```bash
 export ACCOUNT=""
