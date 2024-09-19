@@ -17,6 +17,8 @@ meta:
     GITHUB_USER_NAME: ${GUI_GITHUB_USER_NAME:-"cp-test"}
     CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform public repo
     DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # The repo that Data Plane will use
+    DP_CHART_REPO_TOKEN: ${GUI_DP_CHART_REPO_TOKEN:-""}
+    DP_CHART_REPO_USER_NAME: ${GUI_DP_CHART_REPO_USER_NAME:-"cp-test"}
     # env
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
     CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
@@ -35,6 +37,7 @@ meta:
     CP_CONTAINER_REGISTRY: ${GUI_CP_CONTAINER_REGISTRY:-"csgprduswrepoedge.jfrog.io"}
     CP_CONTAINER_REGISTRY_USERNAME: "${GUI_CP_CONTAINER_REGISTRY_USERNAME}"
     CP_CONTAINER_REGISTRY_PASSWORD: "${GUI_CP_CONTAINER_REGISTRY_PASSWORD}"
+    CP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_CP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
     # node
     CP_NODE_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.180.0.0/16"}
     CP_POD_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.180.0.0/16"}
@@ -67,8 +70,8 @@ meta:
     TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     # CP version
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.2.23} # 1.2 GA release. use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${CP_PLATFORM_BASE_VERSION:-1.2.140} # 1.2 GA release. use ^1.0.0 for latest
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.36} # 1.3 GA release. use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.337} # 1.3 GA release. use ^1.0.0 for latest
     # flow control
     CP_CREATE_NAMESPACE: true
     CP_INSTALL_MAILDEV: true
@@ -354,8 +357,8 @@ helmCharts:
             - alias: default
               conf:
                 auth:
-                  password: ${GITHUB_TOKEN}
-                  username: ${GITHUB_USER_NAME}
+                  password: ${DP_CHART_REPO_TOKEN}
+                  username: ${DP_CHART_REPO_USER_NAME}
                 repoUrl: ${DP_CHART_REPO}
               default: true
               type: chart-museum
@@ -402,9 +405,10 @@ helmCharts:
             fluentbit:
               enabled: false
           containerRegistry:
-            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
             url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
             username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           enableLogging: true
           serviceAccount: ${CP_INSTANCE_ID}-sa
@@ -558,6 +562,7 @@ helmCharts:
             PRODUCTION_PATH: "" # TODO PCP-5070
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
         external:
+          helmRepo: ${GUI_CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
           db_name: ${CP_DB_NAME}
           db_password: ${CP_DB_PASSWORD}
@@ -581,7 +586,6 @@ helmCharts:
           enableLogging: false
           environment: ${CP_ENVIRONMENT}
           IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
-          REGION_SECRET: "${CP_IDM_REGION_SECRET}"
           SENDGRID_SERVICE_API_KEY: "${CP_IDM_SENDGRID_SERVICE_API_KEY}" # for email service
           CP_ENCRYPTION_SECRET: "${CP_IDM_CP_ENCRYPTION_SECRET}"
       tp-cp-integration:
