@@ -19,11 +19,12 @@ meta:
     PLATFORM_PROVISIONER_REPO: github.com/TIBCOSoftware/platform-provisioner
     # cluster
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
-    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-1.29}
+    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-1.30}
     TP_CLUSTER_REGION: ${AWS_REGION:-us-west-2}
+    TP_CLUSTER_INSTANCE_TYPE: ${GUI_TP_CLUSTER_INSTANCE_TYPE:-"m5a.xlarge"}
     # domain
     TP_DOMAIN: ${GUI_TP_DOMAIN} # the star domain for the main ingress <cp/dp-env>.${SANDBOX}.dataplanes.pro
-    TP_CLUSTER_VPC_CIDR: "10.180.0.0/16"
+    TP_CLUSTER_VPC_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.180.0.0/16"}
     # ingress
     TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-"nginx"}
     TP_SECONDARY_INGRESS_CLASS: ${GUI_TP_SECONDARY_INGRESS_CLASS}
@@ -42,11 +43,14 @@ meta:
     TP_STORAGE_CLASS_EFS: efs-sc
     TP_INSTALL_RESOURCE_FOLDER: "/workspace/resources"
     TP_INSTALL_EFS_VALUES_FILE: "${TP_INSTALL_RESOURCE_FOLDER}/efs_values.yaml"
+    # TP versions
+    TP_CHART_VERSION_DP_CONFIG_AWS: ${GUI_TP_VERSION_DP_CONFIG_AWS:-"1.3.6"}
+    TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_VERSION_DP_CONFIG_ES:-"1.2.1"}
     # flow control
     TP_INSTALL_K8S: ${GUI_TP_INSTALL_K8S:-true} # change to true to install k8s
     TP_INSTALL_EFS: ${GUI_TP_INSTALL_EFS:-true} # change to true to install efs
     TP_INSTALL_STORAGE: ${GUI_TP_INSTALL_STORAGE:-true} # change to false to skip storage installation
-    TP_SCRIPT_BRANCH: main
+    TP_SCRIPT_BRANCH: ${GUI_TP_SCRIPT_BRANCH:-main}
     TP_SCRIPT_NAME_SH_EKS: create-eks.sh # the script that DP will run
     TP_SCRIPT_NAME_SH_EFS: create-efs.sh # the script that DP will run
     TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-true}
@@ -55,6 +59,9 @@ meta:
     TP_ENABLE_SECONDARY_KONG: $([[ "$TP_SECONDARY_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
     TP_DEPLOY_SECONDARY_INGRESS: $([[ "$TP_ENABLE_SECONDARY_KONG" == "true" ]] && echo "true" || echo "false")
     TP_HTTP_INGRESS_BACKEND_SERVICE: ${TP_INGRESS_RELEASE_NAME}-$( ( [[  "$TP_INGRESS_CLASS" == "nginx" ]] && echo "ingress-nginx-controller" ) || ( [[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "kong-proxy" ) )
+    TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
+    TP_INSTALL_EXTERNAL_DNS: ${GUI_TP_INSTALL_EXTERNAL_DNS:-true}
+    TP_INSTALL_METRICS_SERVER: ${GUI_TP_INSTALL_METRICS_SERVER:-true}
     TP_INSTALL_O11Y: ${GUI_TP_INSTALL_O11Y:-false}
     TP_SKIP_GENERATE_CLUSTER_ISSUER: false
   tools:
@@ -84,7 +91,8 @@ preTasks:
     fileName: ${TP_SCRIPT_NAME_SH_EFS}
 helmCharts:
 - name: cert-manager
-  version: v1.15.0
+  condition: ${TP_INSTALL_CERT_MANAGER}
+  version: v1.15.3
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -127,7 +135,8 @@ helmCharts:
                     region: ${TP_CLUSTER_REGION}
         EOF
 - name: external-dns
-  version: 1.14.2
+  condition: ${TP_INSTALL_EXTERNAL_DNS}
+  version: 1.15.0
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/external-dns/
@@ -150,7 +159,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: aws-load-balancer-controller
-  version: 1.8.1
+  version: 1.8.3
   repo:
     helm:
       url: https://aws.github.io/eks-charts
@@ -171,6 +180,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: metrics-server
+  condition: ${TP_INSTALL_METRICS_SERVER}
   version: "3.12.1"
   repo:
     helm:
@@ -192,7 +202,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-aws
-  version: "1.2.11"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -269,7 +279,7 @@ helmCharts:
             - '*.${TP_DOMAIN}'
         EOF
 - name: dp-config-aws
-  version: "1.2.11"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   condition: ${TP_DEPLOY_SECONDARY_INGRESS}
   repo:
     helm:
@@ -342,7 +352,7 @@ helmCharts:
             - '*.${TP_SECONDARY_DOMAIN}'
         EOF
 - name: dp-config-aws
-  version: "1.2.11"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   condition: ${TP_INSTALL_STORAGE}
   repo:
     helm:
@@ -390,13 +400,13 @@ helmCharts:
         username: postgres
         password: postgres
         database: "postgres"
-      persistence:
+      global:
         storageClass: ${TP_STORAGE_CLASS}
   flags:
     createNamespace: true
     timeout: 1h
 - name: eck-operator
-  version: 2.10.0
+  version: 2.14.0
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
@@ -411,7 +421,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-es
-  version: "1.2.1"
+  version: "${TP_CHART_VERSION_DP_CONFIG_ES}"
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
@@ -448,7 +458,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: kube-prometheus-stack
-  version: "54.2.1"
+  version: "62.7.0"
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:

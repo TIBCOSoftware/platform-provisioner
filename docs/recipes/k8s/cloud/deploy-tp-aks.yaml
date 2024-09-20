@@ -19,7 +19,7 @@ meta:
     PLATFORM_PROVISIONER_REPO: github.com/TIBCOSoftware/platform-provisioner
     # cluster
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
-    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-1.29}
+    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-1.30}
     TP_AZURE_REGION: ${GUI_TP_AZURE_REGION:-"westus2"} # the default region for the azure account
     # Azure env
     ACCOUNT: ${ACCOUNT:-"azure-"} # Azure account prefix to trigger authenticating with Azure
@@ -50,6 +50,10 @@ meta:
     TP_DISK_STORAGE_CLASS: "azure-disk-sc" # name of azure disk storage class
     TP_FILE_ENABLED: "true" # to enable azure files storage class
     TP_FILE_STORAGE_CLASS: "azure-files-sc" # name of azure files storage class
+    TP_STORAGE_CLASS: "${TP_DISK_STORAGE_CLASS}" # name of azure disk storage class
+    # TP versions
+    TP_CHART_VERSION_DP_CONFIG_AKS: ${GUI_TP_VERSION_DP_CONFIG_AWS:-"1.3.1"}
+    TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_VERSION_DP_CONFIG_ES:-"1.2.1"}
     # o11y
     TP_ES_RELEASE_NAME: "dp-config-es" # name of dp-config-es release name
     # flow control
@@ -58,7 +62,9 @@ meta:
     TP_INSTALL_CHART_VALUES_FILE: "/workspace/resources/global-values.yaml"
     TP_INSTALL_STORAGE: ${GUI_TP_INSTALL_STORAGE:-true}
     TP_INSTALL_STORAGE_EMS: ${GUI_TP_INSTALL_STORAGE_EMS:-false} # set to true to install storage for TIBCO Enterprise Message Service™ (EMS) recommended production
-    TP_SCRIPT_BRANCH: main
+    TP_SCRIPT_BRANCH: ${GUI_TP_SCRIPT_BRANCH:-main}
+    TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
+    TP_INSTALL_EXTERNAL_DNS: ${GUI_TP_INSTALL_EXTERNAL_DNS:-true}
     TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-true}
     TP_INSTALL_O11Y: ${GUI_TP_INSTALL_O11Y:-false}
     # Do not change, variables to configure nginx/kong related resources based on ingressclass passed
@@ -112,7 +118,8 @@ preTasks:
     fileName: post-aks-cluster-script.sh
 helmCharts:
 - name: cert-manager
-  version: v1.13.2
+  condition: ${TP_INSTALL_CERT_MANAGER}
+  version: v1.15.3
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -135,7 +142,8 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: external-dns
-  version: 1.13.1
+  condition: ${TP_INSTALL_EXTERNAL_DNS}
+  version: 1.15.0
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/external-dns/
@@ -170,7 +178,7 @@ helmCharts:
     createNamespace: true
 - name: dp-config-aks # this is used to deploy cluster issuer
   condition: ${TP_GENERATE_CLUSTER_ISSUER}
-  version: "1.2.4"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AKS}"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -214,7 +222,7 @@ helmCharts:
         cat "${TP_INSTALL_CHART_VALUES_FILE}"
 - name: dp-config-aks
   condition: ${TP_ENABLE_NGINX}
-  version: "1.2.4"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AKS}"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -283,7 +291,7 @@ helmCharts:
         EOF
 - name: dp-config-aks
   condition: ${TP_DEPLOY_SECONDARY_INGRESS}
-  version: "1.2.4"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AKS}"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -354,7 +362,7 @@ helmCharts:
         EOF
 - name: dp-config-aks
   condition: ${TP_INSTALL_STORAGE}
-  version: "1.2.4"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AKS}"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -395,7 +403,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-aks
-  version: "1.2.4"
+  version: "${TP_CHART_VERSION_DP_CONFIG_AKS}"
   condition: ${TP_INSTALL_STORAGE_EMS}
   repo:
     helm:
@@ -460,13 +468,14 @@ helmCharts:
         username: postgres
         password: postgres
         database: "postgres"
-      persistence:
+      global:
         storageClass: ${TP_STORAGE_CLASS}
   flags:
     createNamespace: true
     timeout: 1h
 - name: eck-operator
-  version: 2.10.0
+  version: 2.14.0
+  condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
       url: https://helm.elastic.co
@@ -480,8 +489,8 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-es
+  version: "${TP_CHART_VERSION_DP_CONFIG_ES}"
   condition: ${TP_INSTALL_O11Y}
-  version: "1.2.1"
   repo:
     helm:
       url: ${TP_CHART_REPO}
@@ -517,7 +526,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: kube-prometheus-stack
-  version: "54.2.1"
+  version: "62.7.0"
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
