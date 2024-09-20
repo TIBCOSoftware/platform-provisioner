@@ -19,14 +19,14 @@ meta:
     PLATFORM_PROVISIONER_REPO: github.com/TIBCOSoftware/platform-provisioner
     # cluster
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-tp-cluster}
-    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-"1.29.7-gke.1008000"}
+    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-"1.30.3-gke.1969001"}
     TP_CLUSTER_REGION: ${GUI_TP_CLUSTER_REGION:-"us-west1"}
     TP_AUTHORIZED_IP: ${GUI_TP_AUTHORIZED_IP} # your ip x.x.x.x/32
     TP_CLUSTER_VPC_CIDR: ${GUI_TP_CLUSTER_VPC_CIDR:-"10.0.0.0/20"}
     TP_CLUSTER_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.1.0.0/16"}
     TP_CLUSTER_SERVICE_CIDR: ${GUI_TP_CLUSTER_SERVICE_CIDR:-"10.2.0.0/20"}
     # GCP setting
-    GCP_PROJECT_ID: ${GUI_GCP_PROJECT_ID} # GCP project is required
+    # GCP_PROJECT_ID: ${GUI_GCP_PROJECT_ID} # GCP project is required
     GCP_REGION: ${TP_CLUSTER_REGION:-us-west1} # GCP region is required to connect to GKE
     GCP_SA_CERT_MANAGER_NAME: tp-cert-manager-sa # GCP service account name for cert-manager
     GCP_SA_EXTERNAL_DNS_NAME: tp-external-dns-sa # GCP service account name for external-dns
@@ -44,17 +44,18 @@ meta:
     TP_ES_RELEASE_NAME: dp-config-es
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard-rwx-tp"}
+    # TP versions
+    TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_VERSION_DP_CONFIG_ES:-"1.2.1"}
     # flow control
     TP_INSTALL_K8S: ${GUI_TP_INSTALL_K8S:-true} # change to true to install k8s
     TP_SCRIPT_BRANCH: main
     TP_SCRIPT_NAME_SH_GCP: create-gke.sh
-    TP_SKIP_GENERATE_CLUSTER_ISSUER: false
-    TP_INSTALL_CERT_MANAGER: true
-    TP_INSTALL_EXTERNAL_DNS: true
-    TP_INSTALL_METRICS_SERVER: true
-    TP_INSTALL_POSTGRES: true
+    TP_SKIP_GENERATE_CLUSTER_ISSUER: ${GUI_TP_SKIP_GENERATE_CLUSTER_ISSUER:-false}
+    TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
+    TP_INSTALL_EXTERNAL_DNS:  ${GUI_TP_INSTALL_EXTERNAL_DNS:-true}
+    TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-true}
     TP_INSTALL_O11Y: ${GUI_TP_INSTALL_O11Y:-false}
-    TP_GENERATE_STORAGE_CLASS_GENERIC: true # storage class for GCP Filestore
+    TP_GENERATE_STORAGE_CLASS_GENERIC: ${GUI_TP_GENERATE_STORAGE_CLASS_GENERIC:-true} # storage class for GCP Filestore
   tools:
     yq: "4.40"
 preTasks:
@@ -75,6 +76,10 @@ preTasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      if [ -z ${GCP_PROJECT_ID} ]; then
+        echo "GCP_PROJECT_ID is not set"
+        exit 1
+      fi
       kubectl apply -f - <<EOF
       apiVersion: storage.k8s.io/v1
       kind: StorageClass
@@ -89,9 +94,9 @@ preTasks:
       allowVolumeExpansion: true
       EOF
 helmCharts:
-- condition: ${TP_INSTALL_CERT_MANAGER}
-  name: cert-manager
-  version: v1.15.0
+- name: cert-manager
+  condition: ${TP_INSTALL_CERT_MANAGER}
+  version: v1.15.3
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -128,6 +133,10 @@ helmCharts:
       base64Encoded: false
       skip: ${TP_SKIP_GENERATE_CLUSTER_ISSUER}
       content: |
+        if [ -z ${GCP_PROJECT_ID} ]; then
+          echo "GCP_PROJECT_ID is not set"
+          exit 1
+        fi
         kubectl apply -f - <<EOF
         apiVersion: cert-manager.io/v1
         kind: ClusterIssuer
@@ -149,9 +158,9 @@ helmCharts:
                     # The ID of the GCP project
                     project: ${GCP_PROJECT_ID}
         EOF
-- condition: ${TP_INSTALL_EXTERNAL_DNS}
-  name: external-dns
-  version: 1.14.2
+- name: external-dns
+  condition: ${TP_INSTALL_EXTERNAL_DNS}
+  version: 1.15.0
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/external-dns/
@@ -258,13 +267,13 @@ helmCharts:
         username: postgres
         password: postgres
         database: "postgres"
-      persistence:
+      global:
         storageClass: ${TP_STORAGE_CLASS}
   flags:
     createNamespace: true
     timeout: 1h
 - name: eck-operator
-  version: 2.10.0
+  version: 2.14.0
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
@@ -279,7 +288,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: dp-config-es
-  version: "1.2.1"
+  version: "${TP_CHART_VERSION_DP_CONFIG_ES}"
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
@@ -316,7 +325,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: kube-prometheus-stack
-  version: "54.2.1"
+  version: "62.7.0"
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:

@@ -227,7 +227,7 @@ helmCharts:
         username: ${TP_DB_USER_NAME}
         password: ${TP_DB_PASSWORD}
         database: "${TP_DB_NAME}"
-      persistence:
+      global:
         storageClass: ${TP_STORAGE_CLASS}
   flags:
     createNamespace: true

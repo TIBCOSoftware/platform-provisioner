@@ -45,7 +45,7 @@ recipe: |
             username: postgres
             password: postgres
             database: "postgres"
-          persistence:
+          global:
             storageClass: ${TP_CLUSTER_STORAGE_CLASS_NAME}
       flags:
         createNamespace: true
