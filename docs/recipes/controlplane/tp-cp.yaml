@@ -562,7 +562,7 @@ helmCharts:
             PRODUCTION_PATH: "" # TODO PCP-5070
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
         external:
-          helmRepo: ${GUI_CP_CHART_REPO}
+          helmRepo: ${CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
           db_name: ${CP_DB_NAME}
           db_password: ${CP_DB_PASSWORD}
