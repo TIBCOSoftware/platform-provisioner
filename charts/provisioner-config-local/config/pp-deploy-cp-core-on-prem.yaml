@@ -91,6 +91,11 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION"
   description: "The version of CP platform base. TP 1.3 GA release version is: 1.3.338. Use ^1.0.0 for latest"
+- name: "GUI_CP_INGRESS_CLASSNAME"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_INGRESS_CLASSNAME"
+  description: "The ingress class name for CP. Default is nginx, you can use traefik too"
 - name: "GUI_CP_STORAGE_CLASS"
   type: string
   guiType: input
