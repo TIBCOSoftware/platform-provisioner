@@ -34,6 +34,8 @@ meta:
     GUI_CP_STORAGE_CLASS: standard
     GUI_CP_STORAGE_CREATE_PV: false
     GUI_CP_STORAGE_PV_NAME: "" # control-plane-pv the name of PV for kind
+    # ingress
+    GUI_CP_INGRESS_CLASSNAME: "nginx"
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: false
@@ -588,7 +590,7 @@ helmCharts:
             PRODUCTION_PATH: "" # TODO PCP-5070
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
         external:
-          helmRepo: ${GUI_CP_CHART_REPO}
+          helmRepo: ${CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
           db_name: ${CP_DB_NAME}
           db_password: ${CP_DB_PASSWORD}
