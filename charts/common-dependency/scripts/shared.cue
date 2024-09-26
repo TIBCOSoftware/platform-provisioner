@@ -64,20 +64,20 @@ package recipe
 	}
 	// this is used for setting up global environment variables inside the pipeline container
 	globalEnvVariable?: {
-		REPLACE_RECIPE: "true" | "false" | true | false | *true
+		// REPLACE_RECIPE: "true" | "false" | true | false | *true
 		// The variables that starts with PIPELINE_ will be used as pipeline control environment variables
 		// if true, will mock run pipeline. (only run meta part)
-		PIPELINE_MOCK: "true" | "false" | true | false | *false
+		// PIPELINE_MOCK: "true" | "false" | true | false | *false
 		// if true, will print pipeline debug log
-		PIPELINE_LOG_DEBUG: "true" | "false" | true | false | *false
+		// PIPELINE_LOG_DEBUG: "true" | "false" | true | false | *false
 		// if true, will validate input against cue schema
-		PIPELINE_VALIDATE_INPUT: "true" | "false" | true | false | *false
+		// PIPELINE_VALIDATE_INPUT: "true" | "false" | *true | false | false
 		// set to false to skip check docker status
-		PIPELINE_CHECK_DOCKER_STATUS: "true" | "false" | true | false | *true
+		// PIPELINE_CHECK_DOCKER_STATUS: "true" | "false" | true | *false | true
 		// set to false to skip initial assume to target account
-		PIPELINE_INITIAL_ASSUME_ROLE: "true" | "false" | true | false | *true
+		// PIPELINE_INITIAL_ASSUME_ROLE: "true" | "false" | true | false | *true
 		// hen set to false to skip function init which is used to load TIBCO specific functions and envs for pipeline
-		PIPELINE_FUNCTION_INIT: "true" | "false" | true | false | *true
+		// PIPELINE_FUNCTION_INIT: "true" | "false" | true | false | *true
 		// the role to assume to. We will use current AWS role to assume to this role to perform the task.
 		// current role --> "arn:aws:iam::${_account}:role/${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE}"
 		PIPELINE_AWS_MANAGED_ACCOUNT_ROLE?: string

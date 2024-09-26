@@ -30,3 +30,5 @@ finallyTimout: 5m
 serviceAccount: tekton-task
 # read-only GitHub token which is used to share between pipelines
 githubToken: ""
+# read-only jfrog dev token which is used to share between pipelines
+jfrogDevToken: ""
