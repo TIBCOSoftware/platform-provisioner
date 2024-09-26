@@ -69,6 +69,7 @@ meta:
     TP_INSTALL_O11Y: ${GUI_TP_INSTALL_O11Y:-false}
     # Do not change, variables to configure nginx/kong related resources based on ingressclass passed
     TP_ENABLE_NGINX: $([[ "$TP_INGRESS_CLASS" == "nginx" ]] && echo "true" || echo "false")
+    TP_ENABLE_TRAEFIK: $([[ "$TP_INGRESS_CLASS" == "traefik" ]] && echo "true" || echo "false")
     TP_ENABLE_SECONDARY_KONG: $([[ "$TP_SECONDARY_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
     TP_DEPLOY_SECONDARY_INGRESS: $([[ "$TP_ENABLE_SECONDARY_KONG" == "true" ]] && echo "true" || echo "false")
     TP_SKIP_GENERATE_MAIN_INGRESS_CERTIFICATE: false
@@ -221,7 +222,6 @@ helmCharts:
         echo "injected values:"
         cat "${TP_INSTALL_CHART_VALUES_FILE}"
 - name: dp-config-aks
-  condition: ${TP_ENABLE_NGINX}
   version: "${TP_CHART_VERSION_DP_CONFIG_AKS}"
   repo:
     helm:
@@ -247,6 +247,32 @@ helmCharts:
             use-forwarded-headers: 'true'          # PDP-945
           extraArgs:
             default-ssl-certificate: ${TP_INGRESS_NAMESPACE}/tp-certificate-main-ingress
+      traefik:
+        enabled: ${TP_ENABLE_TRAEFIK}
+        service:
+          type: LoadBalancer # use NLB for Traefik, set to ClusterIP when using ALB
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+            service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+        ingressRoute: # for dashboard
+          dashboard:
+            enabled: true
+            matchRule: Host(`traefik-alb-apps.${TP_DOMAIN}`) && PathPrefix(`/dashboard`) || Host(`traefik-alb-apps.${TP_DOMAIN}`) && PathPrefix(`/api`)
+            entryPoints:
+              - traefik
+              - web
+              - websecure
+        providers:  # for external service
+          kubernetesIngress:
+            allowExternalNameServices: true
+        additionalArguments:
+          - '--entryPoints.websecure.forwardedHeaders.insecure'
+          - '--serversTransport.insecureSkipVerify=true'
+          - '--providers.kubernetesingress.ingressendpoint.publishedservice=${TP_INGRESS_NAMESPACE}/${TP_INGRESS_RELEASE_NAME}-traefik'
+        tlsStore:
+          default:
+            defaultCertificate:
+              secretName: tp-certificate-main-ingress
       kong:
         enabled: false
   cluster:
