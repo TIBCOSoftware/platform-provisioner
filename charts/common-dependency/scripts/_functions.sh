@@ -1116,7 +1116,12 @@ function load-customized-env() {
 # this needs to be as same as shard.cue defined
 function init-global-variables() {
   export REPLACE_RECIPE=${REPLACE_RECIPE:-"true"}
+  export PIPELINE_MOCK=${PIPELINE_MOCK:-"false"}
   export PIPELINE_LOG_DEBUG=${PIPELINE_LOG_DEBUG:-"false"}
+  export PIPELINE_VALIDATE_INPUT=${PIPELINE_VALIDATE_INPUT:-"true"}
+  export PIPELINE_CHECK_DOCKER_STATUS=${PIPELINE_CHECK_DOCKER_STATUS:-"false"}
+  export PIPELINE_INITIAL_ASSUME_ROLE=${PIPELINE_INITIAL_ASSUME_ROLE:-"true"}
+  export PIPELINE_FUNCTION_INIT=${PIPELINE_FUNCTION_INIT:-"true"}
 }
 
 #######################################

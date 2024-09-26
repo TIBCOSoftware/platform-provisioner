@@ -23,7 +23,7 @@ Now we should have a minikube cluster ready to install CP.
 
 ## Prepare TIBCO Platform for minikube
 
-After setting up [Platform Provisioner Prerequisite](https://github.com/tibco/platform-provisioner?tab=readme-ov-file#install-tekton-with-tekton-dashboard); 
+After setting up [Platform Provisioner Prerequisite](https://github.com/TIBCOSoftware/platform-provisioner?tab=readme-ov-file#install-tekton-with-tekton-dashboard); 
 We have Platform Provisioner installed in minikube.
 
 Now we can use the recipe `tp-base-on-prem-https.yaml` to install third party tools for CP on minikube. Before we run the recipe; we need to set the following environment variables in the recipe:
