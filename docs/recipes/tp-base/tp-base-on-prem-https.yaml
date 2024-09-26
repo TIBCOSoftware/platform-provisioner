@@ -104,10 +104,11 @@ helmCharts:
       # release: https://github.com/traefik/traefik-helm-chart/releases
       # chart values: https://github.com/traefik/traefik-helm-chart/blob/master/traefik/values.yaml
       hub: # for hub
-        enabled: true
-      service: # for external-dns
-        annotations:
-          external-dns.alpha.kubernetes.io/hostname: dashboard.${TP_DNS_DOMAIN}
+        enabled: false
+      service:  # for external-dns
+        type: ${TP_INGRESS_SERVICE_TYPE}
+      ingressClass:
+        name: traefik
       ingressRoute: # for dashboard http://dashboard.localhost/dashboard/#/
         dashboard:
           matchRule: Host(`dashboard.${TP_DNS_DOMAIN}`) && PathPrefix(`/dashboard`) || Host(`dashboard.${TP_DNS_DOMAIN}`) && PathPrefix(`/api`)
@@ -217,7 +218,7 @@ helmCharts:
         username: ${TP_DB_USER_NAME}
         password: ${TP_DB_PASSWORD}
         database: "${TP_DB_NAME}"
-      persistence:
+      global:
         storageClass: ${TP_STORAGE_CLASS}
   flags:
     createNamespace: true
