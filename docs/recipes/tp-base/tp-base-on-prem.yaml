@@ -21,7 +21,7 @@ meta:
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
     # domain
     TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
-    TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"true"}
+    TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"false"}
     TP_INGRESS_NAMESPACE: ingress-system
     TP_DNS_DOMAIN: ${GUI_TP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     TP_INGRESS_SERVICE_TYPE: ${GUI_TP_INGRESS_SERVICE_TYPE:-"ClusterIP"} # LoadBalancer used for minikube with tunel, NodePort used for kind, ClusterIP used for kubectl port-forward
