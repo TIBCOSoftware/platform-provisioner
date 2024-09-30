@@ -1,0 +1,60 @@
+name: Build and push docker image to GHCR
+
+on:
+  workflow_dispatch:
+    inputs:
+      tagName:
+        description: 'The pushed image tag name'
+        required: true
+        default: 'latest'
+      branchName:
+        description: 'The git branch name to checkout'
+        required: false
+        default: 'main'
+      dockerfileName:
+        description: 'The Dockerfile name used for build. Dockerfile for production build.'
+        required: true
+        default: 'Dockerfile'
+        type: choice
+        options:
+          - Dockerfile
+
+# will push to ghcr.io/TIBCOSoftware/platform-provisioner/platform-provisioner:${{ github.event.inputs.tagName }}
+env:
+  REGISTRY: ghcr.io
+  REPO_NAME: ${{ github.repository }}
+  IMAGE_NAME: platform-provisioner
+
+jobs:
+  release-docker:
+    name: build and push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branchName }}
+      - name: Login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          file: ./docker/${{ github.event.inputs.dockerfileName }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.tagName }}
+          labels: |
+            org.opencontainers.image.created=${{ env.BUILD_TIME }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ env.COMMIT_SHA }}
+            org.opencontainers.image.revision=${{ env.COMMIT_SHA }}
+            org.opencontainers.image.ref.name=${{ env.GIT_BRANCH }}
+            org.opencontainers.image.title=${{ env.REPO_NAME }}
