@@ -32,7 +32,7 @@
 #   ./platform-provisioner-install.sh
 #######################################
 
-[[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"syantibco/platform-provisioner:latest"}
+[[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest"}
 [[ -z "${PIPELINE_SKIP_PROVISIONER_UI}" ]] && export PIPELINE_SKIP_PROVISIONER_UI=${PIPELINE_SKIP_PROVISIONER_UI:-true}
 [[ -z "${PIPELINE_SKIP_TEKTON_DASHBOARD}" ]] && export PIPELINE_SKIP_TEKTON_DASHBOARD=${PIPELINE_SKIP_TEKTON_DASHBOARD:-true}
 [[ -z "${TEKTON_PIPELINE_RELEASE}" ]] && export TEKTON_PIPELINE_RELEASE=${TEKTON_PIPELINE_RELEASE:-"v0.59.0"}
