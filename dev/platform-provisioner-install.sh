@@ -76,7 +76,10 @@ if [[ ${PIPELINE_SKIP_TEKTON_DASHBOARD} != "true" ]]; then
   fi
 fi
 
-kubectl create namespace tekton-tasks
+export PLATFORM_PROVISIONER_PIPELINE_REPO=${PLATFORM_PROVISIONER_PIPELINE_REPO:-"https://tibcosoftware.github.io/platform-provisioner"}
+export PIPELINE_NAMESPACE=${PIPELINE_NAMESPACE:-"tekton-tasks"}
+
+kubectl create namespace "${PIPELINE_NAMESPACE}"
 
 function k8s-waitfor-deployment() {
   _deployment_namespace=$1
@@ -96,11 +99,9 @@ k8s-waitfor-deployment "tekton-pipelines" "tekton-pipelines-controller" "120s"
 k8s-waitfor-deployment "tekton-pipelines" "tekton-pipelines-webhook" "120s"
 
 # create service account for this pipeline
-kubectl create -n tekton-tasks serviceaccount pipeline-cluster-admin
-kubectl create clusterrolebinding pipeline-cluster-admin --clusterrole=cluster-admin --serviceaccount=tekton-tasks:pipeline-cluster-admin
-
-export PLATFORM_PROVISIONER_PIPELINE_REPO=${PLATFORM_PROVISIONER_PIPELINE_REPO:-"https://tibcosoftware.github.io/platform-provisioner"}
-export PIPELINE_NAMESPACE=${PIPELINE_NAMESPACE:-"tekton-tasks"}
+_service_account_admin_name="pipeline-cluster-admin"
+kubectl create -n "${PIPELINE_NAMESPACE}" serviceaccount "${_service_account_admin_name}"
+kubectl create clusterrolebinding "${_service_account_admin_name}" --clusterrole=cluster-admin --serviceaccount="${PIPELINE_NAMESPACE}":"${_service_account_admin_name}"
 
 # install a sample pipeline with docker image that can run locally
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" common-dependency common-dependency \
@@ -154,6 +155,19 @@ kubectl create secret docker-registry -n "${PIPELINE_NAMESPACE}" ${_image_pull_s
 if [[ $? -ne 0 ]]; then
   echo "failed to create image pull secret"
   exit 1
+fi
+
+# check if the service account already has the imagePullSecrets
+existing_secret=$(kubectl get serviceaccount pipeline-cluster-admin -n "${PIPELINE_NAMESPACE}" -o jsonpath='{.imagePullSecrets[?(@.name=="'"${_image_pull_secret_name}"'")].name}')
+if [ -z "$existing_secret" ]; then
+  kubectl patch serviceaccount pipeline-cluster-admin -n "${PIPELINE_NAMESPACE}" -p "{\"imagePullSecrets\": [{\"name\": \"${_image_pull_secret_name}\"}]}"
+  if [[ $? -ne 0 ]]; then
+    echo "failed to patch image pull secret on service account"
+    exit 1
+  fi
+  echo "ServiceAccount patched with imagePullSecret: ${_image_pull_secret_name}"
+else
+  echo "ServiceAccount already contains imagePullSecret: ${_image_pull_secret_name}"
 fi
 
 # install provisioner web ui
