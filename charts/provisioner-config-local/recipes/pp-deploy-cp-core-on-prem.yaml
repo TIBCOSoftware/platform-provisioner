@@ -18,7 +18,6 @@ meta:
     GUI_DP_CHART_REPO_TOKEN: ""
     # env
     GUI_CP_INSTANCE_ID: cp1
-    GUI_CP_ENV: vagrant
     # container registry
     GUI_CP_CONTAINER_REGISTRY: csgprduswrepoedge.jfrog.io
     GUI_CP_CONTAINER_REGISTRY_USERNAME: ""
@@ -50,7 +49,6 @@ meta:
     # env
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
     CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
-    CP_ENVIRONMENT: ${GUI_CP_ENVIRONMENT:-"vagrant"} # options: dev, vagrant, qa, staging, prod. default is dev. qa, staging, prod will use DB with SSL
     CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"cp-cluster"}
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
     # domain
@@ -82,11 +80,17 @@ meta:
     CP_DB_NAME: postgres
     CP_DB_SECRET_NAME: provider-cp-database-credentials
     CP_DB_SSL_MODE: ${GUI_CP_DB_SSL_MODE:-"disable"} # verify-full, disable
+    CP_DB_SSL_ROOT_CERT: ${GUI_CP_DB_SSL_ROOT_CERT:-""}
     CP_DB_DELETE_ON_UNINSTALL: ${GUI_CP_DB_DELETE_ON_UNINSTALL:-"false"}
-    # SSO
+    # CP mail server
+    CP_MAIL_SERVER_SES_ARN: ${GUI_CP_MAIL_SERVER_SES_ARN:-""}
+    CP_MAIL_SERVER_SENDGRID_API_KEY: ${GUI_CP_MAIL_SERVER_SENDGRID_API_KEY:-""}
+    CP_MAIL_SERVER_ADDRESS: ${GUI_CP_MAIL_SERVER_ADDRESS:-"development-mailserver.${CP_EXT_NAMESPACE}.svc.cluster.local"}
+    CP_MAIL_SERVER_PORT_NUMBER: ${GUI_CP_MAIL_SERVER_PORT_NUMBER:-"1025"}
+    CP_MAIL_SERVER_USERNAME: ${GUI_CP_MAIL_SERVER_USERNAME:-""}
+    CP_MAIL_SERVER_PASSWORD: ${GUI_CP_MAIL_SERVER_PASSWORD:-""}
+    # CP SSO
     CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: ${GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD:-"easy-to-remember"}
-    CP_IDM_SENDGRID_SERVICE_API_KEY: "${GUI_CP_IDM_SENDGRID_SERVICE_API_KEY}"
-    CP_IDM_CP_ENCRYPTION_SECRET: ${GUI_CP_IDM_CP_ENCRYPTION_SECRET:-"dummy-encryption-secret"}
     # CP ingress
     CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
     CP_SKIP_BOOTSTRAP_INGRESS: false # set to false will create ingress for router and hybrid-proxy
@@ -431,7 +435,7 @@ helmCharts:
         tibco:
           logging:
             fluentbit:
-              enabled: false
+              enabled: false # set to true to enable fluentbit for CP
           containerRegistry:
             url: ${CP_CONTAINER_REGISTRY}
             password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
@@ -586,8 +590,6 @@ helmCharts:
     content: |
       global:
         cp:
-          data:
-            PRODUCTION_PATH: "" # TODO PCP-5070
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
         external:
           helmRepo: ${CP_CHART_REPO}
@@ -597,28 +599,37 @@ helmCharts:
           db_port: "${CP_DB_PORT}"
           db_secret_name: ${CP_DB_SECRET_NAME}
           db_ssl_mode: ${CP_DB_SSL_MODE}
-          db_ssl_root_cert: ""
+          db_ssl_root_cert: "${CP_DB_SSL_ROOT_CERT}"
           db_username: ${CP_DB_USER_NAME}
           emailServer:
             ses:
-              arn: ""
+              arn: "${CP_MAIL_SERVER_SES_ARN}"
+            sendgrid:
+              apiKey: "${CP_MAIL_SERVER_SENDGRID_API_KEY}"
             smtp:
-              password: ""
-              port: "1025"
-              server: development-mailserver.${CP_EXT_NAMESPACE}.svc.cluster.local
-              username: ""
+              server: ${CP_MAIL_SERVER_ADDRESS}
+              port: "${CP_MAIL_SERVER_PORT_NUMBER}"
+              username: "${CP_MAIL_SERVER_USERNAME}"
+              password: "${CP_MAIL_SERVER_PASSWORD}"
           admin:
             email: ${CP_ADMIN_EMAIL}
             firstname: "admin"
             lastname: "admin"
           enableLogging: false
-          environment: ${CP_ENVIRONMENT}
           IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
-          SENDGRID_SERVICE_API_KEY: "${CP_IDM_SENDGRID_SERVICE_API_KEY}" # for email service
-          CP_ENCRYPTION_SECRET: "${CP_IDM_CP_ENCRYPTION_SECRET}"
+      tp-cp-tibcohub-contrib:
+        enabled: true
+      tp-cp-msg-contrib:
+        enabled: true
+      tp-cp-hawk:
+        enabled: true
+      tp-cp-recipes:
+        enabled: true
       tp-cp-integration:
+        enabled: true
         tp-cp-integration-common:
           fileserver:
+            enabled: true
             resources:
               requests:
                 cpu: 80m
@@ -627,6 +638,7 @@ helmCharts:
                 cpu: 200m
                 memory: 200Mi
         tp-cp-integration-bwce:
+          enabled: true
           bw-webserver:
             bwwebserver:
               resources:
@@ -636,15 +648,8 @@ helmCharts:
                 limits:
                   cpu: 200m
                   memory: 200Mi
-            fluentbit:
-              resources:
-                requests:
-                  cpu: "100m"
-                  memory: "100Mi"
-                limits:
-                  cpu: "150m"
-                  memory: "150Mi"
         tp-cp-integration-bw5:
+          enabled: true
           bw5-webserver:
             bw5webserver:
               resources:
@@ -654,15 +659,8 @@ helmCharts:
                 limits:
                   cpu: 200m
                   memory: 200Mi
-            fluentbit:
-              resources:
-                requests:
-                  cpu: "100m"
-                  memory: "100Mi"
-                limits:
-                  cpu: "150m"
-                  memory: "150Mi"
         tp-cp-integration-flogo:
+          enabled: true
           flogo-webserver:
             flogowebserver:
               resources:
@@ -672,30 +670,19 @@ helmCharts:
                 limits:
                   cpu: 200m
                   memory: 200Mi
-            fluentbit:
+        tp-cp-bwce-utilities:
+          enabled: true
+          bwce-utilities:
+            studio:
               resources:
                 requests:
-                  cpu: "100m"
-                  memory: "100Mi"
+                  cpu: 50m
+                  memory: 100Mi
                 limits:
-                  cpu: "150m"
-                  memory: "150Mi"
-        tp-cp-bwce-utilities:
-            resources:
-              requests:
-                cpu: 80m
-                memory: 100Mi
-              limits:
-                cpu: 200m
-                memory: 200Mi
+                  cpu: "1"
+                  memory: 1024Mi
         tp-cp-flogo-utilities:
-            resources:
-              requests:
-                cpu: 80m
-                memory: 100Mi
-              limits:
-                cpu: 200m
-                memory: 200Mi
+          enabled: true
       tp-cp-core:
         admin-webserver:
           replicaCount: 1
@@ -707,14 +694,6 @@ helmCharts:
               requests:
                 cpu: 60m
                 memory: 100Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         cronjobs:
           replicaCount: 1
           cpcronjobservice:
@@ -725,14 +704,6 @@ helmCharts:
               requests:
                 cpu: 50m
                 memory: 50Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         email-service:
           replicaCount: 1
           providerName: ${CP_PROVIDER} # local or aws, for local will use smtp server
@@ -744,24 +715,8 @@ helmCharts:
               requests:
                 cpu: 80m
                 memory: 80Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         identity-management:
           replicaCount: 1
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
           idm:
             resources:
               limits:
@@ -772,14 +727,6 @@ helmCharts:
                 memory: 250Mi
         identity-provider:
           replicaCount: 1
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
           tp-cp-identity-provider:
             resources:
               limits:
@@ -798,24 +745,8 @@ helmCharts:
               requests:
                 cpu: 80m
                 memory: 80Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         pengine:
           replicaCount: 1
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
           tpcppengineservice:
             resources:
               limits:
@@ -834,14 +765,6 @@ helmCharts:
               requests:
                 cpu: 80m
                 memory: 80Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         web-server:
           replicaCount: 1
           cpwebserver:
@@ -849,14 +772,6 @@ helmCharts:
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
               requests:
                 cpu: 100m
                 memory: 100Mi
@@ -878,14 +793,6 @@ helmCharts:
               requests:
                 cpu: 200m
                 memory: 100Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         finops-service:
           finopsservice:
             resources:
@@ -895,15 +802,8 @@ helmCharts:
               requests:
                 cpu: 125m
                 memory: 100Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         finops-web-server:
+          replicaCount: "1"
           finopswebserver:
             resources:
               limits:
@@ -912,24 +812,8 @@ helmCharts:
               requests:
                 cpu: 100m
                 memory: 100Mi
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
-          replicaCount: "1"
         monitoring-service:
-          fluentbit:
-            resources:
-              limits:
-                cpu: 150m
-                memory: 150Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
+          replicaCount: "1"
           monitoringservice:
             resources:
               limits:
@@ -954,7 +838,6 @@ helmCharts:
               limits:
                 cpu: "80m"
                 memory: "10Mi"
-          replicaCount: "1"
   cluster:
     names:
       - ${CP_CLUSTER_NAME}

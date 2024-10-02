@@ -75,7 +75,6 @@ meta:
     GUI_DP_CHART_REPO_TOKEN: ""
     # env
     GUI_CP_INSTANCE_ID: cp1
-    GUI_CP_ENV: vagrant
     # container registry
     GUI_CP_CONTAINER_REGISTRY: csgprduswrepoedge.jfrog.io
     GUI_CP_CONTAINER_REGISTRY_USERNAME: ""
