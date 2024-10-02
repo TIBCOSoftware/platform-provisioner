@@ -15,18 +15,18 @@ description: |
   ```
   Then you can access MailDev at `http://localhost:1080`
 options:
-- name: "GUI_GITHUB_TOKEN"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
-  description: |
-    (optional) The GitHub token to access the dev helm charts. For public helm chart you don't need to set this.
 - name: "GUI_CP_CHART_REPO"
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CHART_REPO"
   description: |
     The helm chart repository to deploy CP. The default value is public repo. To use private repo set: https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
+- name: "GUI_GITHUB_TOKEN"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
+  description: |
+    (optional) The GitHub token to access the dev helm charts. For public helm chart you don't need to set this.
 - name: "GUI_DP_CHART_REPO"
   type: string
   guiType: input
@@ -55,6 +55,12 @@ options:
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY"
   description: |
     The container registry to deploy CP. csgprdusw2reposaas.jfrog.io for master node. csgprduswrepoedge.jfrog.io for edge node
+- name: "GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
+  description: |
+    The container registry repository to deploy CP. tibco-platform-docker-prod for production. tibco-platform-docker-dev for development
 - name: "GUI_CP_CONTAINER_REGISTRY_USERNAME"
   type: string
   guiType: input
@@ -65,12 +71,6 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_PASSWORD"
   description: "The container registry password to deploy CP"
-- name: "GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
-  description: |
-    The container registry repository to deploy CP. tibco-platform-docker-prod for production. tibco-platform-docker-dev for development
 - name: "GUI_TP_TLS_CERT"
   type: string
   guiType: input
