@@ -1,0 +1,91 @@
+pipelineName: "Create admin user for TP"
+description: |
+  This pipeline will delete the old Postgres DB and create a new one. So that we can reset CP without delete the TP cluster.
+options:
+- name: "CP namespace"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_NAMESPACE"
+  required: true
+  description: |
+    The namespace of the CP instance
+- name: "CP instance ID"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
+  required: true
+  description: |
+    CP instance ID
+recipe: |
+  apiVersion: v1
+  kind: generic-runner
+  meta:
+    guiEnv:
+      note: "tp-admin-email"
+      GUI_CP_NAMESPACE: "cp1-ns"
+      GUI_PIPELINE_LOG_DEBUG: false
+      GUI_CP_INSTANCE_ID: "cp1"
+      GUI_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      # settings
+      CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"cp1-ns"}
+      CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
+      CP_DNS_DOMAIN: ${GUI_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
+  tasks:
+    - condition: true
+      clusters:
+      - name: '${TP_CLUSTER_NAME}'
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          export ENDPOINT="tp-cp-orchestrator.${CP_NAMESPACE}.svc.cluster.local"
+          export HOST="account.${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}"
+          export PORT=8833
+            
+          curl -X POST \
+            "http://${ENDPOINT}:${PORT}/v1/tibco-subscriptions" \
+            -H 'cache-control: no-cache' \
+            -H 'content-type: application/json' \
+            -H "host: ${HOST}" \
+            -H 'x-atmosphere-for-user: foo' \
+            -H 'x-real-ip: 0.0.0.0' \
+            -d '{
+              "externalAccountId": "mySalesForceAccountId",
+              "externalSubscriptionId": "mySalesOrderNumber",
+              "firstName": "Admin",
+              "companyName": "Testing",
+              "lastName": "Purchase Order",
+              "phone": "+12015551234",
+              "state": "CA",
+              "country": "US",
+              "email": "cp-test@tibco.com",
+              "hostPrefix": "admin",
+              "prefixId":"tib1",
+              "tenantSubscriptionDetails":
+                [
+                  {
+                    "eula": true,
+                    "region": "global",
+                    "expiryInMonths": -1,
+                    "planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS",
+                    "tenantId": "ADMIN",
+                    "seats":
+                      {
+                        "ADMIN":
+                          {
+                            "ENGR": -1,
+                            "PM": -1,
+                            "SUPT": -1,
+                            "OPS": -1,
+                            "PROV": -1,
+                            "TSUPT": -1
+                          }
+                      }
+                  }
+                ],
+                "skipEmail": false
+                }'

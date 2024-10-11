@@ -15,14 +15,17 @@ kind: helm-install
 meta:
   guiEnv:
     note: "deploy-tp-base-on-prem"
-    GUI_TP_INGRESS_SERVICE_TYPE: ClusterIP
     GUI_TP_DNS_DOMAIN: localhost.dataplanes.pro
+    GUI_TP_INSTALL_NGINX_INGRESS: true
+    GUI_TP_INGRESS_SERVICE_TYPE: ClusterIP
     GUI_TP_STORAGE_CLASS: standard
     GUI_TP_INSTALL_POSTGRES: true
     GUI_PIPELINE_LOG_DEBUG: false
+    GUI_TP_INSTALL_CERT_MANAGER: true
+    GUI_TP_INSTALL_METRICS_SERVER: true
   globalEnvVariable:
     REPLACE_RECIPE: true
-    PIPELINE_LOG_DEBUG: false
+    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
     PIPELINE_CHECK_DOCKER_STATUS: false
     # env
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
@@ -44,8 +47,8 @@ meta:
     TP_DB_NAME: postgres
     TP_DB_SECRET_NAME: provider-cp-database-credentials # not used
     # flow control
-    TP_INSTALL_CERT_MANAGER: true
-    TP_INSTALL_METRICS_SERVER: true
+    TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
+    TP_INSTALL_METRICS_SERVER: ${GUI_TP_INSTALL_METRICS_SERVER:-true}
   tools:
     yq: "4.40"
 helmCharts:
@@ -127,7 +130,7 @@ helmCharts:
 - condition: ${TP_INSTALL_TRAEFIK_INGRESS}
   name: traefik
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 30.1.0 
+  version: "31.1.0"
   repo:
     helm:
       url: https://traefik.github.io/charts

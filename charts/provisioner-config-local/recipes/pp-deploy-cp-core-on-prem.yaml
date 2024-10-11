@@ -11,46 +11,108 @@ meta:
   guiEnv:
     note: "deploy-cp-on-prem"
     # github
-    GUI_GITHUB_TOKEN: ""
     GUI_CP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
-    GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
+    GUI_CP_CHART_REPO_USER_NAME: "cp-test"
+    GUI_CP_CHART_REPO_TOKEN: ""
     GUI_DP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
+    GUI_DP_CHART_REPO_USER_NAME: "cp-test"
     GUI_DP_CHART_REPO_TOKEN: ""
-    # env
-    GUI_CP_INSTANCE_ID: cp1
-    # container registry
+
+    # image registry
     GUI_CP_CONTAINER_REGISTRY: csgprduswrepoedge.jfrog.io
+    GUI_CP_CONTAINER_REGISTRY_REPOSITORY: tibco-platform-docker-prod
     GUI_CP_CONTAINER_REGISTRY_USERNAME: ""
     GUI_CP_CONTAINER_REGISTRY_PASSWORD: ""
-    GUI_CP_CONTAINER_REGISTRY_REPOSITORY: tibco-platform-docker-prod
-    # TLS
-    GUI_TP_TLS_CERT: ""
-    GUI_TP_TLS_KEY: ""
+
     # version
     GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.3.36
     GUI_CP_PLATFORM_BASE_VERSION: 1.3.338
+    # CP env
+    GUI_CP_INSTANCE_ID: "cp1"
+    GUI_CP_PROVIDER: "local"
+    GUI_CP_NAMESPACE: "cp1-ns"
+    GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
+    GUI_CP_LOG_ENABLE: false
+    GUI_CP_EXTERNAL_ENVIRONMENT: "production"
+    GUI_CP_RESOURCES_REQUEST_CPU: "50m"
+    GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi"
+    GUI_CP_EXT_NAMESPACE: "tibco-ext"
+
+    # ingress
+    GUI_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
+    GUI_TP_TLS_CERT: ""
+    GUI_TP_TLS_KEY: ""
+    GUI_CP_INGRESS_CLASSNAME: "nginx"
+    GUI_CP_SKIP_BOOTSTRAP_INGRESS: false
+    GUI_TP_GENERATE_CERTIFICATES: false
+    GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "easy-to-remember"
+
     # storage
-    GUI_CP_STORAGE_CLASS: standard
+    GUI_CP_STORAGE_CLASS: "" # user need to choose based on environment
     GUI_CP_STORAGE_CREATE_PV: false
     GUI_CP_STORAGE_PV_NAME: "" # control-plane-pv the name of PV for kind
-    # ingress
-    GUI_CP_INGRESS_CLASSNAME: "nginx"
+    GUI_CP_STORAGE_PV_SIZE: "10Gi"
+
+    # email
+    GUI_CP_MAIL_SERVER_TYPE: "smtp" # smtp, ses, sendgrid
+    GUI_CP_MAIL_SERVER_SES_ARN: ""
+    GUI_CP_MAIL_SERVER_SENDGRID_API_KEY: ""
+    GUI_CP_MAIL_SERVER_ADDRESS: ""
+    GUI_CP_MAIL_SERVER_PORT_NUMBER: "1025"
+    GUI_CP_MAIL_SERVER_USERNAME: ""
+    GUI_CP_MAIL_SERVER_PASSWORD: ""
+
+    # DB the default value is for postgres pod
+    GUI_CP_DB_HOST: "postgresql.tibco-ext.svc.cluster.local"
+    GUI_CP_DB_PORT: "5432"
+    GUI_CP_DB_USER_NAME: "postgres"
+    GUI_CP_DB_PASSWORD: "postgres"
+    GUI_CP_DB_NAME: "postgres"
+    GUI_CP_DB_SECRET_NAME: "provider-cp-database-credentials"
+    GUI_CP_DB_SSL_MODE: "disable" # verify-full, disable
+    GUI_CP_DB_SSL_ROOT_CERT: ""
+    GUI_CP_DB_DELETE_ON_UNINSTALL: false
+
+    # flow control
+    GUI_CP_CREATE_NAMESPACE: true
+    GUI_CP_CROSSPLANE_ENABLED: false
+    GUI_CP_INSTALL_MAILDEV: true
+    GUI_CP_INSTALL_MAILDEV_INGRESS: false
+    GUI_CP_INSTALL_PLATFORM_BOOTSTRAP: true
+    GUI_CP_INSTALL_PLATFORM_BASE: true
+
+    GUI_CP_INSTALL_TIBCOHUB_CONTRIB: true
+    GUI_CP_INSTALL_MSG_CONTRIB: true
+    GUI_CP_INSTALL_HAWK: true
+    GUI_CP_INSTALL_RECIPES: true
+    GUI_CP_INSTALL_INTEGRATION: true
+    GUI_CP_INSTALL_INTEGRATION_BWCE: true
+    GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES: true
+    GUI_CP_INSTALL_INTEGRATION_BW5: true
+    GUI_CP_INSTALL_INTEGRATION_FLOGO: true
+    GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: true
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: false
     PIPELINE_CHECK_DOCKER_STATUS: false
     # GitHub credentials
-    GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}" # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
-    GITHUB_USER_NAME: ${GUI_GITHUB_USER_NAME:-"cp-test"}
-    CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform public repo
-    DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # The repo that Data Plane will use
-    DP_CHART_REPO_TOKEN: ${GUI_DP_CHART_REPO_TOKEN:-""}
+    GITHUB_TOKEN: "${GUI_GITHUB_TOKEN}"
+    CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform CP public repo
+    CP_CHART_REPO_USER_NAME: ${GUI_CP_CHART_REPO_USER_NAME:-"cp-test"}
+    CP_CHART_REPO_TOKEN: ${GUI_CP_CHART_REPO_TOKEN:-""}
+    DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform DP public repo
     DP_CHART_REPO_USER_NAME: ${GUI_DP_CHART_REPO_USER_NAME:-"cp-test"}
+    DP_CHART_REPO_TOKEN: ${GUI_DP_CHART_REPO_TOKEN:-""}
     # env
+    CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"cp-cluster"}
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
     CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
-    CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"cp-cluster"}
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
+    CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
+    CP_LOG_ENABLE: ${GUI_CP_LOG_ENABLE:-false}
+    CP_EXTERNAL_ENVIRONMENT: ${GUI_CP_EXTERNAL_ENVIRONMENT:-"production"}
+    CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
+    CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # 37 pods * 50Mi = 1850Mi
     # domain
     CP_DNS_DOMAIN: ${GUI_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     CP_SERVICE_DNS_DOMAIN: ${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}
@@ -61,28 +123,29 @@ meta:
     CP_STORAGE_PV_SIZE: "${GUI_CP_STORAGE_PV_SIZE:-10Gi}"
     # container registry
     CP_CONTAINER_REGISTRY: ${GUI_CP_CONTAINER_REGISTRY:-"csgprduswrepoedge.jfrog.io"}
+    CP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_CP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
     CP_CONTAINER_REGISTRY_USERNAME: "${GUI_CP_CONTAINER_REGISTRY_USERNAME}"
     CP_CONTAINER_REGISTRY_PASSWORD: "${GUI_CP_CONTAINER_REGISTRY_PASSWORD}"
-    CP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_CP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
+
     # node
-    CP_NODE_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.180.0.0/16"}
-    CP_POD_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.180.0.0/16"}
-    CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
+    CP_NODE_CIDR: ${GUI_TP_CLUSTER_NODE_CIDR:-"10.180.0.0/16"}
+    CP_POD_CIDR: ${GUI_TP_CLUSTER_POD_CIDR:-"10.180.0.0/16"}
     # third party
-    CP_EXT_NAMESPACE: tibco-ext
+    CP_EXT_NAMESPACE: ${GUI_CP_EXT_NAMESPACE:-"tibco-ext"}
     # network policies
     CP_CREATE_NETWORK_POLICIES: ${GUI_CP_CREATE_NETWORK_POLICIES:-false}
     # CP DB setup env
     CP_DB_HOST: ${GUI_CP_DB_HOST:-"postgresql.tibco-ext.svc.cluster.local"} #
-    CP_DB_PORT: "5432"
+    CP_DB_PORT: ${GUI_CP_DB_PORT:-"5432"}
     CP_DB_USER_NAME: ${GUI_CP_DB_USER_NAME:-"postgres"} # CP_RDS_USERNAME in create-rds.sh
     CP_DB_PASSWORD: ${GUI_CP_DB_PASSWORD:-"postgres"} # CP_RDS_MASTER_PASSWORD in create-rds.sh
-    CP_DB_NAME: postgres
-    CP_DB_SECRET_NAME: provider-cp-database-credentials
+    CP_DB_NAME: ${GUI_CP_DB_NAME:-postgres}
+    CP_DB_SECRET_NAME: ${GUI_CP_DB_SECRET_NAME:-provider-cp-database-credentials}
     CP_DB_SSL_MODE: ${GUI_CP_DB_SSL_MODE:-"disable"} # verify-full, disable
     CP_DB_SSL_ROOT_CERT: ${GUI_CP_DB_SSL_ROOT_CERT:-""}
     CP_DB_DELETE_ON_UNINSTALL: ${GUI_CP_DB_DELETE_ON_UNINSTALL:-"false"}
     # CP mail server
+    CP_MAIL_SERVER_TYPE: ${GUI_CP_MAIL_SERVER_TYPE:-"smtp"} # smtp, ses, sendgrid
     CP_MAIL_SERVER_SES_ARN: ${GUI_CP_MAIL_SERVER_SES_ARN:-""}
     CP_MAIL_SERVER_SENDGRID_API_KEY: ${GUI_CP_MAIL_SERVER_SENDGRID_API_KEY:-""}
     CP_MAIL_SERVER_ADDRESS: ${GUI_CP_MAIL_SERVER_ADDRESS:-"development-mailserver.${CP_EXT_NAMESPACE}.svc.cluster.local"}
@@ -93,11 +156,11 @@ meta:
     CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: ${GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD:-"easy-to-remember"}
     # CP ingress
     CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
-    CP_SKIP_BOOTSTRAP_INGRESS: false # set to false will create ingress for router and hybrid-proxy
+    CP_SKIP_BOOTSTRAP_INGRESS: ${GUI_CP_SKIP_BOOTSTRAP_INGRESS:-false} # set to false will create ingress for router and hybrid-proxy
     CP_ALB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for ALB
     CP_NLB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for NLB
-    TP_TLS_CERT: "" # if provided; will create secret tp-certificate with tls.crt and tls.key and create ingress
-    TP_TLS_KEY: ""
+    TP_TLS_CERT: ${GUI_TP_TLS_CERT:-""} # if provided; will create secret tp-certificate with tls.crt and tls.key and create ingress
+    TP_TLS_KEY: ${GUI_TP_TLS_KEY:-""}
     TP_GENERATE_CERTIFICATES: ${GUI_TP_GENERATE_CERTIFICATES:-true} # if true, will create cluster issuer and certificate for tp-certificate using cert-manager. For local use set to false
     TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
@@ -105,12 +168,22 @@ meta:
     CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.36} # 1.3 GA release. use ^1.0.0 for latest
     CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.338} # 1.3 GA release. use ^1.0.0 for latest
     # flow control
-    CP_CREATE_NAMESPACE: true
-    CP_INSTALL_MAILDEV: true
+    CP_CREATE_NAMESPACE: ${GUI_CP_CREATE_NAMESPACE:-true}
+    CP_INSTALL_MAILDEV: ${GUI_CP_INSTALL_MAILDEV:-true}
     CP_INSTALL_MAILDEV_INGRESS: ${GUI_CP_INSTALL_MAILDEV_INGRESS:-true}
     CP_STORAGE_CREATE_PV: ${GUI_CP_STORAGE_CREATE_PV:-false} # create PV for control-plane-pv for Kind, MicroK8s and Azure use case
-    CP_INSTALL_PLATFORM_BOOTSTRAP: true
-    CP_INSTALL_PLATFORM_BASE: true
+    CP_INSTALL_PLATFORM_BOOTSTRAP: ${GUI_CP_INSTALL_PLATFORM_BOOTSTRAP:-true}
+    CP_INSTALL_PLATFORM_BASE: ${GUI_CP_INSTALL_PLATFORM_BASE:-true}
+    CP_INSTALL_TIBCOHUB_CONTRIB: ${GUI_CP_INSTALL_TIBCOHUB_CONTRIB:-true}
+    CP_INSTALL_MSG_CONTRIB: ${GUI_CP_INSTALL_MSG_CONTRIB:-true}
+    CP_INSTALL_HAWK: ${GUI_CP_INSTALL_HAWK:-true}
+    CP_INSTALL_RECIPES: ${GUI_CP_INSTALL_RECIPES:-true}
+    CP_INSTALL_INTEGRATION: ${GUI_CP_INSTALL_INTEGRATION:-true}
+    CP_INSTALL_INTEGRATION_BWCE: ${GUI_CP_INSTALL_INTEGRATION_BWCE:-true}
+    CP_INSTALL_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES:-true}
+    CP_INSTALL_INTEGRATION_BW5: ${GUI_CP_INSTALL_INTEGRATION_BW5:-true}
+    CP_INSTALL_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_INTEGRATION_FLOGO:-true}
+    CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES:-true}
   tools:
     yq: "4.40"
 preTasks:
@@ -380,8 +453,8 @@ helmCharts:
         compute-services:
           resources:
             requests:
-              cpu: 50m
-              memory: 50Mi
+              cpu: ${CP_RESOURCES_REQUEST_CPU}
+              memory: ${CP_RESOURCES_REQUEST_MEMORY}
             limits:
               cpu: 1250m
               memory: 1000Mi
@@ -401,16 +474,32 @@ helmCharts:
         hybrid-proxy:
           enabled: true
           resources:
+            requests:
+              cpu: ${CP_RESOURCES_REQUEST_CPU}
+              memory: ${CP_RESOURCES_REQUEST_MEMORY}
             limits:
               cpu: 1250m
               memory: 1000Mi
-            requests:
-              cpu: 20m
-              memory: 50Mi
-        resource-set-operator:
-          enabled: true
         router-operator:
           enabled: true
+          resources:
+            requests:
+              cpu: ${CP_RESOURCES_REQUEST_CPU}
+              memory: ${CP_RESOURCES_REQUEST_MEMORY}
+            limits:
+              cpu: 3000m
+              memory: 1000Mi
+        resource-set-operator:
+          enabled: true
+          resources:
+            requests:
+              cpu: ${CP_RESOURCES_REQUEST_CPU}
+              memory: ${CP_RESOURCES_REQUEST_MEMORY}
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+        otel-collector:
+          enabled: false
       global:
         external:
           ingress:
@@ -435,14 +524,13 @@ helmCharts:
         tibco:
           logging:
             fluentbit:
-              enabled: false # set to true to enable fluentbit for CP
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
           containerRegistry:
             url: ${CP_CONTAINER_REGISTRY}
             password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
             username: "${CP_CONTAINER_REGISTRY_USERNAME}"
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
-          enableLogging: true
           serviceAccount: ${CP_INSTANCE_ID}-sa
           createNetworkPolicy: ${CP_CREATE_NETWORK_POLICIES}
   cluster:
@@ -592,6 +680,7 @@ helmCharts:
         cp:
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
         external:
+          environment: ${CP_EXTERNAL_ENVIRONMENT}
           helmRepo: ${CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
           db_name: ${CP_DB_NAME}
@@ -601,6 +690,7 @@ helmCharts:
           db_ssl_mode: ${CP_DB_SSL_MODE}
           db_ssl_root_cert: "${CP_DB_SSL_ROOT_CERT}"
           db_username: ${CP_DB_USER_NAME}
+          emailServerType: ${CP_MAIL_SERVER_TYPE}
           emailServer:
             ses:
               arn: "${CP_MAIL_SERVER_SES_ARN}"
@@ -615,229 +705,228 @@ helmCharts:
             email: ${CP_ADMIN_EMAIL}
             firstname: "admin"
             lastname: "admin"
-          enableLogging: false
           IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
       tp-cp-tibcohub-contrib:
-        enabled: true
+        enabled: ${CP_INSTALL_TIBCOHUB_CONTRIB}
       tp-cp-msg-contrib:
-        enabled: true
+        enabled: ${CP_INSTALL_MSG_CONTRIB}
       tp-cp-hawk:
-        enabled: true
+        enabled: ${CP_INSTALL_HAWK}
       tp-cp-recipes:
-        enabled: true
+        enabled: ${CP_INSTALL_RECIPES}
       tp-cp-integration:
-        enabled: true
+        enabled: ${CP_INSTALL_INTEGRATION}
         tp-cp-integration-common:
           fileserver:
             enabled: true
             resources:
               requests:
-                cpu: 80m
-                memory: 100Mi
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
         tp-cp-integration-bwce:
-          enabled: true
+          enabled: ${CP_INSTALL_INTEGRATION_BWCE}
           bw-webserver:
             bwwebserver:
               resources:
                 requests:
-                  cpu: 100m
-                  memory: 100Mi
+                  cpu: ${CP_RESOURCES_REQUEST_CPU}
+                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
                 limits:
                   cpu: 200m
                   memory: 200Mi
         tp-cp-integration-bw5:
-          enabled: true
+          enabled: ${CP_INSTALL_INTEGRATION_BW5}
           bw5-webserver:
             bw5webserver:
               resources:
                 requests:
-                  cpu: 100m
-                  memory: 100Mi
+                  cpu: ${CP_RESOURCES_REQUEST_CPU}
+                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
                 limits:
                   cpu: 200m
                   memory: 200Mi
         tp-cp-integration-flogo:
-          enabled: true
+          enabled: ${CP_INSTALL_INTEGRATION_FLOGO}
           flogo-webserver:
             flogowebserver:
               resources:
                 requests:
-                  cpu: 100m
-                  memory: 100Mi
+                  cpu: ${CP_RESOURCES_REQUEST_CPU}
+                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
                 limits:
                   cpu: 200m
                   memory: 200Mi
         tp-cp-bwce-utilities:
-          enabled: true
+          enabled: ${CP_INSTALL_INTEGRATION_BWCE_UTILITIES}
           bwce-utilities:
             studio:
               resources:
                 requests:
-                  cpu: 50m
-                  memory: 100Mi
+                  cpu: ${CP_RESOURCES_REQUEST_CPU}
+                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
                 limits:
                   cpu: "1"
                   memory: 1024Mi
         tp-cp-flogo-utilities:
-          enabled: true
+          enabled: ${CP_INSTALL_INTEGRATION_FLOGO_UTILITIES}
       tp-cp-core:
         admin-webserver:
           replicaCount: 1
           cpadminwebserver:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 60m
-                memory: 100Mi
         cronjobs:
           replicaCount: 1
           cpcronjobservice:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 100m
                 memory: 100Mi
-              requests:
-                cpu: 50m
-                memory: 50Mi
         email-service:
           replicaCount: 1
           providerName: ${CP_PROVIDER} # local or aws, for local will use smtp server
           cpemailservice:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 80m
-                memory: 80Mi
         identity-management:
           replicaCount: 1
           idm:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 400m
                 memory: 400Mi
-              requests:
-                cpu: 100m
-                memory: 250Mi
         identity-provider:
           replicaCount: 1
           tp-cp-identity-provider:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 60m
-                memory: 100Mi
         orchestrator:
           replicaCount: 1
           cporchservice:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 80m
-                memory: 80Mi
         pengine:
           replicaCount: 1
           tpcppengineservice:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 80m
-                memory: 80Mi
         user-subscriptions:
           replicaCount: 1
           cpusersubservice:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 80m
-                memory: 80Mi
         web-server:
           replicaCount: 1
           cpwebserver:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
       tp-cp-core-finops:
         finops-otel-collector:
           resources:
+            requests:
+              cpu: ${CP_RESOURCES_REQUEST_CPU}
+              memory: ${CP_RESOURCES_REQUEST_MEMORY}
             limits:
               cpu: 300m
               memory: 12Gi
-            requests:
-              cpu: 200m
-              memory: 100Mi
         finops-prometheus:
           finopsprometheus:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 300m
                 memory: 12Gi
-              requests:
-                cpu: 200m
-                memory: 100Mi
         finops-service:
           finopsservice:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 250m
                 memory: 1024Mi
-              requests:
-                cpu: 125m
-                memory: 100Mi
         finops-web-server:
           replicaCount: "1"
           finopswebserver:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
                 memory: 200Mi
-              requests:
-                cpu: 100m
-                memory: 100Mi
         monitoring-service:
           replicaCount: "1"
           monitoringservice:
             resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 250m
                 memory: 1024Mi
-              requests:
-                cpu: 125m
-                memory: 100Mi
           monitoringtibtunnel:
             resources:
               requests:
-                cpu: "80m"
-                memory: "10Mi"
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: "80m"
-                memory: "10Mi"
+                memory: "200Mi"
           monitoringhomepagemetrics:
             resources:
               requests:
-                cpu: "80m"
-                memory: "10Mi"
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: "80m"
-                memory: "10Mi"
+                memory: "200Mi"
   cluster:
     names:
       - ${CP_CLUSTER_NAME}

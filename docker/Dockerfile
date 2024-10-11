@@ -10,7 +10,7 @@
 
 FROM python:3.11-alpine3.19 AS builder-aws
 ARG AWS_CLI_VERSION
-ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.17.27"}
+ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.18.0"}
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -35,7 +35,7 @@ RUN apk add --no-cache \
 
 FROM python:3.11-alpine3.19 AS builder-azure
 ARG AZURE_CLI_VERSION
-ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.63.0"}
+ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.64.0"}
 WORKDIR /azure
 RUN apk add --no-cache --update python3 py3-pip && \
     apk add --no-cache --update --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make && \
@@ -71,7 +71,7 @@ RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /u
 
 # gcloud cli https://cloud.google.com/sdk/docs/release-notes
 ARG CLOUD_SDK_VERSION
-ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"487.0.0"}
+ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"495.0.0"}
 ENV PATH=/google-cloud-sdk/bin:$PATH
 RUN if [ `uname -m` = 'x86_64' ]; then echo -n "x86_64" > /tmp/arch; else echo -n "arm" > /tmp/arch; fi;
 RUN ARCH=`cat /tmp/arch` && \
@@ -87,7 +87,7 @@ RUN ARCH=`cat /tmp/arch` && \
 
 # eksctl https://github.com/eksctl-io/eksctl/releases
 ARG EKSCTL_VERSION
-ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.188.0"}
+ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.191.0"}
 RUN CMD_NAME=eksctl && \
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/${EKSCTL_VERSION}/${CMD_NAME}_$(uname -s)_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${EKSCTL_VERSION} && \
@@ -97,7 +97,7 @@ RUN CMD_NAME=eksctl && \
 # aws ecr credentials helper
 # https://github.com/awslabs/amazon-ecr-credential-helper/releases
 ARG ECR_LOGIN_VERSION
-ENV ECR_LOGIN_VERSION=${ECR_LOGIN_VERSION:-"0.8.0"}
+ENV ECR_LOGIN_VERSION=${ECR_LOGIN_VERSION:-"0.9.0"}
 RUN echo "/${ECR_LOGIN_VERSION}/${TARGETARCH}/docker-credential-ecr-login" && \
     CMD_NAME=docker-credential-ecr-login && \
     curl --silent --location "https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/${ECR_LOGIN_VERSION}/${TARGETOS}-${TARGETARCH}/docker-credential-ecr-login" -o /tmp/${CMD_NAME} && \
@@ -105,23 +105,23 @@ RUN echo "/${ECR_LOGIN_VERSION}/${TARGETARCH}/docker-credential-ecr-login" && \
     ln -sf /usr/local/bin/${CMD_NAME}-${ECR_LOGIN_VERSION} /usr/local/bin/${CMD_NAME} && \
     ${CMD_NAME} -v
 
-# cue for yaml validation https://github.com/cue-lang/cue/releases
-ARG CUE_VERSION
-ENV CUE_VERSION=${CUE_VERSION:-"v0.9.2"}
-RUN CMD_NAME=cue && \
-    curl --silent --location "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/${CMD_NAME}_${CUE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
-    chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${CUE_VERSION} && \
-    ln -sf /usr/local/bin/${CMD_NAME}-${CUE_VERSION} /usr/local/bin/${CMD_NAME} && \
-    ${CMD_NAME} version
-
 # Azure CLI Bicep https://github.com/Azure/bicep/releases
 ARG AZURE_CLI_BICEP_VERSION
-ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.29.47"}
+ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.30.23"}
 RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
     az --version && \
     az bicep install --version ${AZURE_CLI_BICEP_VERSION} && \
     az extension add --name aks-preview && \
     az extension update --name aks-preview
+
+# cue for yaml validation https://github.com/cue-lang/cue/releases
+ARG CUE_VERSION
+ENV CUE_VERSION=${CUE_VERSION:-"v0.10.0"}
+RUN CMD_NAME=cue && \
+    curl --silent --location "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/${CMD_NAME}_${CUE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+    chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${CUE_VERSION} && \
+    ln -sf /usr/local/bin/${CMD_NAME}-${CUE_VERSION} /usr/local/bin/${CMD_NAME} && \
+    ${CMD_NAME} version
 
 # for pipeline compatibility
 RUN ln -sf /usr/bin/yq /usr/local/bin/yq4
@@ -135,7 +135,7 @@ RUN CMD_NAME=yq && \
     chmod +x /usr/local/bin/${CMD_NAME}-4.40
 
 # vcluster for vcluster https://github.com/loft-sh/vcluster/releases
-ARG VCLUSTER_VERSION=v0.20.0
+ARG VCLUSTER_VERSION=v0.20.1
 RUN export CMD_NAME=vcluster && \
     curl --silent --location -o /tmp/${CMD_NAME} "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/${CMD_NAME}-${TARGETOS}-${TARGETARCH}" && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} && \
@@ -143,29 +143,29 @@ RUN export CMD_NAME=vcluster && \
     ${CMD_NAME} version
 
 # helm https://github.com/helm/helm/releases
-ARG HELM_VERSION_314
-ENV HELM_VERSION_314=${HELM_VERSION_314:-"v3.14.4"}
-RUN CMD_NAME=helm && \
-    curl --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_314}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
-    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.14
-
 ARG HELM_VERSION_315
 ENV HELM_VERSION_315=${HELM_VERSION_315:-"v3.15.3"}
 RUN CMD_NAME=helm && \
     curl --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_315}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.15
 
-# kubectl https://kubernetes.io/releases/
-ARG KUBECTL_VERSION_129
-ENV KUBECTL_VERSION_129=${KUBECTL_VERSION_129:-"v1.29.7"}
-RUN CMD_NAME=kubectl && \
-    curl -sLO https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION_129}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
-    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.29
+ARG HELM_VERSION_316
+ENV HELM_VERSION_316=${HELM_VERSION_316:-"v3.16.1"}
+RUN CMD_NAME=helm && \
+    curl --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_316}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.16
 
+# kubectl https://kubernetes.io/releases/
 ARG KUBECTL_VERSION_130
 ENV KUBECTL_VERSION_130=${KUBECTL_VERSION_130:-"v1.30.3"}
 RUN CMD_NAME=kubectl && \
     curl -sLO https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION_130}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
     chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.30
+
+ARG KUBECTL_VERSION_131
+ENV KUBECTL_VERSION_131=${KUBECTL_VERSION_131:-"v1.31.1"}
+RUN CMD_NAME=kubectl && \
+    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_131}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
+    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.31
 
 CMD ["/bin/bash"]

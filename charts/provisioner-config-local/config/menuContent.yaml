@@ -28,6 +28,13 @@ menuConfig:
       url: "/pipelines/helm-install?title=tp-base-on-prem-cert"
       config: pp-deploy-tp-base-on-prem-cert.yaml
   - separator: true
+  - label: "Control Plane"
+    items:
+      - label: "Deploy Control Plane"
+        items:
+          - label: "Standard Control Plane"
+            url: "/pipelines/helm-install?title=cp-deploy-on-prem"
+            config: pp-deploy-cp-core-on-prem.yaml
   - label: "Data Plane"
     items:
     - label: "Register Data Plane"
@@ -38,13 +45,6 @@ menuConfig:
       - label: "Register Production DP"
         url: "/pipelines/generic-runner?title=dp-register-production-dp"
         config: pp-register-dp-prod.yaml
-  - label: "Control Plane"
-    items:
-    - label: "Deploy Control Plane"
-      items:
-      - label: "Standard Control Plane"
-        url: "/pipelines/helm-install?title=cp-deploy-on-prem"
-        config: pp-deploy-cp-core-on-prem.yaml
   - separator: true
   - label: "Observability"
     items:
@@ -71,22 +71,28 @@ menuConfig:
 - label: "Undeploy"
   icon: 'pi pi-fw pi-cloud-download'
   items:
+  - label: "Control Plane"
+    items:
+    - label: "Control Plane"
+      url: "/pipelines/generic-runner?title=undeploy-cp"
+      config: pp-undeploy-cp.yaml
   - label: "Data Plane"
     items:
     - label: "Data Plane"
       url: "/pipelines/generic-runner?title=undeploy-dp"
       config: pp-undeploy-dp.yaml
-  - label: "Control Plane"
-    items:
-      - label: "Control Plane"
-        url: "/pipelines/generic-runner?title=undeploy-cp"
-        config: pp-undeploy-cp.yaml
 - label: "Maintenance"
   icon: 'pi pi-fw pi-wrench'
   items:
   - label: "TP Cluster"
     icon: 'pi pi-th-large'
     items:
+    - label: "Create TP admin email"
+      url: "/pipelines/generic-runner?title=tp-admin-email"
+      config: pp-maintain-tp-admin-email.yaml
+    - label: "Adjust CoreDNS config"
+      url: "/pipelines/generic-runner?title=tp-config-coredns"
+      config: pp-maintain-tp-config-coredns.yaml
     - label: "TP Cluster Info"
       url: "/pipelines/generic-runner?title=tp-info"
       config: pp-maintain-tp-info.yaml

@@ -7,19 +7,37 @@
 pipelineName: "Deploy TIBCO Platform On-Prem Stack"
 description: |
   This pipeline will deploy supporting tools for TP Cluster on-prem with out certificate.
+groups:
+- title: "Cluster Ingress"
+  index: 1
+  description: |
+    Cluster Ingress configurations.
+- title: "Cluster storage"
+  index: 7
+  description: |
+    Cluster storage specific configurations. For the on-perm setup we have
+    * docker for mac: `hostpath`
+    * minikube: `standard`
+    * kind: `standard`
+    * microk8s: `microk8s-hostpath`
+- title: "Cluster tools"
+  index: 8
+  description: |
+    Cluster tools specific configurations.
+- title: "Flow control"
+  index: 10
+  description: |
+    Change the installation flow control options.
 options:
-- name: "GUI_TP_DNS_DOMAIN"
+# groupIndex: 1 Cluster Ingress Configuration
+- name: "TP ingress DNS domain"
+  groupIndex: 1
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
   description: "The TP Cluster DNS domain. localhost.dataplanes.pro is designed for local use"
-- name: "GUI_TP_STORAGE_CLASS"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
-  description: |
-    docker for mac: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
-- name: "GUI_TP_INGRESS_SERVICE_TYPE"
+- name: "TP ingress service type"
+  groupIndex: 1
   labels:
     - "ClusterIP"
     - "LoadBalancer"
@@ -35,11 +53,57 @@ options:
   reference: "meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE"
   description: |
     We suggest to use "ClusterIP" and use kubectl port-forward for local cluster.
+- name: "Install Nginx Ingress"
+  groupIndex: 1
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_NGINX_INGRESS"
+- name: "Install Traefik Ingress"
+  groupIndex: 1
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_TRAEFIK_INGRESS"
+  description: |
+    Traefik dashboard will be available at: https://dashboard.localhost.dataplanes.pro/dashboard/#/
+
+# groupIndex: 7 Cluster storage
+- name: "TP Cluster storage class"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
+  description: |
+    docker for mac: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
+
+# groupIndex: 8 Cluster tools
+- name: "Install cert-manager"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_CERT_MANAGER"
+  description: |
+    Install cert-manager for TP Cluster
+- name: "Install metrics-server"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER"
+  description: |
+    Install metrics-server for TP Cluster
 - name: "Install Postgres"
+  groupIndex: 8
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_POSTGRES"
   description: |
     Install Postgres database for TP Cluster
+
+# groupIndex: 10 Flow control
+- name: "Enable pipline debug logs"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+  description: "Enable debug logs for the pipeline"
 recipe: |
 {{ .Files.Get "recipes/tp-base-on-prem.yaml" | indent 2 }}

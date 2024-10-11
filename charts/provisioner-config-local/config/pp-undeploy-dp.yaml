@@ -2,13 +2,13 @@ pipelineName: "Data Plane information"
 description: |
   This pipeline will undeploy TIBCO Data Plane.
 options:
-  - name: "DP_NAMESPACE"
+  - name: "DP namespace"
     type: string
     guiType: input
     reference: "meta.guiEnv.GUI_DP_NAMESPACE"
     required: true
     description: "Namespace to install the ECR secret"
-  - name: "DATAPLANE_ID"
+  - name: "Dataplane ID"
     type: string
     guiType: input
     reference: "meta.guiEnv.GUI_DP_DATAPLANE_ID"
@@ -19,15 +19,14 @@ recipe: |
   meta:
     guiEnv:
       note: "undeploy-dp"
-      GUI_DP_CLUSTER_NAME: ''
+      GUI_PIPELINE_LOG_DEBUG: false
       GUI_DP_NAMESPACE: ''
       GUI_DP_DATAPLANE_ID: ""
-      GUI_PIPELINE_LOG_DEBUG: false
     globalEnvVariable:
       REPLACE_RECIPE: true
-      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       PIPELINE_CHECK_DOCKER_STATUS: false
-      DP_CLUSTER_NAME: ${GUI_DP_CLUSTER_NAME}
+      DP_CLUSTER_NAME: ${GUI_DP_CLUSTER_NAME:-"on-perm"}
       DP_NAMESPACE: ${GUI_DP_NAMESPACE}
       DP_DATAPLANE_ID: ${GUI_DP_DATAPLANE_ID}
   tasks:

@@ -2,40 +2,25 @@ pipelineName: "Data Plane information"
 description: |
   This pipeline will undeploy TIBCO Control Plane.
 options:
-  - name: "GUI_CP_INSTANCE_ID"
-    type: string
-    guiType: input
-    reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
-    required: true
-    description: "The CP instance name."
-  - name: "GUI_CP_CLUSTER_NAME"
-    type: string
-    guiType: input
-    reference: "meta.guiEnv.GUI_CP_CLUSTER_NAME"
-    required: true
-    description: "This CP cluster name"
-  - name: "CP_NAMESPACE"
-    type: string
-    guiType: input
-    reference: "meta.guiEnv.GUI_CP_NAMESPACE"
-    required: true
-    description: "Namespace to install the ECR secret"
+- name: "CP namespace"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_NAMESPACE"
+  required: true
+  description: "The namespace of the CP instance."
 recipe: |
   apiVersion: v1
   kind: generic-runner
   meta:
     guiEnv:
       note: "undeploy-cp"
-      GUI_CP_INSTANCE_ID: "cp1"
-      GUI_CP_NAMESPACE: 'cp1-ns'
-      GUI_CP_CLUSTER_NAME: ''
       GUI_PIPELINE_LOG_DEBUG: false
+      GUI_CP_NAMESPACE: 'cp1-ns'
     globalEnvVariable:
       REPLACE_RECIPE: true
-      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       PIPELINE_CHECK_DOCKER_STATUS: false
-      CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID}
-      CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME}
+      CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"on-perm"}
       CP_NAMESPACE: ${GUI_CP_NAMESPACE}
   tasks:
     - condition: true

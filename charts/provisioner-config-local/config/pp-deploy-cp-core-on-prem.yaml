@@ -7,114 +7,479 @@
 pipelineName: "Deploy Control Plane On-Prem Stack"
 description: |
   This pipeline will deploy TIBCO Control Plane on-premises.
-  We have to use github token to access the dev helm charts.
   After the deployment, you will get an email in MailDev to reset the password.
   You need to use port-forward to access MailDev. 
   ```bash
   kubectl port-forward svc/development-mailserver -n tibco-ext 1080:1080
   ```
   Then you can access MailDev at `http://localhost:1080`
+groups:
+- title: "Chart Repository"
+  index: 1
+  description: |
+    TIBCO Platform CP and DP chart repositories. For the public repo we don't need to set the token.
+- title: "Container Registry"
+  index: 2
+  description: |
+    TIBCO Platform use jFrog to distribute the docker images. We need to set the username and password to access the images.
+    * `csgprdusw2reposaas.jfrog.io` for master node. Master node has dev images. 
+    * `csgprduswrepoedge.jfrog.io` (US) `csgprdeuwrepoedge.jfrog.io` (EU) for edge node. Edge node has prod images only.
+- title: "CP Configuration"
+  index: 5
+  description: |
+    TIBCO Platform Control Plane specific configurations.
+- title: "CP ingress"
+  index: 6
+  description: |
+    CP ingress specific configurations. If the main ingress for CP already config certificate; you can skip the certificate config for CP.
+- title: "Cluster storage"
+  index: 7
+  description: |
+    Cluster storage specific configurations. For the on-perm setup we have
+    * docker for mac: `hostpath`
+    * minikube: `standard`
+    * kind: `standard`
+    * microk8s: `microk8s-hostpath`
+- title: "CP Database"
+  index: 8
+  description: |
+    CP DB specific configurations. The default value is for postgres pod.
+- title: "CP E-mail"
+  index: 9
+  description: |
+    CP E-mail specific configurations. The default value is for maildev.
+- title: "Flow control"
+  index: 10
+  description: |
+    Change the installation flow control options.
 options:
-- name: "GUI_CP_CHART_REPO"
+# groupIndex: 1 Chart Repository
+- name: "CP Chart repository"
+  groupIndex: 1
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CHART_REPO"
   description: |
     The helm chart repository to deploy CP. The default value is public repo. To use private repo set: https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
-- name: "GUI_GITHUB_TOKEN"
+- name: "CP Chart repo user name"
+  groupIndex: 1
   type: string
   guiType: input
-  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
-  description: |
-    (optional) The GitHub token to access the dev helm charts. For public helm chart you don't need to set this.
-- name: "GUI_DP_CHART_REPO"
+  reference: "meta.guiEnv.GUI_CP_CHART_REPO_USER_NAME"
+  description: "The CP chart repository user name. (optional)"
+- name: "CP Chart repo token"
+  groupIndex: 1
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CHART_REPO_TOKEN"
+  description: ""
+- name: "DP Chart repo"
+  groupIndex: 1
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_DP_CHART_REPO"
   description: |
     The helm chart repository to deploy DP. The default value is public repo. To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_DP_CHART_REPO_TOKEN`
-- name: "GUI_DP_CHART_REPO_TOKEN"
+- name: "DP Chart repo user name"
+  groupIndex: 1
   type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_CHART_REPO_USER_NAME"
+  description: "The DP chart repository user name. (optional)"
+- name: "DP Chart repo token"
+  groupIndex: 1
+  type: password
   guiType: input
   reference: "meta.guiEnv.GUI_DP_CHART_REPO_TOKEN"
   description: |
     (optional)  The helm chart registry password to deploy DP
-- name: "GUI_CP_ADMIN_EMAIL"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_ADMIN_EMAIL"
-  description: "The CP admin email. You will get the email in MailDev to reset the password"
-- name: "GUI_CP_INSTANCE_ID"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
-  description: "The CP instance ID"
-- name: "GUI_CP_CONTAINER_REGISTRY"
+
+# groupIndex: 2 Container Registry
+- name: "Container Registry"
+  groupIndex: 2
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY"
   description: |
-    The container registry to deploy CP. csgprdusw2reposaas.jfrog.io for master node. csgprduswrepoedge.jfrog.io for edge node
-- name: "GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
+    The container registry to deploy CP. csgprdusw2reposaas.jfrog.io for master node. csgprduswrepoedge.jfrog.io for edge node. Master node has dev images. Edge node has prod images.
+- name: "Container Registry Repository"
+  groupIndex: 2
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_REPOSITORY"
   description: |
     The container registry repository to deploy CP. tibco-platform-docker-prod for production. tibco-platform-docker-dev for development
-- name: "GUI_CP_CONTAINER_REGISTRY_USERNAME"
+- name: "Container Registry Username"
+  groupIndex: 2
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_USERNAME"
-  description: "The container registry user name to deploy CP"
-- name: "GUI_CP_CONTAINER_REGISTRY_PASSWORD"
-  type: string
+  description: |
+    For jFrog production the username is `tibco-platform-sub-<subid>`
+- name: "Container Registry Password"
+  groupIndex: 2
+  type: password
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_PASSWORD"
-  description: "The container registry password to deploy CP"
-- name: "GUI_TP_TLS_CERT"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_TLS_CERT"
-  description: "base64 encoding of validate certificate for the domain."
-- name: "GUI_TP_TLS_KEY"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_TLS_KEY"
-  description: "base64 encoding of validate certificate for the domain."
-- name: "GUI_CP_PLATFORM_BOOTSTRAP_VERSION"
+  description: |
+    The container registry password to deploy CP
+
+# groupIndex: 5 CP Configuration
+- name: "CP platform bootstrap version"
+  groupIndex: 5
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_PLATFORM_BOOTSTRAP_VERSION"
   description: "The version of CP platform bootstrap. TP 1.3 GA release version is: 1.3.36. Use ^1.0.0 for latest"
-- name: "GUI_CP_PLATFORM_BASE_VERSION"
+- name: "CP platform base version"
+  groupIndex: 5
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION"
   description: "The version of CP platform base. TP 1.3 GA release version is: 1.3.338. Use ^1.0.0 for latest"
-- name: "GUI_CP_INGRESS_CLASSNAME"
+- name: "CP instance ID"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
+  description: "The CP instance ID"
+- name: "CP provider"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_PROVIDER"
+  description: |
+    CP deployment target. Example: aws, azure, local.
+- name: "CP namespace"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_NAMESPACE"
+  required: true
+- name: "CP admin email"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_ADMIN_EMAIL"
+  description: "The CP admin email. You will get the email in MailDev to reset the password"
+- name: "CP enable log"
+  groupIndex: 5
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_LOG_ENABLE"
+  description: "Enable CP log"
+- name: "CP external env"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_EXTERNAL_ENVIRONMENT"
+  description: "The CP global.external.environment setting"
+- name: "CP pod request CPU"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_RESOURCES_REQUEST_CPU"
+  description: "CP global resources request CPU"
+- name: "CP pod request memory"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_RESOURCES_REQUEST_MEMORY"
+  description: "CP global resources request memory"
+- name: "CP tools ns"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_EXT_NAMESPACE"
+  description: "The CP third party tools namespace."
+
+# groupIndex: 6 CP ingress
+- name: "CP DNS domain"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DNS_DOMAIN"
+  required: true
+  description: |
+    The CP DNS domain for on-perm setup.
+- name: "TP tls cert"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_TLS_CERT"
+  description: |
+    base64 encoding of validate certificate for the domain (optional)
+- name: "TP tls key"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_TLS_KEY"
+  description: |
+    base64 encoding of validate certificate for the domain (optional)
+- name: "CP ingress classname"
+  groupIndex: 6
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_INGRESS_CLASSNAME"
   description: "The ingress class name for CP. Default is nginx, you can use traefik too"
-- name: "GUI_CP_STORAGE_CLASS"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_STORAGE_CLASS"
-  description: "hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s"
-- name: "GUI_CP_INGRESS_USE_HOSTPORT"
+- name: "Skip manually install CP ingress for bootstrap (router, hybrid-proxy)"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_SKIP_BOOTSTRAP_INGRESS"
+  description: "Skip manually ingress object creation for platform-bootstrap chart"
+- name: "CP ingress use hostport"
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INGRESS_USE_HOSTPORT"
   description: "When deploy on kind we need to use hostport for ingress controller"
-- name: "GUI_CP_STORAGE_CREATE_PV"
+- name: "CP IDM JWT password"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD"
+  description: "The IDM JWT key store password"
+
+# groupIndex: 7 CP storage
+- name: "CP storage class"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_STORAGE_CLASS"
+  required: true
+  description: |
+    hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s
+- name: "CP storage create PV"
+  groupIndex: 7
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_STORAGE_CREATE_PV"
   description: "Pre-create PV for control-plane-pv for Kind and MicroK8s use case"
-- name: "GUI_CP_STORAGE_PV_NAME"
+- name: "CP storage PV name"
+  groupIndex: 7
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_STORAGE_PV_NAME"
-  description: "Pre-create PV name for control-plane-pv for Kind and MicroK8s use case"
+  description: |
+    Pre-create PV name for control-plane-pv for Kind and MicroK8s use case
+- name: "CP storage PV size"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_STORAGE_PV_SIZE"
+  required: true
+  description: |
+    The size of the PV. Example: 10Gi.
+
+# groupIndex: 8 CP DB
+- name: "CP DB host"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_HOST"
+  required: true
+  description: |
+    The DB host name. If you provisioner postgres pod; you can use "postgresql.tibco-ext.svc.cluster.local". If you create RDS; you need to use the RDS endpoint.
+- name: "CP DB port"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_PORT"
+  required: true
+  description: "The DB port number. The default value is 5432"
+- name: "CP DB user name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_USER_NAME"
+  required: true
+  description: |
+    The DB user name. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master user name.
+- name: "CP DB password"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_PASSWORD"
+  required: true
+  description: |
+    The DB password. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master password.
+- name: "CP DB name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_NAME"
+  description: |
+    The Database name
+- name: "CP DB secret name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_SECRET_NAME"
+  description: |
+    The secret name for DB credentials. The default value is provider-cp-database-credentials
+- name: "CP DB ssl mode"
+  groupIndex: 8
+  type: string
+  labels:
+    - "disable"
+    - "verify-full"
+  values:
+    - "disable"
+    - "verify-full"
+  guiType: radio
+  reference: "meta.guiEnv.GUI_CP_DB_SSL_MODE"
+- name: "CP DB delete on uninstall"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_DB_DELETE_ON_UNINSTALL"
+  description: "Delete the DB on uninstall"
+
+# groupIndex: 9 CP email
+- name: "CP mail server type"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_TYPE"
+  description: |
+    The mail server protocol type. The default value is smtp. Choice: smtp, ses, sendgrid
+- name: "CP mail server SES ARN"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_SES_ARN"
+  description: |
+    The SES ARN for AWS deployment
+- name: "CP mail server SendGrid API key"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_SENDGRID_API_KEY"
+  description: |
+    The SendGrid API key for Azure deployment
+- name: "CP mail server address"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_ADDRESS"
+  description: |
+    For testing we install a mail server in the same cluster. The default address is development-mailserver.${GUI_CP_EXT_NAMESPACE}.svc.cluster.local
+- name: "CP mail server port number"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_PORT_NUMBER"
+  description: "The default port number is 1025"
+- name: "CP mail server username"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_USERNAME"
+  description: ""
+- name: "CP mail server password"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_PASSWORD"
+  description: ""
+
+# groupIndex: 10 Flow control
+- name: "Create CP namespace"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_CREATE_NAMESPACE"
+  description: |
+    Create the CP namespace, service account, network policy, DB secret and certificate secret
+- name: "Install MailDev"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_MAILDEV"
+  description: "Install maildev for testing email"
+- name: "Install MailDev Ingress"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_MAILDEV_INGRESS"
+  description: "Install maildev ingress for testing email"
+- name: "Install platform-bootstrap"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BOOTSTRAP"
+  description: "Install platform-bootstrap"
+- name: "Install platform-base"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BASE"
+  description: "Install platform-base"
+- name: "Install tibcohub-contrib"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_TIBCOHUB_CONTRIB"
+  description: ""
+- name: "Install msg-contrib"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_MSG_CONTRIB"
+  description: ""
+- name: "Install hawk"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_HAWK"
+  description: ""
+- name: "Install recipes"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_RECIPES"
+  description: ""
+- name: "Install integration"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION"
+  description: ""
+- name: "Install integration BWCE"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE"
+  description: ""
+- name: "Install integration BWCE utilities"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES"
+  description: "This will create 3 jobs to install BWCE utilities. Each will download 1.5GB of data"
+- name: "Install integration BW5"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5"
+  description: ""
+- name: "Install integration Flogo"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_FLOGO"
+  description: ""
+- name: "Install integration Flogo utilities"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES"
+  description: ""
+- name: "Enable debug log"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
 recipe: |
 {{ .Files.Get "recipes/pp-deploy-cp-core-on-prem.yaml" | indent 2 }}
