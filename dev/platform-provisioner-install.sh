@@ -33,7 +33,7 @@
 #######################################
 
 [[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest"}
-[[ -z "${PIPELINE_SKIP_PROVISIONER_UI}" ]] && export PIPELINE_SKIP_PROVISIONER_UI=${PIPELINE_SKIP_PROVISIONER_UI:-true}
+[[ -z "${PIPELINE_SKIP_PROVISIONER_UI}" ]] && export PIPELINE_SKIP_PROVISIONER_UI=${PIPELINE_SKIP_PROVISIONER_UI:-false}
 [[ -z "${PIPELINE_SKIP_TEKTON_DASHBOARD}" ]] && export PIPELINE_SKIP_TEKTON_DASHBOARD=${PIPELINE_SKIP_TEKTON_DASHBOARD:-true}
 [[ -z "${TEKTON_PIPELINE_RELEASE}" ]] && export TEKTON_PIPELINE_RELEASE=${TEKTON_PIPELINE_RELEASE:-"v0.59.0"}
 [[ -z "${TEKTON_DASHBOARD_RELEASE}" ]] && export TEKTON_DASHBOARD_RELEASE=${TEKTON_DASHBOARD_RELEASE:-"v0.46.0"}
@@ -44,19 +44,9 @@
 [[ -z "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" ]] && export PIPELINE_CHART_VERSION_PROVISIONER_UI=${PIPELINE_CHART_VERSION_PROVISIONER_UI:-"^1.0.0"}
 
 if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "false" ]]; then
-  # your ECR read-only token
-  if [[ -z ${PIPELINE_GUI_DOCKER_IMAGE_TOKEN} ]]; then
-    echo "PIPELINE_GUI_DOCKER_IMAGE_TOKEN is not set"
-    exit 1
-  fi
-
-  if [[ -z ${PIPELINE_GUI_DOCKER_IMAGE_REPO} ]]; then
-    echo "PIPELINE_GUI_DOCKER_IMAGE_REPO is not set"
-    exit 1
-  fi
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_USERNAME}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_USERNAME=${PIPELINE_GUI_DOCKER_IMAGE_USERNAME:-"AWS"}
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_REPO}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_REPO=${PIPELINE_GUI_DOCKER_IMAGE_REPO:-"ghcr.io"}
-  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_PATH}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_PATH=${PIPELINE_GUI_DOCKER_IMAGE_PATH:-"tibco/cicinfra-cic2-provisioner-webui/cic2-web-server"}
+  [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_PATH}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_PATH=${PIPELINE_GUI_DOCKER_IMAGE_PATH:-"tibcosoftware/platform-provisioner/platform-provisioner-ui"}
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_TAG}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_TAG=${PIPELINE_GUI_DOCKER_IMAGE_TAG:-"latest"}
 fi
 
@@ -144,30 +134,32 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 
-_image_pull_secret_name="platform-provisioner-ui-image-pull"
-if kubectl get secret -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name} > /dev/null 2>&1; then
-  kubectl delete secret -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name}
-fi
-kubectl create secret docker-registry -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name} \
-  --docker-server="${PIPELINE_GUI_DOCKER_IMAGE_REPO}" \
-  --docker-username="${PIPELINE_GUI_DOCKER_IMAGE_USERNAME}" \
-  --docker-password="${PIPELINE_GUI_DOCKER_IMAGE_TOKEN}"
-if [[ $? -ne 0 ]]; then
-  echo "failed to create image pull secret"
-  exit 1
-fi
-
-# check if the service account already has the imagePullSecrets
-existing_secret=$(kubectl get serviceaccount pipeline-cluster-admin -n "${PIPELINE_NAMESPACE}" -o jsonpath='{.imagePullSecrets[?(@.name=="'"${_image_pull_secret_name}"'")].name}')
-if [ -z "$existing_secret" ]; then
-  kubectl patch serviceaccount pipeline-cluster-admin -n "${PIPELINE_NAMESPACE}" -p "{\"imagePullSecrets\": [{\"name\": \"${_image_pull_secret_name}\"}]}"
+if [[ -n ${PIPELINE_GUI_DOCKER_IMAGE_TOKEN} ]]; then
+  echo "PIPELINE_GUI_DOCKER_IMAGE_TOKEN is set, creating image pull secret"
+  _image_pull_secret_name="platform-provisioner-ui-image-pull"
+  if kubectl get secret -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name} > /dev/null 2>&1; then
+    kubectl delete secret -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name}
+  fi
+  kubectl create secret docker-registry -n "${PIPELINE_NAMESPACE}" ${_image_pull_secret_name} \
+    --docker-server="${PIPELINE_GUI_DOCKER_IMAGE_REPO}" \
+    --docker-username="${PIPELINE_GUI_DOCKER_IMAGE_USERNAME}" \
+    --docker-password="${PIPELINE_GUI_DOCKER_IMAGE_TOKEN}"
   if [[ $? -ne 0 ]]; then
-    echo "failed to patch image pull secret on service account"
+    echo "failed to create image pull secret"
     exit 1
   fi
-  echo "ServiceAccount patched with imagePullSecret: ${_image_pull_secret_name}"
-else
-  echo "ServiceAccount already contains imagePullSecret: ${_image_pull_secret_name}"
+  # check if the service account already has the imagePullSecrets
+  existing_secret=$(kubectl get serviceaccount pipeline-cluster-admin -n "${PIPELINE_NAMESPACE}" -o jsonpath='{.imagePullSecrets[?(@.name=="'"${_image_pull_secret_name}"'")].name}')
+  if [ -z "$existing_secret" ]; then
+    kubectl patch serviceaccount pipeline-cluster-admin -n "${PIPELINE_NAMESPACE}" -p "{\"imagePullSecrets\": [{\"name\": \"${_image_pull_secret_name}\"}]}"
+    if [[ $? -ne 0 ]]; then
+      echo "failed to patch image pull secret on service account"
+      exit 1
+    fi
+    echo "ServiceAccount patched with imagePullSecret: ${_image_pull_secret_name}"
+  else
+    echo "ServiceAccount already contains imagePullSecret: ${_image_pull_secret_name}"
+  fi
 fi
 
 # install provisioner web ui

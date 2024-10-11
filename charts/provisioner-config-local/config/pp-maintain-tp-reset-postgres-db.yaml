@@ -2,29 +2,27 @@ pipelineName: "Reset Postgres DB"
 description: |
   This pipeline will delete the old Postgres DB and create a new one. So that we can reset CP without delete the TP cluster.
 options:
-- name: "GUI_TP_CLUSTER_STORAGE_CLASS_NAME"
+- name: "TP cluster storage class name"
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_CLUSTER_STORAGE_CLASS_NAME"
   required: true
-  description: "This TP cluster storage class name for Postgres DB, EKS: ebs-gp3, AKS: default"
+  description: |
+    This TP cluster storage class name for Postgres DB. hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s
 recipe: |
   apiVersion: v1
   kind: helm-install
   meta:
     guiEnv:
       note: "reset-postgres-db"
-      GUI_TP_CLUSTER_NAME: ''
-      GUI_AZURE_RESOURCE_GROUP: ""
       GUI_PIPELINE_LOG_DEBUG: false
-      GUI_TP_CLUSTER_STORAGE_CLASS_NAME: "ebs-gp3"
+      GUI_TP_CLUSTER_STORAGE_CLASS_NAME: "standard"
     globalEnvVariable:
       REPLACE_RECIPE: true
-      PIPELINE_LOG_DEBUG: false
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       PIPELINE_CHECK_DOCKER_STATUS: false
-      AZURE_RESOURCE_GROUP: ${GUI_AZURE_RESOURCE_GROUP}
-      TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
-      TP_CLUSTER_STORAGE_CLASS_NAME: ${GUI_TP_CLUSTER_STORAGE_CLASS_NAME:-ebs-gp3}
+      TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-perm"}
+      TP_CLUSTER_STORAGE_CLASS_NAME: ${GUI_TP_CLUSTER_STORAGE_CLASS_NAME:-standard}
   helmCharts:
     - name: postgresql # chart name
       version: 11.9.13 # 14.3.3 use postgresql 16.2.0, 11.9.13 use postgresql 14.5.0
