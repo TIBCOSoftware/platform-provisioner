@@ -18,7 +18,7 @@ meta:
     GUI_TP_DNS_DOMAIN: localhost.dataplanes.pro
     GUI_TP_INSTALL_NGINX_INGRESS: true
     GUI_TP_INGRESS_SERVICE_TYPE: ClusterIP
-    GUI_TP_STORAGE_CLASS: standard
+    GUI_TP_STORAGE_CLASS: ""
     GUI_TP_INSTALL_POSTGRES: true
     GUI_PIPELINE_LOG_DEBUG: false
     GUI_TP_INSTALL_CERT_MANAGER: true

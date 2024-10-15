@@ -35,16 +35,19 @@ menuConfig:
           - label: "Standard Control Plane"
             url: "/pipelines/helm-install?title=cp-deploy-on-prem"
             config: pp-deploy-cp-core-on-prem.yaml
+          - label: "Upgrade platform-base chart"
+            url: "/pipelines/helm-install?title=Deploy-control-plane-on-prem-upgrade"
+            config: pp-deploy-cp-core-upgrade.yaml
   - label: "Data Plane"
     items:
     - label: "Register Data Plane"
       items:
-      - label: "Register Dev DP"
-        url: "/pipelines/generic-runner?title=dp-register-dev-dp"
-        config: pp-register-dp-dev.yaml
       - label: "Register Production DP"
         url: "/pipelines/generic-runner?title=dp-register-production-dp"
         config: pp-register-dp-prod.yaml
+      - label: "Register Private DP"
+        url: "/pipelines/generic-runner?title=dp-register-private-dp"
+        config: pp-register-dp-private.yaml
   - separator: true
   - label: "Observability"
     items:

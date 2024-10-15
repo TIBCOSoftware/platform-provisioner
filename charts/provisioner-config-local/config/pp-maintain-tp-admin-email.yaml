@@ -26,66 +26,66 @@ recipe: |
       GUI_PIPELINE_LOG_DEBUG: false
       GUI_CP_INSTANCE_ID: "cp1"
       GUI_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
+      GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
     globalEnvVariable:
       REPLACE_RECIPE: true
+      RUN1: true
       PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       PIPELINE_CHECK_DOCKER_STATUS: false
       # settings
       CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"cp1-ns"}
       CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
       CP_DNS_DOMAIN: ${GUI_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
+      CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@tibco.com"}
+      CURL_ENDPOINT: "tp-cp-orchestrator.${CP_NAMESPACE}.svc.cluster.local"
+      CURL_PORT: 8833
+      CURL_PATH: "v1/tibco-subscriptions"
+      CP_HOST: "account.${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}"
+      RECIPE_NAME: "recipe.yaml"
   tasks:
-    - condition: true
-      clusters:
-      - name: '${TP_CLUSTER_NAME}'
-      script:
-        ignoreErrors: false
-        fileName: script.sh
-        content: |
-          export ENDPOINT="tp-cp-orchestrator.${CP_NAMESPACE}.svc.cluster.local"
-          export HOST="account.${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}"
-          export PORT=8833
-            
-          curl -X POST \
-            "http://${ENDPOINT}:${PORT}/v1/tibco-subscriptions" \
-            -H 'cache-control: no-cache' \
-            -H 'content-type: application/json' \
-            -H "host: ${HOST}" \
-            -H 'x-atmosphere-for-user: foo' \
-            -H 'x-real-ip: 0.0.0.0' \
-            -d '{
-              "externalAccountId": "mySalesForceAccountId",
-              "externalSubscriptionId": "mySalesOrderNumber",
-              "firstName": "Admin",
-              "companyName": "Testing",
-              "lastName": "Purchase Order",
-              "phone": "+12015551234",
-              "state": "CA",
-              "country": "US",
-              "email": "cp-test@tibco.com",
-              "hostPrefix": "admin",
-              "prefixId":"tib1",
-              "tenantSubscriptionDetails":
-                [
-                  {
-                    "eula": true,
-                    "region": "global",
-                    "expiryInMonths": -1,
-                    "planId": "TIB_CLD_ADMIN_TIB_CLOUDOPS",
-                    "tenantId": "ADMIN",
-                    "seats":
-                      {
-                        "ADMIN":
-                          {
-                            "ENGR": -1,
-                            "PM": -1,
-                            "SUPT": -1,
-                            "OPS": -1,
-                            "PROV": -1,
-                            "TSUPT": -1
-                          }
-                      }
-                  }
-                ],
-                "skipEmail": false
-                }'
+  - condition: ${RUN1}
+    script:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      fileName: script.sh
+      content: |
+        curl -X POST \
+          "${CURL_ENDPOINT}:${CURL_PORT}/${CURL_PATH}" \
+          -H 'cache-control: no-cache' \
+          -H 'content-type: application/json' \
+          -H "host: ${CP_HOST}" \
+          -H 'x-atmosphere-for-user: foo' \
+          -H 'x-real-ip: 0.0.0.0' \
+          -d @<(yq ${RECIPE_NAME} -o=json) | jq
+    payload:
+      base64Encoded: false
+      fileName: ${RECIPE_NAME}
+      content: |
+        companyName: Testing
+        country: US
+        email: ${CP_ADMIN_EMAIL}
+        externalAccountId: mySalesForceAccountId
+        externalSubscriptionId: mySalesOrderNumber
+        firstName: Admin
+        hostPrefix: admin
+        lastName: Purchase Order
+        phone: '+12015551234'
+        prefixId: tib1
+        skipEmail: false
+        state: CA
+        tenantSubscriptionDetails:
+        - eula: true
+          expiryInMonths: -1
+          planId: TIB_CLD_ADMIN_TIB_CLOUDOPS
+          region: global
+          seats:
+            ADMIN:
+              ENGR: -1
+              OPS: -1
+              PM: -1
+              PROV: -1
+              SUPT: -1
+              TSUPT: -1
+          tenantId: ADMIN
+
