@@ -1,0 +1,84 @@
+pipelineName: "Upgrade platform-base chart"
+description: |
+  This recipe is used to upgrade the platform-base helm charts on the specified cluster. It will keep the previous chart values and upgrade the helm chart.
+  * Upgrade to the latest version of the platform-base chart: `^1.0.0`
+  * TP 1.3 GA release version is: `1.3.338`
+  * TP 1.2 GA release version is: `1.2.140`
+  
+  CP helm chart repo: 
+  * public: https://tibcosoftware.github.io/tp-helm-charts (no need for GitHub token)
+  * private: https://<token>@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages/
+options:
+- name: "CP instance ID"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
+  required: true
+  description: "The CP instance name."
+- name: "CP namespace"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_NAMESPACE"
+  required: true
+- name: "CP platform base chart version"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION"
+  description: "The version of CP platform base. TP 1.2 GA release version is: 1.2.140. use ^1.0.0 for latest"
+- name: "GitHub token"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
+  description: "The GitHub token to access the helm chart repository (optional)"
+- name: "CP chart repo"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CHART_REPO"
+  required: true
+  description: "The helm chart repository URL"
+recipe: |
+  apiVersion: v1
+  kind: helm-install
+  meta:
+    guiEnv:
+      note: "deploy-cp-core"
+      GUI_CP_INSTANCE_ID: "cp1"
+      GUI_CP_NAMESPACE: "cp1-ns"
+      GUI_CP_REGION: ${AWS_REGION}
+      GUI_CP_PLATFORM_BASE_VERSION: ^1.0.0
+      GUI_GITHUB_TOKEN: ""
+      GUI_CP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: false
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      GITHUB_TOKEN: ${GUI_GITHUB_TOKEN} # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
+      CP_CHART_REPO: ${GUI_CP_CHART_REPO}
+      CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID}
+      CP_REGION: ${GUI_CP_REGION}
+      CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"on-prem"}
+      CP_NAMESPACE: "${GUI_CP_NAMESPACE}"
+      # CP version
+      CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-^1.0.0} # ^1.0.0 for latest
+    tools:
+      yq: "4.40"
+  helmCharts:
+    - name: platform-base
+      version: ${CP_PLATFORM_BASE_VERSION}
+      condition: true
+      repo:
+        helm:
+          url: ${CP_CHART_REPO}
+      values:
+        keepPrevious: true
+        content: |
+          dummy: "dummy"
+      cluster:
+        names:
+          - ${CP_CLUSTER_NAME}
+      releaseName: platform-base
+      namespace: ${CP_NAMESPACE}
+      flags:
+        wait: true
+        timeout: 1h
+        createNamespace: true

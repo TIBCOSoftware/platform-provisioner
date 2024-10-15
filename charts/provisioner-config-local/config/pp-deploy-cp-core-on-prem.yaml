@@ -416,24 +416,6 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BASE"
   description: "Install platform-base"
-- name: "Install tibcohub-contrib"
-  groupIndex: 10
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_TIBCOHUB_CONTRIB"
-  description: ""
-- name: "Install msg-contrib"
-  groupIndex: 10
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_MSG_CONTRIB"
-  description: ""
-- name: "Install hawk"
-  groupIndex: 10
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_HAWK"
-  description: ""
 - name: "Install recipes"
   groupIndex: 10
   type: boolean
@@ -475,6 +457,24 @@ options:
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES"
+  description: ""
+- name: "Install tibcohub-contrib"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_TIBCOHUB_CONTRIB"
+  description: ""
+- name: "Install msg-contrib"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_MSG_CONTRIB"
+  description: ""
+- name: "Install hawk"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_HAWK"
   description: ""
 - name: "Enable debug log"
   groupIndex: 10

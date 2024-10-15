@@ -87,6 +87,7 @@ options:
   groupIndex: 7
   type: string
   guiType: input
+  required: true
   reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
   description: |
     docker for mac: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
