@@ -58,7 +58,7 @@ options:
   reference: "tasks[2].script.content"
   required: true
   description: "Script to register the cluster and deploy dp core infrastructure"
-- name: "GUI_PIPELINE_LOG_DEBUG"
+- name: "Enable Pipeline debug log"
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
@@ -81,7 +81,6 @@ recipe: |
       # DP settings
       DP_DATAPLANE_ID: ${GUI_DP_DATAPLANE_ID}
       DP_NAMESPACE: ${GUI_DP_NAMESPACE}
-      DP_ECR_TOKEN: ${GUI_DP_ECR_TOKEN}
       DP_CONTAINER_REGISTRY: ${GUI_DP_CONTAINER_REGISTRY:-"csgprduswrepoedge.jfrog.io"}
       DP_CONTAINER_REGISTRY_USERNAME: "${GUI_DP_CONTAINER_REGISTRY_USERNAME}"
       DP_CONTAINER_REGISTRY_PASSWORD: "${GUI_DP_CONTAINER_REGISTRY_PASSWORD}"

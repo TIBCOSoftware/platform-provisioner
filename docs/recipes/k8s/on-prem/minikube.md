@@ -103,7 +103,7 @@ export PIPELINE_INPUT_RECIPE="docs/recipes/controlplane/tp-cp.yaml"
 ./dev/platform-provisioner-pipelinerun.sh
 ```
 
-By default; maildev will be installed. You can access maildev using: http://maildev.localhost.dataplanes.pro
+By default; maildev will be installed. You can access maildev using: http://mail.localhost.dataplanes.pro
 
 ## Deploy TIBCO Data Plane on minikube
 

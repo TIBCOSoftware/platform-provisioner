@@ -8,7 +8,7 @@ options:
   reference: "meta.guiEnv.GUI_TP_CLUSTER_STORAGE_CLASS_NAME"
   required: true
   description: |
-    This TP cluster storage class name for Postgres DB. hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s
+    This TP cluster storage class name for Postgres DB. hostpath for docker desktop, standard for minikube and kind, microk8s-hostpath for microk8s
 recipe: |
   apiVersion: v1
   kind: helm-install

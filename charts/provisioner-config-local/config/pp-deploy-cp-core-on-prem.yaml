@@ -36,7 +36,7 @@ groups:
   index: 7
   description: |
     Cluster storage specific configurations. For the on-perm setup we have
-    * docker for mac: `hostpath`
+    * docker desktop: `hostpath`
     * minikube: `standard`
     * kind: `standard`
     * microk8s: `microk8s-hostpath`
@@ -249,7 +249,7 @@ options:
   reference: "meta.guiEnv.GUI_CP_STORAGE_CLASS"
   required: true
   description: |
-    hostpath for docker for mac, standard for minikube and kind, microk8s-hostpath for microk8s
+    hostpath for docker desktop, standard for minikube and kind, microk8s-hostpath for microk8s
 - name: "CP storage create PV"
   groupIndex: 7
   type: string

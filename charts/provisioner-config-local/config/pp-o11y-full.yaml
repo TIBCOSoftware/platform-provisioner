@@ -31,7 +31,7 @@ options:
     type: string
     guiType: radio
     reference: "meta.guiEnv.GUI_DP_STORAGE_CLASS"
-    description: "hostpath for docker for mac, standard for minikube"
+    description: "hostpath for docker desktop, standard for minikube"
     required: true
   - name: "GUI_DP_DOMAIN"
     type: string
@@ -66,7 +66,7 @@ recipe: |
       DP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
       DP_DOMAIN: ${GUI_DP_DOMAIN}
       DP_INGRESS_CLASS: ${GUI_DP_INGRESS_CLASS} # nginx, traefik
-      DP_STORAGE_CLASS: ${GUI_DP_STORAGE_CLASS} # hostpath for docker for mac, standard for minikube
+      DP_STORAGE_CLASS: ${GUI_DP_STORAGE_CLASS} # hostpath for docker desktop, standard for minikube
       DP_ES_RELEASE_NAME: dp-config-es
       DP_CONFIG_CHART_VERSION: "${GUI_DP_CONFIG_CHART_VERSION}"
       DP_CONFIG_ES_VERSION: "${GUI_DP_CONFIG_ES_VERSION}"

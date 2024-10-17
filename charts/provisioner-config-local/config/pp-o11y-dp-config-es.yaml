@@ -67,7 +67,7 @@ options:
     type: string
     guiType: radio
     reference: "meta.guiEnv.GUI_DP_STORAGE_CLASS"
-    description: "hostpath for docker for mac, standard for minikube"
+    description: "hostpath for docker desktop, standard for minikube"
     required: true
   - name: "GUI_PIPELINE_LOG_DEBUG"
     type: boolean
