@@ -5,7 +5,7 @@ description: |
   * `ingress-nginx-controller.ingress-system.svc.cluster.local` for nginx
   * `traefik.ingress-system.svc.cluster.local` for traefik
   
-  The domain `*.localhost.dataplanes.pro` is pointing to 0.0.0.0. We need to redirect it to the target ingress service.
+  The domain `*.localhost.dataplanes.pro` is pointing to 127.0.0.1. We need to redirect it to the target ingress service.
   
   This script is idempotent. It will only add the rewrite rule if it does not exist.
   

@@ -1,0 +1,70 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# This recipe is used to test the container binaries
+# the output will be something like this:
+#  Binary                         Version
+#  ------                         -------
+#  aws                            aws-cli/2.18.0 Python/3.11.10
+#  az                             2.64.0
+#  gcloud                         Google Cloud SDK 495.0.0
+#  eksctl                         0.191.0
+#  docker-credential-ecr-login    docker-credential-ecr-login (github.com/awslabs/amazon-ecr-credential-helper/ecr-login) 0.9.0
+#  cue                            cue version v0.10.0
+#  yq                             yq (https://github.com/mikefarah/yq/) version v4.44.3
+#  vcluster                       vcluster version 0.20.1
+#  helm                           v3.16.1+g5a5449d
+#  kubectl                        Client Version: v1.31.1
+apiVersion: v1
+kind: generic-runner
+meta:
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_INITIAL_ASSUME_ROLE: true
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    RUN1: true
+  tools:
+    yq: "4.40"
+    kubectl: "1.31" # comment out to show the default version
+    helm: "3.16" # comment out to show the default version
+tasks:
+  - condition: ${RUN1}
+    script:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      fileName: script.sh
+      content: |
+        # Define a function to get the version of a command
+        get_version() {
+          case "$1" in
+            aws) aws --version 2>&1 | awk '{print $1 " " $2}' ;;
+            az) az version 2>&1 | sed -n 's/.*"azure-cli": "\(.*\)",/\1/p' ;;
+            gcloud) gcloud --version 2>&1 | head -n 1 ;;
+            eksctl) eksctl version 2>&1 ;;
+            docker-credential-ecr-login) docker-credential-ecr-login version 2>&1 ;;
+            cue) cue version 2>&1 | head -n 1 ;;  # Only get the first line
+            yq) yq --version 2>&1 ;;
+            vcluster) vcluster version 2>&1 ;;
+            helm) helm version --short 2>&1 ;;
+            kubectl) kubectl version --client 2>&1 ;;
+          *) echo "Unknown command" ;;
+          esac
+        }
+        
+        # Define an array of binaries to check
+        binaries="aws az gcloud eksctl docker-credential-ecr-login cue yq vcluster helm kubectl"
+        
+        # Print the table header
+        printf "%-30s %-20s\n" "Binary" "Version"
+        printf "%-30s %-20s\n" "------" "-------"
+        
+        # Loop through each binary and print its version
+        for binary in $binaries; do
+        version=$(get_version "$binary")
+        printf "%-30s %-20s\n" "$binary" "$version"
+        done

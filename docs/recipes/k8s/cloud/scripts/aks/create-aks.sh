@@ -63,8 +63,14 @@ if [ -n "${TP_NETWORK_POLICY}" ]; then
 fi
 
 # append nat gateway public ip
-_nat_gw_public_ip=$(az network public-ip show -g ${TP_RESOURCE_GROUP} -n ${TP_PUBLIC_IP_NAME}  --query 'ipAddress' -otsv)
+_nat_gw_public_ip=$(az network public-ip show -g "${TP_RESOURCE_GROUP}" -n "${TP_PUBLIC_IP_NAME}"  --query 'ipAddress' -otsv)
 export TP_AUTHORIZED_IP="${TP_AUTHORIZED_IP},${_nat_gw_public_ip}"
+
+# PIPELINE_OUTBOUND_IP_ADDRESS is the outbound ip address of the pipeline engine
+AUTHORIZED_IP="${TP_AUTHORIZED_IP:-${PIPELINE_OUTBOUND_IP_ADDRESS}}"
+if [ -n "${PIPELINE_OUTBOUND_IP_ADDRESS}" ] && [ -n "${TP_AUTHORIZED_IP}" ]; then
+  AUTHORIZED_IP="${TP_AUTHORIZED_IP},${PIPELINE_OUTBOUND_IP_ADDRESS}"
+fi
 
 # set aks identity details
 _user_assigned_id="/subscriptions/${TP_SUBSCRIPTION_ID}/resourcegroups/${TP_RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${TP_USER_ASSIGNED_IDENTITY_NAME}"
@@ -89,7 +95,7 @@ az aks create -g "${TP_RESOURCE_GROUP}" -n "${TP_CLUSTER_NAME}" \
   --enable-addons ingress-appgw \
   --enable-msi-auth-for-monitoring false \
   --generate-ssh-keys \
-  --api-server-authorized-ip-ranges "${TP_AUTHORIZED_IP}" \
+  --api-server-authorized-ip-ranges "${AUTHORIZED_IP}" \
   --enable-oidc-issuer \
   --enable-workload-identity \
   --network-plugin azure${_network_policy_parameter} \

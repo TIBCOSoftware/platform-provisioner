@@ -16,7 +16,7 @@ groups:
   index: 7
   description: |
     Cluster storage specific configurations. For the on-perm setup we have
-    * docker for mac: `hostpath`
+    * docker desktop: `hostpath`
     * minikube: `standard`
     * kind: `standard`
     * microk8s: `microk8s-hostpath`
@@ -90,7 +90,7 @@ options:
   required: true
   reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
   description: |
-    docker for mac: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
+    docker desktop: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
 
 # groupIndex: 8 Cluster tools
 - name: "Install cert-manager"
