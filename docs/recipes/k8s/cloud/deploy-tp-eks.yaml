@@ -160,7 +160,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: aws-load-balancer-controller
-  version: 1.9.1 # release: https://github.com/aws/eks-charts/releases
+  version: 1.8.3 # release: https://github.com/aws/eks-charts/releases 1.9.1 has issue: https://github.com/eksctl-io/eksctl/issues/7987
   repo:
     helm:
       url: https://aws.github.io/eks-charts
