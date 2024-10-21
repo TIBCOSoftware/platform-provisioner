@@ -9,14 +9,25 @@
 # platform-provisioner-install.sh: this will deploy all supporting components for Platform Provisioner in headless mode with tekton pipeline
 # Globals:
 #   PIPELINE_GUI_DOCKER_IMAGE_REPO: the ECR repo to pull Platform Provisioner images
+#   PIPELINE_GUI_DOCKER_IMAGE_PATH: the ECR path to pull Platform Provisioner images
+#   PIPELINE_GUI_DOCKER_IMAGE_TAG: the ECR tag to pull Platform Provisioner images
 #   PIPELINE_GUI_DOCKER_IMAGE_USERNAME: the username for ECR to pull Platform Provisioner images
 #   PIPELINE_GUI_DOCKER_IMAGE_TOKEN: the read-only token for ECR to pull Platform Provisioner images
+#   PIPELINE_GUI_SERVICE_TYPE: the service type for the provisioner GUI
+#   PIPELINE_GUI_SERVICE_PORT: the service port for the provisioner GUI
 #   PIPELINE_NAMESPACE: the namespace to deploy the pipeline and provisioner GUI
 #   PLATFORM_PROVISIONER_PIPELINE_REPO: the repo to pull the pipeline and provisioner GUI helm charts
 #   PIPELINE_DOCKER_IMAGE: the docker image for the pipeline
 #   PIPELINE_SKIP_PROVISIONER_UI: true or other string if true, will skip installing platform-provisioner GUI
 #   PIPELINE_SKIP_TEKTON_DASHBOARD: true or other string if true, will skip installing tekton dashboard
 #   GITHUB_TOKEN: the token to access github that all pipeline can share
+#   TEKTON_PIPELINE_RELEASE: the tekton pipeline release version
+#   TEKTON_DASHBOARD_RELEASE: the tekton dashboard release version
+#   PIPELINE_CHART_VERSION_COMMON: the helm chart version for common-dependency pipeline
+#   PIPELINE_CHART_VERSION_GENERIC_RUNNER: the helm chart version for generic-runner pipeline
+#   PIPELINE_CHART_VERSION_HELM_INSTALL: the helm chart version for helm-install pipeline
+#   PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL: the helm chart version for provisioner-config-local
+#   PIPELINE_CHART_VERSION_PROVISIONER_UI: the helm chart version for platform-provisioner-ui
 # Arguments:
 #   None
 # Returns:
@@ -48,6 +59,8 @@ if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "false" ]]; then
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_REPO}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_REPO=${PIPELINE_GUI_DOCKER_IMAGE_REPO:-"ghcr.io"}
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_PATH}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_PATH=${PIPELINE_GUI_DOCKER_IMAGE_PATH:-"tibcosoftware/platform-provisioner/platform-provisioner-ui"}
   [[ -z "${PIPELINE_GUI_DOCKER_IMAGE_TAG}" ]] && export PIPELINE_GUI_DOCKER_IMAGE_TAG=${PIPELINE_GUI_DOCKER_IMAGE_TAG:-"latest"}
+  [[ -z "${PIPELINE_GUI_SERVICE_TYPE}" ]] && export PIPELINE_GUI_SERVICE_TYPE=${PIPELINE_GUI_SERVICE_TYPE:-"ClusterIP"}
+  [[ -z "${PIPELINE_GUI_SERVICE_PORT}" ]] && export PIPELINE_GUI_SERVICE_PORT=${PIPELINE_GUI_SERVICE_PORT:-"80"}
 fi
 
 # The tekton version to install
@@ -170,6 +183,8 @@ helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platfo
   --set "imagePullSecrets[0].name=${_image_pull_secret_name}" \
   --set guiConfig.onPremMode=true \
   --set guiConfig.pipelinesCleanUpEnabled=true \
+  --set service.type="${PIPELINE_GUI_SERVICE_TYPE}" \
+  --set service.port="${PIPELINE_GUI_SERVICE_PORT}" \
   --set guiConfig.dataConfigMapName="provisioner-config-local-config"
 if [[ $? -ne 0 ]]; then
   echo "failed to install platform-provisioner-ui"
