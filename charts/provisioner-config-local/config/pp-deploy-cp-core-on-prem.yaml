@@ -7,17 +7,14 @@
 pipelineName: "Deploy Control Plane On-Prem Stack"
 description: |
   This pipeline will deploy TIBCO Control Plane on-premises.
-  After the deployment, you will get an email in MailDev to reset the password.
-  You need to use port-forward to access MailDev. 
-  ```bash
-  kubectl port-forward svc/development-mailserver -n tibco-ext 1080:1080
-  ```
-  Then you can access MailDev at `http://localhost:1080`
+
 groups:
 - title: "Chart Repository"
   index: 1
   description: |
-    TIBCO Platform CP and DP chart repositories. For the public repo we don't need to set the token.
+    TIBCO Platform CP and DP chart repositories. 
+    
+    For the public repo we don't need to set the token.
 - title: "Container Registry"
   index: 2
   description: |
@@ -31,7 +28,9 @@ groups:
 - title: "CP ingress"
   index: 6
   description: |
-    CP ingress specific configurations. If the main ingress for CP already config certificate; you can skip the certificate config for CP.
+    CP ingress specific configurations. 
+    
+    If the main ingress for CP already config certificate; you can skip the certificate config for CP.
 - title: "Cluster storage"
   index: 7
   description: |
@@ -43,11 +42,15 @@ groups:
 - title: "CP Database"
   index: 8
   description: |
-    CP DB specific configurations. The default value is for postgres pod.
+    CP DB specific configurations. We use PostgreSQL pod by default.
 - title: "CP E-mail"
   index: 9
   description: |
-    CP E-mail specific configurations. The default value is for maildev.
+    CP E-mail specific configurations. The default E-mail that we use is MailDev.
+    
+    After the deployment, you will get an email in MailDev to reset the admin password. 
+    * MailDev address: [https://mail.localhost.dataplanes.pro](https://mail.localhost.dataplanes.pro)
+    You can then follow the admin E-mail to create the admin user.
 - title: "Flow control"
   index: 10
   description: |

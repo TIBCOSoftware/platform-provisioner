@@ -96,6 +96,9 @@ menuConfig:
     - label: "Adjust CoreDNS config"
       url: "/pipelines/generic-runner?title=tp-config-coredns"
       config: pp-maintain-tp-config-coredns.yaml
+    - label: "Remove all pod resources"
+      url: "/pipelines/generic-runner?title=tp-remove-resource"
+      config: pp-maintain-tp-remove-resource.yaml
     - label: "TP Cluster Info"
       url: "/pipelines/generic-runner?title=tp-info"
       config: pp-maintain-tp-info.yaml
