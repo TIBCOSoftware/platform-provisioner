@@ -64,8 +64,6 @@ spec:
               value: "{{ .Values.guiConfig.pipelineTemplateLabelValue }}"
             - name: PIPELINE_RUN_CANCELLED
               value: "{{ .Values.guiConfig.pipelineRunCancelled }}"
-            - name: START_FROM_SOURCE
-              value: "{{ .Values.guiConfig.startLocally }}"
             - name: ON_PREM_MODE
               value: "{{ .Values.guiConfig.onPremMode }}"
             - name: TEKTON_API_VERSION

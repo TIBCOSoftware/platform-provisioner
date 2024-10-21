@@ -42,6 +42,8 @@ recipe: |
       CURL_PATH: "v1/tibco-subscriptions"
       CP_HOST: "account.${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}"
       RECIPE_NAME: "recipe.yaml"
+    tools:
+      yq: "4.40"
   tasks:
   - condition: ${RUN1}
     script:

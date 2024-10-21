@@ -1,0 +1,130 @@
+pipelineName: "Remove all pod resources"
+description: |
+  This pipeline will remove the resource settings from all containers and init containers in all Deployments and StatefulSets in the TP cluster.
+  You can run it as many times as you want. It is idempotent.
+options:
+- name: "Remove resources section for all Deployments and StatefulSets in the TP cluster"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TASK_REMOVE_RESOURCES"
+  description: |
+      If checked, the pipeline will remove the resources for all containers and init containers in all Deployments and StatefulSets in the TP cluster.
+- name: "Show resources section for all Deployments and StatefulSets in the TP cluster"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TASK_SHOW_RESOURCES"
+  description: |
+    If checked, the pipeline will display the resources for all containers and init containers in all Deployments and StatefulSets in the TP cluster.
+- name: "GUI_PIPELINE_LOG_DEBUG"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+  apiVersion: v1
+  kind: generic-runner
+  meta:
+    guiEnv:
+      note: "remove-resource-settings"
+      GUI_PIPELINE_LOG_DEBUG: false
+      GUI_TASK_REMOVE_RESOURCES: true
+      GUI_TASK_SHOW_RESOURCES: true
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
+      TASK_REMOVE_RESOURCES: ${GUI_TASK_REMOVE_RESOURCES:-true}
+      TASK_SHOW_RESOURCES: ${GUI_TASK_SHOW_RESOURCES:-false}
+    tools:
+      yq: "4.40"
+  tasks:
+    - condition: ${TASK_REMOVE_RESOURCES}
+      clusters:
+        - name: ${TP_CLUSTER_NAME}
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          remove_resources() {
+            local kind=$1
+            local name=$2
+            local namespace=$3
+    
+            # Get the number of containers
+            container_count=$(kubectl get "$kind" "$name" -n "$namespace" -o jsonpath='{.spec.template.spec.containers[*].name}' | wc -w)
+            init_container_count=$(kubectl get "$kind" "$name" -n "$namespace" -o jsonpath='{.spec.template.spec.initContainers[*].name}' | wc -w)
+    
+            # Remove resources from all containers
+            for i in $(seq 0 $((container_count - 1))); do
+              kubectl patch "$kind" "$name" -n "$namespace" --type=json -p="[
+                {\"op\": \"remove\", \"path\": \"/spec/template/spec/containers/$i/resources\"}
+              ]" 2>/dev/null || echo "No resources found for container $i in $kind $name in namespace $namespace"
+            done
+    
+            # Remove resources from all initContainers
+            for i in $(seq 0 $((init_container_count - 1))); do
+              kubectl patch "$kind" "$name" -n "$namespace" --type=json -p="[
+                {\"op\": \"remove\", \"path\": \"/spec/template/spec/initContainers/$i/resources\"}
+              ]" 2>/dev/null || echo "No resources found for initContainer $i in $kind $name in namespace $namespace"
+            done
+          }
+    
+          # Loop through all namespaces
+          for ns in $(kubectl get ns --no-headers | awk '{print $1}'); do
+            echo "Processing namespace: $ns"
+    
+            # Process all Deployments
+            deployments=$(kubectl get deployments -n "$ns" --no-headers | awk '{print $1}')
+            for deploy in $deployments; do
+              echo "Processing Deployment: $deploy"
+              remove_resources "deployment" "$deploy" "$ns"
+            done
+    
+            # Process all StatefulSets
+            statefulsets=$(kubectl get statefulsets -n "$ns" --no-headers | awk '{print $1}')
+            for sts in $statefulsets; do
+              echo "Processing StatefulSet: $sts"
+              remove_resources "statefulset" "$sts" "$ns"
+            done
+          done
+    - condition: ${TASK_SHOW_RESOURCES}
+      clusters:
+        - name: ${TP_CLUSTER_NAME}
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          # Function to extract and display the resources section of containers
+          extract_resources() {
+            local kind=$1
+            local name=$2
+            local namespace=$3
+  
+            echo "Resources for $kind: $name in namespace: $namespace"
+  
+            # Extract the resources from containers and initContainers, if they exist
+            kubectl get "$kind" "$name" -n "$namespace" -o json | \
+            jq '{
+                containers: [.spec.template.spec.containers[] | {name: .name, resources: .resources}],
+                initContainers: [.spec.template.spec.initContainers[]? | {name: .name, resources: .resources}]
+              }' | jq .
+  
+            echo "------------------------------------------------------"
+          }
+  
+          # Loop through all namespaces
+          for ns in $(kubectl get ns --no-headers | awk '{print $1}'); do
+            echo "Processing namespace: $ns"
+  
+            # Process all Deployments
+            deployments=$(kubectl get deployments -n "$ns" --no-headers | awk '{print $1}')
+            for deploy in $deployments; do
+              extract_resources "deployment" "$deploy" "$ns"
+            done
+  
+            # Process all StatefulSets
+            statefulsets=$(kubectl get statefulsets -n "$ns" --no-headers | awk '{print $1}')
+            for sts in $statefulsets; do
+              extract_resources "statefulset" "$sts" "$ns"
+            done
+          done
+  
+          echo "Resource extraction completed."

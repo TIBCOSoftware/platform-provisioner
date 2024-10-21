@@ -6,12 +6,14 @@
 
 pipelineName: "Deploy TIBCO Platform On-Prem Stack"
 description: |
-  This pipeline will deploy supporting tools for TP Cluster on-prem with out certificate.
+  This pipeline will deploy supporting tools for TP Cluster on-prem without certificate.
 groups:
 - title: "Cluster Ingress"
   index: 1
   description: |
-    Cluster Ingress configurations.
+    Cluster Ingress configurations. 
+    * domain: `*.localhost.dataplanes.pro` point to `127.0.0.1`.
+    * ingress service type: We can only have `ONE` main ingress uses service type `LoadBalancer` for on-perm setup.
 - title: "Cluster storage"
   index: 7
   description: |
@@ -24,6 +26,8 @@ groups:
   index: 8
   description: |
     Cluster tools specific configurations.
+    * Postgres database is optional if you only want to create a DP Cluster.
+    * Install provisioner UI ingress for the on-prem setup. You can then access provisioner UI at [https://provisioner.localhost.dataplanes.pro](https://provisioner.localhost.dataplanes.pro)
 - title: "Flow control"
   index: 10
   description: |
@@ -35,7 +39,8 @@ options:
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
-  description: "The TP Cluster DNS domain. localhost.dataplanes.pro is designed for local use"
+  description: |
+    The TP Cluster DNS domain. localhost.dataplanes.pro is designed for local use
 - name: "TP ingress service type"
   groupIndex: 1
   labels:
@@ -52,7 +57,7 @@ options:
   guiType: radio
   reference: "meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE"
   description: |
-    We suggest to use "ClusterIP" and use kubectl port-forward for local cluster.
+    We suggest to use "LoadBalancer" for Docker Desktop. Use "ClusterIP" and use kubectl port-forward for other local cluster.
 - name: "Install Nginx Ingress"
   groupIndex: 1
   type: boolean
@@ -98,6 +103,27 @@ options:
   reference: "meta.guiEnv.GUI_TP_INSTALL_POSTGRES"
   description: |
     Install Postgres database for TP Cluster
+- name: "Install Provisioner UI Ingress object"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI"
+  description: |
+    This will update Provisioner UI ingress
+- name: "Provisioner UI Ingress class name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME"
+  description: |
+    Ingress class name for Provisioner UI. Default is `nginx`
+- name: "Provisioner UI namespace"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_PROVISIONER_UI_NAMESPACE"
+  description: |
+    Namespace for Provisioner UI. Default is `tekton-tasks`
 
 # groupIndex: 10 Flow control
 - name: "Enable pipline debug logs"

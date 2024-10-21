@@ -19,12 +19,15 @@ meta:
     GUI_TP_TLS_CERT: ""
     GUI_TP_TLS_KEY: ""
     GUI_TP_INSTALL_NGINX_INGRESS: true
-    GUI_TP_INGRESS_SERVICE_TYPE: ClusterIP
+    GUI_TP_INGRESS_SERVICE_TYPE: LoadBalancer
     GUI_TP_STORAGE_CLASS: ""
+    GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME: nginx
+    GUI_TP_PROVISIONER_UI_NAMESPACE: tekton-tasks
     GUI_TP_INSTALL_POSTGRES: true
-    GUI_PIPELINE_LOG_DEBUG: false
+    GUI_TP_INSTALL_PROVISIONER_UI: true
     GUI_TP_INSTALL_CERT_MANAGER: true
     GUI_TP_INSTALL_METRICS_SERVER: true
+    GUI_PIPELINE_LOG_DEBUG: false
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
@@ -44,6 +47,9 @@ meta:
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard"} # hostpath for docker desktop, standard for minikube and kind, microk8s-hostpath for microk8s
     # third party
     TP_EXT_NAMESPACE: tibco-ext
+    TP_INSTALL_PROVISIONER_UI: ${GUI_TP_INSTALL_PROVISIONER_UI:-"true"}
+    TP_PROVISIONER_UI_NAMESPACE: ${GUI_TP_PROVISIONER_UI_NAMESPACE:-"tekton-tasks"}
+    TP_PROVISIONER_UI_INGRESS_CLASSNAME: ${GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME:-"nginx"}
     # CP DB setup env
     TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-"true"}
     TP_DB_USER_NAME: ${GUI_TP_DB_USER_NAME:-"postgres"} # TP_RDS_USERNAME in create-rds.sh
@@ -171,6 +177,7 @@ helmCharts:
         name: traefik
       ingressRoute: # for dashboard http://dashboard.localhost/dashboard/#/
         dashboard:
+          enabled: true
           matchRule: Host(`dashboard.${TP_DNS_DOMAIN}`) && PathPrefix(`/dashboard`) || Host(`dashboard.${TP_DNS_DOMAIN}`) && PathPrefix(`/api`)
           entryPoints:
             - traefik
@@ -232,6 +239,31 @@ helmCharts:
         database: "${TP_DB_NAME}"
       global:
         storageClass: ${TP_STORAGE_CLASS}
+  flags:
+    createNamespace: true
+    timeout: 1h
+- name: platform-provisioner-ui
+  version: ^1.0.0
+  namespace: ${TP_PROVISIONER_UI_NAMESPACE}
+  releaseName: platform-provisioner-ui
+  condition: ${TP_INSTALL_PROVISIONER_UI}
+  repo:
+    helm:
+      url: https://tibcosoftware.github.io/platform-provisioner
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      ingress:
+        enabled: true
+        className: ${TP_PROVISIONER_UI_INGRESS_CLASSNAME}
+        hosts:
+          - host: provisioner.${TP_DNS_DOMAIN}
+            paths:
+              - path: /
+                pathType: ImplementationSpecific
   flags:
     createNamespace: true
     timeout: 1h
