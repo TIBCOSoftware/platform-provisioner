@@ -171,6 +171,7 @@ helmCharts:
       extraArgs:
         # only register DNS for these ingress classes
         - "--ingress-class=${TP_INGRESS_CLASS}"
+        - --txt-wildcard-replacement=wildcard    # issue for Azure dns zone: https://github.com/kubernetes-sigs/external-dns/issues/2922
   cluster:
     names:
       - ${TP_CLUSTER_NAME}

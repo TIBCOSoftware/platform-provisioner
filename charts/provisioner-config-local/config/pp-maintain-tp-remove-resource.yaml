@@ -15,6 +15,12 @@ options:
   reference: "meta.guiEnv.GUI_TASK_SHOW_RESOURCES"
   description: |
     If checked, the pipeline will display the resources for all containers and init containers in all Deployments and StatefulSets in the TP cluster.
+- name: "Set maxReplicas to 1 for all HPAs in the TP cluster"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TASK_HAP_SET_MAX_REPLICAS"
+  description: |
+    If checked, the pipeline will set the maxReplicas to 1 for all HPAs in the TP cluster.
 - name: "GUI_PIPELINE_LOG_DEBUG"
   type: boolean
   guiType: checkbox
@@ -28,11 +34,13 @@ recipe: |
       GUI_PIPELINE_LOG_DEBUG: false
       GUI_TASK_REMOVE_RESOURCES: true
       GUI_TASK_SHOW_RESOURCES: true
+      GUI_TASK_HAP_SET_MAX_REPLICAS: true
     globalEnvVariable:
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       TASK_REMOVE_RESOURCES: ${GUI_TASK_REMOVE_RESOURCES:-true}
       TASK_SHOW_RESOURCES: ${GUI_TASK_SHOW_RESOURCES:-false}
+      TASK_HAP_SET_MAX_REPLICAS: ${GUI_TASK_HAP_SET_MAX_REPLICAS:-true}
     tools:
       yq: "4.40"
   tasks:
@@ -128,3 +136,18 @@ recipe: |
           done
   
           echo "Resource extraction completed."
+    - condition: ${TASK_HAP_SET_MAX_REPLICAS}
+      clusters:
+        - name: ${TP_CLUSTER_NAME}
+      script:
+        ignoreErrors: false
+        fileName: script.sh
+        content: |
+          echo "==================== Before ===================="
+          kubectl get hpa --all-namespaces
+          echo "Now setting maxReplicas to 1 for all HPAs in the TP cluster"
+          kubectl get hpa --all-namespaces -o yaml | yq -r '.items[] | .metadata.namespace + " " + .metadata.name' | while read -r namespace name; do
+            kubectl patch hpa "$name" -n "$namespace" --type='merge' -p '{"spec": {"maxReplicas": 1}}'
+          done
+          echo "==================== After ===================="
+          kubectl get hpa --all-namespaces

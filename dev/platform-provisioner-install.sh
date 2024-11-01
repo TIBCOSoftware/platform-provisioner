@@ -45,6 +45,7 @@
 
 [[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest"}
 [[ -z "${PIPELINE_SKIP_PROVISIONER_UI}" ]] && export PIPELINE_SKIP_PROVISIONER_UI=${PIPELINE_SKIP_PROVISIONER_UI:-false}
+[[ -z "${PIPELINE_SKIP_TEKTON_PIPELINE}" ]] && export PIPELINE_SKIP_TEKTON_PIPELINE=${PIPELINE_SKIP_TEKTON_PIPELINE:-true}
 [[ -z "${PIPELINE_SKIP_TEKTON_DASHBOARD}" ]] && export PIPELINE_SKIP_TEKTON_DASHBOARD=${PIPELINE_SKIP_TEKTON_DASHBOARD:-true}
 [[ -z "${TEKTON_PIPELINE_RELEASE}" ]] && export TEKTON_PIPELINE_RELEASE=${TEKTON_PIPELINE_RELEASE:-"v0.59.0"}
 [[ -z "${TEKTON_DASHBOARD_RELEASE}" ]] && export TEKTON_DASHBOARD_RELEASE=${TEKTON_DASHBOARD_RELEASE:-"v0.46.0"}
@@ -64,10 +65,12 @@ if [[ ${PIPELINE_SKIP_PROVISIONER_UI} == "false" ]]; then
 fi
 
 # The tekton version to install
-kubectl apply -f "https://storage.googleapis.com/tekton-releases/pipeline/previous/${TEKTON_PIPELINE_RELEASE}/release.yaml"
-if [[ $? -ne 0 ]]; then
-  echo "failed to install tekton pipeline"
-  exit 1
+if [[ ${PIPELINE_SKIP_TEKTON_PIPELINE} != "true" ]]; then
+  kubectl apply -f "https://storage.googleapis.com/tekton-releases/pipeline/previous/${TEKTON_PIPELINE_RELEASE}/release.yaml"
+  if [[ $? -ne 0 ]]; then
+    echo "failed to install tekton pipeline"
+    exit 1
+  fi
 fi
 
 if [[ ${PIPELINE_SKIP_TEKTON_DASHBOARD} != "true" ]]; then
@@ -98,8 +101,10 @@ function k8s-waitfor-deployment() {
   fi
 }
 
-k8s-waitfor-deployment "tekton-pipelines" "tekton-pipelines-controller" "120s"
-k8s-waitfor-deployment "tekton-pipelines" "tekton-pipelines-webhook" "120s"
+if [[ ${PIPELINE_SKIP_TEKTON_PIPELINE} != "true" ]]; then
+  k8s-waitfor-deployment "tekton-pipelines" "tekton-pipelines-controller" "120s"
+  k8s-waitfor-deployment "tekton-pipelines" "tekton-pipelines-webhook" "120s"
+fi
 
 # create service account for this pipeline
 _service_account_admin_name="pipeline-cluster-admin"

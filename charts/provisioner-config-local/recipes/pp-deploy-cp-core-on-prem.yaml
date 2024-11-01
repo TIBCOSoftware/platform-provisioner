@@ -484,6 +484,18 @@ helmCharts:
             limits:
               cpu: 1250m
               memory: 1000Mi
+          ingress:
+            enabled: true
+            annotations:
+              external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
+              nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+            ingressClassName: ${CP_INGRESS_CLASSNAME}
+            hosts:
+              - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    port: 105
         router-operator:
           enabled: true
           resources:
@@ -493,6 +505,18 @@ helmCharts:
             limits:
               cpu: 3000m
               memory: 1000Mi
+          ingress:
+            enabled: true
+            annotations:
+              external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
+              nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+            ingressClassName: ${CP_INGRESS_CLASSNAME}
+            hosts:
+              - host: '*.${CP_SERVICE_DNS_DOMAIN}'
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    port: 100
         resource-set-operator:
           enabled: true
           resources:
@@ -506,13 +530,6 @@ helmCharts:
           enabled: false
       global:
         external:
-          ingress:
-            ingressClassName: ${CP_INGRESS_CLASSNAME}
-            # certificateArn: ${CP_ALB_CERTIFICATE_ARN}
-          # aws:
-            # tunnelService:
-              # certificateArn: ${CP_NLB_CERTIFICATE_ARN}
-              # loadBalancerClass: service.k8s.aws/nlb
           clusterInfo:
             nodeCIDR: ${CP_NODE_CIDR}
             podCIDR: ${CP_POD_CIDR}
@@ -523,7 +540,6 @@ helmCharts:
             resources:
               requests:
                 storage: ${CP_STORAGE_PV_SIZE}
-            volumeName: ${CP_STORAGE_PV_NAME}
             storageClassName: ${CP_STORAGE_CLASS}
         tibco:
           logging:
@@ -546,14 +562,39 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    extra: "--values tls_values.yaml --values volume_values.yaml"
   hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # optional chart values fields
+        touch tls_values.yaml
+        if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
+          export _star_service_dns="'*.${CP_SERVICE_DNS_DOMAIN}'"
+          export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
+          export _tp_generate_certificate_name="${TP_GENERATE_CERTIFICATE_NAME}"
+          yq eval '(.tp-cp-bootstrap.router-operator.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) | (.tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) | .tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] style="single" | (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].secretName = env(_tp_generate_certificate_name))| (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) | .tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] style="single"' tls_values.yaml > tls_values.yaml
+          echo "TLS values:"
+          cat tls_values.yaml
+        fi
+        touch volume_values.yaml
+        if [[ "${CP_STORAGE_PV_NAME}" != "" ]]; then
+          yq eval '.global.external.storage.volumeName = env(CP_STORAGE_PV_NAME)' volume_values.yaml > volume_values.yaml
+          echo "Volume values:"
+          cat volume_values.yaml
+        fi
     postDeploy:
       ignoreErrors: false
       base64Encoded: false
       skip: ${CP_SKIP_BOOTSTRAP_INGRESS}
       content: |
-        if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
-          kubectl apply -f - <<EOF
+        _router_ingress=$(kubectl get ingress -n ${CP_NAMESPACE} router 2>/dev/null)
+        _router_ingress_response=$?
+        if [[ -z "${_router_ingress}" && "${_router_ingress_response}" != "0" ]]; then
+          if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
+            kubectl apply -f - <<EOF
         kind: Ingress
         apiVersion: networking.k8s.io/v1
         metadata:
@@ -563,7 +604,7 @@ helmCharts:
             app.cloud.tibco.com/created-by: pipeline
             platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"   
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
         spec:
           ingressClassName: ${CP_INGRESS_CLASSNAME}
@@ -583,8 +624,43 @@ helmCharts:
                         port:
                           number: 100
         EOF
-        
-          kubectl apply -f - <<EOF
+          else
+            kubectl apply -f - <<EOF
+        kind: Ingress
+        apiVersion: networking.k8s.io/v1
+        metadata:
+          name: router
+          namespace: ${CP_NAMESPACE}
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+        spec:
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          rules:
+            - host: '*.${CP_SERVICE_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: router
+                        port:
+                          number: 100
+        EOF
+          fi
+        else 
+          echo "Ingress router already exists"
+        fi
+
+        _hybrid_proxy_ingress=$(kubectl get ingress -n ${CP_NAMESPACE} hybrid-proxy 2>/dev/null)
+        _hybrid_proxy_ingress_response=$?
+        if [[ -z "${_hybrid_proxy_ingress}" && "${_hybrid_proxy_ingress_response}" != "0" ]]; then
+          if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
+            kubectl apply -f - <<EOF
         kind: Ingress
         apiVersion: networking.k8s.io/v1
         metadata:
@@ -614,37 +690,8 @@ helmCharts:
                         port:
                           number: 105
         EOF
-        
-        else
-        # create ingress for router and hybrid-proxy without TLS use case
-          kubectl apply -f - <<EOF
-        kind: Ingress
-        apiVersion: networking.k8s.io/v1
-        metadata:
-          name: router
-          namespace: ${CP_NAMESPACE}
-          labels:
-            app.cloud.tibco.com/created-by: pipeline
-            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
-          annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-        spec:
-          ingressClassName: ${CP_INGRESS_CLASSNAME}
-          rules:
-            - host: '*.${CP_SERVICE_DNS_DOMAIN}'
-              http:
-                paths:
-                  - path: /
-                    pathType: Prefix
-                    backend:
-                      service:
-                        name: router
-                        port:
-                          number: 100
-        EOF
-        
-          kubectl apply -f - <<EOF
+          else
+            kubectl apply -f - <<EOF
         kind: Ingress
         apiVersion: networking.k8s.io/v1
         metadata:
@@ -670,6 +717,9 @@ helmCharts:
                         port:
                           number: 105
         EOF
+          fi
+        else
+          echo "Ingress hybrid-proxy already exists"
         fi
 - name: platform-base
   version: ${CP_PLATFORM_BASE_VERSION}
