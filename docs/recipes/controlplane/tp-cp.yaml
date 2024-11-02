@@ -86,8 +86,8 @@ meta:
     TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     # CP version
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.36} # 1.3 GA release. use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.338} # 1.3 GA release. use ^1.0.0 for latest
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.39} # use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.358} # use ^1.0.0 for latest
     # flow control
     CP_CREATE_NAMESPACE: ${GUI_CP_CREATE_NAMESPACE:-true}
     CP_INSTALL_MAILDEV: ${GUI_CP_INSTALL_MAILDEV:-true}
@@ -909,12 +909,3 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
-  hooks:
-    postDeploy:
-      ignoreErrors: false
-      base64Encoded: false
-      skip: false
-      content: |
-        # manually adjust to 1 to save resources
-        kubectl patch hpa -n ${CP_NAMESPACE} tp-identity-management --type='json' -p='[{"op": "replace", "path": "/spec/maxReplicas", "value":1}]'
-        kubectl patch hpa -n ${CP_NAMESPACE} tp-cp-pengine --type='json' -p='[{"op": "replace", "path": "/spec/maxReplicas", "value":1}]'
