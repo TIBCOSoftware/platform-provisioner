@@ -133,13 +133,13 @@ options:
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_PLATFORM_BOOTSTRAP_VERSION"
-  description: "The version of CP platform bootstrap. TP 1.3 GA release version is: 1.3.36. Use ^1.0.0 for latest"
+  description: "The version of CP platform bootstrap. Use ^1.0.0 for latest"
 - name: "CP platform base version"
   groupIndex: 5
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION"
-  description: "The version of CP platform base. TP 1.3 GA release version is: 1.3.338. Use ^1.0.0 for latest"
+  description: "The version of CP platform base. Use ^1.0.0 for latest"
 - name: "CP instance ID"
   groupIndex: 5
   type: string
