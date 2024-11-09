@@ -21,8 +21,12 @@ meta:
     GUI_TP_INSTALL_NGINX_INGRESS: true
     GUI_TP_INGRESS_SERVICE_TYPE: LoadBalancer
     GUI_TP_STORAGE_CLASS: ""
+    GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ""
+    GUI_TP_NFS_SERVER_PROVISIONER_SIZE: 50Gi
+    GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: nfs
     GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME: nginx
     GUI_TP_PROVISIONER_UI_NAMESPACE: tekton-tasks
+    GUI_TP_INSTALL_NFS_SERVER_PROVISIONER: false
     GUI_TP_INSTALL_POSTGRES: true
     GUI_TP_INSTALL_PROVISIONER_UI: true
     GUI_TP_INSTALL_CERT_MANAGER: true
@@ -45,6 +49,10 @@ meta:
     TP_TLS_KEY: ${GUI_TP_TLS_KEY}
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard"} # hostpath for docker desktop, standard for minikube and kind, microk8s-hostpath for microk8s
+    TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ${GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER:-""}
+    TP_INSTALL_NFS_SERVER_PROVISIONER: ${GUI_TP_INSTALL_NFS_SERVER_PROVISIONER:-"false"}
+    TP_NFS_SERVER_PROVISIONER_SIZE: ${GUI_TP_NFS_SERVER_PROVISIONER_SIZE:-"50Gi"}
+    TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: ${GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME:-"nfs"}
     # third party
     TP_EXT_NAMESPACE: tibco-ext
     TP_INSTALL_PROVISIONER_UI: ${GUI_TP_INSTALL_PROVISIONER_UI:-"true"}
@@ -218,6 +226,29 @@ helmCharts:
           tls.crt: ${TP_TLS_CERT}
           tls.key: ${TP_TLS_KEY}
         EOF
+- name: nfs-server-provisioner
+  version: 1.8.0 # release: https://github.com/kubernetes-sigs/nfs-ganesha-server-and-external-provisioner/releases
+  namespace: kube-system
+  releaseName: nfs-server-provisioner
+  condition: ${TP_INSTALL_NFS_SERVER_PROVISIONER}
+  repo:
+    helm:
+      url: https://kubernetes-sigs.github.io/nfs-ganesha-server-and-external-provisioner
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      persistence:
+        enabled: true
+        storageClass: "${TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER}"
+        size: "${TP_NFS_SERVER_PROVISIONER_SIZE}"
+      storageClass:
+        name: "${TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME}"
+  flags:
+    createNamespace: true
+    timeout: 1h
 - name: postgresql
   version: 15.5.38 # 15.5.38 use postgresql 16.4.0, 11.9.13 use postgresql 14.5.0 release: https://artifacthub.io/packages/helm/bitnami/postgresql
   namespace: ${TP_EXT_NAMESPACE}

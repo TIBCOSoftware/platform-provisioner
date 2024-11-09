@@ -6,7 +6,7 @@
 
 apiVersion: v2
 name: platform-provisioner-ui
-version: "1.0.3"
+version: "1.0.8"
 appVersion: "2.0.0"
 description: A Helm chart for platform-provisioner-ui
 type: application

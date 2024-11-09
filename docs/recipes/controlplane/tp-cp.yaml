@@ -34,6 +34,7 @@ meta:
     CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
     CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
+    CP_FROM_REPLY_TO_EMAIL: ${GUI_CP_FROM_REPLY_TO_EMAIL:-""}
     CP_LOG_ENABLE: ${GUI_CP_LOG_ENABLE:-false}
     CP_EXTERNAL_ENVIRONMENT: ${GUI_CP_EXTERNAL_ENVIRONMENT:-"production"}
     CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
@@ -672,6 +673,7 @@ helmCharts:
               port: "${CP_MAIL_SERVER_PORT_NUMBER}"
               username: "${CP_MAIL_SERVER_USERNAME}"
               password: "${CP_MAIL_SERVER_PASSWORD}"
+          fromAndReplyToEmailAddress: "${CP_FROM_REPLY_TO_EMAIL}"
           admin:
             email: ${CP_ADMIN_EMAIL}
             firstname: "admin"
@@ -885,6 +887,14 @@ helmCharts:
                 cpu: 250m
                 memory: 1024Mi
           monitoringtibtunnel:
+            resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
+              limits:
+                cpu: "80m"
+                memory: "200Mi"
+          monitoringcapresources:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}

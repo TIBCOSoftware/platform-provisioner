@@ -70,6 +70,8 @@ spec:
               value: "{{ .Values.guiConfig.tektonAPIVersion }}"
             - name: PIPELINES_CLEAN_UP_ENABLED
               value: "{{ .Values.guiConfig.pipelinesCleanUpEnabled }}"
+            - name: PLATFORM_PROVISIONER_UI_SERVICE_PORT
+              value: "{{ .Values.service.port }}"
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
