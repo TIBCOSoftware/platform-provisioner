@@ -18,10 +18,12 @@ groups:
   index: 7
   description: |
     Cluster storage specific configurations. For the on-perm setup we have
-    * docker desktop: `hostpath`
-    * minikube: `standard`
-    * kind: `standard`
-    * microk8s: `microk8s-hostpath`
+    * Docker Desktop: `hostpath` (support ReadWriteMany)
+    * minikube: `standard` (support ReadWriteMany)
+    * kind: `standard` (Don't support ReadWriteMany)
+    * MicroK8s: `microk8s-hostpath` (support ReadWriteMany)
+    * OpenShift: `crc-csi-hostpath-provisioner` (Don't support ReadWriteMany)
+    * NFS server provisioner: `nfs` (support ReadWriteMany)
 - title: "Cluster tools"
   index: 8
   description: |
@@ -79,7 +81,28 @@ options:
   required: true
   reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
   description: |
-    docker desktop: "hostpath", minikube and kind: "standard", microk8s: "microk8s-hostpath"
+    The storage class for the TP Cluster.
+- name: "Storage class name for NFS server provisioner"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER"
+  description: |
+    The storage class name that NFS server provisioner will use. Empty means use the default storage class.
+- name: "NFS server provisioner storage class name"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME"
+  description: |
+    The storage class name that NFS server provisioner will create for the TP Cluster.
+- name: "NFS server provisioner size"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_NFS_SERVER_PROVISIONER_SIZE"
+  description: |
+    The size of the NFS server provisioner storage.
 
 # groupIndex: 8 Cluster tools
 - name: "Install cert-manager"
@@ -96,6 +119,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER"
   description: |
     Install metrics-server for TP Cluster
+- name: "Install nfs-server-provisioner"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER"
+  description: |
+    Install NFS server provisioner for TP Cluster
 - name: "Install Postgres"
   groupIndex: 8
   type: boolean

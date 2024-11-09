@@ -35,10 +35,12 @@ groups:
   index: 7
   description: |
     Cluster storage specific configurations. For the on-perm setup we have
-    * docker desktop: `hostpath`
-    * minikube: `standard`
-    * kind: `standard`
-    * microk8s: `microk8s-hostpath`
+    * Docker Desktop: `hostpath` (support ReadWriteMany)
+    * minikube: `standard` (support ReadWriteMany)
+    * kind: `standard` (Don't support ReadWriteMany)
+    * MicroK8s: `microk8s-hostpath` (support ReadWriteMany)
+    * OpenShift: `crc-csi-hostpath-provisioner` (Don't support ReadWriteMany)
+    * NFS server provisioner: `nfs` (support ReadWriteMany)
 - title: "CP Database"
   index: 8
   description: |
@@ -165,6 +167,12 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_ADMIN_EMAIL"
   description: "The CP admin email. You will get the email in MailDev to reset the password"
+- name: "CP from and replyTo email"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_FROM_REPLY_TO_EMAIL"
+  description: "The CP from and replyTo email. You will get the email from this email id"
 - name: "CP enable log"
   groupIndex: 5
   type: boolean
