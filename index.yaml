@@ -146,6 +146,20 @@ entries:
   platform-provisioner-ui:
   - apiVersion: v2
     appVersion: 2.0.0
+    created: "2024-11-09T03:46:12.127386692Z"
+    description: A Helm chart for platform-provisioner-ui
+    digest: da6a3de0e65518d183723627e9ae4c03f372f98e9e0f1e07bb970e8d389bd8e3
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: platform-provisioner-ui
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/platform-provisioner-ui-1.0.8/platform-provisioner-ui-1.0.8.tgz
+    version: 1.0.8
+  - apiVersion: v2
+    appVersion: 2.0.0
     created: "2024-10-21T20:43:21.730855352Z"
     description: A Helm chart for platform-provisioner-ui
     digest: 35611f08bf6476cb247af31dd8655b5a1b9f6c1fb21b2826f6a2679791925cf9
@@ -187,6 +201,20 @@ entries:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/platform-provisioner-ui-1.0.1/platform-provisioner-ui-1.0.1.tgz
     version: 1.0.1
   provisioner-config-local:
+  - apiVersion: v2
+    appVersion: 2.0.0
+    created: "2024-11-09T03:46:12.234676898Z"
+    description: Platform Provisioner local config
+    digest: 4eb764bf0528fe6278df70ccba21d4a2b9c525cf0fce83d04127ceba4d3a9a40
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.68/provisioner-config-local-1.0.68.tgz
+    version: 1.0.68
   - apiVersion: v2
     appVersion: 2.0.0
     created: "2024-11-04T15:47:26.647346637Z"
@@ -411,4 +439,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
     version: 1.0.25
-generated: "2024-11-04T15:47:26.647486487Z"
+generated: "2024-11-09T03:46:12.234804906Z"
