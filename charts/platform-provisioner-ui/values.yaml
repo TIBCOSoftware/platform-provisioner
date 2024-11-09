@@ -43,8 +43,8 @@ podLabels: {}
 # follow Restricted: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 podSecurityContext:
   seccompProfile:
-    type: RuntimeDefault # RuntimeDefault or Localhost (must for Restricted)
-  runAsNonRoot: true # Prevents processes from running as root (both) Container must run as a non-root user (must for Restricted)
+    type: RuntimeDefault  # RuntimeDefault or Localhost (must for Restricted)
+  runAsNonRoot: true  # Prevents processes from running as root (both) Container must run as a non-root user (must for Restricted)
   runAsUser: 1000  # Explicitly set the user ID for running processes (both) (must for restrict, non-zero or undefined/null)
   # runAsGroup: 3000  # Set the group ID for running processes (both)
   # fsGroup: 2000  # Specify the group ID for mounted volumes (pod security context only)
@@ -55,10 +55,10 @@ podSecurityContext:
   # windowsOptions: {} # Windows options to apply (both)
 
 securityContext:
-  readOnlyRootFilesystem: true # Prevents the container from writing to the root filesystem (container security context only)
-  allowPrivilegeEscalation: false # Prevents privilege escalation (container security context only) (must for Restricted)
-  capabilities: # Add or drop capabilities (container security context only)
-    drop: ["ALL"] # Drop all capabilities (must for Restricted)
+  readOnlyRootFilesystem: true  # Prevents the container from writing to the root filesystem (container security context only)
+  allowPrivilegeEscalation: false  # Prevents privilege escalation (container security context only) (must for Restricted)
+  capabilities:  # Add or drop capabilities (container security context only)
+    drop: ["ALL"]  # Drop all capabilities (must for Restricted)
     # add: ["NET_BIND_SERVICE"] # Add the NET_BIND_SERVICE capability to the container (only for lower 1024 ports) (allow for Restricted)
   # privileged: false # Prevents privilege escalation (container security context only) (for Baseline)
   # procMount: Default # Set the mount propagation mode for the container (container security context only)
