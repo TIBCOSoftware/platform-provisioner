@@ -511,6 +511,7 @@ helmCharts:
             annotations:
               external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
               nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+              nginx.ingress.kubernetes.io/proxy-body-size: 200m # set to 200m to allow large file upload PCP-7954
             ingressClassName: ${CP_INGRESS_CLASSNAME}
             hosts:
               - host: '*.${CP_SERVICE_DNS_DOMAIN}'
