@@ -46,7 +46,6 @@ recipe: |
       DP_OTEL_CHART_VERSION: "${GUI_DP_OTEL_CHART_VERSION}"
     tools:
       yq: "4.40"
-      helm: "3.13"
   helmCharts:
     - name: opentelemetry-collector
       version: "${DP_OTEL_CHART_VERSION}"

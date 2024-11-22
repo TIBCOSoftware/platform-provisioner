@@ -51,7 +51,6 @@ recipe: |
       DP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
     tools:
       yq: "4.40"
-      helm: "3.13"
   helmCharts:
     - name: dp-config-aws
       version: ${DP_CONFIG_AWS_VERSION}

@@ -456,6 +456,7 @@ helmCharts:
     content: |
       tp-cp-bootstrap:
         compute-services:
+          enabled: true
           resources:
             requests:
               cpu: ${CP_RESOURCES_REQUEST_CPU}
@@ -472,10 +473,6 @@ helmCharts:
                 repoUrl: ${DP_CHART_REPO}
               default: true
               type: chart-museum
-          dpMetadata:
-            dpConfigureNamespaceChartVersion: '*'
-            dpCoreInfrastructureChartVersion: '*'
-          enabled: true
         hybrid-proxy:
           enabled: true
           resources:
