@@ -53,11 +53,11 @@ recipe: |
       GUI_DP_STORAGE_CLASS: "hostpath"
       GUI_DP_DOMAIN: "localhost.dataplanes.pro"
       GUI_DP_CONFIG_CHART_VERSION: "^1.0.0"
-      GUI_DP_CONFIG_ES_VERSION: "8.12.1"
+      GUI_DP_CONFIG_ES_VERSION: "8.16.1"
       GUI_DP_CONFIG_ES_NAMESPACE: "elastic-system"
       GUI_DP_DEPLOY_ECK: true
-      GUI_DP_ECK_VERSION: "2.11.1"
-      GUI_DP_KUBE_PROMETHEUS_STACK_VERSION: "57.0.3"
+      GUI_DP_ECK_VERSION: "2.15.0"
+      GUI_DP_KUBE_PROMETHEUS_STACK_VERSION: "66.2.1"
       GUI_DP_OPEN_TELEMETRY_VERSION: "0.74.1"
     globalEnvVariable:
       REPLACE_RECIPE: true
@@ -69,15 +69,14 @@ recipe: |
       DP_STORAGE_CLASS: ${GUI_DP_STORAGE_CLASS} # hostpath for docker desktop, standard for minikube
       DP_ES_RELEASE_NAME: dp-config-es
       DP_CONFIG_CHART_VERSION: "${GUI_DP_CONFIG_CHART_VERSION}"
-      DP_CONFIG_ES_VERSION: "${GUI_DP_CONFIG_ES_VERSION}"
+      DP_CONFIG_ES_VERSION: "${GUI_DP_CONFIG_ES_VERSION}" # https://www.elastic.co/guide/en/elasticsearch/reference/current/es-release-notes.html
       DP_CONFIG_ES_NAMESPACE: "${GUI_DP_CONFIG_ES_NAMESPACE}"
       DP_DEPLOY_ECK: ${GUI_DP_DEPLOY_ECK}
-      DP_ECK_VERSION: "${GUI_DP_ECK_VERSION}" 
+      DP_ECK_VERSION: "${GUI_DP_ECK_VERSION}" # helm search repo elastic/eck-operator https://www.elastic.co/guide/en/cloud-on-k8s/master/eck-release-notes.html
       DP_KUBE_PROMETHEUS_STACK_VERSION: "${GUI_DP_KUBE_PROMETHEUS_STACK_VERSION}" # https://github.com/prometheus-community/helm-charts/releases
-      DP_OPEN_TELEMETRY_VERSION: "${GUI_DP_OPEN_TELEMETRY_VERSION}"
+      DP_OPEN_TELEMETRY_VERSION: "${GUI_DP_OPEN_TELEMETRY_VERSION}" # https://github.com/open-telemetry/opentelemetry-helm-charts/releases
     tools:
       yq: "4.40"
-      helm: "3.13"
   helmCharts:
     - name: eck-operator
       version: ${DP_ECK_VERSION}
@@ -146,6 +145,9 @@ recipe: |
               ingressClassName: ${DP_INGRESS_CLASS}
               hosts:
               - grafana.${DP_DOMAIN}
+          prometheus-node-exporter:
+            hostRootFsMount: 
+              enabled: false
           prometheus:
             prometheusSpec:
               enableRemoteWriteReceiver: true
@@ -202,6 +204,8 @@ recipe: |
         content: |
           mode: "daemonset"
           fullnameOverride: otel-kubelet-stats
+          # image:
+          #  repository: "otel/opentelemetry-collector-contrib"
           podLabels:
             platform.tibco.com/workload-type: "infra"
             networking.platform.tibco.com/kubernetes-api: enable
