@@ -353,7 +353,7 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_DB_SSL_ROOT_CERT_FILENAME"
   description: |
-    The certificate name for DB SSL. The default value is db-ssl-root-cert
+    The certificate name for DB SSL. The default value is db_ssl_root.cert
 - name: "CP DB delete on uninstall"
   groupIndex: 8
   type: boolean
