@@ -340,6 +340,20 @@ options:
     - "verify-full"
   guiType: radio
   reference: "meta.guiEnv.GUI_CP_DB_SSL_MODE"
+- name: "CP DB SSL root cert secret name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_SSL_ROOT_CERT_SECRET_NAME"
+  description: |
+    The secret name for DB SSL. The default value is db-ssl-root-cert
+- name: "CP DB SSL root cert file name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_SSL_ROOT_CERT_FILENAME"
+  description: |
+    The certificate name for DB SSL. The default value is db-ssl-root-cert
 - name: "CP DB delete on uninstall"
   groupIndex: 8
   type: boolean
