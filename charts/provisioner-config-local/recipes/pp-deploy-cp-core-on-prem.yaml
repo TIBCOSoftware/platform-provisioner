@@ -71,6 +71,8 @@ meta:
     GUI_CP_DB_SECRET_NAME: "provider-cp-database-credentials"
     GUI_CP_DB_SSL_MODE: "disable" # verify-full, disable
     GUI_CP_DB_SSL_ROOT_CERT: ""
+    GUI_CP_DB_SSL_ROOT_CERT_SECRET_NAME: "db-ssl-root-cert"
+    GUI_CP_DB_SSL_ROOT_CERT_FILENAME: "db_ssl_root.cert"
     GUI_CP_DB_DELETE_ON_UNINSTALL: false
 
     # flow control
@@ -149,6 +151,8 @@ meta:
     CP_DB_SSL_MODE: ${GUI_CP_DB_SSL_MODE:-"disable"} # verify-full, disable
     CP_DB_SSL_ROOT_CERT: ${GUI_CP_DB_SSL_ROOT_CERT:-""}
     CP_DB_DELETE_ON_UNINSTALL: ${GUI_CP_DB_DELETE_ON_UNINSTALL:-"false"}
+    CP_DB_SSL_ROOT_CERT_SECRET_NAME: ${GUI_CP_DB_SSL_ROOT_CERT_SECRET_NAME:-"db-ssl-root-cert"}
+    CP_DB_SSL_ROOT_CERT_FILENAME: ${GUI_CP_DB_SSL_ROOT_CERT_FILENAME:-"db_ssl_root.cert"}
     # CP mail server
     CP_MAIL_SERVER_TYPE: ${GUI_CP_MAIL_SERVER_TYPE:-"smtp"} # smtp, ses, sendgrid
     CP_MAIL_SERVER_SES_ARN: ${GUI_CP_MAIL_SERVER_SES_ARN:-""}
@@ -730,6 +734,9 @@ helmCharts:
     keepPrevious: false
     content: |
       global:
+        tibco:
+          db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
+          db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
         cp:
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
         external:
