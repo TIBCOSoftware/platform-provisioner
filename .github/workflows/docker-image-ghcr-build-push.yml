@@ -18,6 +18,11 @@ on:
         type: choice
         options:
           - Dockerfile
+      platform:
+        description: 'The platform to build the image for. linux/amd64, linux/arm64, linux/arm/v7 for Raspberry Pi'
+        required: true
+        default: 'linux/amd64,linux/arm64'
+        type: string
 
 # will push to ghcr.io/TIBCOSoftware/platform-provisioner/platform-provisioner:${{ github.event.inputs.tagName }}
 env:
@@ -48,7 +53,7 @@ jobs:
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event.inputs.platform }}
           file: ./docker/${{ github.event.inputs.dockerfileName }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.tagName }}
