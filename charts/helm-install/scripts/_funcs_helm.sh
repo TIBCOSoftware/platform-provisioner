@@ -7,7 +7,7 @@
 
 ######################################### _download_funcs.sh #########################################
 
-# download_public_helm_chart download chart from a given repo, The url must contain https:// as protocol
+# pull_helm_chart download chart from a given repo, The url must contain https:// as protocol
 # this is used for the following recipe
 #- name: ingress-nginx # chart name
 #  version: 4.0.5 # chart version
@@ -15,13 +15,30 @@
 #    helm:
 #      url: https://kubernetes.github.io/ingress-nginx
 # sample helm pull --repo https://kubernetes.github.io/ingress-nginx ingress-nginx --version 4.0.3
-function download_public_helm_chart() {
-  local _url=${1}
+# add optional username and password field
+function pull_helm_chart() {
+  local _chart_repo_helm_section=${1}
   local _name=${2}
   local _version=${3}
+
+  local _url=""
+  _url=$(echo "${_chart_repo_helm_section}" | common::yq4-get '.url')
+  local _username=""
+  _username="$(echo "${_chart_repo_helm_section}" | common::yq4-get '.username')"
+  local _password=""
+  _password="$(echo "${_chart_repo_helm_section}" | common::yq4-get '.password')"
   common::debug "downloading chart ${_name} form ${_url} with version ${_version}"
 
-  if ! "${HELM_COMMAND_LINE}" pull --repo "${_url}" "${_name}" --version "${_version}"; then
+  _cmd="${HELM_COMMAND_LINE} pull --repo ${_url} ${_name} --version ${_version}"
+  if [[ -n "${_username}" ]]; then
+    _cmd="${_cmd} --username ${_username}"
+  fi
+
+  if [[ -n "${_password}" ]]; then
+    _cmd="${_cmd} --password ${_password}"
+  fi
+
+  if ! eval "${_cmd}"; then
     common::err "${HELM_COMMAND_LINE} pull error"
     return 1
   fi
@@ -134,20 +151,21 @@ function pull_github_chart() {
   fi
 }
 
-# downloadChart this will download chart
+# downloadChart this will download chart based on the recipe .helmCharts[].repo section
 function downloadChart() {
   local _repo_section=${1}
   local _chart_name=${2}
   local _chart_version=${3}
 
-  local _chart_repo_helm=""
-  _chart_repo_helm=$(echo "${_repo_section}" | common::yq4-get '.helm')
-  local _chart_repo_ecr=""
-  _chart_repo_ecr=$(echo "${_repo_section}" | common::yq4-get '.ecr')
-  local _chart_git_ecr=""
-  _chart_git_ecr=$(echo "${_repo_section}" | common::yq4-get '.git')
-  if [[ -n ${_chart_repo_helm} ]]; then
-    download_public_helm_chart "$(echo "${_chart_repo_helm}" | common::yq4-get '.url')" "${_chart_name}" "${_chart_version}"
+  local _chart_repo_helm_section=""
+  _chart_repo_helm_section=$(echo "${_repo_section}" | common::yq4-get '.helm')
+  local _chart_repo_ecr_section=""
+  _chart_repo_ecr_section=$(echo "${_repo_section}" | common::yq4-get '.ecr')
+  local _chart_repo_git_section=""
+  _chart_repo_git_section=$(echo "${_repo_section}" | common::yq4-get '.git')
+
+  if [[ -n ${_chart_repo_helm_section} ]]; then
+    pull_helm_chart "${_chart_repo_helm_section}" "${_chart_name}" "${_chart_version}"
     _res=$?
     if [ ${_res} -ne 0 ]; then
       common::err "download public helm chart error"
@@ -155,8 +173,8 @@ function downloadChart() {
     fi
   fi
 
-  if [[ -n ${_chart_repo_ecr} ]]; then
-    pull_ecr_chart "$(echo "${_chart_repo_ecr}" | common::yq4-get '.region')" "$(echo "${_chart_repo_ecr}" | common::yq4-get '.host')" "$(echo "${_chart_repo_ecr}" | common::yq4-get '.name')" "${_chart_version}" "${_chart_name}" "."
+  if [[ -n ${_chart_repo_ecr_section} ]]; then
+    pull_ecr_chart "$(echo "${_chart_repo_ecr_section}" | common::yq4-get '.region')" "$(echo "${_chart_repo_ecr_section}" | common::yq4-get '.host')" "$(echo "${_chart_repo_ecr_section}" | common::yq4-get '.name')" "${_chart_version}" "${_chart_name}" "."
     _res=$?
     if [ ${_res} -ne 0 ]; then
       common::err "pull ECR error"
@@ -164,8 +182,8 @@ function downloadChart() {
     fi
   fi
 
-  if [[ -n ${_chart_git_ecr} ]]; then
-    pull_github_chart "$(echo "${_chart_git_ecr}" | common::yq4-get '.github'.repo)" "${_chart_version}" "$(echo "${_chart_git_ecr}" | common::yq4-get '.github.path')" "$(echo "${_chart_git_ecr}" | common::yq4-get '.github.hash')"
+  if [[ -n ${_chart_repo_git_section} ]]; then
+    pull_github_chart "$(echo "${_chart_repo_git_section}" | common::yq4-get '.github'.repo)" "${_chart_version}" "$(echo "${_chart_repo_git_section}" | common::yq4-get '.github.path')" "$(echo "${_chart_repo_git_section}" | common::yq4-get '.github.hash')"
     _res=$?
     if [ ${_res} -ne 0 ]; then
       common::err "pull from git error"

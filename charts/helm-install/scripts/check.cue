@@ -14,7 +14,9 @@ package recipe
 	// helm upgrade ... --repo ${repo.helm.url} ...
 	// the version will be the chart version
 	helm?: {
-			url!: string
+		url!: string
+		username?: string
+		password?: string
 	}
 	// {repo.ecr.host}/${repo.ecr.name}:${version}
 	// The version will be the image tag

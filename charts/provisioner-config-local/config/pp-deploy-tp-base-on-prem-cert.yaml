@@ -24,16 +24,16 @@ groups:
     * MicroK8s: `microk8s-hostpath` (support ReadWriteMany)
     * OpenShift: `crc-csi-hostpath-provisioner` (Don't support ReadWriteMany)
     * NFS server provisioner: `nfs` (support ReadWriteMany)
-- title: "Cluster tools"
+- title: "Database"
   index: 8
   description: |
-    Cluster tools specific configurations.
-    * Postgres database is optional if you only want to create a DP Cluster.
-    * Install provisioner UI ingress for the on-prem setup. You can then access provisioner UI at [https://provisioner.localhost.dataplanes.pro](https://provisioner.localhost.dataplanes.pro)
+    DB specific configurations. The default value is for postgres pod.
 - title: "Flow control"
   index: 10
   description: |
     Change the installation flow control options.
+    * Postgres database is optional if you only want to create a DP Cluster.
+    * Install provisioner UI ingress for the on-prem setup. You can then access provisioner UI at [https://provisioner.localhost.dataplanes.pro](https://provisioner.localhost.dataplanes.pro)
 options:
 # groupIndex: 1 Cluster Ingress Configuration
 - name: "TP ingress DNS domain"
@@ -120,58 +120,88 @@ options:
   description: |
     The size of the NFS server provisioner storage.
 
-# groupIndex: 8 Cluster tools
-- name: "Install cert-manager"
+# groupIndex: 8 Database
+- name: "DB user name"
   groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_DB_USER_NAME"
+  required: true
+  description: |
+    The DB user name. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master user name.
+- name: "DB password"
+  groupIndex: 8
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_DB_PASSWORD"
+  #  required: true # cannot set required because of bug
+  description: |
+    The DB password. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master password.
+- name: "DB name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_DB_NAME"
+  description: |
+    The Database name
+- name: "Enable Postgres TLS"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_DB_TLS_ENABLED"
+  description: |
+    Enable TLS for Postgres
+
+# groupIndex: 10 Flow control
+- name: "Install cert-manager"
+  groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_CERT_MANAGER"
   description: |
     Install cert-manager for TP Cluster
 - name: "Install metrics-server"
-  groupIndex: 8
+  groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER"
   description: |
     Install metrics-server for TP Cluster
 - name: "Install nfs-server-provisioner"
-  groupIndex: 8
+  groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER"
   description: |
     Install NFS server provisioner for TP Cluster
 - name: "Install Postgres"
-  groupIndex: 8
+  groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_POSTGRES"
   description: |
     Install Postgres database for TP Cluster
 - name: "Install Provisioner UI Ingress object"
-  groupIndex: 8
+  groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI"
   description: |
     This will update Provisioner UI ingress
 - name: "Provisioner UI Ingress class name"
-  groupIndex: 8
+  groupIndex: 10
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME"
   description: |
     Ingress class name for Provisioner UI. Default is `nginx`
 - name: "Provisioner UI namespace"
-  groupIndex: 8
+  groupIndex: 10
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_PROVISIONER_UI_NAMESPACE"
   description: |
     Namespace for Provisioner UI. Default is `tekton-tasks`
-
-# groupIndex: 10 Flow control
 - name: "Enable pipline debug logs"
   groupIndex: 10
   type: boolean

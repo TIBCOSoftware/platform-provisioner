@@ -20,7 +20,18 @@ options:
   reference: "meta.guiEnv.GUI_CP_CHART_REPO"
   required: true
   description: |
-    The helm chart repository to deploy CP. The default value is public repo. To use private repo set: https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
+    The helm chart repository to deploy CP. The default value is public repo. 
+    To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_CP_CHART_REPO_TOKEN` OR use https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
+- name: "CP Chart repo user name"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CHART_REPO_USER_NAME"
+  description: "The CP chart repository user name. (optional)"
+- name: "CP Chart repo token"
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_CHART_REPO_TOKEN"
+  description: ""
 - name: "CP instance ID"
   type: string
   guiType: input
@@ -60,6 +71,8 @@ recipe: |
   meta:
     guiEnv:
       note: "upgrade-cp"
+      GUI_CP_CHART_REPO_USER_NAME: "cp-test"
+      GUI_CP_CHART_REPO_TOKEN: ""
       GUI_CP_INSTANCE_ID: "cp1"
       GUI_CP_NAMESPACE: "cp1-ns"
       GUI_CP_PLATFORM_BOOTSTRAP_VERSION: ^1.0.0
@@ -92,6 +105,8 @@ recipe: |
     repo:
       helm:
         url: ${CP_CHART_REPO}
+        username: ${CP_CHART_REPO_USER_NAME}
+        password: ${CP_CHART_REPO_TOKEN}
     values:
       keepPrevious: true
       content: |
@@ -110,6 +125,8 @@ recipe: |
     repo:
       helm:
         url: ${CP_CHART_REPO}
+        username: ${CP_CHART_REPO_USER_NAME}
+        password: ${CP_CHART_REPO_TOKEN}
     values:
       keepPrevious: true
       content: |

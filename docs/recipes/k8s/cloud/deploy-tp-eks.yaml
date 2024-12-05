@@ -15,7 +15,7 @@ meta:
     PIPELINE_CHECK_DOCKER_STATUS: false
     # github
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
-    TP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+    TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
     PLATFORM_PROVISIONER_REPO: github.com/TIBCOSoftware/platform-provisioner
     # cluster
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
