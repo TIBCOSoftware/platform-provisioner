@@ -455,6 +455,8 @@ helmCharts:
   repo:
     helm:
       url: ${CP_CHART_REPO}
+      username: ${CP_CHART_REPO_USER_NAME}
+      password: ${CP_CHART_REPO_TOKEN}
   values:
     keepPrevious: false
     content: |
@@ -730,6 +732,8 @@ helmCharts:
   repo:
     helm:
       url: ${CP_CHART_REPO}
+      username: ${CP_CHART_REPO_USER_NAME}
+      password: ${CP_CHART_REPO_TOKEN}
   values:
     keepPrevious: false
     content: |

@@ -65,7 +65,8 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CHART_REPO"
   description: |
-    The helm chart repository to deploy CP. The default value is public repo. To use private repo set: https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
+    The helm chart repository to deploy CP. The default value is public repo. 
+    To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_CP_CHART_REPO_TOKEN` OR use https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
 - name: "CP Chart repo user name"
   groupIndex: 1
   type: string
