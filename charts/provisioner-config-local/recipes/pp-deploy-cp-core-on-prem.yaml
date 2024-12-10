@@ -137,6 +137,7 @@ meta:
     # node
     CP_NODE_CIDR: ${GUI_TP_CLUSTER_NODE_CIDR:-"10.180.0.0/16"}
     CP_POD_CIDR: ${GUI_TP_CLUSTER_POD_CIDR:-"10.180.0.0/16"}
+    CP_SERVICE_CIDR: ${GUI_TP_SERVICE_CIDR:-"10.96.0.0/12"}
     # third party
     CP_EXT_NAMESPACE: ${GUI_CP_EXT_NAMESPACE:-"tibco-ext"}
     # network policies
@@ -455,8 +456,8 @@ helmCharts:
   repo:
     helm:
       url: ${CP_CHART_REPO}
-      username: ${CP_CHART_REPO_USER_NAME}
-      password: ${CP_CHART_REPO_TOKEN}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: false
     content: |
@@ -538,6 +539,7 @@ helmCharts:
           clusterInfo:
             nodeCIDR: ${CP_NODE_CIDR}
             podCIDR: ${CP_POD_CIDR}
+            serviceCIDR: ${CP_SERVICE_CIDR}
           dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
           dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
           provider: ${CP_PROVIDER}
@@ -732,8 +734,8 @@ helmCharts:
   repo:
     helm:
       url: ${CP_CHART_REPO}
-      username: ${CP_CHART_REPO_USER_NAME}
-      password: ${CP_CHART_REPO_TOKEN}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: false
     content: |
@@ -779,6 +781,12 @@ helmCharts:
         enabled: ${CP_INSTALL_MSG_CONTRIB}
       tp-cp-hawk:
         enabled: ${CP_INSTALL_HAWK}
+        tp-cp-hawk-infra-prometheus:
+          prometheus:
+            resources:
+              requests:
+                cpu: ${CP_RESOURCES_REQUEST_CPU}
+                memory: ${CP_RESOURCES_REQUEST_MEMORY}
       tp-cp-recipes:
         enabled: ${CP_INSTALL_RECIPES}
       tp-cp-integration:

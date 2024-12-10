@@ -16,6 +16,8 @@ meta:
     # github
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
     TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
+    TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
+    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
     PLATFORM_PROVISIONER_REPO: ${GUI_PLATFORM_PROVISIONER_REPO:-github.com/TIBCOSoftware/platform-provisioner}
 
     # Azure env
@@ -187,6 +189,8 @@ helmCharts:
   repo:
     helm:
       url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: true
     content: |
@@ -230,6 +234,8 @@ helmCharts:
   repo:
     helm:
       url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: true
     content: |
@@ -325,6 +331,8 @@ helmCharts:
   repo:
     helm:
       url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: true
     content: |
@@ -396,6 +404,8 @@ helmCharts:
   repo:
     helm:
       url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: true
     base64Encoded: false
@@ -438,6 +448,8 @@ helmCharts:
   repo:
     helm:
       url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: true
     base64Encoded: false
