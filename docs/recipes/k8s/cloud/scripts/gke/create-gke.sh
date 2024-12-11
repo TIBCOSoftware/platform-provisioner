@@ -107,5 +107,4 @@ gcloud beta container \
   --binauthz-evaluation-mode=DISABLED \
   --no-enable-managed-prometheus \
   --workload-pool "${GCP_PROJECT_ID}.svc.id.goog" \
-  --enable-shielded-nodes \
-  --node-locations "${GCP_REGION}-a"
+  --enable-shielded-nodes
