@@ -16,6 +16,8 @@ meta:
     # github
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN} # don't need it for public repo
     TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
+    TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
+    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
     PLATFORM_PROVISIONER_REPO: ${GUI_PLATFORM_PROVISIONER_REPO:-github.com/TIBCOSoftware/platform-provisioner}
 
     # GCP setting
@@ -26,7 +28,8 @@ meta:
 
     # cluster
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-tp-cluster}
-    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-"1.30.5-gke.1014001"}
+    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-"1.30"}
+    TP_CLUSTER_REGION: ${GUI_GCP_REGION:-us-west1}
     TP_AUTHORIZED_IP: ${GUI_TP_AUTHORIZED_IP} # your ip x.x.x.x/32
     TP_CLUSTER_VPC_CIDR: ${GUI_TP_CLUSTER_VPC_CIDR:-"10.0.0.0/20"}
     TP_CLUSTER_CIDR: ${GUI_TP_CLUSTER_CIDR:-"10.1.0.0/16"}
@@ -362,6 +365,8 @@ helmCharts:
   repo:
     helm:
       url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: true
     content: |
