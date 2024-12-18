@@ -80,7 +80,7 @@ else
   export _DOCKER_FOR_MAC_ADD_HOST="--add-host=kubernetes.docker.internal:127.0.0.1"
 fi
 
-# optional env for docker engin
+# optional env for docker engine
 _OPTIONAL_ENV=""
 
 # this case is used for on prem cluster; user can specify kubeconfig file name
