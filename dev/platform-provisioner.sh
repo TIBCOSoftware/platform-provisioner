@@ -40,6 +40,10 @@
 
 set +x
 
+# The yq command line name
+# Once we fully migrate to yq version 4; we can set this to yq as default value
+export PIPELINE_CMD_NAME_YQ="${PIPELINE_CMD_NAME_YQ:-yq4}"
+
 # pipeline image
 [[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest"}
 [[ -z "${PIPELINE_CHART_REPO}" ]] && export PIPELINE_CHART_REPO="tibcosoftware.github.io/platform-provisioner"
@@ -63,24 +67,30 @@ set +x
 [[ -z "${PIPELINE_INITIAL_ASSUME_ROLE}" ]] && export PIPELINE_INITIAL_ASSUME_ROLE="false"
 [[ -z "${PIPELINE_VALIDATE_INPUT}" ]] && export PIPELINE_VALIDATE_INPUT="true"
 
-# by default we want to use on prem kubeconfig file
+# by default, we want to use on prem kubeconfig file
 # This case is to use the default kubeconfig file. The default kubeconfig file is ~/.kube/config.
 # We will mount this file to the container and rename to config-on-prem to avoid conflict with container kubeconfig file
 [[ -z "${PIPELINE_ON_PREM_KUBECONFIG}" ]] && export PIPELINE_ON_PREM_KUBECONFIG="true"
 
-# this case is used for on prem cluster; user will specify kubeconfig file name
-if [[ -z "${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME}" ]]; then
-  export DOCKER_MOUNT_KUBECONFIG_FILE_NAME="target=/tmp1"
-else
-  export DOCKER_MOUNT_KUBECONFIG_FILE_NAME="type=bind,source=${HOME}/.kube/${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME},target=/root/.kube/${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME}"
-fi
-
 # this is used for k8s on docker for mac
 if [[ "${PIPELINE_ON_PREM_DOCKER_FOR_MAC}" == "true" ]]; then
   DOCKER_FOR_MAC_NODE_IP=$(kubectl get nodes -o yaml | yq '.items[].status.addresses[] | select(.type == "InternalIP") | .address')
-  export DOCKER_FOR_MAC_ADD_HOST="--add-host=kubernetes.docker.internal:${DOCKER_FOR_MAC_NODE_IP}"
+  export _DOCKER_FOR_MAC_ADD_HOST="--add-host=kubernetes.docker.internal:${DOCKER_FOR_MAC_NODE_IP}"
 else
-  export DOCKER_FOR_MAC_ADD_HOST="--add-host=kubernetes.docker.internal:127.0.0.1"
+  export _DOCKER_FOR_MAC_ADD_HOST="--add-host=kubernetes.docker.internal:127.0.0.1"
+fi
+
+# optional env for docker engin
+_OPTIONAL_ENV=""
+
+# this case is used for on prem cluster; user can specify kubeconfig file name
+if [[ -n "${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME}" ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source=${HOME}/.kube/${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME},target=/root/.kube/${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME}"
+fi
+
+# this is used for docker container mount docker engine
+if [[ "${PIPELINE_CONTAINER_MOUNT_DOCKER_ENGINE}" == "true" ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source=${HOME}/.docker,target=/root/.docker --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
 fi
 
 # will only pass the content of the recipe file to the container
@@ -113,20 +123,19 @@ docker run -it --rm \
   -e PIPELINE_ON_PREM_KUBECONFIG \
   -e PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME \
   -e PIPELINE_AWS_MANAGED_ACCOUNT_ROLE \
+  -e PIPELINE_CMD_NAME_YQ \
   -e PIPELINE_CHART_REPO \
   -e PIPELINE_NAME \
-  -v "${HOME}"/.aws:/root/.aws \
-  -v "${HOME}"/.azure:/root/.azure \
-  -v "${HOME}"/.config/gcloud:/root/.config/gcloud \
-  -v "${HOME}"/.kube/config:/root/.kube/config-on-prem \
-  --mount "${DOCKER_MOUNT_KUBECONFIG_FILE_NAME}" \
-  "${DOCKER_FOR_MAC_ADD_HOST}" \
-  -v "${HOME}"/.docker:/root/.docker -v /var/run/docker.sock:/var/run/docker.sock \
+  --mount type=bind,source="${HOME}/.aws",target=/root/.aws \
+  --mount type=bind,source="${HOME}/.azure",target=/root/.azure \
+  --mount type=bind,source="${HOME}/.config/gcloud",target=/root/.config/gcloud \
+  --mount type=bind,source="${HOME}/.kube/config",target=/root/.kube/config-on-prem\
+  "${_DOCKER_FOR_MAC_ADD_HOST}" ${_OPTIONAL_ENV}\
   "${PIPELINE_DOCKER_IMAGE}" bash -c 'export REGION=${REGION:-"us-west-2"} \
   && declare -xr WORKING_PATH=/workspace \
   && declare -xr SCRIPTS=${WORKING_PATH}/task-scripts \
   && declare -xr INPUT="${PIPELINE_INPUT_RECIPE_CONTENT}" \
-  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | yq ".kind | select(. != null)" ) \
+  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | ${PIPELINE_CMD_NAME_YQ} ".kind | select(. != null)" ) \
   && echo "using pipeline: ${PIPELINE_NAME}" \
   && [[ -z ${PIPELINE_NAME} ]] && { echo "PIPELINE_NAME can not be empty"; exit 1; } || true \
   && mkdir -p "${SCRIPTS}" \

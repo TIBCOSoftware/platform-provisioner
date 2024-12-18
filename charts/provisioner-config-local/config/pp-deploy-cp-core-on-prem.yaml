@@ -12,51 +12,64 @@ groups:
 - title: "Chart Repository"
   index: 1
   description: |
-    TIBCO Platform CP and DP chart repositories. 
-    
-    For the public repo we don't need to set the token.
+    ## TIBCO Platform CP and DP chart repositories. 
+    > For the public repo we don't need to set the token.
+    ---
 - title: "Container Registry"
   index: 2
   description: |
-    TIBCO Platform use jFrog to distribute the docker images. We need to set the username and password to access the images.
+    ## Container Registry config
+    * TIBCO Platform use jFrog to distribute the docker images. 
+    * We need to set the username and password to access the images.
     * `csgprdusw2reposaas.jfrog.io` for master node. Master node has dev images. 
     * `csgprduswrepoedge.jfrog.io` (US) `csgprdeuwrepoedge.jfrog.io` (EU) for edge node. Edge node has prod images only.
+    ---
 - title: "CP Configuration"
   index: 5
   description: |
-    TIBCO Platform Control Plane specific configurations.
+    ## TIBCO Platform Control Plane specific configurations.
+    * The CP chart version matrix: [link](https://docs.tibco.com/pub/platform-cp/1.3.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm)
+    * The CP chart config doc: [link](https://docs.tibco.com/pub/platform-cp/1.3.0/doc/html/Default.htm#Installation/configuration-reference.htm)
+    ---
 - title: "CP ingress"
   index: 6
   description: |
-    CP ingress specific configurations. 
-    
-    If the main ingress for CP already config certificate; you can skip the certificate config for CP.
+    ## CP ingress specific configurations. 
+    > If the main ingress for CP already config certificate; you can skip the certificate config for CP.
+    ---
 - title: "Cluster storage"
   index: 7
   description: |
-    Cluster storage specific configurations. For the on-perm setup we have
-    * Docker Desktop: `hostpath` (support ReadWriteMany)
-    * minikube: `standard` (support ReadWriteMany)
-    * kind: `standard` (Don't support ReadWriteMany)
-    * MicroK8s: `microk8s-hostpath` (support ReadWriteMany)
-    * OpenShift: `crc-csi-hostpath-provisioner` (Don't support ReadWriteMany)
-    * NFS server provisioner: `nfs` (support ReadWriteMany)
+    ## Cluster storage specific configurations.
+    * For the on-perm setup we have
+      * Docker Desktop: `hostpath` (support ReadWriteMany)
+      * minikube: `standard` (support ReadWriteMany)
+      * kind: `standard` (Don't support ReadWriteMany)
+      * MicroK8s: `microk8s-hostpath` (support ReadWriteMany)
+      * OpenShift: `crc-csi-hostpath-provisioner` (Don't support ReadWriteMany)
+      * NFS server provisioner: `nfs` (support ReadWriteMany)
+    ---
 - title: "CP Database"
   index: 8
   description: |
-    CP DB specific configurations. We use PostgreSQL pod by default.
+    ## CP DB specific configurations. 
+    > We use PostgreSQL Pod by default.
+    ---
 - title: "CP E-mail"
   index: 9
   description: |
-    CP E-mail specific configurations. The default E-mail that we use is MailDev.
-    
-    After the deployment, you will get an email in MailDev to reset the admin password. 
-    * MailDev address: [https://mail.localhost.dataplanes.pro](https://mail.localhost.dataplanes.pro)
-    You can then follow the admin E-mail to create the admin user.
+    ## CP E-mail specific configurations. 
+    * The default E-mail that we use is MailDev.
+      * After the deployment, you will get an email in MailDev to reset the admin password. 
+      * MailDev address: [https://mail.localhost.dataplanes.pro](https://mail.localhost.dataplanes.pro)
+        You can then follow the admin E-mail to create the admin user.
+    ---
 - title: "Flow control"
   index: 10
   description: |
-    Change the installation flow control options.
+    ## Change the installation flow control options.
+    
+    ---
 options:
 # groupIndex: 1 Chart Repository
 - name: "CP Chart repository"
@@ -149,13 +162,6 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_INSTANCE_ID"
   description: "The CP instance ID"
-- name: "CP provider"
-  groupIndex: 5
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_PROVIDER"
-  description: |
-    CP deployment target. Example: aws, azure, local.
 - name: "CP namespace"
   groupIndex: 5
   type: string
@@ -174,7 +180,7 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_FROM_REPLY_TO_EMAIL"
   description: "The CP from and replyTo email. You will get the email from this email id"
-- name: "CP enable log"
+- name: "Enable CP log"
   groupIndex: 5
   type: boolean
   guiType: checkbox
@@ -234,12 +240,18 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_INGRESS_CLASSNAME"
   description: "The ingress class name for CP. Default is nginx, you can use traefik too"
-- name: "Skip manually install CP ingress for bootstrap (router, hybrid-proxy)"
+- name: "Create Router ingress object"
   groupIndex: 6
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_SKIP_BOOTSTRAP_INGRESS"
-  description: "Skip manually ingress object creation for platform-bootstrap chart"
+  reference: "meta.guiEnv.GUI_CP_BOOTSTRAP_INGRESS_ROUTER"
+  description: "Enable to create ingress object"
+- name: "Create Hybrid-Proxy ingress object"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY"
+  description: "Enable to create ingress object"
 - name: "CP ingress use hostport"
   groupIndex: 6
   type: boolean

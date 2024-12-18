@@ -5,15 +5,16 @@
 # All Rights Reserved. Confidential & Proprietary.
 #
 
-# the idea of this script is to provide same run time env as tekton pipeline
+# the idea of this script is to test script in helm chart locally
 #######################################
-# setupRepo this will clone repo and copy files to current folder
+# platform-provisioner-test.sh: this script will use docker to run the pipeline task
 # Globals:
-#   ACCOUNT: the aws account you want to assume to
-#   REGION: the cloud region
+#   ACCOUNT: the account you want to assume to
+#   REGION: the region
 #   AWS_PROFILE: the aws profile; we normally needs to do AWS sso login to update this profile
 #   GITHUB_TOKEN: the github token
 #   PIPELINE_PATH: the pipeline path
+#   PIPELINE_NAME:  We currently support 2 pipelines: generic-runner and helm-install
 #   PIPELINE_TRIGGER_RUN_SH: true or other string if true, will run task directly. if other string, will just go to bash
 #   PIPELINE_INPUT_RECIPE: the input file name; default is recipe.yaml
 #   PIPELINE_MOCK: true or other string if true, will mock run pipeline. (only run meta part)
@@ -22,26 +23,32 @@
 #   PIPELINE_CHECK_DOCKER_STATUS: true only when set to false to skip check docker status
 #   PIPELINE_INITIAL_ASSUME_ROLE: true only when set to false to skip initial assume to target account
 #   PIPELINE_USE_LOCAL_CREDS: false only when set to true to use local creds
-#   PIPELINE_FUNCTION_INIT: true only when set to false to skip function init which is used to load Environment specific functions and envs for pipeline
+#   PIPELINE_FUNCTION_INIT: true only when set to false to skip function init which is used to load TIBCO specific functions and envs for pipeline
 #   PIPELINE_AWS_MANAGED_ACCOUNT_ROLE: the role to assume to. We will use current AWS role to assume to this role to perform the task. current role --> "arn:aws:iam::${_account}:role/${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE}"
 # Arguments:
-#   None
+#   TASK_NAME: We currently support 2 pipelines: generic-runner and helm-install
 # Returns:
 #   0 if thing was deleted, non-zero on error
 # Notes:
-#   Recipe: The full path of the recipe file. The script will automatically load this recipe as input
+#   The script will try to read recipe.yaml file and use .kind as pipeline name to pull the current pipeline from TIBCO public repo.
+#   Pipeline image can be build in docker folder.
+#   Recipe: can be found in TIBCO public repo: https://github.com/TIBCOSoftware/tp-helm-charts
 #   Docker run command: It will mount necessary folder and bring environment variables to the container.
 #                       It will also run the command defined in all pipeline task.
 #                       It will also run the task if PIPELINE_TRIGGER_RUN_SH is set to true.
 # Samples:
-#   export PIPELINE_INPUT_RECIPE="recipe.yaml"
-#   export ACCOUNT="on-prem"
-#   ./platform-provisioner.sh generic-runner
+#   ./platform-provisioner-test.sh
 #######################################
 
 set +x
 
+# The yq command line name
+# Once we fully migrate to yq version 4; we can set this to yq as default value
+export PIPELINE_CMD_NAME_YQ="${PIPELINE_CMD_NAME_YQ:-yq4}"
+
+# pipeline image
 [[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"platform-provisioner:latest"}
+[[ -z "${PIPELINE_CHART_REPO}" ]] && export PIPELINE_CHART_REPO="tibcosoftware.github.io/platform-provisioner"
 
 # setup dev path
 DEV_PATH=`pwd`
@@ -50,12 +57,15 @@ cd .. || exit
 cd "${DEV_PATH}" || exit
 
 # we need to set REGION, otherwise the INPUT will not be loaded
+[[ -z "${ACCOUNT}" ]] && export ACCOUNT="on-prem"
 [[ -z "${REGION}" ]] && export REGION="us-west-2"
 
+# default network is host
+[[ -z "${PIPELINE_CONTAINER_NETWORK}" ]] && export PIPELINE_CONTAINER_NETWORK="host"
+
 [[ -z "${PIPELINE_INPUT_RECIPE}" ]] && export PIPELINE_INPUT_RECIPE="recipe.yaml"
-[[ -z "${PIPELINE_NAME}" ]] && export PIPELINE_NAME=$(yq ".kind | select(. != null)" "${PIPELINE_INPUT_RECIPE}")
 [[ -z "${PIPELINE_TRIGGER_RUN_SH}" ]] && export PIPELINE_TRIGGER_RUN_SH="true"
-[[ -z "${PIPELINE_LOG_DEBUG}" ]] && export PIPELINE_LOG_DEBUG="false"
+[[ -z "${PIPELINE_LOG_DEBUG}" ]] && export PIPELINE_LOG_DEBUG="true"
 # For local test; we enable this flag by default
 [[ -z "${PIPELINE_USE_LOCAL_CREDS}" ]] && export PIPELINE_USE_LOCAL_CREDS="true"
 # For this script; we need to skip check docker status. The docker compose should set to true
@@ -65,9 +75,10 @@ cd "${DEV_PATH}" || exit
 [[ -z "${PIPELINE_INITIAL_ASSUME_ROLE}" ]] && export PIPELINE_INITIAL_ASSUME_ROLE="false"
 [[ -z "${PIPELINE_VALIDATE_INPUT}" ]] && export PIPELINE_VALIDATE_INPUT="true"
 
+# by default, we want to use on prem kubeconfig file
 # This case is to use the default kubeconfig file. The default kubeconfig file is ~/.kube/config.
 # We will mount this file to the container and rename to config-on-prem to avoid conflict with container kubeconfig file
-[[ -z "${PIPELINE_ON_PREM_KUBECONFIG}" ]] && export PIPELINE_ON_PREM_KUBECONFIG="false"
+[[ -z "${PIPELINE_ON_PREM_KUBECONFIG}" ]] && export PIPELINE_ON_PREM_KUBECONFIG="true"
 
 # this case is used for on prem cluster; user will specify kubeconfig file name
 if [[ -z "${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME}" ]]; then
@@ -85,17 +96,15 @@ else
 fi
 
 # will only pass the content of the recipe file to the container
-export PIPLINE_INPUT_RECIPE_CONTENT=""
-[[ -f "${PIPELINE_INPUT_RECIPE}" ]] && PIPLINE_INPUT_RECIPE_CONTENT=$(cat ${PIPELINE_INPUT_RECIPE})
+export PIPELINE_INPUT_RECIPE_CONTENT=""
+[[ -f "${PIPELINE_INPUT_RECIPE}" ]] && PIPELINE_INPUT_RECIPE_CONTENT=$(cat ${PIPELINE_INPUT_RECIPE})
 
-echo "Working with pipline: ${PIPELINE_PATH}/charts/${PIPELINE_NAME}"
-
-echo "Using docker image: ${PIPELINE_DOCKER_IMAGE}"
+echo "Using platform provisioner docker image: ${PIPELINE_DOCKER_IMAGE}"
 
 # is used to export functions; so subshell can use it
 docker run -it --rm \
   --name provisioner-pipeline-task \
-  --net host \
+  --net "${PIPELINE_CONTAINER_NETWORK}" \
   -e ACCOUNT \
   -e REGION \
   -e AWS_PROFILE \
@@ -105,7 +114,7 @@ docker run -it --rm \
   -e GITHUB_TOKEN \
   -e PIPELINE_TRIGGER_RUN_SH \
   -e PIPELINE_INPUT_RECIPE \
-  -e PIPLINE_INPUT_RECIPE_CONTENT \
+  -e PIPELINE_INPUT_RECIPE_CONTENT \
   -e PIPELINE_MOCK \
   -e PIPELINE_LOG_DEBUG \
   -e PIPELINE_CHECK_DOCKER_STATUS \
@@ -116,6 +125,8 @@ docker run -it --rm \
   -e PIPELINE_ON_PREM_KUBECONFIG \
   -e PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME \
   -e PIPELINE_AWS_MANAGED_ACCOUNT_ROLE \
+  -e PIPELINE_CMD_NAME_YQ \
+  -e PIPELINE_CHART_REPO \
   -e PIPELINE_NAME \
   -v `pwd`:/tmp/dev \
   -v "${HOME}"/.aws:/root/.aws \
@@ -129,8 +140,8 @@ docker run -it --rm \
   "${PIPELINE_DOCKER_IMAGE}" bash -c 'export REGION=${REGION:-"us-west-2"} \
   && declare -xr WORKING_PATH=/workspace \
   && declare -xr SCRIPTS=${WORKING_PATH}/task-scripts \
-  && declare -xr INPUT="${PIPLINE_INPUT_RECIPE_CONTENT}" \
-  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPLINE_INPUT_RECIPE_CONTENT}" | yq4 ".kind | select(. != null)" ) \
+  && declare -xr INPUT="${PIPELINE_INPUT_RECIPE_CONTENT}" \
+  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | ${PIPELINE_CMD_NAME_YQ} ".kind | select(. != null)" ) \
   && echo "using pipeline: ${PIPELINE_NAME}" \
   && [[ -z ${PIPELINE_NAME} ]] && { echo "PIPELINE_NAME can not be empty"; exit 1; } || true \
   && mkdir -p "${SCRIPTS}" \

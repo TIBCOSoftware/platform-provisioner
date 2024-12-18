@@ -5,6 +5,10 @@
 # All Rights Reserved. Confidential & Proprietary.
 #
 
+# The yq command line name
+# Once we fully migrate to yq version 4; we can set this to yq as default value
+export PIPELINE_CMD_NAME_YQ="${PIPELINE_CMD_NAME_YQ:-yq4}"
+
 #######################################
 # common::err will output err log if PIPELINE_LOG_DEBUG is set to true
 # this function try to cover most common use case for yq version 4 and provide support for null value
@@ -147,7 +151,7 @@ function common::check_docker_status() {
 function common::yq4-get() {
   local _input="${1}"
   shift
-  yq_path=${_input} yq4 'eval(env(yq_path)) | select(. != null)' $@
+  yq_path=${_input} "${PIPELINE_CMD_NAME_YQ}" 'eval(env(yq_path)) | select(. != null)' $@
 }
 
 # The reason that we unset these variables is because we will use AWS environment variables for assumed role.
@@ -1151,8 +1155,8 @@ function init() {
     load-customized-env "./${_file}"
   done
 
-  if [[ -z $(which yq4 2>/dev/null) ]]; then
-    common::err "yq4 is not installed"
+  if [[ -z $(which "${PIPELINE_CMD_NAME_YQ}" 2>/dev/null) ]]; then
+    common::err "${PIPELINE_CMD_NAME_YQ} is not installed"
     exit 1
   fi
 
