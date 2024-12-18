@@ -31,7 +31,6 @@ meta:
     # env
     CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"cp-cluster"}
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
-    CP_PROVIDER: ${GUI_CP_PROVIDER:-local} # deployment target. Example: aws, azure, local.
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
     CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
     CP_FROM_REPLY_TO_EMAIL: ${GUI_CP_FROM_REPLY_TO_EMAIL:-""}
@@ -70,10 +69,11 @@ meta:
     CP_DB_SSL_ROOT_CERT_SECRET_NAME: ${GUI_CP_DB_SSL_ROOT_CERT_SECRET_NAME:-"db-ssl-root-cert"}
     CP_DB_SSL_ROOT_CERT_FILENAME: ${GUI_CP_DB_SSL_ROOT_CERT_FILENAME:-"db_ssl_root.cert"}
     # CP mail server
+    CP_MAIL_MAILDEV_SERVICE_NAME: ${GUI_CP_MAIL_MAILDEV_SERVICE_NAME:-"development-mailserver"}
     CP_MAIL_SERVER_TYPE: ${GUI_CP_MAIL_SERVER_TYPE:-"smtp"} # smtp, ses, sendgrid
     CP_MAIL_SERVER_SES_ARN: ${GUI_CP_MAIL_SERVER_SES_ARN:-""}
     CP_MAIL_SERVER_SENDGRID_API_KEY: ${GUI_CP_MAIL_SERVER_SENDGRID_API_KEY:-""}
-    CP_MAIL_SERVER_ADDRESS: ${GUI_CP_MAIL_SERVER_ADDRESS:-"development-mailserver.${CP_EXT_NAMESPACE}.svc.cluster.local"}
+    CP_MAIL_SERVER_ADDRESS: ${GUI_CP_MAIL_SERVER_ADDRESS:-"${CP_MAIL_MAILDEV_SERVICE_NAME}.${CP_EXT_NAMESPACE}.svc.cluster.local"}
     CP_MAIL_SERVER_PORT_NUMBER: ${GUI_CP_MAIL_SERVER_PORT_NUMBER:-"1025"}
     CP_MAIL_SERVER_USERNAME: ${GUI_CP_MAIL_SERVER_USERNAME:-""}
     CP_MAIL_SERVER_PASSWORD: ${GUI_CP_MAIL_SERVER_PASSWORD:-""}
@@ -81,7 +81,8 @@ meta:
     CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: ${GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD:-"easy-to-remember"}
     # CP ingress
     CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
-    CP_SKIP_BOOTSTRAP_INGRESS: ${GUI_CP_SKIP_BOOTSTRAP_INGRESS:-false} # set to false will create ingress for router and hybrid-proxy
+    CP_BOOTSTRAP_INGRESS_ROUTER: ${GUI_CP_BOOTSTRAP_INGRESS_ROUTER:-true} # set to false will create ingress for router and hybrid-proxy
+    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY: ${GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY:-true} # set to false will create ingress for router and hybrid-proxy
     CP_ALB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for ALB
     CP_NLB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for NLB
     TP_TLS_CERT: ${GUI_TP_TLS_CERT:-""} # if provided; will create secret tp-certificate with tls.crt and tls.key and create ingress
@@ -89,9 +90,9 @@ meta:
     TP_GENERATE_CERTIFICATES: ${GUI_TP_GENERATE_CERTIFICATES:-true} # if true, will create cluster issuer and certificate for tp-certificate using cert-manager. For local use set to false
     TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
-    # CP version
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.39} # use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.358} # use ^1.0.0 for latest
+    # CP version see: https://docs.tibco.com/pub/platform-cp/1.3.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.53} # use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.437} # use ^1.0.0 for latest
     # flow control
     CP_CREATE_NAMESPACE: ${GUI_CP_CREATE_NAMESPACE:-true}
     CP_INSTALL_MAILDEV: ${GUI_CP_INSTALL_MAILDEV:-true}
@@ -109,8 +110,6 @@ meta:
     CP_INSTALL_INTEGRATION_BW5: ${GUI_CP_INSTALL_INTEGRATION_BW5:-true}
     CP_INSTALL_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_INTEGRATION_FLOGO:-true}
     CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES:-true}
-  tools:
-    yq: "4.40"
 preTasks:
 - condition: ${CP_CREATE_NAMESPACE}
   clusters:
@@ -188,183 +187,134 @@ preTasks:
         tls.key: ${TP_TLS_KEY}
       EOF
       fi
-- condition: ${TP_GENERATE_CERTIFICATES}
-  clusters:
-    - name: ${CP_CLUSTER_NAME}
-  script:
-    ignoreErrors: false
-    fileName: script.sh
-    content: |
-      kubectl apply -f - << EOF
-      apiVersion: cert-manager.io/v1
-      kind: Certificate
-      metadata:
-        name: ${TP_GENERATE_CERTIFICATE_NAME}
-        namespace: ${CP_NAMESPACE}
-      spec:
-        secretName: ${TP_GENERATE_CERTIFICATE_NAME}
-        issuerRef:
-          name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
-          kind: ClusterIssuer
-        dnsNames:
-          - '*.${CP_SERVICE_DNS_DOMAIN}'
-          - '*.${CP_TUNNEL_DNS_DOMAIN}'
-      EOF
-- condition: ${CP_INSTALL_MAILDEV}
-  clusters:
-    - name: ${CP_CLUSTER_NAME}
-  script:
-    ignoreErrors: false
-    fileName: script.sh
-    content: |
-      # install maildev
-      function configureLocalSMTP {
-        _ext_namespace=${CP_EXT_NAMESPACE}
-        #declare variables
-        local EMAIL_SERVICE_DEPLOYMENT_NAME=tp-cp-email-service
-        local DEVMAIL_SERVICE_NAME=development-mailserver.${_ext_namespace}.svc.cluster.local
-        local DEVMAIL_DEPLOYMENT_NAME=maildev
-        local DEVMAIL_POD_NAME=maildev
-      
-        #install maildev deployment
-        kubectl apply -f - << EOF
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: maildev
-          namespace: ${_ext_namespace}
-          labels:
-            app: maildev
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: maildev
-          template:
-            metadata:
-              labels:
-                app: maildev
-            spec:
-              containers:
-                - name: maildev
-                  image: maildev/maildev
-                  args: ["-s", "1025", "-w", "1080"]
-      EOF
-      
-        #install maildev service:
-        kubectl apply -f - <<EOF
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: development-mailserver
-          namespace: ${_ext_namespace}
-        spec:
-          selector:
-            app: maildev
-          ports:
-            - name: smtp
-              protocol: TCP
-              port: 1025
-              targetPort: 1025
-            - name: http
-              protocol: TCP
-              port: 1080
-              targetPort: 1080
-      EOF
-        # wait for pod to be ready
-        # echo "waiting for $DEVMAIL_DEPLOYMENT_NAME pod to be ready"
-        # kubectl wait deployment $DEVMAIL_DEPLOYMENT_NAME -n ${_ext_namespace} --for=condition=Available=True --timeout=300s
-      }
-      configureLocalSMTP
-- condition: ${CP_INSTALL_MAILDEV_INGRESS}
-  clusters:
-    - name: ${CP_CLUSTER_NAME}
-  script:
-    ignoreErrors: false
-    fileName: script.sh
-    content: |
-      if [[ -n "${TP_TLS_CERT}" ]]; then
-        kubectl apply -f - <<EOF
-      kind: Ingress
-      apiVersion: networking.k8s.io/v1
-      metadata:
-        name: maildev
-        namespace: ${CP_EXT_NAMESPACE}
-        labels:
-          app.cloud.tibco.com/created-by: pipeline
-        annotations:
-          kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
-          nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-      spec:
-        ingressClassName: ${CP_INGRESS_CLASSNAME}
-        tls:
-        - hosts:
-          - '*.${CP_DNS_DOMAIN}'
-          secretName: ${TP_GENERATE_CERTIFICATE_NAME}
-        rules:
-          - host: 'mail.${CP_DNS_DOMAIN}'
-            http:
-              paths:
-                - path: /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: development-mailserver
-                      port:
-                        number: 1080
-      EOF
-      else
-        kubectl apply -f - <<EOF
-      kind: Ingress
-      apiVersion: networking.k8s.io/v1
-      metadata:
-        name: maildev
-        namespace: ${CP_EXT_NAMESPACE}
-        labels:
-          app.cloud.tibco.com/created-by: pipeline
-        annotations:
-          kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
-          nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-      spec:
-        ingressClassName: ${CP_INGRESS_CLASSNAME}
-        rules:
-          - host: 'mail.${CP_DNS_DOMAIN}'
-            http:
-              paths:
-                - path: /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: development-mailserver
-                      port:
-                        number: 1080
-      EOF
-      fi
-- condition: ${CP_STORAGE_CREATE_PV}
-  clusters:
-    - name: ${CP_CLUSTER_NAME}
-  script:
-    ignoreErrors: false
-    fileName: script.sh
-    content: |
-      kubectl apply -f - <<EOF
-      apiVersion: v1
-      kind: PersistentVolume
-      metadata:
-        name: ${CP_STORAGE_PV_NAME}
-      spec:
-        accessModes:
-          - ReadWriteMany
-        capacity:
-          storage: ${CP_STORAGE_PV_SIZE}
-        hostPath:
-          path: /private/tibco/cp/${CP_STORAGE_PV_NAME}/k8s/volumes/core
-          type: DirectoryOrCreate
-        persistentVolumeReclaimPolicy: Retain
-        volumeMode: Filesystem
-        storageClassName: ${CP_STORAGE_CLASS}
-      EOF
 helmCharts:
+- name: generic-chart # CP certificate object helm chart
+  version: 1.1.0
+  condition: ${TP_GENERATE_CERTIFICATES}
+  namespace: ${CP_NAMESPACE}
+  releaseName: tp-certificate
+  repo:
+    helm:
+      url: https://test-server.github.yyzd.me
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      certificate:
+        enabled: ${TP_GENERATE_CERTIFICATES}
+        name: ${TP_GENERATE_CERTIFICATE_NAME}
+        spec:
+          secretName: ${TP_GENERATE_CERTIFICATE_NAME}
+          issuerRef:
+            name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+            kind: ClusterIssuer
+          dnsNames:
+            - '*.${CP_SERVICE_DNS_DOMAIN}'
+            - '*.${CP_TUNNEL_DNS_DOMAIN}'
+  flags:
+    createNamespace: true
+    timeout: 1h
+- name: generic-chart # CP pv object helm chart
+  version: 1.1.0
+  condition: ${CP_STORAGE_CREATE_PV}
+  namespace: ${CP_NAMESPACE}
+  releaseName: cp-storage-pv
+  repo:
+    helm:
+      url: https://test-server.github.yyzd.me
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      pv:
+        enabled: ${CP_STORAGE_CREATE_PV}
+        name: ${CP_STORAGE_PV_NAME}
+        spec:
+          accessModes:
+          - ReadWriteMany
+          capacity:
+            storage: ${CP_STORAGE_PV_SIZE}
+          hostPath:
+            path: /private/tibco/cp/${CP_STORAGE_PV_NAME}/k8s/volumes/core
+            type: DirectoryOrCreate
+          persistentVolumeReclaimPolicy: Retain
+          volumeMode: Filesystem
+          storageClassName: ${CP_STORAGE_CLASS}
+  flags:
+    createNamespace: true
+    timeout: 1h
+- name: generic-chart # maildev helm chart
+  version: 1.1.0
+  condition: ${CP_INSTALL_MAILDEV}
+  namespace: ${CP_EXT_NAMESPACE}
+  releaseName: maildev
+  repo:
+    helm:
+      url: https://test-server.github.yyzd.me
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      deployment:
+        enabled: true
+        image:
+          repository: maildev/maildev
+          tag: latest
+        args: ["-s", "1025", "-w", "1080"]
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 1080
+        podLabels:
+          app: maildev
+      service:
+        enabled: true
+        name: ${CP_MAIL_MAILDEV_SERVICE_NAME}
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 1080
+            servicePort: 1080
+          smtp:
+            enabled: true
+            protocol: TCP
+            containerPort: 1025
+            servicePort: 1025
+      ingress:
+        enabled: ${CP_INSTALL_MAILDEV_INGRESS}
+        labels:
+          app.cloud.tibco.com/created-by: pipeline
+        annotations:
+          kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
+          nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+        spec:
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          tls:
+          - hosts:
+            - '*.${CP_DNS_DOMAIN}'
+            secretName: ${TP_GENERATE_CERTIFICATE_NAME}
+          rules:
+            - host: 'mail.${CP_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: ${CP_MAIL_MAILDEV_SERVICE_NAME}
+                        port:
+                          number: 1080
+  flags:
+    createNamespace: true
+    timeout: 1h
 - name: platform-bootstrap # router hybrid-proxy compute-service cp-evn certificates
   version: ${CP_PLATFORM_BOOTSTRAP_VERSION}
   condition: ${CP_INSTALL_PLATFORM_BOOTSTRAP}
@@ -405,7 +355,7 @@ helmCharts:
               cpu: 1250m
               memory: 1000Mi
           ingress:
-            enabled: true
+            enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY}
             annotations:
               external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
               nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
@@ -426,7 +376,7 @@ helmCharts:
               cpu: 3000m
               memory: 1000Mi
           ingress:
-            enabled: true
+            enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER}
             annotations:
               external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
               nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
@@ -457,7 +407,6 @@ helmCharts:
             serviceCIDR: ${CP_SERVICE_CIDR}
           dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
           dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
-          provider: ${CP_PROVIDER}
           storage:
             resources:
               requests:
@@ -506,142 +455,6 @@ helmCharts:
           yq eval '.global.external.storage.volumeName = env(CP_STORAGE_PV_NAME)' volume_values.yaml > volume_values.yaml
           echo "Volume values:"
           cat volume_values.yaml
-        fi
-    postDeploy:
-      ignoreErrors: false
-      base64Encoded: false
-      skip: ${CP_SKIP_BOOTSTRAP_INGRESS}
-      content: |
-        _router_ingress=$(kubectl get ingress -n ${CP_NAMESPACE} router 2>/dev/null)
-        _router_ingress_response=$?
-        if [[ -z "${_router_ingress}" && "${_router_ingress_response}" != "0" ]]; then
-          if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
-            kubectl apply -f - <<EOF
-        kind: Ingress
-        apiVersion: networking.k8s.io/v1
-        metadata:
-          name: router
-          namespace: ${CP_NAMESPACE}
-          labels:
-            app.cloud.tibco.com/created-by: pipeline
-            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
-          annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-        spec:
-          ingressClassName: ${CP_INGRESS_CLASSNAME}
-          tls:
-          - hosts:
-            - '*.${CP_SERVICE_DNS_DOMAIN}'
-            secretName: ${TP_GENERATE_CERTIFICATE_NAME}
-          rules:
-            - host: '*.${CP_SERVICE_DNS_DOMAIN}'
-              http:
-                paths:
-                  - path: /
-                    pathType: Prefix
-                    backend:
-                      service:
-                        name: router
-                        port:
-                          number: 100
-        EOF
-          else
-            kubectl apply -f - <<EOF
-        kind: Ingress
-        apiVersion: networking.k8s.io/v1
-        metadata:
-          name: router
-          namespace: ${CP_NAMESPACE}
-          labels:
-            app.cloud.tibco.com/created-by: pipeline
-            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
-          annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-        spec:
-          ingressClassName: ${CP_INGRESS_CLASSNAME}
-          rules:
-            - host: '*.${CP_SERVICE_DNS_DOMAIN}'
-              http:
-                paths:
-                  - path: /
-                    pathType: Prefix
-                    backend:
-                      service:
-                        name: router
-                        port:
-                          number: 100
-        EOF
-          fi
-        else 
-          echo "Ingress router already exists"
-        fi
-
-        _hybrid_proxy_ingress=$(kubectl get ingress -n ${CP_NAMESPACE} hybrid-proxy 2>/dev/null)
-        _hybrid_proxy_ingress_response=$?
-        if [[ -z "${_hybrid_proxy_ingress}" && "${_hybrid_proxy_ingress_response}" != "0" ]]; then
-          if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
-            kubectl apply -f - <<EOF
-        kind: Ingress
-        apiVersion: networking.k8s.io/v1
-        metadata:
-          name: hybrid-proxy
-          namespace: ${CP_NAMESPACE}
-          labels:
-            app.cloud.tibco.com/created-by: pipeline
-            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
-          annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-        spec:
-          ingressClassName: ${CP_INGRESS_CLASSNAME}
-          tls:
-          - hosts:
-            - '*.${CP_TUNNEL_DNS_DOMAIN}'
-            secretName: ${TP_GENERATE_CERTIFICATE_NAME}
-          rules:
-            - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
-              http:
-                paths:
-                  - path: /
-                    pathType: Prefix
-                    backend:
-                      service:
-                        name: hybrid-proxy  # CP_PROVIDER must set to local to create this service
-                        port:
-                          number: 105
-        EOF
-          else
-            kubectl apply -f - <<EOF
-        kind: Ingress
-        apiVersion: networking.k8s.io/v1
-        metadata:
-          name: hybrid-proxy
-          namespace: ${CP_NAMESPACE}
-          labels:
-            app.cloud.tibco.com/created-by: pipeline
-            platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
-          annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
-            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-        spec:
-          ingressClassName: ${CP_INGRESS_CLASSNAME}
-          rules:
-            - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
-              http:
-                paths:
-                  - path: /
-                    pathType: Prefix
-                    backend:
-                      service:
-                        name: hybrid-proxy # CP_PROVIDER must set to local to create this service
-                        port:
-                          number: 105
-        EOF
-          fi
-        else
-          echo "Ingress hybrid-proxy already exists"
         fi
 - name: platform-base
   version: ${CP_PLATFORM_BASE_VERSION}
@@ -785,7 +598,6 @@ helmCharts:
                 memory: 100Mi
         email-service:
           replicaCount: 1
-          providerName: ${CP_PROVIDER} # local or aws, for local will use smtp server
           cpemailservice:
             resources:
               requests:

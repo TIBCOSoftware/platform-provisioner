@@ -15,8 +15,8 @@ package recipe
 	// the version will be the chart version
 	helm?: {
 		url!: string
-		username?: string
-		password?: string
+		username?: string | null
+		password?: string | null
 	}
 	// {repo.ecr.host}/${repo.ecr.name}:${version}
 	// The version will be the image tag

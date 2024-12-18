@@ -88,9 +88,9 @@ export PIPELINE_NAMESPACE=${PIPELINE_NAMESPACE:-"tekton-tasks"}
 kubectl create namespace "${PIPELINE_NAMESPACE}"
 
 function k8s-waitfor-deployment() {
-  _deployment_namespace=$1
-  _deployment_name=$2
-  _timeout=$3
+  local _deployment_namespace=$1
+  local _deployment_name=$2
+  local _timeout=$3
   echo "waiting for ${_deployment_name} in namespace: ${_deployment_namespace} to be ready..."
   kubectl wait --for=condition=available -n "${_deployment_namespace}" "deployment/${_deployment_name}" --timeout="${_timeout}"
   if [ $? -ne 0 ]; then
@@ -182,15 +182,20 @@ fi
 
 # install provisioner web ui
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
-  --version "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" \
-  --set image.repository="${PIPELINE_GUI_DOCKER_IMAGE_REPO}/${PIPELINE_GUI_DOCKER_IMAGE_PATH}" \
-  --set image.tag="${PIPELINE_GUI_DOCKER_IMAGE_TAG}" \
-  --set "imagePullSecrets[0].name=${_image_pull_secret_name}" \
-  --set guiConfig.onPremMode=true \
-  --set guiConfig.pipelinesCleanUpEnabled=true \
-  --set service.type="${PIPELINE_GUI_SERVICE_TYPE}" \
-  --set service.port="${PIPELINE_GUI_SERVICE_PORT}" \
-  --set guiConfig.dataConfigMapName="provisioner-config-local-config"
+  --version "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" -f - <<EOF
+guiConfig:
+  dataConfigMapName: provisioner-config-local-config
+  onPremMode: true
+  pipelinesCleanUpEnabled: true
+image:
+  repository: "${PIPELINE_GUI_DOCKER_IMAGE_REPO}/${PIPELINE_GUI_DOCKER_IMAGE_PATH}"
+  tag: "${PIPELINE_GUI_DOCKER_IMAGE_TAG}"
+imagePullSecrets:
+- name: "${_image_pull_secret_name}"
+service:
+  port: "${PIPELINE_GUI_SERVICE_PORT}"
+  type: "${PIPELINE_GUI_SERVICE_TYPE}"
+EOF
 if [[ $? -ne 0 ]]; then
   echo "failed to install platform-provisioner-ui"
   exit 1

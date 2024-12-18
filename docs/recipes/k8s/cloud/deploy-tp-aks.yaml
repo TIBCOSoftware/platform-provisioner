@@ -536,6 +536,8 @@ helmCharts:
   repo:
     helm:
       url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   values:
     keepPrevious: true
     content: |
