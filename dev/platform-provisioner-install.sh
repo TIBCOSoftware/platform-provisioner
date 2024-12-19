@@ -181,8 +181,10 @@ if [[ -n ${PIPELINE_GUI_DOCKER_IMAGE_TOKEN} ]]; then
 fi
 
 # install provisioner web ui
+# --set will handle the empty secret name
 helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
-  --version "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" -f - <<EOF
+  --version "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" \
+  --set "imagePullSecrets[0].name=${_image_pull_secret_name}" -f - <<EOF
 guiConfig:
   dataConfigMapName: provisioner-config-local-config
   onPremMode: true
@@ -190,8 +192,6 @@ guiConfig:
 image:
   repository: "${PIPELINE_GUI_DOCKER_IMAGE_REPO}/${PIPELINE_GUI_DOCKER_IMAGE_PATH}"
   tag: "${PIPELINE_GUI_DOCKER_IMAGE_TAG}"
-imagePullSecrets:
-- name: "${_image_pull_secret_name}"
 service:
   port: "${PIPELINE_GUI_SERVICE_PORT}"
   type: "${PIPELINE_GUI_SERVICE_TYPE}"

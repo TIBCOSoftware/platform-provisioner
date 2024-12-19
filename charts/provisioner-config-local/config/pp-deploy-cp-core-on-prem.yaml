@@ -423,6 +423,13 @@ options:
   description: ""
 
 # groupIndex: 10 Flow control
+- name: "Validate Cluster Resource"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_VALIDATE_CLUSTER_RESOURCE"
+  description: |
+    Before deploying the CP, set ture to validate that all resources are properly configured.
 - name: "Create CP namespace"
   groupIndex: 10
   type: boolean

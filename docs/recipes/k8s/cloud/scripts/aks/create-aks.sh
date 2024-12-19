@@ -33,7 +33,7 @@
 
 export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export TP_CLUSTER_NAME=${TP_CLUSTER_NAME:-"tp-cluster"}
-export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.30"}
+export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.31"}
 export TP_CLUSTER_INSTANCE_TYPE=${TP_CLUSTER_INSTANCE_TYPE:-"Standard_D8_v5"}
 export TP_RESOURCE_GROUP=${TP_RESOURCE_GROUP:-"tp-resource-group"}
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity"
