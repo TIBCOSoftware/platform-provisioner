@@ -124,17 +124,17 @@ preTasks:
       _STORAGE_CLASS=${CP_STORAGE_CLASS}
       _INGRESS_CLASS=${CP_INGRESS_CLASSNAME}
 
-      # Function to check if a given StorageClass exists
+      # Function to check if a given k8s object exists
       check_k8s_object_exists() {
           local object_name="$1"
           local target_object_name="$2"
 
-          # Check if a storageclass name is provided, empty value means use default one
+          # Check if a k8s object name is provided. empty value means use default one
           if [[ -z "${target_object_name}" ]]; then
               return 0
           fi
 
-          # Use kubectl to check for the storageclass
+          # Use kubectl to check for the k8s object
           if kubectl get "${object_name}" "${target_object_name}" >/dev/null 2>&1; then
               return 0
           else
