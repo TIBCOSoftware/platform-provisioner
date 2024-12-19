@@ -26,7 +26,7 @@
 #######################################
 
 export TP_CLUSTER_NAME=${TP_CLUSTER_NAME:-"tp-cluster"}
-export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.30"}
+export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.31"}
 export TP_CLUSTER_REGION=${TP_CLUSTER_REGION:-"us-west-2"}
 export TP_CLUSTER_VPC_CIDR=${TP_CLUSTER_VPC_CIDR:-"10.180.0.0/16"}
 export TP_CLUSTER_INSTANCE_TYPE=${TP_CLUSTER_INSTANCE_TYPE:-"m5a.xlarge"}
