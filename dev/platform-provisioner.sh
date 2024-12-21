@@ -11,7 +11,7 @@
 #   ACCOUNT: the account you want to assume to
 #   REGION: the region
 #   AWS_PROFILE: the aws profile; we normally needs to do AWS sso login to update this profile
-#   GITHUB_TOKEN: the github token
+#   GITHUB_TOKEN: the GitHub token
 #   PIPELINE_NAME:  We currently support 2 pipelines: generic-runner and helm-install
 #   PIPELINE_TRIGGER_RUN_SH: true or other string if true, will run task directly. if other string, will just go to bash
 #   PIPELINE_INPUT_RECIPE: the input file name; default is recipe.yaml
@@ -35,6 +35,7 @@
 #                       It will also run the command defined in all pipeline task.
 #                       It will also run the task if PIPELINE_TRIGGER_RUN_SH is set to true.
 # Samples:
+#   export PIPELINE_INPUT_RECIPE=""
 #   ./platform-provisioner.sh
 #######################################
 
@@ -83,6 +84,23 @@ fi
 # optional env for docker engine
 _OPTIONAL_ENV=""
 
+# mount folders if exist
+if [[ -d "${HOME}/.aws" ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source="${HOME}/.aws",target=/root/.aws"
+fi
+
+if [[ -d "${HOME}/.azure" ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source="${HOME}/.azure",target=/root/.azure"
+fi
+
+if [[ -d "${HOME}/.config/gcloud" ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source="${HOME}/.config/gcloud",target=/root/.config/gcloud"
+fi
+
+if [[ -d "${HOME}/.kube" ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source="${HOME}/.kube/config",target=/root/.kube/config-on-prem"
+fi
+
 # this case is used for on prem cluster; user can specify kubeconfig file name
 if [[ -n "${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME}" ]]; then
   export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source=${HOME}/.kube/${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME},target=/root/.kube/${PIPELINE_ON_PREM_KUBECONFIG_FILE_NAME}"
@@ -126,11 +144,7 @@ docker run -it --rm \
   -e PIPELINE_CMD_NAME_YQ \
   -e PIPELINE_CHART_REPO \
   -e PIPELINE_NAME \
-  --mount type=bind,source="${HOME}/.aws",target=/root/.aws \
-  --mount type=bind,source="${HOME}/.azure",target=/root/.azure \
-  --mount type=bind,source="${HOME}/.config/gcloud",target=/root/.config/gcloud \
-  --mount type=bind,source="${HOME}/.kube/config",target=/root/.kube/config-on-prem\
-  "${_DOCKER_FOR_MAC_ADD_HOST}" ${_OPTIONAL_ENV}\
+  "${_DOCKER_FOR_MAC_ADD_HOST}" ${_OPTIONAL_ENV} \
   "${PIPELINE_DOCKER_IMAGE}" bash -c 'export REGION=${REGION:-"us-west-2"} \
   && declare -xr WORKING_PATH=/workspace \
   && declare -xr SCRIPTS=${WORKING_PATH}/task-scripts \
