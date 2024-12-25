@@ -1,0 +1,40 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "TP Automation o11y"
+description: |
+  This pipeline will run an automation for o11y services.
+  
+  The input of this recipe is user name an password. 
+  
+  To use this pipeline you need to: 
+  * Deploy a CP and create admin user
+  * Create a subscription with give user which will be used for this pipeline
+  * Deploy o11y stack. (Elastic, Prometheus)
+  
+  The automation will: 
+  * Adjust user permission if necessary
+  * Create a new DP
+  * Register a DP
+  * Config o11y service for a given DP
+
+options:
+- name: "DP user name"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_USER_NAME"
+  required: true
+  description: |
+    The user name of DP
+- name: "DP password"
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_PASSWORD"
+  required: true
+  description: |
+    The password of DP
+recipe: |
+{{ tpl (.Files.Get "recipes/tp-automation-o11y.yaml") . | indent 2 }}

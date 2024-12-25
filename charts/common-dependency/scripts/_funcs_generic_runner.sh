@@ -73,7 +73,10 @@ function generic-runner::setup_payload() {
   _base64_encoded=$(echo "${_payload_section}" | common::yq4-get .base64Encoded)
   if [[ ${_base64_encoded} == "true" ]]; then
     common::debug "use base64 to decode script"
-    echo "${_payload_section}" | common::yq4-get .content | base64 -D > "${_payload_filename}"
+    if ! echo "${_payload_section}" | common::yq4-get .content | base64 -d > "${_payload_filename}"; then
+      common::err "error: generic-runner::setup_payload base64 -d return none 0"
+      return 1
+    fi
   else
     echo "${_payload_section}" | common::yq4-get .content > "${_payload_filename}"
   fi
@@ -157,7 +160,10 @@ function generic-runner::setup_script() {
     _base64_encoded=$(echo "${_script_section}" | common::yq4-get .base64Encoded)
     if [[ ${_base64_encoded} == "true" ]]; then
       common::debug "use base64 to decode script"
-      echo "${_script_content}" | base64 -D > "${_script_filename}"
+      if ! echo "${_script_content}" | base64 -d > "${_script_filename}"; then
+        common::err "error: generic-runner::setup_script base64 -d return none 0"
+        return 1
+      fi
     else
       echo "${_script_content}" > "${_script_filename}"
     fi

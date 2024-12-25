@@ -1,0 +1,51 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: v1
+kind: generic-runner
+meta:
+  guiEnv:
+    note: "tp-automation-o11y"
+    GUI_TP_CLUSTER_NAME: ''
+    GUI_PIPELINE_LOG_DEBUG: false
+    GUI_DP_USER_NAME: ""
+    GUI_DP_PASSWORD: ""
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
+    DP_USER_NAME: ${GUI_DP_USER_NAME:-""}
+    DP_PASSWORD: ${GUI_DP_PASSWORD:-""}
+    PYTHON_FILE_INPUT_NAME: py-scripts.yaml
+    PYTHON_FILE_ENTRY_POINT: run.py
+tasks:
+  - condition: true
+    clusters:
+      - name: ${TP_CLUSTER_NAME}
+    script:
+      ignoreErrors: false
+      fileName: script.sh
+      content: |
+        input_yaml="${PYTHON_FILE_INPUT_NAME}"
+
+        yq eval 'to_entries | .[] | .key + " " + (.value)' "$input_yaml" | while read -r file_name decoded_content; do
+          if [[ -n $file_name ]]; then
+            echo "$decoded_content" | base64 -d > "$file_name"
+            echo "Created file: $file_name"
+          fi
+        done
+        
+        python ${PYTHON_FILE_ENTRY_POINT}
+    payload:
+      base64Encoded: false
+      fileName: ${PYTHON_FILE_INPUT_NAME}
+      content: |
+        {{- $root := . }}
+        {{- range $path, $bytes := .Files.Glob "scripts/o11y/*" }}
+        {{ base $path }}: |
+        {{ $root.Files.Get $path | b64enc | indent 2 -}}
+        {{- end }}
