@@ -77,8 +77,7 @@ RUN CMD_NAME=eksctl && \
 # https://github.com/awslabs/amazon-ecr-credential-helper/releases
 ARG ECR_LOGIN_VERSION
 ENV ECR_LOGIN_VERSION=${ECR_LOGIN_VERSION:-"0.9.0"}
-RUN echo "/${ECR_LOGIN_VERSION}/${TARGETARCH}/docker-credential-ecr-login" && \
-    CMD_NAME=docker-credential-ecr-login && \
+RUN CMD_NAME=docker-credential-ecr-login && \
     curl --silent --location "https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/${ECR_LOGIN_VERSION}/${TARGETOS}-${TARGETARCH}/docker-credential-ecr-login" -o /tmp/${CMD_NAME} && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${ECR_LOGIN_VERSION} && \
     ln -sf /usr/local/bin/${CMD_NAME}-${ECR_LOGIN_VERSION} /usr/local/bin/${CMD_NAME} && \

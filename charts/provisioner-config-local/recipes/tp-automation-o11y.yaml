@@ -9,43 +9,69 @@ kind: generic-runner
 meta:
   guiEnv:
     note: "tp-automation-o11y"
-    GUI_TP_CLUSTER_NAME: ''
     GUI_PIPELINE_LOG_DEBUG: false
-    GUI_DP_USER_NAME: ""
-    GUI_DP_PASSWORD: ""
+    GUI_TP_CLUSTER_NAME: ''
+    GUI_GITHUB_TOKEN: ""
+    GUI_DP_HOST_PREFIX: "cp-sub1"
+    GUI_DP_USER_EMAIL: "cp-sub1@tibco.com"
+    GUI_DP_USER_PASSWORD: "Tibco@123"
+    GUI_TP_PORT_FORWARD: true
+    GUI_TP_OVERWRITE_DNS: false
   globalEnvVariable:
     REPLACE_RECIPE: true
+    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN:-""}
     PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
     PIPELINE_CHECK_DOCKER_STATUS: false
-    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
-    DP_USER_NAME: ${GUI_DP_USER_NAME:-""}
-    DP_PASSWORD: ${GUI_DP_PASSWORD:-""}
+    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+    DP_HOST_PREFIX: ${GUI_DP_HOST_PREFIX:-"cp-sub1"}
+    DP_USER_EMAIL: ${GUI_DP_USER_EMAIL:-"cp-sub1@tibco.com"}
+    DP_USER_PASSWORD: ${GUI_DP_USER_PASSWORD:-"Tibco@123"}
+    CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@tibco.com"}
+    CP_ADMIN_PASSWORD: ${GUI_CP_ADMIN_PASSWORD:-"Tibco@123"}
     PYTHON_FILE_INPUT_NAME: py-scripts.yaml
     PYTHON_FILE_ENTRY_POINT: run.py
+    TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
+    TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
 tasks:
-  - condition: true
-    clusters:
-      - name: ${TP_CLUSTER_NAME}
-    script:
-      ignoreErrors: false
-      fileName: script.sh
-      content: |
-        input_yaml="${PYTHON_FILE_INPUT_NAME}"
-
-        yq eval 'to_entries | .[] | .key + " " + (.value)' "$input_yaml" | while read -r file_name decoded_content; do
-          if [[ -n $file_name ]]; then
-            echo "$decoded_content" | base64 -d > "$file_name"
-            echo "Created file: $file_name"
-          fi
-        done
-        
-        python ${PYTHON_FILE_ENTRY_POINT}
-    payload:
-      base64Encoded: false
-      fileName: ${PYTHON_FILE_INPUT_NAME}
-      content: |
-        {{- $root := . }}
-        {{- range $path, $bytes := .Files.Glob "scripts/o11y/*" }}
-        {{ base $path }}: |
-        {{ $root.Files.Get $path | b64enc | indent 2 -}}
-        {{- end }}
+- condition: ${TP_OVERWRITE_DNS} # this is used for overwrite DNS
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      echo "nameserver 10.178.2.10" > /etc/resolv.conf
+- condition: ${TP_PORT_FORWARD} # this is used for run pipeline locally
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      nohup kubectl port-forward -n ingress-system --address 0.0.0.0 service/ingress-nginx-controller 80:http 443:https &
+- condition: true
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      input_yaml="${PYTHON_FILE_INPUT_NAME}"
+      
+      yq eval 'to_entries | .[] | .key + " " + (.value)' "$input_yaml" | while read -r file_name decoded_content; do
+        if [[ -n $file_name ]]; then
+          echo "$decoded_content" | base64 -d > "$file_name"
+          echo "Created file: $file_name"
+        fi
+      done
+      pip install -r requirements.txt
+      python ${PYTHON_FILE_ENTRY_POINT}
+  payload:
+    base64Encoded: false
+    fileName: ${PYTHON_FILE_INPUT_NAME}
+    content: |
+      {{- $root := . }}
+      {{- range $path, $bytes := .Files.Glob "scripts/o11y/*" }}
+      {{ base $path }}: |
+      {{ $root.Files.Get $path | b64enc | indent 2 -}}
+      {{- end }}

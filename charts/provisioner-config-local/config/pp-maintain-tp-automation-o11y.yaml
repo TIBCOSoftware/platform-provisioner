@@ -4,9 +4,9 @@
 # in the license file that is distributed with this file.
 #
 
-pipelineName: "TP Automation o11y"
+pipelineName: "TP Automation"
 description: |
-  This pipeline will run an automation for o11y services.
+  This pipeline will run an automation to create a new DP, register a DP and configure o11y service for a given DP.
   
   The input of this recipe is user name an password. 
   
@@ -22,19 +22,46 @@ description: |
   * Config o11y service for a given DP
 
 options:
-- name: "DP user name"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_DP_USER_NAME"
-  required: true
-  description: |
-    The user name of DP
-- name: "DP password"
+- name: "GitHub token"
   type: password
   guiType: input
-  reference: "meta.guiEnv.GUI_DP_PASSWORD"
+  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
+  description: |
+    The GitHub token for DP to access private helm chart repo. If you deploy unreleased CP/DP; this GitHub token is a must.
+- name: "DP host prefix"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_HOST_PREFIX"
   required: true
   description: |
-    The password of DP
+    The host prefix of DP
+- name: "DP user email"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_USER_EMAIL"
+  required: true
+  description: |
+    The user email of DP
+- name: "DP user password"
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_USER_PASSWORD"
+  required: true
+  description: |
+    The password of DP user
+- name: "TP port forward"
+  groupIndex: 5
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_PORT_FORWARD"
+  description: |
+    This will run kubedtl port-forward command to forward the port of ingress controller. If you change the ingress controller name; you need to update the script.
+- name: "TP overwrite DNS"
+  groupIndex: 5
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_OVERWRITE_DNS"
+  description: |
+    If you see DNS issue; set this to ture. Or if you want to run the tester outside of current kubernetes cluster. For VDI use 10.178.2.10 as DNS server.
 recipe: |
 {{ tpl (.Files.Get "recipes/tp-automation-o11y.yaml") . | indent 2 }}

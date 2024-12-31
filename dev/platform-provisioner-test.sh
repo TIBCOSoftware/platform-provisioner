@@ -16,6 +16,7 @@
 #   PIPELINE_PATH: the pipeline path
 #   PIPELINE_NAME:  We currently support 2 pipelines: generic-runner and helm-install
 #   PIPELINE_TRIGGER_RUN_SH: true or other string if true, will run task directly. if other string, will just go to bash
+#   PIPELINE_FAIL_STAY_IN_CONTAINER: true or other string if true, will stay in container when the pipeline fails. if other string, will exit container
 #   PIPELINE_INPUT_RECIPE: the input file name; default is recipe.yaml
 #   PIPELINE_MOCK: true or other string if true, will mock run pipeline. (only run meta part)
 #   PIPELINE_LOG_DEBUG: true or other string if true, will print pipeline debug log
@@ -67,6 +68,8 @@ cd "${DEV_PATH}" || exit
 [[ -z "${PIPELINE_INPUT_RECIPE}" ]] && export PIPELINE_INPUT_RECIPE="recipe.yaml"
 [[ -z "${PIPELINE_TRIGGER_RUN_SH}" ]] && export PIPELINE_TRIGGER_RUN_SH="true"
 [[ -z "${PIPELINE_LOG_DEBUG}" ]] && export PIPELINE_LOG_DEBUG="true"
+[[ -z "${PIPELINE_FAIL_STAY_IN_CONTAINER}" ]] && export PIPELINE_FAIL_STAY_IN_CONTAINER="false"
+[[ -z "${PIPELINE_RECIPE_PRINT}" ]] && export PIPELINE_RECIPE_PRINT="true"
 # For local test; we enable this flag by default
 [[ -z "${PIPELINE_USE_LOCAL_CREDS}" ]] && export PIPELINE_USE_LOCAL_CREDS="true"
 # For this script; we need to skip check docker status. The docker compose should set to true
@@ -137,6 +140,8 @@ docker run -it --rm \
   -e AWS_SESSION_TOKEN \
   -e GITHUB_TOKEN \
   -e PIPELINE_TRIGGER_RUN_SH \
+  -e PIPELINE_RECIPE_PRINT \
+  -e PIPELINE_FAIL_STAY_IN_CONTAINER \
   -e PIPELINE_INPUT_RECIPE \
   -e PIPELINE_INPUT_RECIPE_CONTENT \
   -e PIPELINE_MOCK \
@@ -169,4 +174,4 @@ docker run -it --rm \
   && cd "${SCRIPTS}" \
   && set -a && . _functions.sh && set +a \
   && [[ -z ${ACCOUNT} ]] && { echo "ACCOUNT can not be empty"; exit 1; } || true \
-  && [[ "${PIPELINE_TRIGGER_RUN_SH}" == "true" ]] && ./run.sh ${ACCOUNT} ${REGION} "${INPUT}" || bash'
+  && [[ "${PIPELINE_TRIGGER_RUN_SH}" == "true" ]] && ./run.sh ${ACCOUNT} ${REGION} "${INPUT}"; return_code=$? || return_code=1; [[ "${PIPELINE_FAIL_STAY_IN_CONTAINER}" == "true" ]] && bash || exit $return_code'
