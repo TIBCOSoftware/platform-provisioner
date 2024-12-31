@@ -112,7 +112,7 @@ menuConfig:
     icon: 'pi pi-th-large'
     items:
     - label: "Deploy DP and config o11y"
-      url: "/pipelines/generic-runner?title=tp-automation-o11y"
+      url: "/pipelines/generic-runner-tester?title=tp-automation-o11y"
       config: pp-maintain-tp-automation-o11y.yaml
 - label: "Pipelines"
   url: "/pipelines"

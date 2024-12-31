@@ -44,6 +44,7 @@
 #######################################
 
 [[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest"}
+[[ -z "${PIPELINE_DOCKER_IMAGE_TESTER}" ]] && export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:v1.0.0-tester"}
 [[ -z "${PIPELINE_SKIP_PROVISIONER_UI}" ]] && export PIPELINE_SKIP_PROVISIONER_UI=${PIPELINE_SKIP_PROVISIONER_UI:-false}
 [[ -z "${PIPELINE_SKIP_TEKTON_PIPELINE}" ]] && export PIPELINE_SKIP_TEKTON_PIPELINE=${PIPELINE_SKIP_TEKTON_PIPELINE:-false}
 [[ -z "${PIPELINE_SKIP_TEKTON_DASHBOARD}" ]] && export PIPELINE_SKIP_TEKTON_DASHBOARD=${PIPELINE_SKIP_TEKTON_DASHBOARD:-true}
@@ -126,6 +127,17 @@ helm upgrade --install -n "${PIPELINE_NAMESPACE}" generic-runner generic-runner 
   --set pipelineImage="${PIPELINE_DOCKER_IMAGE}"
 if [[ $? -ne 0 ]]; then
   echo "failed to install generic-runner pipeline"
+  exit 1
+fi
+
+helm upgrade --install -n "${PIPELINE_NAMESPACE}" generic-runner-tester generic-runner \
+  --version "${PIPELINE_CHART_VERSION_GENERIC_RUNNER}" --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" -f - <<EOF
+name: generic-runner-tester
+serviceAccount: pipeline-cluster-admin
+pipelineImage: ${PIPELINE_DOCKER_IMAGE_TESTER}
+EOF
+if [[ $? -ne 0 ]]; then
+  echo "failed to install generic-runner-tester pipeline"
   exit 1
 fi
 

@@ -17,6 +17,9 @@ declare -xr RECIPE_FILE=recipe.yaml
 # save input to recipe.yaml
 function save_input() {
   echo "${INPUT}" | common::yq4-get . > "${RECIPE_FILE}"
+  if [[ ${PIPELINE_RECIPE_PRINT} == "false" ]]; then
+    return 0
+  fi
   common::info "input recipe:"
   common::info "$(cat ${RECIPE_FILE})"
 }
