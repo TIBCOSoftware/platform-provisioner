@@ -18,6 +18,7 @@ on:
         type: choice
         options:
           - Dockerfile
+          - Dockerfile-tester
       platform:
         description: 'The platform to build the image for. linux/amd64, linux/arm64, linux/arm/v7 for Raspberry Pi'
         required: true

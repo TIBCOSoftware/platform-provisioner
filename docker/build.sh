@@ -24,6 +24,7 @@
 #   Case 1: ./build.sh # this will build image for local platform with ${IMAGE_NAME}:latest
 #   Case 2: DOCKER_REGISTRY=<your registry> IMAGE_TAG=v1 ./build.sh # this will build image with tag v1 eg: <your registry>/${IMAGE_NAME}:v1
 #   Case 3: DOCKER_REGISTRY=<your registry> PUSH_DOCKER_IMAGE=true ./build.sh # this will build and push image to the registry
+#   Case 4: export DOCKERFILE=Dockerfile-tester export IMAGE_TAG=v1.0.0-tester ./build.sh # this will use Dockerfile-tester to build image
 #######################################
 
 # build-push-multiarch build and push multiarch image
@@ -81,7 +82,7 @@ function main() {
   IMAGE_NAME=${IMAGE_NAME:-"platform-provisioner"}
   IMAGE_TAG=${IMAGE_TAG:-"latest"}
   _image_and_tag="${IMAGE_NAME}:${IMAGE_TAG}"
-  DOCKERFILE=${DOCKERFILE:"Dockerfile"}
+  DOCKERFILE=${DOCKERFILE:-"Dockerfile"}
   BUILD_ARGS=${BUILD_ARGS:-"--build-arg AWS_CLI_VERSION=${AWS_CLI_VERSION} --build-arg EKSCTL_VERSION=${EKSCTL_VERSION}"}
 
   if [[ "${DOCKER_REGISTRY}" != "" ]]; then
