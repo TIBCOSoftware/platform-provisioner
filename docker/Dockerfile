@@ -64,27 +64,6 @@ COPY --from=builder-aws /opt/aws-cli/ /opt/aws-cli/
 RUN ln -s /opt/aws-cli/bin/aws /usr/local/bin/aws && \
     aws --version
 
-# COPY azure cli to BASE_IMAGE
-COPY --from=builder-azure /azure /azure
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /usr/local/bin/az && \
-    az version
-
-# gcloud cli https://cloud.google.com/sdk/docs/release-notes
-ARG CLOUD_SDK_VERSION
-ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"495.0.0"}
-ENV PATH=/google-cloud-sdk/bin:$PATH
-RUN if [ `uname -m` = 'x86_64' ]; then echo -n "x86_64" > /tmp/arch; else echo -n "arm" > /tmp/arch; fi;
-RUN ARCH=`cat /tmp/arch` && \
-    curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${CLOUD_SDK_VERSION}-linux-${ARCH}.tar.gz && \
-    tar xzf google-cloud-cli-${CLOUD_SDK_VERSION}-linux-${ARCH}.tar.gz && \
-    rm google-cloud-cli-${CLOUD_SDK_VERSION}-linux-${ARCH}.tar.gz && \
-    export CLOUDSDK_CORE_DISABLE_PROMPTS=1 && \
-    gcloud components install beta gke-gcloud-auth-plugin && \
-    gcloud config set core/disable_usage_reporting true && \
-    gcloud config set component_manager/disable_update_check true && \
-    gcloud config set metrics/environment docker_image_alpine && \
-    gcloud --version
-
 # eksctl https://github.com/eksctl-io/eksctl/releases
 ARG EKSCTL_VERSION
 ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.191.0"}
@@ -105,6 +84,11 @@ RUN echo "/${ECR_LOGIN_VERSION}/${TARGETARCH}/docker-credential-ecr-login" && \
     ln -sf /usr/local/bin/${CMD_NAME}-${ECR_LOGIN_VERSION} /usr/local/bin/${CMD_NAME} && \
     ${CMD_NAME} -v
 
+# COPY azure cli to BASE_IMAGE
+COPY --from=builder-azure /azure /azure
+RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /usr/local/bin/az && \
+    az version
+
 # Azure CLI Bicep https://github.com/Azure/bicep/releases
 ARG AZURE_CLI_BICEP_VERSION
 ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.30.23"}
@@ -113,6 +97,22 @@ RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
     az bicep install --version ${AZURE_CLI_BICEP_VERSION} && \
     az extension add --name aks-preview && \
     az extension update --name aks-preview
+
+# gcloud cli https://cloud.google.com/sdk/docs/release-notes
+ARG CLOUD_SDK_VERSION
+ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"495.0.0"}
+ENV PATH=/google-cloud-sdk/bin:$PATH
+RUN if [ `uname -m` = 'x86_64' ]; then echo -n "x86_64" > /tmp/arch; else echo -n "arm" > /tmp/arch; fi;
+RUN ARCH=`cat /tmp/arch` && \
+    curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${CLOUD_SDK_VERSION}-linux-${ARCH}.tar.gz && \
+    tar xzf google-cloud-cli-${CLOUD_SDK_VERSION}-linux-${ARCH}.tar.gz && \
+    rm google-cloud-cli-${CLOUD_SDK_VERSION}-linux-${ARCH}.tar.gz && \
+    export CLOUDSDK_CORE_DISABLE_PROMPTS=1 && \
+    gcloud components install beta gke-gcloud-auth-plugin && \
+    gcloud config set core/disable_usage_reporting true && \
+    gcloud config set component_manager/disable_update_check true && \
+    gcloud config set metrics/environment docker_image_alpine && \
+    gcloud --version
 
 # cue for yaml validation https://github.com/cue-lang/cue/releases
 ARG CUE_VERSION
