@@ -1,0 +1,413 @@
+apiVersion: v1
+kind: helm-install
+meta:
+  guiEnv:
+    note: "deploy-o11y-stack"
+
+    # github
+    GUI_TP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
+    GUI_TP_CHART_REPO_USER_NAME: ""
+    GUI_TP_CHART_REPO_TOKEN: ""
+
+    # ingress
+    GUI_TP_INGRESS_CLASS: "nginx"
+    GUI_TP_DOMAIN: "localhost.dataplanes.pro"
+
+    # storage
+    GUI_TP_STORAGE_CLASS: "hostpath"
+
+    # elasticsearch
+    GUI_TP_CONFIG_ES_NAMESPACE: "elastic-system"
+    GUI_TP_ES_RELEASE_NAME: "dp-config-es"
+    GUI_TP_ECK_VERSION: "2.16.0"
+    GUI_TP_CONFIG_ES_VERSION: "8.17.0"
+    GUI_TP_CONFIG_CHART_VERSION: "^1.0.0"
+
+    # prometheus
+    GUI_TP_KUBE_PROMETHEUS_STACK_VERSION: "67.5.0"
+
+    # open-telemetry
+    GUI_TP_OPEN_TELEMETRY_COLLECTOR_VERSION: "0.81.1"
+
+    # flow control
+    GUI_TP_DEPLOY_ECK: true
+    GUI_TP_DEPLOY_PROMETHEUS_STACK: true
+    GUI_TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR: true
+    GUI_PIPELINE_LOG_DEBUG: false
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
+    PIPELINE_CHECK_DOCKER_STATUS: false
+
+    # github
+    TP_CHART_REPO: ${GUI_TP_CHART_REPO:-https://tibcosoftware.github.io/tp-helm-charts}
+    TP_CHART_REPO_USER_NAME: "${GUI_TP_CHART_REPO_USER_NAME}"
+    TP_CHART_REPO_TOKEN: "${GUI_TP_CHART_REPO_TOKEN}"
+
+    # ingress
+    TP_DOMAIN: ${GUI_TP_DOMAIN}
+    TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS} # nginx, traefik
+
+    # storage
+    TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS} # hostpath for docker desktop, standard for minikube
+
+    # elasticsearch
+    TP_ES_RELEASE_NAME: ${GUI_TP_ES_RELEASE_NAME:-dp-config-es}
+    TP_CONFIG_CHART_VERSION: "${GUI_TP_CONFIG_CHART_VERSION}"
+    TP_CONFIG_ES_VERSION: "${GUI_TP_CONFIG_ES_VERSION}" # https://www.elastic.co/guide/en/elasticsearch/reference/current/es-release-notes.html
+    TP_CONFIG_ES_NAMESPACE: "${GUI_TP_CONFIG_ES_NAMESPACE}"
+    TP_ECK_VERSION: "${GUI_TP_ECK_VERSION}" # helm search repo elastic/eck-operator https://www.elastic.co/guide/en/cloud-on-k8s/master/eck-release-notes.html
+
+    # prometheus
+    TP_KUBE_PROMETHEUS_STACK_VERSION: "${GUI_TP_KUBE_PROMETHEUS_STACK_VERSION}" # https://github.com/prometheus-community/helm-charts/releases?q=kube-prometheus-stack&expanded=true
+
+    # open-telemetry
+    TP_OPEN_TELEMETRY_COLLECTOR_VERSION: "${GUI_TP_OPEN_TELEMETRY_COLLECTOR_VERSION}" # opentelemetry-collector https://github.com/open-telemetry/opentelemetry-helm-charts/releases?q=opentelemetry-collector&expanded=true
+
+    # flow control
+    TP_DEPLOY_ECK: ${GUI_TP_DEPLOY_ECK:-true}
+    TP_DEPLOY_PROMETHEUS_STACK: ${GUI_TP_DEPLOY_PROMETHEUS_STACK:-true}
+    TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR: ${GUI_TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR:-true}
+  tools:
+    yq: "4.40"
+helmCharts:
+- name: eck-operator
+  version: ${TP_ECK_VERSION}
+  condition: ${TP_DEPLOY_ECK}
+  namespace: elastic-system
+  releaseName: eck-operator
+  repo:
+    helm:
+      url: https://helm.elastic.co
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: dp-config-es
+  version: ${TP_CONFIG_CHART_VERSION}
+  condition: ${TP_DEPLOY_ECK}
+  namespace: elastic-system
+  releaseName: ${TP_ES_RELEASE_NAME}
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: true
+    content: |
+      domain: ${TP_DOMAIN}
+      es:
+        version: "${TP_CONFIG_ES_VERSION}"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-es-http
+        storage:
+          name: ${TP_STORAGE_CLASS}
+      kibana:
+        version: "${TP_CONFIG_ES_VERSION}"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-kb-http
+      apm:
+        enabled: true
+        version: "${TP_CONFIG_ES_VERSION}"
+        ingress:
+          ingressClassName: ${TP_INGRESS_CLASS}
+          service: ${TP_ES_RELEASE_NAME}-apm-http
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: kube-prometheus-stack
+  version: "${TP_KUBE_PROMETHEUS_STACK_VERSION}"
+  condition: ${TP_DEPLOY_PROMETHEUS_STACK}
+  releaseName: kube-prometheus-stack
+  namespace: prometheus-system
+  repo:
+    helm:
+      url: https://prometheus-community.github.io/helm-charts
+  values:
+    keepPrevious: true
+    content: |
+      grafana:
+        plugins:
+          - grafana-piechart-panel
+        ingress:
+          enabled: true
+          ingressClassName: ${TP_INGRESS_CLASS}
+          hosts:
+          - grafana.${TP_DOMAIN}
+      prometheus-node-exporter:
+        hostRootFsMount: 
+          enabled: false
+      prometheus:
+        prometheusSpec:
+          enableRemoteWriteReceiver: true
+          remoteWriteDashboards: true
+          additionalScrapeConfigs:
+          - job_name: otel-collector
+            kubernetes_sd_configs:
+            - role: pod
+            relabel_configs:
+            - action: keep
+              regex: "true"
+              source_labels:
+              - __meta_kubernetes_pod_label_prometheus_io_scrape
+            - action: keep
+              regex: "infra"
+              source_labels:
+              - __meta_kubernetes_pod_label_platform_tibco_com_workload_type
+            - action: keepequal
+              source_labels: [__meta_kubernetes_pod_container_port_number]
+              target_label: __meta_kubernetes_pod_label_prometheus_io_port
+            - action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              source_labels:
+              - __address__
+              - __meta_kubernetes_pod_label_prometheus_io_port
+              target_label: __address__
+            - source_labels: [__meta_kubernetes_pod_label_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+              replacement: /$1
+        ingress:
+          enabled: true
+          ingressClassName: ${TP_INGRESS_CLASS}
+          hosts:
+          - prometheus-internal.${TP_DOMAIN}
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- name: opentelemetry-collector
+  version: "${TP_OPEN_TELEMETRY_COLLECTOR_VERSION}"
+  condition: ${TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR}
+  releaseName: otel-collector-daemon
+  namespace: prometheus-system
+  repo:
+    helm:
+      url: https://open-telemetry.github.io/opentelemetry-helm-charts
+  values:
+    keepPrevious: true
+    content: |
+      mode: "daemonset"
+      fullnameOverride: otel-kubelet-stats
+      # image:
+       #  repository: "otel/opentelemetry-collector-contrib"
+      podLabels:
+        platform.tibco.com/workload-type: "infra"
+        networking.platform.tibco.com/kubernetes-api: enable
+        egress.networking.platform.tibco.com/internet-all: enable
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "metrics"
+        prometheus.io/port: "4319"
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 10
+        behavior:
+          scaleUp:
+            stabilizationWindowSeconds: 15
+          scaleDown:
+            stabilizationWindowSeconds: 15
+        targetCPUUtilizationPercentage: 80
+        targetMemoryUtilizationPercentage: 80
+      serviceAccount:
+        create: true
+      clusterRole:
+        create: true
+        rules:
+        - apiGroups: [""]
+          resources: ["pods", "namespaces"]
+          verbs: ["get", "watch", "list"]
+        - apiGroups: [""]
+          resources: ["nodes/stats", "nodes/proxy"]
+          verbs: ["get"]
+      extraEnvs:
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+      ports:
+        metrics:
+          enabled: true
+          containerPort: 8888
+          servicePort: 8888
+          hostPort: 8888
+          protocol: TCP
+        prometheus:
+          enabled: true
+          containerPort: 4319
+          servicePort: 4319
+          hostPort: 4319
+          protocol: TCP
+      config:
+        receivers:
+          kubeletstats:
+            collection_interval: 20s
+            auth_type: "serviceAccount"
+            endpoint: "https://${env:KUBE_NODE_NAME}:10250"
+            insecure_skip_verify: true
+            metric_groups:
+              - pod
+              - container
+            extra_metadata_labels:
+              - container.id
+            metrics:
+              k8s.container.memory_limit_utilization:
+                enabled: true
+              k8s.container.cpu_limit_utilization:
+                enabled: true
+              k8s.pod.cpu_limit_utilization:
+                enabled: true
+              k8s.pod.memory_limit_utilization:
+                enabled: true
+              k8s.pod.filesystem.available:
+                enabled: false
+              k8s.pod.filesystem.capacity:
+                enabled: false
+              k8s.pod.filesystem.usage:
+                enabled: false
+              k8s.pod.memory.major_page_faults:
+                enabled: false
+              k8s.pod.memory.page_faults:
+                enabled: false
+              k8s.pod.memory.rss:
+                enabled: false
+              k8s.pod.memory.working_set:
+                enabled: false
+        processors:
+          memory_limiter:
+            check_interval: 5s
+            limit_percentage: 80
+            spike_limit_percentage: 25
+          batch: {}
+          k8sattributes/kubeletstats:
+            auth_type: "serviceAccount"
+            passthrough: false
+            extract:
+              metadata:
+                - k8s.pod.name
+                - k8s.pod.uid
+                - k8s.namespace.name
+                - k8s.pod.start_time
+              annotations:
+                - tag_name: connectors
+                  key: platform.tibco.com/connectors
+                  from: pod
+              labels:
+                - tag_name: app_id
+                  key: platform.tibco.com/app-id
+                  from: pod
+                - tag_name: app_type
+                  key: platform.tibco.com/app-type
+                  from: pod
+                - tag_name: dataplane_id
+                  key: platform.tibco.com/dataplane-id
+                  from: pod
+                - tag_name: workload_type
+                  key: platform.tibco.com/workload-type
+                  from: pod
+                - tag_name: app_name
+                  key: platform.tibco.com/app-name
+                  from: pod
+                - tag_name: app_version
+                  key: platform.tibco.com/app-version
+                  from: pod
+                - tag_name: app_tags
+                  key: platform.tibco.com/tags
+                  from: pod
+                - tag_name: capability_instance_id
+                  key: platform.tibco.com/capability-instance-id
+                  from: pod
+                - tag_name: tib_msg_stsrole
+                  key: tib_msg_stsrole
+                  from: pod
+                - tag_name: tib-msg-group-name
+                  key: tib-msg-group-name
+                  from: pod
+            pod_association:
+              - sources:
+                  - from: resource_attribute
+                    name: k8s.pod.uid
+          filter/workload:
+            metrics:
+              include:
+                match_type: regexp
+                resource_attributes:
+                  - key: workload_type
+                    value: (user-app|capability-service)$
+          transform/metrics:
+            metric_statements:
+            - context: datapoint
+              statements:
+                - set(attributes["pod_name"], resource.attributes["k8s.pod.name"])
+                - set(attributes["pod_namespace"], resource.attributes["k8s.namespace.name"])
+                - set(attributes["app_id"], resource.attributes["app_id"])
+                - set(attributes["app_id"], resource.attributes["capability-instance-id"]) where IsMatch(resource.attributes["app_type"], "msg-*")
+                - set(attributes["app_type"], resource.attributes["app_type"])
+                - set(attributes["dataplane_id"], resource.attributes["dataplane_id"])
+                - set(attributes["workload_type"], resource.attributes["workload_type"])
+                - set(attributes["app_tags"], resource.attributes["app_tags"])
+                - set(attributes["app_name"], resource.attributes["app_name"])
+                - set(attributes["app_version"], resource.attributes["app_version"])
+                - set(attributes["connectors"], resource.attributes["connectors"])
+          filter/include:
+            metrics:
+              include:
+                match_type: regexp
+                metric_names:
+                  - .*memory.*
+                  - .*cpu.*
+        exporters:
+          prometheus/user:
+            endpoint: 0.0.0.0:4319
+            enable_open_metrics: true
+            resource_to_telemetry_conversion:
+              enabled: true
+        extensions:
+          health_check: {}
+          memory_ballast:
+            size_in_percentage: 40
+        service:
+          telemetry:
+            logs: {}
+            metrics:
+              address: :8888
+          extensions:
+            - health_check
+            - memory_ballast
+          pipelines:
+            logs: null
+            traces: null
+            metrics:
+              receivers:
+                - kubeletstats
+              processors:
+                - k8sattributes/kubeletstats
+                - filter/workload
+                - filter/include
+                - transform/metrics
+                - batch
+              exporters:
+                - prometheus/user
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true

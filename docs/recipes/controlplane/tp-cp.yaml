@@ -620,7 +620,7 @@ helmCharts:
                   memory: ${CP_RESOURCES_REQUEST_MEMORY}
                 limits:
                   cpu: "1"
-                  memory: 1024Mi
+                  memory: 2048Mi
         tp-cp-flogo-utilities:
           enabled: ${CP_INSTALL_INTEGRATION_FLOGO_UTILITIES}
       tp-cp-core:

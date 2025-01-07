@@ -1,0 +1,210 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Deploy Kyverno"
+description: |
+  This pipeline will deploy Kyverno, Kyverno policies, and Policy Reporter.
+options:
+- name: "Kyverno Reporter UI domain"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
+  required: true
+  description: |
+    Domain name for Kyverno Reporter UI. This domain name will be used to access the Kyverno Reporter UI.
+- name: "Install Kyverno"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_INSTALL_CHART_KYVERNO"
+  description: |
+    Install Kyverno. If this option is selected, the Kyverno chart will be installed.
+- name: "Install Kyverno Policies"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_INSTALL_CHART_KYVERNO_POLICIES"
+  description: |
+    Install Kyverno Pod Security Standard policies. If this option is selected, the Kyverno policies chart will be installed.
+- name: "Install Policy Reporter UI"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_INSTALL_CHART_POLICY_REPORTER"
+  description: |
+    Install Policy Reporter UI. If this option is selected, the Policy Reporter UI chart will be installed.
+- name: "Skip Kyverno Community Policy Installation"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_SKIP_INSTALL_KYVERNO_POLICY"
+  description: |
+    Skip the installation of Kyverno community policies. If this option is selected, the Kyverno community policies will NOT be installed.
+- name: "Enable Pipeline Debug Logging"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+  apiVersion: v1
+  kind: helm-install
+  meta:
+    guiEnv:
+      GUI_DP_ENV: pm-test
+      GUI_TP_DNS_DOMAIN: "localhost.dataplanes.pro"
+      GUI_INSTALL_CHART_KYVERNO: true
+      GUI_INSTALL_CHART_KYVERNO_POLICIES: true
+      GUI_INSTALL_CHART_POLICY_REPORTER: true
+      GUI_SKIP_INSTALL_KYVERNO_POLICY: true # true means skip the kyverno policy installation
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: false
+      TP_CLUSTER_NAME: ${TP_CLUSTER_NAME:-"on-prem"}
+      TP_DNS_DOMAIN: ${GUI_TP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
+      INSTALL_CHART_KYVERNO: ${GUI_INSTALL_CHART_KYVERNO:-true}
+      INSTALL_CHART_KYVERNO_POLICIES: ${GUI_INSTALL_CHART_KYVERNO_POLICIES:-true}
+      INSTALL_CHART_POLICY_REPORTER: ${GUI_INSTALL_CHART_POLICY_REPORTER:-true}
+      SKIP_INSTALL_KYVERNO_POLICY: ${GUI_SKIP_INSTALL_KYVERNO_POLICY:-true}
+    tools:
+      yq: "4.40"
+  helmCharts:
+    - condition: ${INSTALL_CHART_KYVERNO} # possible values: true, false
+      name: kyverno # chart name
+      version: 3.3.4 # chart version https://artifacthub.io/packages/helm/kyverno/kyverno
+      namespace: kyverno # namespace to install the chart
+      releaseName: kyverno
+      repo:
+        helm:
+          url: https://kyverno.github.io/kyverno
+      cluster:
+        names:
+          - ${TP_CLUSTER_NAME}
+      values:
+        keepPrevious: true
+        content: |
+          # config different values for kyverno
+          admissionController:
+            replicas: 1
+          backgroundController:
+            replicas: 1
+          cleanupController:
+            replicas: 1
+          reportsController:
+            replicas: 1
+      flags:
+        createNamespace: true
+        timeout: 1h
+      hooks:
+        postDeploy:
+          ignoreErrors: false
+          base64Encoded: false
+          skip: ${SKIP_INSTALL_KYVERNO_POLICY}
+          content: |
+            # https://github.com/kyverno/policies
+            # community based repository of policies for Kyverno. It contains policies for various applications and best practices.
+            # Define the repository URL for the Kyverno policies
+            REPO_URL="https://github.com/kyverno/policies.git"
+            
+            # List of top-level folders to apply policies from
+            TOP_FOLDERS=("cert-manager" "nginx-ingress" "psa" "best-practices" "pod-security") # Add or remove the folder name as per your testing
+            
+            # Clone the repository with a shallow copy (only the latest commit)
+            git clone --depth 1 "${REPO_URL}"
+            
+            # Change directory to the cloned policies folder
+            cd policies || exit
+            
+            # Function to apply policies from a specified folder
+            apply_policies() {
+                local folder="${1}"
+            
+                # Check if the specified folder exists
+                if [[ -d "${folder}" ]]; then
+                    # Iterate over each item in the folder
+                    for item in "${folder}"/*; do
+                        if [[ -d "${item}" ]]; then
+                            # If the item is a directory, recursively apply policies from it
+                            apply_policies "${item}"
+                        elif [[ -f "${item}" && "${item}" == *.yaml ]]; then
+                            # If the item is a YAML file, get its base name
+                            base_name=$(basename "${item}" .yaml)
+                            parent_folder=$(basename "${folder}")
+            
+                            # Check if the base name of the YAML file matches the parent folder name
+                            if [[ "${base_name}" == "${parent_folder}" ]]; then
+                                # Apply the policy using kubectl
+                                echo "Applying policy: ${item}"
+                                kubectl apply -f "${item}"
+                                #kubectl delete -f "${item}"
+                            fi
+                        fi
+                    done
+                else
+                    # Print a message if the folder does not exist
+                    echo "Folder ${folder} does not exist."
+                fi
+            }
+            
+            # Iterate through each top-level folder and apply the policies found within
+            for top_folder in "${TOP_FOLDERS[@]}"; do
+                apply_policies "${top_folder}"
+            done
+            
+            # Cleanup: return to the previous directory and remove the cloned policies folder
+            cd ..
+            rm -rf policies
+            
+            # change to restricted for namespace policy for pod security
+            #kubectl patch clusterpolicy add-psa-labels --type='json' -p='[
+            #  {"op": "replace", "path": "/spec/rules/0/mutate/patchStrategicMerge/metadata/labels/+(pod-security.kubernetes.io~1enforce)", "value": "restricted"}
+            #]'
+    # this it the kyverno policy repo https://github.com/kyverno/kyverno/tree/main/charts/kyverno-policies
+    # this chart contains only pod-security policy https://github.com/kyverno/policies/tree/main/pod-security
+    - condition: ${INSTALL_CHART_KYVERNO_POLICIES} # possible values: true, false
+      name: kyverno-policies # chart name
+      version: 3.3.2 # chart version https://github.com/kyverno/kyverno/releases
+      namespace: kyverno # namespace to install the chart
+      releaseName: kyverno-policies
+      repo:
+        helm:
+          url: https://kyverno.github.io/kyverno
+      cluster:
+        names:
+          - ${TP_CLUSTER_NAME}
+      values:
+        keepPrevious: true
+        content: ""
+    - condition: ${INSTALL_CHART_POLICY_REPORTER} # possible values: true, false
+      name: policy-reporter # chart name
+      version: 3.0.0-rc.13 #2.24.2 # chart version https://github.com/kyverno/policy-reporter/releases
+      namespace: policy-reporter # namespace to install the chart
+      releaseName: policy-reporter
+      repo:
+        helm:
+          url: https://kyverno.github.io/policy-reporter
+      cluster:
+        names:
+          - ${TP_CLUSTER_NAME}
+      values:
+        keepPrevious: true
+        content: |
+          ui:
+            enabled: true
+            plugins:
+              kyverno: true
+            ingress:
+              enabled: true
+              className: nginx
+              annotations:
+                nginx.ingress.kubernetes.io/rewrite-target: /$1
+              hosts:
+                - host: kyverno-ui.${TP_DNS_DOMAIN}
+                  paths:
+                    - path: '/(.*)'
+                      pathType: Prefix
+          kyvernoPlugin:
+            enabled: true
+          plugin:
+            kyverno:
+              enabled: true
+      flags:
+        createNamespace: true
+        timeout: 1h

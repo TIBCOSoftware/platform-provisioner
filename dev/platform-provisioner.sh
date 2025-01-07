@@ -59,9 +59,9 @@ export PIPELINE_CMD_NAME_YQ="${PIPELINE_CMD_NAME_YQ:-yq4}"
 
 [[ -z "${PIPELINE_INPUT_RECIPE}" ]] && export PIPELINE_INPUT_RECIPE="recipe.yaml"
 [[ -z "${PIPELINE_TRIGGER_RUN_SH}" ]] && export PIPELINE_TRIGGER_RUN_SH="true"
-[[ -z "${PIPELINE_LOG_DEBUG}" ]] && export PIPELINE_LOG_DEBUG="true"
+[[ -z "${PIPELINE_LOG_DEBUG}" ]] && export PIPELINE_LOG_DEBUG="false"
 [[ -z "${PIPELINE_FAIL_STAY_IN_CONTAINER}" ]] && export PIPELINE_FAIL_STAY_IN_CONTAINER="false"
-[[ -z "${PIPELINE_RECIPE_PRINT}" ]] && export PIPELINE_RECIPE_PRINT="true"
+[[ -z "${PIPELINE_RECIPE_PRINT}" ]] && export PIPELINE_RECIPE_PRINT="false"
 # For local test; we enable this flag by default
 [[ -z "${PIPELINE_USE_LOCAL_CREDS}" ]] && export PIPELINE_USE_LOCAL_CREDS="true"
 # For this script; we need to skip check docker status. The docker compose should set to true
