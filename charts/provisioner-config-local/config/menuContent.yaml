@@ -30,14 +30,14 @@ menuConfig:
   - separator: true
   - label: "Control Plane"
     items:
-      - label: "Deploy Control Plane"
-        items:
-          - label: "Standard Control Plane"
-            url: "/pipelines/helm-install?title=cp-deploy-on-prem"
-            config: pp-deploy-cp-core-on-prem.yaml
-          - label: "Upgrade platform-base chart"
-            url: "/pipelines/helm-install?title=Deploy-control-plane-on-prem-upgrade"
-            config: pp-deploy-cp-core-upgrade.yaml
+    - label: "Deploy Control Plane"
+      items:
+      - label: "Standard Control Plane"
+        url: "/pipelines/helm-install?title=cp-deploy-on-prem"
+        config: pp-deploy-cp-core-on-prem.yaml
+      - label: "Upgrade platform-base chart"
+        url: "/pipelines/helm-install?title=Deploy-control-plane-on-prem-upgrade"
+        config: pp-deploy-cp-core-upgrade.yaml
   - label: "Data Plane"
     items:
     - label: "Register Data Plane"
@@ -54,23 +54,22 @@ menuConfig:
     - label: "O11y fully Stack"
       url: "/pipelines/helm-install?title=Deploy-o11y-stack"
       config: pp-o11y-full.yaml
-    - label: "dp-config-es"
-      url: "/pipelines/helm-install?title=dp-config-es"
-      config: pp-o11y-dp-config-es.yaml
-    - label: "OTel Collector deamonset"
-      url: "/pipelines/helm-install?title=OTel Collector deamonset"
-      config: pp-o11y-otel-daemon.yaml
   - label: "Ingress"
     items:
-    - label: "ingress tracing"
-      url: "/pipelines/helm-install?title=Deploy ingress tracing"
-      config: pp-ingress-tracing.yaml
-      disabled: true
+    - label: "ingress tracing nginx"
+      url: "/pipelines/helm-install?title=Deploy-ingress-tracing-nginx"
+      config: pp-ingress-tracing-nginx.yaml
+      disabled: false
   - label: "Secrets"
     items:
     - label: "TIBCO Hub"
       url: "/pipelines/generic-runner?title=secret-tibco-hub"
       config: pp-deploy-secret-tibco-hub.yaml
+  - label: "Security"
+    items:
+      - label: "kyverno policy"
+        url: "/pipelines/helm-install?title=security-kyverno-policy"
+        config: pp-deploy-security-kyverno-policy.yaml
 - label: "Undeploy"
   icon: 'pi pi-fw pi-cloud-download'
   items:

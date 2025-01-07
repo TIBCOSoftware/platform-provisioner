@@ -1,0 +1,105 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+pipelineName: "Enable Ingress Tracing"
+options:
+  - name: "GUI_DP_ENV"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_DP_ENV"
+  - name: "GUI_DP_SANDBOX"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_DP_SANDBOX"
+  - name: "GUI_DP_NAMESPACE"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_DP_NAMESPACE"
+  - name: "GUI_DP_CONFIG_AWS_VERSION"
+    type: string
+    guiType: input
+    reference: "meta.guiEnv.GUI_DP_CONFIG_AWS_VERSION"
+  - name: "GUI_PIPELINE_LOG_DEBUG"
+    type: boolean
+    guiType: checkbox
+    reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+  apiVersion: v1
+  kind: helm-install
+  meta:
+    guiEnv:
+      note: "deploy-ingress-tracing"
+      GUI_DP_ENV: ""
+      GUI_DP_SANDBOX: "" # cic2-infra-1
+      GUI_DP_NAMESPACE: "" # dp-ns
+      GUI_PIPELINE_LOG_DEBUG: false
+      GUI_DP_CONFIG_AWS_VERSION: ^1.0.27
+    globalEnvVariable:
+      REPLACE_RECIPE: true
+      PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+      PIPELINE_CHECK_DOCKER_STATUS: false
+      DP_ENV: ${GUI_DP_ENV}
+      DP_SANDBOX: ${GUI_DP_SANDBOX}
+      DP_CLUSTER_NAME: dp-cluster-${DP_ENV}
+      DP_PUBLIC_DOMAIN: ${DP_ENV}.${DP_SANDBOX}.dataplanes.pro
+      DP_NAMESPACE: "${GUI_DP_NAMESPACE}"
+      DP_CONFIG_AWS_VERSION: ${GUI_DP_CONFIG_AWS_VERSION}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-$(cat /tmp/secret-github/GITHUB_TOKEN)} # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
+      DP_CHART_REPO: https://tibcosoftware.github.io/tp-helm-charts
+    tools:
+      yq: "4.40"
+  helmCharts:
+    - name: dp-config-aws
+      version: ${DP_CONFIG_AWS_VERSION}
+      repo:
+        helm:
+          url: ${DP_CHART_REPO}
+      values:
+        keepPrevious: true
+        content: |
+          dns:
+            domain: "${DP_PUBLIC_DOMAIN}"
+          httpIngress:
+            annotations:
+              alb.ingress.kubernetes.io/group.name: "${DP_PUBLIC_DOMAIN}"
+              external-dns.alpha.kubernetes.io/hostname: "*.${DP_PUBLIC_DOMAIN}"
+              # this will be used for external-dns annotation filter
+              kubernetes.io/ingress.class: alb
+          storageClass:
+            ebs:
+              enabled: false
+            efs:
+              enabled: false
+          ingress-nginx:
+            # the following changes are enabled to send the traces through nginx see PDP-824 for more info
+            controller:
+              config:
+                use-forwarded-headers: 'true'                                             # PDP-945
+                enable-opentelemetry: "true"
+                log-level: debug
+                opentelemetry-config: /etc/nginx/opentelemetry.toml
+                opentelemetry-operation-name: HTTP $request_method $service_name $uri
+                opentelemetry-trust-incoming-span: "true"
+                otel-max-export-batch-size: "512"
+                otel-max-queuesize: "2048"
+                otel-sampler: AlwaysOn
+                otel-sampler-parent-based: "false"
+                otel-sampler-ratio: "1.0"
+                otel-schedule-delay-millis: "5000"
+                otel-service-name: nginx-proxy
+                otlp-collector-host: otel-userapp.${DP_NAMESPACE}.svc
+                otlp-collector-port: "4317"
+              opentelemetry:
+                enabled: true
+      cluster:
+        names:
+          - ${DP_CLUSTER_NAME}
+      releaseName: dp-config-aws
+      namespace: ingress-system
+      flags:
+        wait: true
+        timeout: 1h
+        createNamespace: true

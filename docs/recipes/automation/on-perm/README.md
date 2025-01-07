@@ -23,3 +23,14 @@ We can copy the following recipes from provisioner GUI.
 ```
 
 Or use the `generate-recipe.sh` script to generate the skeleton and manually modify. (Adding tokens and certificates)
+
+
+## Local development process for python automation
+
+* Use local repo to generate recipe
+* Deploy CP subscription (Admin, sub user, DP, app, etc.)
+
+```shell
+export GITHUB_TOKEN=""
+./generate-recipe.sh 2 && ./run.sh 4
+```

@@ -10,24 +10,96 @@ meta:
   guiEnv:
     note: "tp-automation-o11y"
     GUI_PIPELINE_LOG_DEBUG: false
-    GUI_TP_CLUSTER_NAME: ''
+
+    GUI_TP_CLUSTER_NAME: 'on-perm'
     GUI_GITHUB_TOKEN: ""
+
+    # automation setup
+    GUI_TP_AUTO_CP_VERSION: "1.4"
+    GUI_TP_AUTO_IS_CONFIG_O11Y: true
+
+    # CP setup
+    GUI_TP_AUTO_CP_INSTANCE_ID: "cp1"
+    GUI_TP_AUTO_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
+    GUI_TP_AUTO_CP_SERVICE_DNS_DOMAIN: ""
+    GUI_TP_AUTO_LOGIN_URL: ""
+    GUI_TP_AUTO_MAIL_URL: ""
+    GUI_TP_AUTO_ADMIN_URL: ""
+
+    # CP subscription
     GUI_DP_HOST_PREFIX: "cp-sub1"
     GUI_DP_USER_EMAIL: "cp-sub1@tibco.com"
     GUI_DP_USER_PASSWORD: "Tibco@123"
+    GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
+    GUI_CP_ADMIN_PASSWORD: "Tibco@123"
+
+    # DP setup
+    GUI_TP_AUTO_K8S_DP_NAME: "k8s-auto-dp1"
+    GUI_TP_AUTO_K8S_DP_NAMESPACE: "k8s-auto-dp1ns"
+    GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT: "k8s-auto-dp1sa"
+    GUI_TP_AUTO_INGRESS_CONTROLLER: "nginx"
+    GUI_TP_AUTO_STORAGE_CLASS: "hostpath"
+
+    # DP o11y setup
+    GUI_TP_AUTO_ELASTIC_URL: ""
+    GUI_TP_AUTO_ELASTIC_USER: ""
+    GUI_TP_AUTO_ELASTIC_PASSWORD: ""
+    GUI_TP_AUTO_PROMETHEUS_URL: ""
+    GUI_TP_AUTO_PROMETHEUS_USER: ""
+    GUI_TP_AUTO_PROMETHEUS_PASSWORD: ""
+
+    # capability setup
+    GUI_TP_AUTO_FLOGO_CAPABILITY_URL: ""
+
+    # flow control
     GUI_TP_PORT_FORWARD: true
     GUI_TP_OVERWRITE_DNS: false
   globalEnvVariable:
     REPLACE_RECIPE: true
-    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN:-""}
-    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
     PIPELINE_CHECK_DOCKER_STATUS: false
+    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+
+    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN:-""}
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+
+    # automation setup
+    TP_AUTO_CP_VERSION: ${GUI_TP_AUTO_CP_VERSION:-"1.3"}
+    TP_AUTO_IS_CONFIG_O11Y: ${GUI_TP_AUTO_IS_CONFIG_O11Y:-false}
+
+    # CP setup
+    TP_AUTO_CP_INSTANCE_ID: ${GUI_TP_AUTO_CP_INSTANCE_ID:-"cp1"}
+    TP_AUTO_CP_DNS_DOMAIN: ${GUI_TP_AUTO_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
+    TP_AUTO_CP_SERVICE_DNS_DOMAIN: ${GUI_TP_AUTO_CP_SERVICE_DNS_DOMAIN:-""} # full domain of CP
+    TP_AUTO_LOGIN_URL: ${GUI_TP_AUTO_LOGIN_URL:-""}
+    TP_AUTO_MAIL_URL: ${GUI_TP_AUTO_MAIL_URL:-""}
+    TP_AUTO_ADMIN_URL: ${GUI_TP_AUTO_ADMIN_URL:-""}
+
+    # CP subscription
     DP_HOST_PREFIX: ${GUI_DP_HOST_PREFIX:-"cp-sub1"}
     DP_USER_EMAIL: ${GUI_DP_USER_EMAIL:-"cp-sub1@tibco.com"}
     DP_USER_PASSWORD: ${GUI_DP_USER_PASSWORD:-"Tibco@123"}
     CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@tibco.com"}
     CP_ADMIN_PASSWORD: ${GUI_CP_ADMIN_PASSWORD:-"Tibco@123"}
+
+    # DP setup
+    TP_AUTO_K8S_DP_NAME: ${GUI_TP_AUTO_K8S_DP_NAME:-"k8s-auto-dp1"}
+    TP_AUTO_K8S_DP_NAMESPACE: ${GUI_TP_AUTO_K8S_DP_NAMESPACE:-"k8s-auto-dp1ns"}
+    TP_AUTO_K8S_DP_SERVICE_ACCOUNT: ${GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT:-"k8s-auto-dp1sa"}
+    TP_AUTO_INGRESS_CONTROLLER: ${GUI_TP_AUTO_INGRESS_CONTROLLER:-"nginx"}
+    TP_AUTO_STORAGE_CLASS: ${GUI_TP_AUTO_STORAGE_CLASS:-"hostpath"}
+
+    # DP o11y setup
+    TP_AUTO_ELASTIC_URL: ${GUI_TP_AUTO_ELASTIC_URL:-""}
+    TP_AUTO_ELASTIC_USER: ${GUI_TP_AUTO_ELASTIC_USER:-""}
+    TP_AUTO_ELASTIC_PASSWORD: ${GUI_TP_AUTO_ELASTIC_PASSWORD:-""}
+    TP_AUTO_PROMETHEUS_URL: ${GUI_TP_AUTO_PROMETHEUS_URL:-""}
+    TP_AUTO_PROMETHEUS_USER: ${GUI_TP_AUTO_PROMETHEUS_USER:-""}
+    TP_AUTO_PROMETHEUS_PASSWORD: ${GUI_TP_AUTO_PROMETHEUS_PASSWORD:-""}
+
+    # capability setup
+    TP_AUTO_FLOGO_CAPABILITY_URL: ${GUI_TP_AUTO_FLOGO_CAPABILITY_URL:-""}
+
+    # flow control
     PYTHON_FILE_INPUT_NAME: py-scripts.yaml
     PYTHON_FILE_ENTRY_POINT: run.py
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
@@ -48,6 +120,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      cd /tmp
       nohup kubectl port-forward -n ingress-system --address 0.0.0.0 service/ingress-nginx-controller 80:http 443:https &
 - condition: true
   clusters:
@@ -71,7 +144,7 @@ tasks:
     fileName: ${PYTHON_FILE_INPUT_NAME}
     content: |
       {{- $root := . }}
-      {{- range $path, $bytes := .Files.Glob "scripts/o11y/*" }}
+      {{- range $path, $bytes := .Files.Glob "scripts/automation/*" }}
       {{ base $path }}: |
       {{ $root.Files.Get $path | b64enc | indent 2 -}}
       {{- end }}
