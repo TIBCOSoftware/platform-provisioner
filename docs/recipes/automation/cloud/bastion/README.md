@@ -1,4 +1,4 @@
-# Cloud Automation
+# Cloud Bastion Automation
 
 The goal of this automation is to create a fully running TIBCO Platform environment in cloud platform such as Amazon Web Services (AWS), Microsoft Azure, and Google Cloud Platform 
 from scratch with a single script using a Bastion host on the respective cloud platform.

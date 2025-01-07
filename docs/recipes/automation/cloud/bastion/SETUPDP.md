@@ -1,4 +1,4 @@
-# Cloud Automation
+# Setup Data Plane
 
 The following instructions is for setting up a data plane in your Kubernetes cluster.
 
