@@ -42,6 +42,7 @@ meta:
     TP_SANDBOX: ${GUI_TP_SANDBOX} # the sandbox for the main ingress
     TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN: ${GUI_TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}
     TP_DOMAIN: ${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}.${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN} # the actual domain for the TIBCO platform. Sample format: <cp/dp-env>.${SANDBOX}.${TP_TOP_LEVEL_DOMAIN}
+
     # ingress
     TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-"nginx"}
     TP_INSTALL_NGINX_INGRESS: $([[ "$TP_INGRESS_CLASS" == "nginx" ]] && echo "true" || echo "false")
@@ -50,10 +51,17 @@ meta:
     TP_INGRESS_SERVICE_TYPE: LoadBalancer # NodePort for kind, LoadBalancer for others
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     TP_ES_RELEASE_NAME: dp-config-es
+
     # storage
-    TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard-rwx-tp"}
+    TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard-rwx-tp"} # standard-rwx-tp for GCP Filestore
+    TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ${GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER:-"standard-rwo"}
+    TP_INSTALL_NFS_SERVER_PROVISIONER: ${GUI_TP_INSTALL_NFS_SERVER_PROVISIONER:-"false"}
+    TP_NFS_SERVER_PROVISIONER_SIZE: ${GUI_TP_NFS_SERVER_PROVISIONER_SIZE:-"100Gi"}
+    TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: ${GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME:-"nfs"}
+
     # TP versions
     TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_VERSION_DP_CONFIG_ES:-"1.2.1"}
+
     # flow control
     TP_INSTALL_K8S: ${GUI_TP_INSTALL_K8S:-true} # change to true to install k8s
     TP_SCRIPT_BRANCH: main
@@ -88,11 +96,12 @@ preTasks:
         echo "GCP_PROJECT_ID is not set"
         exit 1
       fi
+      # this storage cost $1k per week
       kubectl apply -f - <<EOF
       apiVersion: storage.k8s.io/v1
       kind: StorageClass
       metadata:
-        name: ${TP_STORAGE_CLASS}
+        name: standard-rwx-tp # ${TP_STORAGE_CLASS}
       parameters:
         tier: standard
         network: "projects/${GCP_PROJECT_ID}/global/networks/${TP_CLUSTER_NAME}" # GCP VPC network name
@@ -320,6 +329,29 @@ helmCharts:
           dnsNames:
             - '*.${TP_DOMAIN}'
         EOF
+- name: nfs-server-provisioner
+  version: 1.8.0 # release: https://github.com/kubernetes-sigs/nfs-ganesha-server-and-external-provisioner/releases
+  namespace: kube-system
+  releaseName: nfs-server-provisioner
+  condition: ${TP_INSTALL_NFS_SERVER_PROVISIONER}
+  repo:
+    helm:
+      url: https://kubernetes-sigs.github.io/nfs-ganesha-server-and-external-provisioner
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      persistence:
+        enabled: true
+        storageClass: "${TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER}"
+        size: "${TP_NFS_SERVER_PROVISIONER_SIZE}"
+      storageClass:
+        name: "${TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME}"
+  flags:
+    createNamespace: true
+    timeout: 1h
 - name: postgresql
   version: 15.5.38 # 15.5.38 use postgresql 16.4.0, 11.9.13 use postgresql 14.5.0 release: https://artifacthub.io/packages/helm/bitnami/postgresql
   namespace: tibco-ext
