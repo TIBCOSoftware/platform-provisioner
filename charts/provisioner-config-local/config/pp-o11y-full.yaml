@@ -128,6 +128,12 @@ options:
   required: true
   description: |
     The version of Prometheus stack helm chart. 
+- name: "Prometheus stack chart values:"
+  groupIndex: 4
+  type: string
+  guiType: textarea
+  reference: "helmCharts[2].values.content"
+  lang: "yaml"
 
 # groupIndex: 5 Open Telemetry
 - name: "Open Telemetry Collector version"
