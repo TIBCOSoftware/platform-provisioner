@@ -43,6 +43,9 @@ data:
             finally: "{{ .Values.finallyTimout }}"
           taskRunTemplate:
             serviceAccountName: {{ .Values.serviceAccount }}
+            podTemplate:
+              securityContext:
+                {{- toYaml .Values.podSecurityContext | nindent 16 }}
           pipelineRef:
             name: {{ .Values.name }}
 

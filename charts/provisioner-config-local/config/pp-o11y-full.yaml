@@ -135,22 +135,6 @@ options:
   reference: "helmCharts[2].values.content"
   lang: "yaml"
 
-# groupIndex: 5 Open Telemetry
-- name: "Open Telemetry Collector version"
-  groupIndex: 5
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_OPEN_TELEMETRY_COLLECTOR_VERSION"
-  description: |
-    The version of opentelemetry-collector helm chart. 
-    see: <a href='https://github.com/open-telemetry/opentelemetry-helm-charts/releases?q=opentelemetry-collector&expanded=true' target='_blank'>link</a>
-- name: "opentelemetry-collector chart values:"
-  groupIndex: 5
-  type: string
-  guiType: textarea
-  reference: "helmCharts[3].values.content"
-  lang: "yaml"
-
 # groupIndex: 6 Ingress
 - name: "O11y domain"
   groupIndex: 6

@@ -47,6 +47,8 @@ spec:
     - name: {{ .Values.name }}
       image: {{ .Values.pipelineImage }}
       workingDir: /workspace
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
       timeout: "{{ .Values.taskRunTimeout }}"
       volumeMounts:
         - name: {{ .Values.commonScriptConfigmapName }}

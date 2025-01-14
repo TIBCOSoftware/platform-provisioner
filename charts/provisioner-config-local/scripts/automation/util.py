@@ -26,37 +26,84 @@ class Util:
         ColorLogger.success("Browser Closed Successfully.")
 
     @staticmethod
-    def print_env_info(env):
+    def print_env_info(env, is_print_auth=True, is_print_dp=True):
         str_num = 80
         print("=" * str_num)
-        print(f"{'CREDENTIALS':^50}")
-        print("=" * str_num)
-        print(f"{'Mail URL:':<20}{env.TP_AUTO_MAIL_URL}")
-        print("-" * str_num)
-        print(f"{'Admin URL:':<20}{env.TP_AUTO_ADMIN_URL}")
-        print(f"{'Admin Email:':<20}{env.CP_ADMIN_EMAIL}")
-        print(f"{'Admin Password:':<20}{env.CP_ADMIN_PASSWORD}")
-        print("-" * str_num)
-        print(f"{'Elastic URL:':<20}{env.TP_AUTO_ELASTIC_URL}")
-        print(f"{'User Name:':<20}{env.TP_AUTO_ELASTIC_USER}")
-        print(f"{'User Password:':<20}{env.TP_AUTO_ELASTIC_PASSWORD}")
-        print("-" * str_num)
-        print(f"{'Prometheus URL:':<20}{env.TP_AUTO_PROMETHEUS_URL}")
-        if env.TP_AUTO_PROMETHEUS_USER != "":
-            print(f"{'User Name:':<20}{env.TP_AUTO_PROMETHEUS_USER}")
-        if env.TP_AUTO_PROMETHEUS_PASSWORD != "":
-            print(f"{'User Password:':<20}{env.TP_AUTO_PROMETHEUS_PASSWORD}")
-        print("-" * str_num)
-        print(f"{'Login URL:':<20}{env.TP_AUTO_LOGIN_URL}")
-        print(f"{'User Email:':<20}{env.DP_USER_EMAIL}")
-        print(f"{'User Password:':<20}{env.DP_USER_PASSWORD}")
-        print("-" * str_num)
-        print(f"{'DataPlane:':<20}{env.TP_AUTO_K8S_DP_NAME}")
-        print(f"{'Flogo App Name:':<20}{env.FLOGO_APP_NAME}")
+        if is_print_auth:
+            print("-" * str_num)
+            print(f"{'LOGIN CREDENTIALS': ^{str_num}}")
+            print("-" * str_num)
+            print(f"{'Mail URL:':<20}{env.TP_AUTO_MAIL_URL}")
+            print("-" * str_num)
+            print(f"{'Admin URL:':<20}{env.TP_AUTO_ADMIN_URL}")
+            print(f"{'Admin Email:':<20}{env.CP_ADMIN_EMAIL}")
+            print(f"{'Admin Password:':<20}{env.CP_ADMIN_PASSWORD}")
+            print("-" * str_num)
+            print(f"{'Login URL:':<20}{env.TP_AUTO_LOGIN_URL}")
+            print(f"{'User Email:':<20}{env.DP_USER_EMAIL}")
+            print(f"{'User Password:':<20}{env.DP_USER_PASSWORD}")
+        if is_print_dp:
+            print("-" * str_num)
+            print(f"{'Elastic/Kibana/Prometheus CREDENTIALS': ^{str_num}}")
+            print("-" * str_num)
+            print(f"{'Elastic URL:':<20}{env.TP_AUTO_ELASTIC_URL}")
+            print(f"{'Kibana URL:':<20}{env.TP_AUTO_KIBANA_URL}")
+            print(f"{'User Name:':<20}{env.TP_AUTO_ELASTIC_USER}")
+            print(f"{'User Password:':<20}{env.TP_AUTO_ELASTIC_PASSWORD}")
+            print("-" * str_num)
+            print(f"{'Prometheus URL:':<20}{env.TP_AUTO_PROMETHEUS_URL}")
+            if env.TP_AUTO_PROMETHEUS_USER != "":
+                print(f"{'User Name:':<20}{env.TP_AUTO_PROMETHEUS_USER}")
+            if env.TP_AUTO_PROMETHEUS_PASSWORD != "":
+                print(f"{'User Password:':<20}{env.TP_AUTO_PROMETHEUS_PASSWORD}")
+            print("-" * str_num)
+            print(f"{'Data Plane, App': ^{str_num}}")
+            print("-" * str_num)
+            print(f"{'DataPlane:':<20}{env.TP_AUTO_K8S_DP_NAME}")
+            print(f"{'Flogo App Name:':<20}{env.FLOGO_APP_NAME}")
         print("=" * str_num)
 
     @staticmethod
+    def is_headless():
+        # headless mode is enabled in docker
+        if os.path.exists("/.dockerenv"):
+            return True
+        return os.environ.get("HEADLESS", "true").lower() == "true"
 
+    @staticmethod
+    def check_dom_visibility(page, dom_selector, interval=10, max_wait=180, is_refresh=False):
+        total_attempts = max_wait // interval
+        timeout = interval if interval < 5 else 5
+        print(f"Check dom visibility, wait {timeout} seconds first, then loop to check")
+        page.wait_for_timeout(timeout * 1000)
+        for attempt in range(total_attempts):
+            if dom_selector.is_visible():
+                print("Dom is now visible.")
+                return True
+
+            print(f"Loop to check, Attempt {attempt + 1}/{total_attempts}: Checking if dom is visible...")
+            if attempt <= total_attempts - 1:
+                if is_refresh:
+                    print(f"Page reload {attempt + 1}")
+                    page.reload()
+                print(f"Dom not visible. Waiting for {interval} seconds before retrying...")
+                page.wait_for_timeout(interval * 1000)
+
+        ColorLogger.error(f"Error: Dom is still not visible after waiting for {max_wait} seconds.")
+        return False
+
+    @staticmethod
+    def click_button_until_enabled(page, button_selector):
+        button_selector.wait_for(state="visible")
+        page.wait_for_function(
+            """
+            (button) => !button.disabled
+            """,
+            arg=button_selector.element_handle()
+        )
+        button_selector.click()
+
+    @staticmethod
     def download_file(file_obj, filename):
         """
         Downloads a file and saves it to the 'downloads' directory.
@@ -133,14 +180,6 @@ class Util:
             return "standard"
         else:
             return ""
-
-    @staticmethod
-    def is_headless():
-        # headless mode is enabled in docker
-        if os.path.exists("/.dockerenv"):
-            return True
-
-        return os.environ.get("HEADLESS", "true").lower() == "true"
 
     @staticmethod
     def get_app_name(app_file_name):
