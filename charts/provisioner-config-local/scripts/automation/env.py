@@ -32,6 +32,7 @@ class EnvConfig:
 
     # elastic and prometheus
     TP_AUTO_ELASTIC_URL = os.environ.get("TP_AUTO_ELASTIC_URL") or f"https://elastic.{TP_AUTO_CP_DNS_DOMAIN}/"
+    TP_AUTO_KIBANA_URL = f"https://kibana.{TP_AUTO_CP_DNS_DOMAIN}/"
     TP_AUTO_ELASTIC_USER = os.environ.get("TP_AUTO_ELASTIC_USER") or "elastic"
     TP_AUTO_ELASTIC_PASSWORD = os.environ.get("TP_AUTO_ELASTIC_PASSWORD") or Util.get_elastic_password()
     TP_AUTO_PROMETHEUS_URL = os.environ.get("TP_AUTO_PROMETHEUS_URL") or f"https://prometheus-internal.{TP_AUTO_CP_DNS_DOMAIN}/"
@@ -53,7 +54,7 @@ class EnvConfig:
     # need to make sure the flogo app name is unique and lower case in above json file
     FLOGO_APP_NAME = Util.get_app_name(FLOGO_APP_FILE_NAME)
 
-    def __post_init__(self):
+    def pre_check(self):
         ColorLogger.info(f"Current CP version is '{self.TP_AUTO_CP_VERSION}'")
         ColorLogger.info(f"Headless mode is {self.IS_HEADLESS}")
         if not self.GITHUB_TOKEN:

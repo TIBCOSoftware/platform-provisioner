@@ -3,231 +3,9 @@ import sys
 import time
 
 from color_logger import ColorLogger
+from page_auth import login, login_check, logout
 from util import Util
 from env import EnvConfig
-
-def check_dom_visibility(dom_selector, interval=10, max_wait=180, is_refresh=False):
-    total_attempts = max_wait // interval
-    timeout = interval if interval < 5 else 5
-    print(f"Check dom visibility, wait {timeout} seconds first, then loop to check")
-    page.wait_for_timeout(timeout * 1000)
-    for attempt in range(total_attempts):
-        if dom_selector.is_visible():
-            print("Dom is now visible.")
-            return True
-
-        print(f"Loop to check, Attempt {attempt + 1}/{total_attempts}: Checking if dom is visible...")
-        if attempt < total_attempts - 1:
-            if is_refresh:
-                print(f"Page reload {attempt + 1}")
-                page.reload()
-            print(f"Dom not visible. Waiting for {interval} seconds before retrying...")
-            page.wait_for_timeout(interval * 1000)
-
-    ColorLogger.error(f"Error: Dom is still not visible after waiting for {max_wait} seconds.")
-    return False
-
-def active_user_in_mail(email, is_admin=False):
-    ColorLogger.info(f"Active user {email} in mail...")
-    email_title = "Your TIBCO® Platform subscription has been activated"
-    first_name = email.split("@")[0]
-    last_name = "Auto"
-    password = ENV.DP_USER_PASSWORD
-    if is_admin:
-        ColorLogger.warning(f"Admin user {ENV.CP_ADMIN_EMAIL} has not been active, active Admin in mail.")
-        email_title = "Your TIBCO® Platform Console subscription has been activated"
-        first_name = "Admin"
-        last_name = "Test"
-        password = ENV.CP_ADMIN_PASSWORD
-
-    print("Check email and active user...")
-    try:
-        response = page.goto(ENV.TP_AUTO_MAIL_URL, timeout=5000)
-        if response and response.status == 200:
-            print(f"URL {ENV.TP_AUTO_MAIL_URL} is accessible")
-    except Exception as e:
-        print(f"An error occurred while accessing {ENV.TP_AUTO_MAIL_URL}: {e}")
-        sys.exit(f"Exiting program: An error occurred while accessing {ENV.TP_AUTO_MAIL_URL}")
-
-    page.goto(ENV.TP_AUTO_MAIL_URL)
-    print(f"Navigating to mail page {ENV.TP_AUTO_MAIL_URL}...")
-    page.reload()
-
-    email_selector = page.locator(".email-list .email-item-link", has_text=email_title).nth(0)
-    email_selector.wait_for(state="visible")
-    if not email_selector.locator(".title-subline", has_text=email).is_visible():
-        ColorLogger.error(f"Active Email for {email} is not found.")
-        sys.exit(f"Exiting program: Active Email for {email} is not found.")
-
-    email_selector.click()
-    page.wait_for_timeout(1000)
-    iframe = page.frame_locator(".main-container iframe.preview-iframe").nth(0)
-    iframe.locator("a.btn-activate", has_text="Sign in").wait_for(state="visible")
-
-    with page.context.expect_page() as new_page_info:
-        iframe.locator("a.btn-activate", has_text="Sign in").click()
-        print("Clicked 'Sign in' button.")
-
-    new_page = new_page_info.value
-    print("New window detected and captured.")
-
-    new_page.wait_for_load_state()
-    page.wait_for_timeout(2000)
-
-    if new_page.locator("#emailNameInput").is_visible():
-        new_page.fill("#firstNameInput", first_name)
-        new_page.fill("#lastNameInput", last_name)
-        new_page.fill("#passwordInput", password)
-        new_page.fill("#confirmPasswordInput", password)
-        new_page.locator("#ta-sign-in-button").click()
-        ColorLogger.success(f"User {email} has been active in new window completed.")
-    else:
-        print(f"User {email} may active.")
-
-    new_page.close()
-
-def login_admin_user():
-    ColorLogger.info("Login as admin user...")
-    page.goto(ENV.TP_AUTO_ADMIN_URL)
-    print(f"Navigating to admin page {ENV.TP_AUTO_ADMIN_URL}...")
-
-    page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP").wait_for(state="visible")
-    page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP").click()
-    page.locator("#user-email").wait_for(state="visible")
-    page.fill("#user-email", ENV.CP_ADMIN_EMAIL)
-    page.fill("#usr-password", ENV.CP_ADMIN_PASSWORD)
-    page.locator("#user-login-btn").click()
-    if page.locator("#toastr401", has_text="Invalid username or password").is_visible():
-        ColorLogger.error(f"Admin user {ENV.CP_ADMIN_EMAIL}, {ENV.CP_ADMIN_PASSWORD} login failed.")
-        return
-
-    page.wait_for_timeout(1000)
-    if page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP").is_visible():
-        page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP").click()
-
-    page.locator(".pcp-page-title", has_text="Welcome").wait_for(state="visible")
-    ColorLogger.success(f"Admin user {ENV.CP_ADMIN_EMAIL} login successful.")
-
-def logout_admin_user():
-    ColorLogger.info(f"Loging out admin user...")
-    page.locator("#changeME-dropdown-label", has_text="Admin Test").click()
-    page.locator(".pl-dropdown-menu .pl-dropdown-menu__link", has_text="Sign Out").click()
-    page.locator(".pl-modal__container .pl-modal__footer button", has_text="Sign Out").click()
-    print(f"Clicked Sign Out button, Admin user {ENV.CP_ADMIN_EMAIL} logout.")
-    page.wait_for_timeout(1000)
-
-def admin_provision_user(email, host_prefix):
-    ColorLogger.info(f"Provision user {email} with Host prefix: {host_prefix}...")
-    login_admin_user()
-
-    page.locator("#nav-bar-menu-list-subscriptions", has_text="Subscriptions").click()
-    page.wait_for_timeout(200)
-    if page.locator(".subscription-card-header .name", has_text=host_prefix).is_visible():
-        ColorLogger.success(f"Subscription for {email} with Host prefix: {host_prefix} is already created.")
-    else:
-        first_name = email.split("@")[0]
-        last_name = "Auto"
-        country = "United States"
-        state = "Texas"
-
-        page.locator("button", has_text="Provision via Wizard").click()
-        # step 1: User Details
-        page.fill("#email", email)
-        page.fill("#firstName", first_name)
-        page.fill("#lastName", last_name)
-        page.locator("input#country").click()
-        page.locator("div#country .pl-select-menu li", has_text=country).nth(0).click()
-        page.locator("input#state").click()
-        page.locator("div#state .pl-select-menu li", has_text=state).click()
-        page.locator(".footer button", has_text="Next").click()
-        print(f"Filled User Details: {email}, {first_name}, {last_name}, {country}, {state}")
-
-        # step 2: Subscriptions Details
-        company_name = f"Tibco-{first_name}"
-        page.fill("#companyName", company_name)
-        page.fill("#hostPrefix", host_prefix)
-        page.locator(".footer button", has_text="Next").click()
-        print(f"Filled Subscriptions Details: {company_name}, {host_prefix}")
-
-        # step 3: Preview
-        page.locator(".footer button", has_text="Ok").wait_for(state="visible")
-        page.locator(".footer button", has_text="Ok").click()
-        print("Clicked 'Ok' button")
-        if page.locator(".provision-success__subtext", has_text="host_prefix has been used in another account").is_visible():
-            ColorLogger.error(f"Host prefix: {host_prefix} has been used in another account.")
-            logout_admin_user()
-            sys.exit(f"Exiting program: Host prefix: {host_prefix} has been used in another account, use another one or rest database.")
-        ColorLogger.success(f"Provision user {email} successful.")
-
-    logout_admin_user()
-    ColorLogger.success(f"Admin user {ENV.CP_ADMIN_EMAIL} logout successful.")
-
-def is_host_prefix_exist(host_prefix):
-    ColorLogger.info(f"Checking if {host_prefix} is exist...")
-    try:
-        login()
-
-        page.wait_for_timeout(500)
-        print("Wait to see Welcome page...")
-        if page.locator(".title", has_text="Welcome").is_visible():
-            logout()
-            ColorLogger.success(f"Host prefix {host_prefix} is already exist.")
-            return True
-        else:
-            return False
-
-    except Exception as e:
-        print(f"An error occurred while accessing {ENV.TP_AUTO_LOGIN_URL}: {e}")
-        ColorLogger.error(f"An error occurred while verify host prefix in {ENV.TP_AUTO_LOGIN_URL}: {ENV.DP_USER_EMAIL}, {ENV.DP_USER_PASSWORD}")
-        return False
-
-def is_admin_user_exist():
-    ColorLogger.info(f"Checking if admin user {ENV.CP_ADMIN_EMAIL} is exist...")
-    try:
-        login_admin_user()
-        print("Wait to see Admin Welcome page...")
-        if page.locator(".pcp-page-title", has_text="Welcome").is_visible():
-            logout_admin_user()
-            return True
-        else:
-            return False
-    except Exception as e:
-        print(f"An error occurred while accessing {ENV.TP_AUTO_ADMIN_URL}: {e}")
-        ColorLogger.error(f"An error occurred while verify admin user in {ENV.TP_AUTO_ADMIN_URL}: {ENV.CP_ADMIN_EMAIL}, {ENV.CP_ADMIN_PASSWORD}")
-        return False
-
-def login():
-    ColorLogger.info(f"Navigating to login page {ENV.TP_AUTO_LOGIN_URL}...")
-    page.goto(ENV.TP_AUTO_LOGIN_URL)
-    page.wait_for_timeout(1000)
-    if not check_dom_visibility(page.locator("#ta-sign-in-button"), 3, 20, True):
-        ColorLogger.error(f"Error: Unable to load login page {ENV.TP_AUTO_LOGIN_URL}")
-        return
-    page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP").click()
-
-    print("Logging in...")
-    page.fill("#user-email", ENV.DP_USER_EMAIL)
-    page.fill("#usr-password", ENV.DP_USER_PASSWORD)
-    page.click("#user-login-btn")
-    if page.locator("#toastr401", has_text="Invalid username or password").is_visible():
-        ColorLogger.error(f"User {ENV.DP_USER_EMAIL}, {ENV.DP_USER_PASSWORD} login {ENV.TP_AUTO_LOGIN_URL} failed.")
-        return
-
-    if check_dom_visibility(page.locator("#user-profile"), 3, 15, True):
-        page.wait_for_selector('#user-profile')
-        ColorLogger.success("Login successful!")
-        page.wait_for_timeout(1000)
-    else:
-        ColorLogger.warning(f"Login may successful, but user profile is not visible.")
-
-def logout():
-    ColorLogger.info(f"Logging out user {ENV.DP_USER_EMAIL}...")
-    page.locator("#nav-bar-menu-list-signout").click()
-    # Note: there are 3 buttons has "Sign Out" label, so we need to use nth(2) to click the last one
-    page.locator("#confirm-button", has_text="Sign Out").nth(2).wait_for(state="visible")
-    page.locator("#confirm-button", has_text="Sign Out").nth(2).click()
-    ColorLogger.success(f"Clicked Sign Out button, User {ENV.DP_USER_EMAIL} logout.")
-    page.wait_for_timeout(1000)
 
 def grant_permission(permission):
     ColorLogger.info(f"Granting permission for {permission}...")
@@ -353,6 +131,7 @@ def k8s_create_dataplane(dp_name):
     # verify data plane is created in the list
     print(f"Verify Data Plane {dp_name} is created in the list")
     goto_left_navbar("Data Planes")
+    page.reload()
     print(f"Navigated to Data Planes list page, and wait for {dp_name} is created.")
     page.wait_for_timeout(2000)
     page.locator('.data-plane-name', has_text=dp_name).wait_for(state="visible")
@@ -561,8 +340,8 @@ def o11y_config_dataplane_resource(dp_name=""):
         o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-exporter-btn")
     page.locator("#save-observability").click()
     print(f"Data plane '{dp_title}' 'Configure Traces Server' Step 3 is configured.")
-    print(f"Wait 3 seconds for Data plane '{dp_title}' configuration page redirect.")
-    page.wait_for_timeout(3000)
+    print(f"Wait 5 seconds for Data plane '{dp_title}' configuration page redirect.")
+    page.wait_for_timeout(5000)
 
 def o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, tab_sub_name, add_button_selector):
     ColorLogger.info("O11y start to add or select item...")
@@ -699,7 +478,7 @@ def dp_config_resources_storage():
     print("Clicked 'Resources' left side menu")
     resource_name = ENV.TP_AUTO_STORAGE_CLASS
     print(f"Resource Name: {resource_name}")
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(2000)
     if page.locator("#storage-resource-table tr td:first-child", has_text=resource_name).is_visible():
         ColorLogger.success(f"Storage '{resource_name}' is already created.")
     else:
@@ -726,7 +505,7 @@ def dp_config_resources_ingress():
     print("Clicked 'Resources' left side menu")
     page.locator("#toggle-ingress-expansion").click()
     resource_name = ENV.TP_AUTO_INGRESS_CONTROLLER
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(2000)
     print(f"Check if Ingress Controller '{resource_name}' is exist...")
     if page.locator("#ingress-resource-table tr td:first-child", has_text=resource_name).is_visible():
         ColorLogger.success(f"Ingress Controller '{resource_name}' is already created.")
@@ -752,13 +531,13 @@ def flogo_goto_capability(dp_name, is_check_status=True):
     is_exit = False
     goto_dataplane(dp_name)
     print("Check if Flogo capability is ready...")
-    if check_dom_visibility(page.locator("capability-card #flogo"), 10, 120, True):
+    if Util.check_dom_visibility(page, page.locator("capability-card #flogo"), 10, 120, True):
         print("Waiting for Flogo capability status is ready...")
         if not is_check_status:
             page.locator("capability-card #flogo .image-name").click()
             print("Ignore check 'Flogo' capability status, get into 'Flogo' capability page")
             return
-        if check_dom_visibility(page.locator("capability-card #flogo .status .success")):
+        if Util.check_dom_visibility(page, page.locator("capability-card #flogo .status .success")):
             page.locator("capability-card #flogo .image-name").click()
             print("Flogo capability status is ready, get into 'Flogo' capability")
         else:
@@ -779,20 +558,12 @@ def flogo_provision_capability(dp_name):
         return
 
     print("Checking if 'Provision a capability' button is visible.")
-    if check_dom_visibility(page.locator('button', has_text="Provision a capability"), 10, 100):
+    if Util.check_dom_visibility(page, page.locator('button', has_text="Provision a capability"), 10, 100):
         print("'Provision a capability' button is visible.")
         ColorLogger.success(f"Data Plane '{dp_name}' status is running.")
         page.locator('button', has_text="Provision a capability").click()
         print("Clicked 'Provision a capability' button")
-        button = page.locator('#FLOGO-capability-select-button')
-        button.wait_for(state="visible")
-        page.wait_for_function(
-            """
-            (button) => !button.disabled
-            """,
-            arg=button.element_handle()
-        )
-        button.click()
+        Util.click_button_until_enabled(page, page.locator('#FLOGO-capability-select-button'))
         print("Clicked 'Provision TIBCO Flogo® Enterprise' -> 'Start' button")
 
         print("Waiting for Flogo capability page is loaded")
@@ -906,6 +677,8 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
         page.wait_for_timeout(1000)
 
     page.locator("flogo-namespace-picker input").click()
+    print(f"Clicked 'Namespace' dropdown, and waiting for namespace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
+    page.wait_for_timeout(1000)
     if not page.locator("flogo-namespace-picker .namespace-dropdown li", has_text=ENV.TP_AUTO_K8S_DP_NAMESPACE).is_visible():
         ColorLogger.error(f"Namespace '{ENV.TP_AUTO_K8S_DP_NAMESPACE}' is not list in the dropdown.")
         sys.exit(f"Exiting program: Namespace '{ENV.TP_AUTO_K8S_DP_NAMESPACE}' is not list in the dropdown.")
@@ -927,7 +700,7 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
     page.locator('.finish-container .step-description', has_text="Building the app...").wait_for(state="visible")
     print("Waiting for 'Building the app...'")
     print("Check if Flogo app deployed successfully...")
-    if check_dom_visibility(page.locator('.finish-container .step-description', has_text="Successfully deployed App")):
+    if Util.check_dom_visibility(page, page.locator('.finish-container .step-description', has_text="Successfully deployed App")):
         ColorLogger.success(f"Flogo app build '{app_name}' is deployed.")
 
 def flogo_app_deploy(dp_name, app_name):
@@ -943,7 +716,7 @@ def flogo_app_deploy(dp_name, app_name):
     flogo_goto_capability(dp_name)
 
     print(f"Waiting for Flogo app build {app_name} is deployed...")
-    if not check_dom_visibility(page.locator(".app-build-container td:first-child", has_text=app_name), 20, 180, True):
+    if not Util.check_dom_visibility(page, page.locator(".app-build-container td:first-child", has_text=app_name), 20, 180, True):
         ColorLogger.error(f"Flogo app {app_name} is not deployed.")
         sys.exit(f"Exiting program: Flogo app {app_name} is not deployed.")
 
@@ -969,7 +742,7 @@ def flogo_app_deploy(dp_name, app_name):
     page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
     print(f"Clicked menu navigator Data Plane '{dp_name}'")
 
-    if check_dom_visibility(page.locator("apps-list td.app-name a", has_text=app_name), 10, 120):
+    if Util.check_dom_visibility(page, page.locator("apps-list td.app-name a", has_text=app_name), 10, 120):
         ColorLogger.success(f"Deploy Flogo app '{app_name}' in namespace {dp_name_space} Successfully")
     else:
         ColorLogger.error(f"Deploy Flogo app '{app_name}' in namespace {dp_name_space} failed.")
@@ -1028,14 +801,16 @@ def flogo_app_start(dp_name, app_name):
 
     print("Waiting to see if app status is Running...")
     page.locator("flogo-app-run-status .scale-status-text").wait_for(state="visible")
-    if page.locator("flogo-app-run-status .scale-status-text", has_text="Running").is_visible():
+    # when app status is Running, or the action button is 'Stop', it means app is already running
+    is_app_running = page.locator("flogo-app-run-status .scale-status-text", has_text="Running").is_visible() or page.locator("flogo-app-run-status button", has_text="Stop").is_visible()
+    if is_app_running:
         ColorLogger.success(f"Flogo app '{app_name}' is already running.")
     else:
         page.locator("flogo-app-run-status button", has_text="Start").click()
         print("Clicked 'Start' app button")
 
         print(f"Waiting for app '{app_name}' status is Running...")
-        if check_dom_visibility(page.locator("flogo-app-run-status .scale-status-text", has_not_text="Scaling"), 15, 180, True):
+        if Util.check_dom_visibility(page, page.locator("flogo-app-run-status .scale-status-text", has_not_text="Scaling"), 15, 180, True):
             app_status = page.locator("flogo-app-run-status .scale-status-text").inner_text()
             ColorLogger.success(f"Flogo app '{app_name}' status is '{app_status}' now.")
         else:
@@ -1061,7 +836,7 @@ def flogo_app_test_endpoint(dp_name, app_name):
         new_page.wait_for_load_state()
 
         print(f"Waiting for Swagger title '{app_name}' to be displayed.")
-        if check_dom_visibility(new_page.locator("#swagger-editor h2.title", has_text=app_name), 5, 20, True):
+        if Util.check_dom_visibility(new_page, new_page.locator("#swagger-editor h2.title", has_text=app_name), 5, 20, True):
             new_page.locator("#swagger-editor h2.title", has_text=app_name).wait_for(state="visible")
             print(f"The Swagger title '{app_name}' is displayed.")
 
@@ -1097,20 +872,16 @@ def flogo_is_app_created(dp_name, app_name):
         ColorLogger.error(f"An error occurred while Checking Flogo app '{app_name}': {e}")
         return False
 
+ENV = EnvConfig()
 if __name__ == "__main__":
-    ENV = EnvConfig()
+    ENV.pre_check()
     START_TIME = time.time()
 
     browser = Util.browser_launch(ENV.IS_HEADLESS)
     page = Util.browser_page(browser)
+    login(page)
+    login_check(page)
 
-    if not is_host_prefix_exist(ENV.DP_HOST_PREFIX):
-        if not is_admin_user_exist():
-            active_user_in_mail(ENV.CP_ADMIN_EMAIL, True)
-        admin_provision_user(ENV.DP_USER_EMAIL, ENV.DP_HOST_PREFIX)
-        active_user_in_mail(ENV.DP_USER_EMAIL)
-
-    login()
     set_user_permission()
 
     # config global dataplane
@@ -1134,9 +905,9 @@ if __name__ == "__main__":
         flogo_app_config(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
     flogo_app_start(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
     flogo_app_test_endpoint(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
-    logout()
-    Util.print_env_info(ENV)
-
+    logout(page)
     Util.browser_close(browser)
+
+    Util.print_env_info(ENV)
     END_TIME = time.time()
-    print(f"Program running time: {END_TIME - START_TIME:.2f} seconds")
+    ColorLogger.info(f"Create Data Plane / Flogo App, running time: {END_TIME - START_TIME:.2f} seconds")
