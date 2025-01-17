@@ -24,6 +24,7 @@
 #   PIPELINE_USE_LOCAL_CREDS: false only when set to true to use local creds
 #   PIPELINE_FUNCTION_INIT: true only when set to false to skip function init which is used to load TIBCO specific functions and envs for pipeline
 #   PIPELINE_AWS_MANAGED_ACCOUNT_ROLE: the role to assume to. We will use current AWS role to assume to this role to perform the task. current role --> "arn:aws:iam::${_account}:role/${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE}"
+#   PIPELINE_CONTAINER_OPTIONAL_PARAMETER: docker container optional parameters
 # Arguments:
 #   TASK_NAME: We currently support 2 pipelines: generic-runner and helm-install
 # Returns:
@@ -112,6 +113,11 @@ fi
 # this is used for docker container mount docker engine
 if [[ "${PIPELINE_CONTAINER_MOUNT_DOCKER_ENGINE}" == "true" ]]; then
   export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source=${HOME}/.docker,target=/root/.docker --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
+fi
+
+# this is used for docker container mount docker engine
+if [[ -n ${PIPELINE_CONTAINER_OPTIONAL_PARAMETER} ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} ${PIPELINE_CONTAINER_OPTIONAL_PARAMETER}"
 fi
 
 # will only pass the content of the recipe file to the container
