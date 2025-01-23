@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# © 2024 Cloud Software Group, Inc.
+# © 2024 - 2025 Cloud Software Group, Inc.
 # All Rights Reserved. Confidential & Proprietary.
 #
 
@@ -26,6 +26,7 @@
 #   PIPELINE_USE_LOCAL_CREDS: false only when set to true to use local creds
 #   PIPELINE_FUNCTION_INIT: true only when set to false to skip function init which is used to load TIBCO specific functions and envs for pipeline
 #   PIPELINE_AWS_MANAGED_ACCOUNT_ROLE: the role to assume to. We will use current AWS role to assume to this role to perform the task. current role --> "arn:aws:iam::${_account}:role/${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE}"
+#   PIPELINE_CONTAINER_OPTIONAL_PARAMETER: docker container optional parameters
 # Arguments:
 #   TASK_NAME: We currently support 2 pipelines: generic-runner and helm-install
 # Returns:
@@ -122,6 +123,11 @@ if [[ "${PIPELINE_CONTAINER_MOUNT_DOCKER_ENGINE}" == "true" ]]; then
   export _OPTIONAL_ENV="${_OPTIONAL_ENV} --mount type=bind,source=${HOME}/.docker,target=/root/.docker --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
 fi
 
+# this is used for docker container mount docker engine
+if [[ -n ${PIPELINE_CONTAINER_OPTIONAL_PARAMETER} ]]; then
+  export _OPTIONAL_ENV="${_OPTIONAL_ENV} ${PIPELINE_CONTAINER_OPTIONAL_PARAMETER}"
+fi
+
 # will only pass the content of the recipe file to the container
 export PIPELINE_INPUT_RECIPE_CONTENT=""
 [[ -f "${PIPELINE_INPUT_RECIPE}" ]] && PIPELINE_INPUT_RECIPE_CONTENT=$(cat ${PIPELINE_INPUT_RECIPE})
@@ -160,18 +166,38 @@ docker run -it --rm \
   "${_DOCKER_FOR_MAC_ADD_HOST}" ${_OPTIONAL_ENV} \
   -v `pwd`:/tmp/dev \
   -v "${PIPELINE_PATH}"/charts:/tmp/charts \
-  "${PIPELINE_DOCKER_IMAGE}" bash -c 'export REGION=${REGION:-"us-west-2"} \
-  && declare -xr WORKING_PATH=/workspace \
-  && declare -xr SCRIPTS=${WORKING_PATH}/task-scripts \
-  && declare -xr INPUT="${PIPELINE_INPUT_RECIPE_CONTENT}" \
-  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | ${PIPELINE_CMD_NAME_YQ} ".kind | select(. != null)" ) \
-  && echo "using pipeline: ${PIPELINE_NAME}" \
-  && [[ -z ${PIPELINE_NAME} ]] && { echo "PIPELINE_NAME can not be empty"; exit 1; } || true \
-  && mkdir -p "${SCRIPTS}" \
-  && cp -LR /tmp/charts/common-dependency/scripts/* "${SCRIPTS}" \
-  && cp -LR /tmp/charts/${PIPELINE_NAME}/scripts/* "${SCRIPTS}" \
-  && chmod +x "${SCRIPTS}"/*.sh \
-  && cd "${SCRIPTS}" \
-  && set -a && . _functions.sh && set +a \
-  && [[ -z ${ACCOUNT} ]] && { echo "ACCOUNT can not be empty"; exit 1; } || true \
-  && [[ "${PIPELINE_TRIGGER_RUN_SH}" == "true" ]] && ./run.sh ${ACCOUNT} ${REGION} "${INPUT}"; return_code=$? || return_code=1; [[ "${PIPELINE_FAIL_STAY_IN_CONTAINER}" == "true" ]] && bash || exit $return_code'
+  "${PIPELINE_DOCKER_IMAGE}" bash -c '
+export REGION=${REGION:-"us-west-2"}
+declare -xr WORKING_PATH=/workspace
+declare -xr SCRIPTS=${WORKING_PATH}/task-scripts
+declare -xr INPUT="${PIPELINE_INPUT_RECIPE_CONTENT}"
+[[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | ${PIPELINE_CMD_NAME_YQ} ".kind | select(. != null)" )
+if [[ -z ${PIPELINE_NAME} ]]; then
+  echo "PIPELINE_NAME can not be empty; Check if you set PIPELINE_INPUT_RECIPE or the recipe file is empty"
+  exit 1
+fi
+echo "using pipeline: ${PIPELINE_NAME}"
+mkdir -p "${SCRIPTS}"
+cp -LR /tmp/charts/common-dependency/scripts/* "${SCRIPTS}"
+cp -LR /tmp/charts/${PIPELINE_NAME}/scripts/* "${SCRIPTS}"
+chmod +x "${SCRIPTS}"/*.sh
+cd "${SCRIPTS}"
+set -a && . _functions.sh && set +a
+if [[ -z ${ACCOUNT} ]]; then
+  echo "ACCOUNT can not be empty"
+  exit 1
+fi
+if [[ "${PIPELINE_TRIGGER_RUN_SH}" == "true" ]]; then
+  ./run.sh ${ACCOUNT} ${REGION} "${INPUT}"
+  return_code=$?
+  if [[ ${return_code} == 1 && "${PIPELINE_FAIL_STAY_IN_CONTAINER}" == "true" ]]; then
+    # Enter container for debugging when an error occurs
+    bash
+  else
+    exit ${return_code}
+  fi
+else
+  # test the container only
+  bash
+fi
+'

@@ -49,7 +49,7 @@ meta:
     GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "easy-to-remember"
 
     # storage
-    GUI_CP_STORAGE_CLASS: "" # user need to choose based on environment
+    GUI_CP_STORAGE_CLASS: "hostpath" # user need to choose based on environment
     GUI_CP_STORAGE_CREATE_PV: false
     GUI_CP_STORAGE_PV_NAME: "" # control-plane-pv the name of PV for kind
     GUI_CP_STORAGE_PV_SIZE: "10Gi"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# © 2022 - 2024 Cloud Software Group, Inc.
+# © 2022 - 2025 Cloud Software Group, Inc.
 # All Rights Reserved. Confidential & Proprietary.
 #
 
@@ -156,20 +156,40 @@ docker run -it --rm \
   -e PIPELINE_CHART_REPO \
   -e PIPELINE_NAME \
   "${_DOCKER_FOR_MAC_ADD_HOST}" ${_OPTIONAL_ENV} \
-  "${PIPELINE_DOCKER_IMAGE}" bash -c 'export REGION=${REGION:-"us-west-2"} \
-  && declare -xr WORKING_PATH=/workspace \
-  && declare -xr SCRIPTS=${WORKING_PATH}/task-scripts \
-  && declare -xr INPUT="${PIPELINE_INPUT_RECIPE_CONTENT}" \
-  && [[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | ${PIPELINE_CMD_NAME_YQ} ".kind | select(. != null)" ) \
-  && echo "using pipeline: ${PIPELINE_NAME}" \
-  && [[ -z ${PIPELINE_NAME} ]] && { echo "PIPELINE_NAME can not be empty"; exit 1; } || true \
-  && mkdir -p "${SCRIPTS}" \
-  && helm pull --untar --untardir /tmp --version ^1.0.0 --repo https://${PIPELINE_CHART_REPO} common-dependency \
-  && cp -LR /tmp/common-dependency/scripts/* "${SCRIPTS}" \
-  && helm pull --untar --untardir /tmp --version ^1.0.0 --repo https://${PIPELINE_CHART_REPO} ${PIPELINE_NAME} \
-  && cp -LR /tmp/${PIPELINE_NAME}/scripts/* "${SCRIPTS}" \
-  && chmod +x "${SCRIPTS}"/*.sh \
-  && cd "${SCRIPTS}" \
-  && set -a && . _functions.sh && set +a \
-  && [[ -z ${ACCOUNT} ]] && { echo "ACCOUNT can not be empty"; exit 1; } || true \
-  && [[ "${PIPELINE_TRIGGER_RUN_SH}" == "true" ]] && ./run.sh ${ACCOUNT} ${REGION} "${INPUT}"; return_code=$? || return_code=1; [[ "${PIPELINE_FAIL_STAY_IN_CONTAINER}" == "true" ]] && bash || exit $return_code'
+  "${PIPELINE_DOCKER_IMAGE}" bash -c '
+export REGION=${REGION:-"us-west-2"}
+declare -xr WORKING_PATH=/workspace
+declare -xr SCRIPTS=${WORKING_PATH}/task-scripts
+declare -xr INPUT="${PIPELINE_INPUT_RECIPE_CONTENT}"
+[[ -z ${PIPELINE_NAME} ]] && export PIPELINE_NAME=$(echo "${PIPELINE_INPUT_RECIPE_CONTENT}" | ${PIPELINE_CMD_NAME_YQ} ".kind | select(. != null)" )
+if [[ -z ${PIPELINE_NAME} ]]; then
+  echo "PIPELINE_NAME can not be empty; Check if you set PIPELINE_INPUT_RECIPE or the recipe file is empty"
+  exit 1
+fi
+echo "using pipeline: ${PIPELINE_NAME}"
+mkdir -p "${SCRIPTS}"
+helm pull --untar --untardir /tmp --version ^1.0.0 --repo https://${PIPELINE_CHART_REPO} common-dependency
+cp -LR /tmp/common-dependency/scripts/* "${SCRIPTS}"
+helm pull --untar --untardir /tmp --version ^1.0.0 --repo https://${PIPELINE_CHART_REPO} ${PIPELINE_NAME}
+cp -LR /tmp/${PIPELINE_NAME}/scripts/* "${SCRIPTS}"
+chmod +x "${SCRIPTS}"/*.sh
+cd "${SCRIPTS}"
+set -a && . _functions.sh && set +a
+if [[ -z ${ACCOUNT} ]]; then
+  echo "ACCOUNT can not be empty"
+  exit 1
+fi
+if [[ "${PIPELINE_TRIGGER_RUN_SH}" == "true" ]]; then
+  ./run.sh ${ACCOUNT} ${REGION} "${INPUT}"
+  return_code=$?
+  if [[ ${return_code} == 1 && "${PIPELINE_FAIL_STAY_IN_CONTAINER}" == "true" ]]; then
+    # Enter container for debugging when an error occurs
+    bash
+  else
+    exit ${return_code}
+  fi
+else
+  # test the container only
+  bash
+fi
+'
