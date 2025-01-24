@@ -286,7 +286,7 @@ def o11y_get_new_resource(dp_name=""):
             add_new_resource_button = page.locator(".o11y-no-config .o11y-config-buttons .add-global-o11y-icon")
         else:
             # For 1.5 none Global data plane
-            add_new_resource_button = page.locator(".o11y-no-config .o11y-config-buttons .add-dp-o11y-icon")
+            add_new_resource_button = page.locator(".o11y-no-config .o11y-config-buttons .add-dp-o11y-icon").nth(0)
 
     return add_new_resource_button
 
@@ -339,7 +339,7 @@ def o11y_config_dataplane_resource(dp_name=""):
         page.locator("label[for='userapp-proxy']").click()
         print(f"Clicked '{tab_name}' toggle button")
     if page.locator("label[for='userapp-proxy']", has_text=f"{tab_name} enabled").is_visible():
-        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-userapp-proxy-btn")
+        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Query Service", "#add-userapp-proxy-btn")
 
     # Add or Select Logs -> User Apps -> Exporter configurations
     tab_name = "Exporter"
@@ -347,7 +347,7 @@ def o11y_config_dataplane_resource(dp_name=""):
         page.locator("label[for='userapp-exporter']").click()
         print(f"Clicked '{tab_name}' toggle button")
     if page.locator("label[for='userapp-exporter']", has_text=f"{tab_name} enabled").is_visible():
-        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "User Apps", "#add-userapp-exporter-btn")
+        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "User Apps Exporter", "#add-userapp-exporter-btn")
 
     # Add or Select Logs -> Services -> Exporter configurations
     tab_name = "Exporter"
@@ -355,7 +355,7 @@ def o11y_config_dataplane_resource(dp_name=""):
         page.locator("label[for='services-exporter-toggle']").click()
         print(f"Clicked '{tab_name}' toggle button")
     if page.locator("label[for='services-exporter-toggle']", has_text=f"{tab_name} enabled").is_visible():
-        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Services", "#add-services-exporter-btn")
+        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Services Exporter", "#add-services-exporter-btn")
 
     page.wait_for_timeout(500)
     page.locator("#go-to-metrics-server-configuration").click()
@@ -432,7 +432,7 @@ def o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, tab_sub_n
     if not page.locator("observability-configurations table tr", has=page.locator("td", has_text=name_input)).is_visible():
         page.locator(add_button_selector).click()
         print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
-        o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name)
+        o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)
 
     print(f"Waiting for '{name_input}' display in {tab_name}")
     page.locator("observability-configurations table tr", has=page.locator("td", has_text=name_input)).locator("label").wait_for(state="visible")
@@ -440,7 +440,7 @@ def o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, tab_sub_n
     print(f"Selected '{name_input}' in {tab_name} configurations")
 
 # when dp_name is empty, it means global data plane
-def o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name=""):
+def o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name=""):
     ColorLogger.info("O11y start to fill new resource form...")
     dp_title = dp_name if dp_name else "Global"
     print(f"Fill form for Data Plane: {dp_title} -> O11y-> {menu_name} -> {tab_name} ...")
@@ -461,8 +461,11 @@ def o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name=""):
         page.locator("#endpoint-input").wait_for(state="visible")
         print(f"Filling ElasticSearch form...")
         if menu_name == "Logs":
-            page.fill("#log-index-input", name_input)
-            print(f"Fill Log Index: {name_input}")
+            log_index = name_input
+            if tab_sub_name == "Query Service" or tab_sub_name == "User Apps Exporter":
+                log_index = f"{dp_title.lower()}-log-index"
+            page.fill("#log-index-input", log_index)
+            print(f"Fill Log Index: {log_index}")
 
         o11y_fill_prometheus_or_elastic("ElasticSearch", ENV.TP_AUTO_ELASTIC_URL, ENV.TP_AUTO_ELASTIC_USER, ENV.TP_AUTO_ELASTIC_PASSWORD)
 

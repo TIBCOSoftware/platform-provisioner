@@ -1,4 +1,3 @@
-import sys
 from dataclasses import dataclass
 from color_logger import ColorLogger
 from helper import Helper
