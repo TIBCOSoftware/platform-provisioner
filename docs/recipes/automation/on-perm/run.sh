@@ -22,6 +22,12 @@ export CURRENT_PATH=$(pwd)
 export _PIPELINE_PUBLIC_SCRIPT='/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TIBCOSoftware/platform-provisioner/main/dev/platform-provisioner.sh)"'
 export PIPELINE_SCRIPT="${PIPELINE_SCRIPT:-${_PIPELINE_PUBLIC_SCRIPT}}"
 
+if [[ "${IS_LOCAL_AUTOMATION}" = "true" ]]; then
+  PIPELINE_SCRIPT="$(realpath "../../../../dev/platform-provisioner.sh")"
+  echo "Using local automation script: ${PIPELINE_SCRIPT}"
+  export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="-v $(realpath '../tp-setup/bootstrap/'):/tmp/auto"
+fi
+
 # deploy-on-prem-base deploys base on-prem
 function deploy-on-prem-base() {
   local _recipe_file_name="01-tp-on-perm.yaml"
@@ -100,6 +106,12 @@ function deploy-tp-o11y-stack() {
   bash -c "${PIPELINE_SCRIPT}"
 }
 
+# redeploy O11Y stack
+function redeploy-tp-o11y-stack() {
+  helm delete -n elastic-system dp-config-es
+  deploy-tp-o11y-stack
+}
+
 # deploy-tp-o11y-resource deploys TP o11y resources # 6
 function deploy-tp-o11y-resource() {
   local _recipe_file_name="05-tp-auto-deploy-dp.yaml"
@@ -162,7 +174,8 @@ while true; do
     echo "5. Deploy o11y stack (Elastic, Prometheus, OTel Collector, etc.)"
     echo "6. Deploy TP o11y resources (Config, o11y, etc.)"
     echo "7. Cleanup resource (Remove resource limits, etc.)"
-    echo "8. Exit"
+    echo "8. Undeploy o11y stack then Redeploy o11y stack (dp-config-es-es-default-0 pod is pending)"
+    echo "9. Exit"
     read -rp "Enter your choice (1-8): " choice
   fi
 
@@ -173,6 +186,8 @@ while true; do
       deploy-on-prem-base # 2
       deploy-tp-o11y-stack # 5
       post-deploy-cleanup-resource # 7
+      echo "Wait for 30 seconds before deploying CP..."
+      sleep 30
       deploy-tp # 3
       echo "Finish deploy TP in $(($(date +%s) - start_time)) seconds"
       post-deploy-adjust-dns # dns adjustment
@@ -223,6 +238,11 @@ while true; do
       break
       ;;
     8)
+      echo "Undeploy o11y stack then Redeploy o11y stack..."
+      redeploy-tp-o11y-stack
+      break
+      ;;
+    9)
       echo "Exiting..."
       break
       ;;

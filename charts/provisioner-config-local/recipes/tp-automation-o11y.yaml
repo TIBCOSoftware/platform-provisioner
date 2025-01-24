@@ -15,13 +15,31 @@ meta:
     GUI_GITHUB_TOKEN: ""
 
     # automation setup
-    GUI_TP_AUTO_CP_VERSION: "1.4"
-    GUI_TP_AUTO_IS_CONFIG_O11Y: true
+    GUI_TP_AUTO_CP_VERSION: ""    # keep it empty, unless you see an error with GUI_TP_AUTO_CP_VERSION in the logs
+    GUI_TP_AUTO_USE_LOCAL_SCRIPT: false
+    GUI_TP_AUTO_USE_GITHUB_SCRIPT: true
+    GUI_TP_AUTO_SCREENSHOT_PATH: "/tmp/auto/screenshots"
+    GUI_TP_AUTO_GITHUB_REPO_NAME: "github.com/TIBCOSoftware/platform-provisioner"
+    GUI_TP_AUTO_GITHUB_REPO_PATH: "docs/recipes/automation/tp-setup/bootstrap"
+    GUI_TP_AUTO_GITHUB_REPO_BRANCH: "provisioner-config-local-1.1.16"
+
+    # DP capabilities deployment
+    GUI_TP_AUTO_ACTIVE_USER: true
+    GUI_TP_AUTO_ENABLE_DP: true
+    GUI_TP_AUTO_ENABLE_CONFIG_O11Y: true
+    GUI_TP_AUTO_ENABLE_FLOGO: true
+    GUI_TP_AUTO_ENABLE_BWCE: false
+    GUI_TP_AUTO_ENABLE_TIBCOHUB: false
+    GUI_TP_AUTO_ENABLE_EMS: false
+    GUI_TP_AUTO_ENABLE_PULSAR: false
 
     # CP setup
     GUI_TP_AUTO_CP_INSTANCE_ID: "cp1"
     GUI_TP_AUTO_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
     GUI_TP_AUTO_CP_SERVICE_DNS_DOMAIN: ""
+    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE: ""
+    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ""
+    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ""
     GUI_TP_AUTO_LOGIN_URL: ""
     GUI_TP_AUTO_MAIL_URL: ""
     GUI_TP_AUTO_ADMIN_URL: ""
@@ -48,14 +66,14 @@ meta:
     GUI_TP_AUTO_PROMETHEUS_USER: ""
     GUI_TP_AUTO_PROMETHEUS_PASSWORD: ""
 
-    # capability setup
-    GUI_TP_AUTO_FLOGO_CAPABILITY_URL: ""
+    # fqdn setup
+    GUI_TP_AUTO_FQDN_BWCE: ""
+    GUI_TP_AUTO_FQDN_FLOGO: ""
+    GUI_TP_AUTO_FQDN_TIBCOHUB: ""
 
     # flow control
     GUI_TP_PORT_FORWARD: true
     GUI_TP_OVERWRITE_DNS: false
-    GUI_TP_ACTIVE_USER: true
-    GUI_TP_CREATE_DP: true
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_CHECK_DOCKER_STATUS: false
@@ -65,14 +83,34 @@ meta:
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
 
     # automation setup
-    TP_AUTO_CP_VERSION: ${GUI_TP_AUTO_CP_VERSION:-"1.3"}
-    TP_AUTO_IS_CONFIG_O11Y: ${GUI_TP_AUTO_IS_CONFIG_O11Y:-false}
-    TP_AUTO_SCRIPT_FOLDER: /tmp/auto
+    TP_AUTO_CP_VERSION: ${GUI_TP_AUTO_CP_VERSION:-""}
+    TP_AUTO_USE_LOCAL_SCRIPT: ${GUI_TP_AUTO_USE_LOCAL_SCRIPT:-false}
+    TP_AUTO_USE_GITHUB_SCRIPT: ${GUI_TP_AUTO_USE_GITHUB_SCRIPT:-true}
+    TP_AUTO_SCRIPT_FOLDER: ${GUI_TP_AUTO_SCRIPT_FOLDER:-"/tmp/auto"}
+    TP_AUTO_SCREENSHOT_PATH: ${GUI_TP_AUTO_SCREENSHOT_PATH:-"/tmp/auto/screenshots"}
+    TP_AUTO_GITHUB_REPO_NAME: ${GUI_TP_AUTO_GITHUB_REPO_NAME:-"github.com/TIBCOSoftware/platform-provisioner"}
+    TP_AUTO_GITHUB_REPO_PATH: ${GUI_TP_AUTO_GITHUB_REPO_PATH:-"docs/recipes/automation/tp-setup/bootstrap"}
+    TP_AUTO_GITHUB_REPO_BRANCH: ${GUI_TP_AUTO_GITHUB_REPO_BRANCH:-"provisioner-config-local-1.1.16"}
+
+    # DP capabilities deployment
+    TP_AUTO_ACTIVE_USER: ${GUI_TP_AUTO_ACTIVE_USER:-true}
+    TP_AUTO_ENABLE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true}
+    TP_AUTO_IS_CREATE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true} # need this as global value
+    TP_AUTO_ENABLE_CONFIG_O11Y: ${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-true}
+    TP_AUTO_IS_CONFIG_O11Y: ${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-false} # need this as global value
+    TP_AUTO_ENABLE_FLOGO: ${GUI_TP_AUTO_ENABLE_FLOGO:-true}
+    TP_AUTO_ENABLE_BWCE: ${GUI_TP_AUTO_ENABLE_BWCE:-true}
+    TP_AUTO_ENABLE_TIBCOHUB: ${GUI_TP_AUTO_ENABLE_TIBCOHUB:-true}
+    TP_AUTO_ENABLE_EMS: ${GUI_TP_AUTO_ENABLE_EMS:-true}
+    TP_AUTO_ENABLE_PULSAR: ${GUI_TP_AUTO_ENABLE_PULSAR:-true}
 
     # CP setup
     TP_AUTO_CP_INSTANCE_ID: ${GUI_TP_AUTO_CP_INSTANCE_ID:-"cp1"}
     TP_AUTO_CP_DNS_DOMAIN: ${GUI_TP_AUTO_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     TP_AUTO_CP_SERVICE_DNS_DOMAIN: ${GUI_TP_AUTO_CP_SERVICE_DNS_DOMAIN:-""} # full domain of CP
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE:-"bwce"}
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO:-"flogo"}
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB:-"tibcohub"}
     TP_AUTO_LOGIN_URL: ${GUI_TP_AUTO_LOGIN_URL:-""}
     TP_AUTO_MAIL_URL: ${GUI_TP_AUTO_MAIL_URL:-""}
     TP_AUTO_ADMIN_URL: ${GUI_TP_AUTO_ADMIN_URL:-""}
@@ -99,17 +137,16 @@ meta:
     TP_AUTO_PROMETHEUS_USER: ${GUI_TP_AUTO_PROMETHEUS_USER:-""}
     TP_AUTO_PROMETHEUS_PASSWORD: ${GUI_TP_AUTO_PROMETHEUS_PASSWORD:-""}
 
-    # capability setup
-    TP_AUTO_FLOGO_CAPABILITY_URL: ${GUI_TP_AUTO_FLOGO_CAPABILITY_URL:-""}
+    # fqdn setup
+    TP_AUTO_FQDN_BWCE: ${GUI_TP_AUTO_FQDN_BWCE:-""}
+    TP_AUTO_FQDN_FLOGO: ${GUI_TP_AUTO_FQDN_FLOGO:-""}
+    TP_AUTO_FQDN_TIBCOHUB: ${GUI_TP_AUTO_FQDN_TIBCOHUB:-""}
 
     # flow control
-    PYTHON_FILE_INPUT_NAME: py-scripts.yaml
     PYTHON_FILE_LOGIN_POINT: page_auth.py
     PYTHON_FILE_ENTRY_POINT: run.py
-    TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
-    TP_ACTIVE_USER: ${GUI_TP_ACTIVE_USER:-true}
-    TP_CREATE_DP: ${GUI_TP_CREATE_DP:-true}
+    TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
 tasks:
 - condition: ${TP_OVERWRITE_DNS} # this is used for overwrite DNS
   clusters:
@@ -128,34 +165,34 @@ tasks:
     content: |
       cd /tmp
       nohup kubectl port-forward -n ingress-system --address 0.0.0.0 service/ingress-nginx-controller 80:http 443:https &
-- condition: true
+- condition: ${TP_AUTO_USE_GITHUB_SCRIPT}
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  repo:
+    git:
+      github:
+        repo: ${TP_AUTO_GITHUB_REPO_NAME}
+        path: ${TP_AUTO_GITHUB_REPO_PATH}
+        branch: ${TP_AUTO_GITHUB_REPO_BRANCH}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      mkdir -p ${TP_AUTO_SCRIPT_FOLDER}
+      cp * ${TP_AUTO_SCRIPT_FOLDER}
+      pip install -r requirements.txt
+- condition: ${TP_AUTO_USE_LOCAL_SCRIPT}
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
     fileName: script.sh
     content: |
-      input_yaml="${PYTHON_FILE_INPUT_NAME}"
-      
-      yq eval 'to_entries | .[] | .key + " " + (.value)' "$input_yaml" | while read -r file_name decoded_content; do
-        if [[ -n $file_name ]]; then
-          echo "$decoded_content" | base64 -d > "$file_name"
-          echo "Created file: $file_name"
-        fi
-      done
-      mkdir -p ${TP_AUTO_SCRIPT_FOLDER}
-      cp * ${TP_AUTO_SCRIPT_FOLDER}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
       pip install -r requirements.txt
-  payload:
-    base64Encoded: false
-    fileName: ${PYTHON_FILE_INPUT_NAME}
-    content: |
-      {{- $root := . }}
-      {{- range $path, $bytes := .Files.Glob "scripts/automation/*" }}
-      {{ base $path }}: |
-      {{ $root.Files.Get $path | b64enc | indent 2 -}}
-      {{- end }}
-- condition: ${TP_ACTIVE_USER}
+      rm -rf downloads
+      rm -rf screenshots
+- condition: ${TP_AUTO_ACTIVE_USER} # only create admin and subscription
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -164,12 +201,84 @@ tasks:
     content: |
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_LOGIN_POINT}
-- condition: ${TP_CREATE_DP}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_DP} # only create DP
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      export TP_AUTO_IS_CREATE_DP=${TP_AUTO_ENABLE_DP}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_FLOGO} # only deploy flogo
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      export TP_AUTO_IS_PROVISION_FLOGO=${TP_AUTO_ENABLE_FLOGO}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_BWCE} # only deploy bwce
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_TIBCOHUB} # only deploy tibcohub
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      export TP_AUTO_IS_PROVISION_TIBCOHUB=${TP_AUTO_ENABLE_TIBCOHUB}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_EMS} # only deploy bwce
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      export TP_AUTO_IS_PROVISION_EMS=${TP_AUTO_ENABLE_EMS}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_PULSAR} # only deploy bwce
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      export TP_AUTO_IS_PROVISION_PULSAR=${TP_AUTO_ENABLE_PULSAR}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}

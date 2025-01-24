@@ -20,27 +20,36 @@ function select_recipe_source() {
     fi
 
     case $choice in
-        1)
-          read -rp "What provisioner-config-local version do you want to use? (Press Enter to use latest): " PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL
-            # generate from public release
-          export PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL=${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL:-"^1.0.0"}
-          _data=$(helm template provisioner-config-local provisioner-config-local --repo https://tibcosoftware.github.io/platform-provisioner --version "${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL}")
-          generate_recipe "${_data}" "${choice2}"
-          break
-          ;;
-        2)
-          # generate from local
-          _data=$(helm template provisioner-config-local "../../../../charts/provisioner-config-local")
-          generate_recipe "${_data}" "${choice2}"
-          break
-          ;;
-        3)
-          echo "Exiting..."
-          break
-          ;;
-        *)
-          echo "Invalid option. Please try again."
-          ;;
+      1)
+        # generate from public release
+        export PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL=${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL:-"^1.0.0"}
+        _data=$(helm template provisioner-config-local provisioner-config-local --repo https://tibcosoftware.github.io/platform-provisioner --version "${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL}")
+        generate_recipe "${_data}" "${choice2}"
+        break
+        ;;
+      2)
+        # generate from local
+        _data=$(helm template provisioner-config-local "../../../../charts/provisioner-config-local")
+        generate_recipe "${_data}" "${choice2}"
+        local _recipe_file_name="05-tp-auto-deploy-dp.yaml"
+        # set recipe to use local script
+        if [[ -f ${_recipe_file_name} ]]; then
+          echo "Update recipe ${_recipe_file_name} to use local script..."
+          echo "set IS_LOCAL_AUTOMATION to true to run local script"
+          export GUI_TP_AUTO_USE_LOCAL_SCRIPT=true
+          export GUI_TP_AUTO_USE_GITHUB_SCRIPT=false
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT = env(GUI_TP_AUTO_USE_LOCAL_SCRIPT))' ${_recipe_file_name}
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_GITHUB_SCRIPT = env(GUI_TP_AUTO_USE_GITHUB_SCRIPT))' ${_recipe_file_name}
+        fi
+        break
+        ;;
+      3)
+        echo "Exiting..."
+        break
+        ;;
+      *)
+        echo "Invalid option. Please try again."
+        ;;
     esac
   done
 }
@@ -85,10 +94,61 @@ function generate_recipe() {
         ;;
     esac
   done
+
+  update_05-tp-auto-deploy-dp
+}
+
+update_05-tp-auto-deploy-dp() {
+  local recipe_file="05-tp-auto-deploy-dp.yaml"
+
+  # Check if the recipe file exists
+  if [[ ! -f "${recipe_file}" ]]; then
+    echo "Recipe file ${recipe_file} does not exist. Exiting."
+    return
+  fi
+
+  # Define a space-separated list of environment variables
+  local env_var env_vars="GITHUB_TOKEN TP_AUTO_ACTIVE_USER"
+
+  for env_var in $env_vars; do
+    local field="GUI_$env_var"
+
+    # Check if the environment variable is set
+    if [[ -n "${!env_var}" ]]; then
+      echo "Updating recipe: ${recipe_file}, ${field}=${!env_var}"
+      yq eval ".meta.guiEnv.${field} = env(${env_var})" -i "${recipe_file}"
+    fi
+  done
+}
+
+check_yq() {
+  if ! command -v yq &> /dev/null; then
+    echo "Error: yq is not installed. Please install yq before running this script."
+    echo "Installation instructions:"
+
+    case "$OSTYPE" in
+      darwin*)
+        echo "  - macOS: brew install yq"
+        ;;
+      linux*)
+        echo "  - Linux: wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq"
+        ;;
+      msys*|cygwin*|win32*)
+        echo "  - Windows: Install Scoop first (https://scoop.sh), then run:"
+        echo "      scoop install yq"
+        ;;
+      *)
+        echo "  - Unsupported OS. Please refer to the official documentation: https://github.com/mikefarah/yq"
+        ;;
+    esac
+
+    exit 1
+  fi
 }
 
 # main function
 function main() {
+  check_yq
   select_recipe_source "$@"
 }
 

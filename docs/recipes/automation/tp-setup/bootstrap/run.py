@@ -1,11 +1,10 @@
 import os
-import sys
-import time
 
 from color_logger import ColorLogger
 from page_auth import login, login_check, logout
 from util import Util
-from env import EnvConfig
+from helper import Helper
+from env import ENV
 
 def grant_permission(permission):
     ColorLogger.info(f"Granting permission for {permission}...")
@@ -62,8 +61,7 @@ def k8s_create_dataplane(dp_name):
     ColorLogger.info(f"Creating k8s Data Plane '{dp_name}'...")
 
     if page.locator(".data-plane-name").count() > ENV.TP_AUTO_MAX_DATA_PLANE:
-        ColorLogger.error("Too many data planes, please delete some data planes first.")
-        sys.exit("Exiting program: Too many data planes, please delete some data planes first.")
+        Util.exit_error("Too many data planes, please delete some data planes first.", page, "k8s_create_dataplane.png")
 
     if page.locator('.data-plane-name', has_text=dp_name).is_visible():
         ColorLogger.success(f"DataPlane '{dp_name}' is already created.")
@@ -76,7 +74,7 @@ def k8s_create_dataplane(dp_name):
     print(f"Input Data Plane Name: {dp_name}")
     page.locator('label[for="eua-checkbox"]').click()
     page.click("#data-plane-basics-btn")
-    print("Finish step 1 Basic")
+    print("Clicked Next button, Finish step 1 Basic")
 
     # step 2 Namespace & Service account
     page.fill("#namespace-text-input", ENV.TP_AUTO_K8S_DP_NAMESPACE)
@@ -84,7 +82,7 @@ def k8s_create_dataplane(dp_name):
     page.fill("#service-account-text-input", ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT)
     print(f"Input Service Account: {ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT}")
     page.click("#data-plane-namespace-btn")
-    print("Finish step 2 Namespace & Service account")
+    print("Clicked Next button, Finish step 2 Namespace & Service account")
 
     # step 3 Configuration
     if page.locator('label[for="helm-chart-repo-global"]').is_visible():
@@ -93,49 +91,59 @@ def k8s_create_dataplane(dp_name):
             page.locator('label[for="helm-chart-repo-global"]').click()
         else:
             print("GITHUB_TOKEN is set, choose 'Custom Helm Chart Repository'")
-            page.locator('label[for="helm-chart-repo-custom"]').click()
+            if page.locator('label[for="helm-chart-repo-custom"]').is_visible():
+                page.locator('label[for="helm-chart-repo-custom"]').click()
+                print("Choose 'Custom Helm Chart Repository'")
+
 
             page.fill("#alias-input", f"tp-private-{dp_name}")
+            print(f"Input Repository Alias: tp-private-{dp_name}")
             page.fill("#url-input", "https://raw.githubusercontent.com")
+            print("Input Registry URL: https://raw.githubusercontent.com")
             page.fill("#repo-input", "tibco/tp-helm-charts/gh-pages")
+            print("Input Repository: tibco/tp-helm-charts/gh-pages")
             page.fill("#username-input", "cp-test")
+            print("Input Username: cp-test")
             page.fill("#password-input", ENV.GITHUB_TOKEN)
+            print(f"Input Password: {ENV.GITHUB_TOKEN}")
 
     page.click("#data-plane-config-btn")
-    print("Finish step 3 Configuration")
+    print("Clicked Next button, Finish step 3 Configuration")
 
     # step Preview (for 1.4 and above)
     if page.locator("#data-plane-preview-btn").is_visible():
         page.click("#data-plane-preview-btn")
-        print("Finish step 4 Preview")
+        print("Clicked Next button, Finish step 4 Preview")
 
     # step Register Data Plane
-    page.wait_for_selector("#data-plane-finished-btn")
+    print("Check if create Data Plane is successful...")
+    if not Util.check_dom_visibility(page, page.locator("#data-plane-finished-btn"), 3, 30):
+        Util.exit_error(f"Data Plane '{dp_name}' creation failed.", page, "k8s_create_dataplane_finish.png")
 
-    if ENV.TP_AUTO_CP_VERSION == "1.3":
-        k8s_run_dataplane_command(dp_name, "Namespace creation", page.locator(".namespace #download-commands"), 1)
-        k8s_run_dataplane_command(dp_name, "Service Account creation", page.locator(".service-account #download-commands"), 2)
-        k8s_run_dataplane_command(dp_name, "Cluster Registration", page.locator(".cluster #download-commands"), 3)
-    else:
-        k8s_run_dataplane_command(dp_name, "Helm Repository configuration", page.locator(".cluster #download-commands").nth(0), 1)
-        k8s_run_dataplane_command(dp_name, "Namespace creation", page.locator(".namespace #download-commands"), 2)
-        k8s_run_dataplane_command(dp_name, "Service Account creation", page.locator(".service-account #download-commands"), 3)
-        k8s_run_dataplane_command(dp_name, "Cluster Registration", page.locator(".cluster #download-commands").nth(1), 4)
+    download_commands = page.locator("#download-commands")
+    command_count = download_commands.count()
+    commands_title = ["Namespace creation", "Service Account creation", "Cluster Registration"]
+
+    # for different release version: 1.3 => 3 commands, 1.4 and above => 4 commands
+    # If the command count is more than 3, add Helm Repository configuration as the first command
+    if command_count > 3:
+        commands_title.insert(0, "Helm Repository configuration")
+
+    # Execute each command dynamically based on its position
+    for index, description in enumerate(commands_title):
+        if index < command_count:
+            k8s_run_dataplane_command(dp_name, description, download_commands.nth(index), index + 1)
 
     # click Done button
     page.click("#data-plane-finished-btn")
-    print("Clicked 'Done' button")
+    print("Data Plane create successful, clicked 'Done' button")
     page.locator('#confirm-button', has_text="Yes").wait_for(state="visible")
     page.locator('#confirm-button', has_text="Yes").click()
 
     # verify data plane is created in the list
-    print(f"Verify Data Plane {dp_name} is created in the list")
-    goto_left_navbar("Data Planes")
-    page.reload()
-    print(f"Navigated to Data Planes list page, and wait for {dp_name} is created.")
     page.wait_for_timeout(2000)
-    page.locator('.data-plane-name', has_text=dp_name).wait_for(state="visible")
-    ColorLogger.success(f"DataPlane {dp_name} is created.")
+    print(f"Verify Data Plane {dp_name} is created in the list")
+    k8s_wait_tunnel_connected(dp_name)
 
 def k8s_run_dataplane_command(dp_name, step_name, download_selector, step):
     ColorLogger.info(f"Running command for: {step_name}")
@@ -144,12 +152,28 @@ def k8s_run_dataplane_command(dp_name, step_name, download_selector, step):
         download_selector.click()
 
     file_name = f"{dp_name}_{step}.sh"
-    file_path = Util.download_file(download_info.value, file_name)
+    file_path = Helper.download_file(download_info.value, file_name)
 
     print(f"Run command for: {step_name}")
-    Util.run_shell_file(file_path)
+    Helper.run_shell_file(file_path)
     print(f"Command for step: {step_name} is executed, wait for 3 seconds.")
     page.wait_for_timeout(3000)
+
+def k8s_wait_tunnel_connected(dp_name):
+    print(f"Waiting for Data Planes {dp_name} tunnel connected.")
+    goto_left_navbar("Data Planes")
+    print(f"Navigated to Data Planes list page, and checking for {dp_name} in created and tunnel connected.")
+    page.locator('.data-plane-name', has_text=dp_name).wait_for(state="visible")
+    if not page.locator('.data-plane-name', has_text=dp_name).is_visible():
+        Util.exit_error(f"DataPlane {dp_name} is not created.", page, "k8s_wait_tunnel_connected_1.png")
+
+    ColorLogger.success(f"DataPlane {dp_name} is created, waiting for tunnel connected.")
+    data_plane_card = page.locator(".data-plane-card", has=page.locator('.data-plane-name', has_text=dp_name))
+    print(f"Waiting for DataPlane {dp_name} tunnel connected...")
+    if not Util.check_dom_visibility(page, data_plane_card.locator('.tunnel-status svg.green'), 10, 180):
+        Util.exit_error(f"DataPlane {dp_name} tunnel is not connected, exit program and recheck again.", page, "k8s_wait_tunnel_connected_2.png")
+
+    ColorLogger.success(f"DataPlane {dp_name} tunnel is connected.")
 
 def goto_left_navbar(item_name):
     ColorLogger.info(f"Going to left side menu ...")
@@ -175,8 +199,7 @@ def goto_dataplane(dp_name):
     page.wait_for_timeout(2000)
 
     if not page.locator('.data-plane-name', has_text=dp_name).is_visible():
-        ColorLogger.error(f"DataPlane {dp_name} does not exist")
-        sys.exit(f"Exiting program: DataPlane {dp_name} does not exist")
+        Util.exit_error(f"DataPlane {dp_name} does not exist", page, "goto_dataplane.png")
 
     page.locator('data-plane-card', has=page.locator('.data-plane-name', has_text=dp_name)).locator('button', has_text="Go to Data Plane").click()
     print("Clicked 'Go to Data Plane' button")
@@ -198,24 +221,11 @@ def goto_dataplane_config_sub_menu(sub_menu_name = ""):
     print(f"Clicked '{sub_menu_name}' left side menu")
     page.wait_for_timeout(500)
 
-def goto_dataplane_config_o11y_sub(menu_name):
-    ColorLogger.info(f"Going to Data plane config -> o11y -> '{menu_name}' side menu")
-    menu_dom_selector = "#left-sub-menu li a"
-    page.locator(menu_dom_selector, has_text=menu_name).wait_for(state="visible")
-    if not page.locator(menu_dom_selector, has_text=menu_name).is_visible():
-        ColorLogger.error(f"Navigate to Data plane Observability page first.")
-        return
-
-    page.locator(menu_dom_selector, has_text=menu_name).click()
-    print(f"Clicked 'Observability -> {menu_name}' left side menu")
-    page.wait_for_timeout(500)
-
 def goto_app_detail(dp_name, app_name):
     ColorLogger.info(f"Going to app '{app_name}' detail page")
     goto_dataplane(dp_name)
     if not page.locator("apps-list td.app-name a", has_text=app_name).is_visible():
-        ColorLogger.error(f"The app '{app_name}' is not deployed yet.")
-        sys.exit(f"Exiting program: The app '{app_name}' is not deployed yet.")
+        Util.exit_error(f"The app '{app_name}' is not deployed yet.", page, "goto_app_detail.png")
 
     page.locator("apps-list td.app-name a", has_text=app_name).click()
     print(f"Clicked app '{app_name}'")
@@ -223,16 +233,60 @@ def goto_app_detail(dp_name, app_name):
     print(f"Navigated to app '{app_name}' detail page")
     page.wait_for_timeout(500)
 
+def goto_capability(dp_name, capability, is_check_status=True):
+    ColorLogger.info(f"{capability} Going to capability...")
+    goto_dataplane(dp_name)
+    print(f"Check if {capability} capability is ready...")
+    card_id = capability.lower()
+    if Util.check_dom_visibility(page, page.locator(f"capability-card #{card_id}"), 10, 120, True):
+        print(f"Waiting for {capability} capability status is ready...")
+        if not is_check_status:
+            page.locator(f"capability-card #{card_id} .image-name").click()
+            print(f"Ignore check '{capability}' capability status, get into '{capability}' capability page")
+            return
+        if Util.check_dom_visibility(page, page.locator(f"capability-card #{card_id} .status .success")):
+            print(f"{capability} capability status is ready")
+            page.locator(f"capability-card #{card_id} .image-name").click()
+            print(f"Clicked '{capability}' capability")
+        else:
+            Util.exit_error(f"{capability} capability is provisioned, but status is not ready.", page, f"{card_id}_goto_capability.png")
+    else:
+        Util.exit_error(f"{capability} capability is not provisioned yet.", page, f"{card_id}_goto_capability.png")
+
+def is_capability_provisioned(capability, capability_name=""):
+    ColorLogger.info(f"Checking if '{capability}' is provisioned")
+    try:
+        print(f"Checking if '{capability}' is already provisioned...")
+        card_id = capability.lower()
+        page.wait_for_timeout(3000)
+        if page.locator(f"capability-card #{card_id}").is_visible():
+            ColorLogger.success(f"'{capability}' is already provisioned.")
+            if capability_name == "":
+                return True
+            else:
+                if page.locator(f"capability-card #{card_id} .pl-tooltip__trigger", has_text=capability_name).is_visible():
+                    ColorLogger.success(f"'{capability}' with name '{capability_name}' is provisioned.")
+                    return True
+                else:
+                    ColorLogger.warning(f"'{capability}' with name '{capability_name}' has not been provisioned.")
+                    return False
+        else:
+            ColorLogger.warning(f"'{capability}' has not been provisioned.")
+            return False
+    except Exception as e:
+        ColorLogger.warning(f"An error occurred while Checking capability '{capability}': {e}")
+        return False
+
 def o11y_get_new_resource(dp_name=""):
     # For 1.4 version
     add_new_resource_button = page.locator(".add-dp-observability-btn", has_text="Add new resource")
-    if ENV.TP_AUTO_CP_VERSION == "1.5":
+    if page.locator(".o11y-no-config .o11y-config-buttons").is_visible():
         if dp_name == "":
             # For 1.5 Global data plane
-            add_new_resource_button = page.locator(".global-configuration-details .add-global-o11y-icon")
+            add_new_resource_button = page.locator(".o11y-no-config .o11y-config-buttons .add-global-o11y-icon")
         else:
             # For 1.5 none Global data plane
-            add_new_resource_button = page.locator("observability-data-plane .add-dp-o11y-icon")
+            add_new_resource_button = page.locator(".o11y-no-config .o11y-config-buttons .add-dp-o11y-icon").nth(0)
 
     return add_new_resource_button
 
@@ -254,8 +308,12 @@ def o11y_config_dataplane_resource(dp_name=""):
     else:
         goto_dataplane_config_sub_menu("Observability")
 
+    print("Waiting for Observability config is loaded")
+    if not Util.check_dom_visibility(page, page.locator(".data-plane-observability-content"), 3, 10):
+        Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", page, "o11y_config_dataplane_resource.png")
+
     print("Checking if 'Add new resource' button is exist...")
-    page.wait_for_timeout(5000)
+    page.wait_for_timeout(2000)
 
     add_new_resource_button = o11y_get_new_resource(dp_name)
     if not add_new_resource_button.is_visible():
@@ -281,7 +339,7 @@ def o11y_config_dataplane_resource(dp_name=""):
         page.locator("label[for='userapp-proxy']").click()
         print(f"Clicked '{tab_name}' toggle button")
     if page.locator("label[for='userapp-proxy']", has_text=f"{tab_name} enabled").is_visible():
-        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-userapp-proxy-btn")
+        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Query Service", "#add-userapp-proxy-btn")
 
     # Add or Select Logs -> User Apps -> Exporter configurations
     tab_name = "Exporter"
@@ -289,7 +347,7 @@ def o11y_config_dataplane_resource(dp_name=""):
         page.locator("label[for='userapp-exporter']").click()
         print(f"Clicked '{tab_name}' toggle button")
     if page.locator("label[for='userapp-exporter']", has_text=f"{tab_name} enabled").is_visible():
-        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "User Apps", "#add-userapp-exporter-btn")
+        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "User Apps Exporter", "#add-userapp-exporter-btn")
 
     # Add or Select Logs -> Services -> Exporter configurations
     tab_name = "Exporter"
@@ -297,7 +355,7 @@ def o11y_config_dataplane_resource(dp_name=""):
         page.locator("label[for='services-exporter-toggle']").click()
         print(f"Clicked '{tab_name}' toggle button")
     if page.locator("label[for='services-exporter-toggle']", has_text=f"{tab_name} enabled").is_visible():
-        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Services", "#add-services-exporter-btn")
+        o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Services Exporter", "#add-services-exporter-btn")
 
     page.wait_for_timeout(500)
     page.locator("#go-to-metrics-server-configuration").click()
@@ -305,6 +363,13 @@ def o11y_config_dataplane_resource(dp_name=""):
     print(f"Data plane '{dp_title}' 'Configure Log Server' Step 1 is configured.")
 
     # Step 2: Configure Metrics Server
+    system_toggle = page.locator("#metrics-toggle-system-config")
+    if system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true":
+        print("Metrics System Config is enabled")
+        page.locator("label[for='metrics-toggle-system-config']").click()
+        print("Clicked 'Metrics System Config' toggle button, then wait for 1 second.")
+        page.wait_for_timeout(1000)
+
     # Add or Select Metrics -> Query Service configurations
     menu_name = "Metrics"
     tab_name = "Query Service"
@@ -322,6 +387,13 @@ def o11y_config_dataplane_resource(dp_name=""):
     print(f"Data plane '{dp_title}' 'Configure Metrics Server' Step 2 is configured.")
 
     # Step 3: Configure Traces Server
+    system_toggle = page.locator("#traces-toggle-system-config")
+    if system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true":
+        print("Traces System Config is enabled")
+        page.locator("label[for='traces-toggle-system-config']").click()
+        print("Clicked 'Traces System Config' toggle button, then wait for 1 second.")
+        page.wait_for_timeout(1000)
+
     # Add or Select Traces -> Query Service configurations
     menu_name = "Traces"
     tab_name = "Query Service"
@@ -340,17 +412,27 @@ def o11y_config_dataplane_resource(dp_name=""):
         o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-exporter-btn")
     page.locator("#save-observability").click()
     print(f"Data plane '{dp_title}' 'Configure Traces Server' Step 3 is configured.")
+    page.wait_for_timeout(1000)
+    if page.locator(".pl-notification--error").is_visible():
+        Util.warning_screenshot(f"Data Plane '{dp_title}' Observability Resources configuration failed.", page, "o11y_config_dataplane_resource.png")
+        page.locator("#cancel-observability-add-traces").click()
+        print("Clicked 'Cancel' button")
+        page.locator('#confirm-button', has_text="Yes").wait_for(state="visible")
+        page.locator('#confirm-button', has_text="Yes").click()
+        return
+
+    ColorLogger.success(f"Data plane '{dp_title}' Observability Resources is configured.")
     print(f"Wait 5 seconds for Data plane '{dp_title}' configuration page redirect.")
     page.wait_for_timeout(5000)
 
 def o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, tab_sub_name, add_button_selector):
     ColorLogger.info("O11y start to add or select item...")
-    name_input = Util.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
+    name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
     print(f"Check if name: '{name_input}' is exist in {tab_sub_name} configurations")
     if not page.locator("observability-configurations table tr", has=page.locator("td", has_text=name_input)).is_visible():
         page.locator(add_button_selector).click()
         print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
-        o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name)
+        o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)
 
     print(f"Waiting for '{name_input}' display in {tab_name}")
     page.locator("observability-configurations table tr", has=page.locator("td", has_text=name_input)).locator("label").wait_for(state="visible")
@@ -358,7 +440,7 @@ def o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, tab_sub_n
     print(f"Selected '{name_input}' in {tab_name} configurations")
 
 # when dp_name is empty, it means global data plane
-def o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name=""):
+def o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name=""):
     ColorLogger.info("O11y start to fill new resource form...")
     dp_title = dp_name if dp_name else "Global"
     print(f"Fill form for Data Plane: {dp_title} -> O11y-> {menu_name} -> {tab_name} ...")
@@ -379,14 +461,17 @@ def o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name=""):
         page.locator("#endpoint-input").wait_for(state="visible")
         print(f"Filling ElasticSearch form...")
         if menu_name == "Logs":
-            page.fill("#log-index-input", name_input)
-            print(f"Fill Log Index: {name_input}")
+            log_index = name_input
+            if tab_sub_name == "Query Service" or tab_sub_name == "User Apps Exporter":
+                log_index = f"{dp_title.lower()}-log-index"
+            page.fill("#log-index-input", log_index)
+            print(f"Fill Log Index: {log_index}")
 
         o11y_fill_prometheus_or_elastic("ElasticSearch", ENV.TP_AUTO_ELASTIC_URL, ENV.TP_AUTO_ELASTIC_USER, ENV.TP_AUTO_ELASTIC_PASSWORD)
 
     page.locator("configuration-modal .pl-modal__footer-left button.pl-button--primary", has_text="Save").click()
     page.wait_for_timeout(1000)
-    if page.locator(".pl-notification__message").is_visible():
+    if page.locator(".pl-notification--error").is_visible():
         page.locator("configuration-modal .pl-modal__footer-left button", has_text="Cancel").click()
         ColorLogger.success(f"The {name_input} is already exist.")
 
@@ -396,8 +481,7 @@ def o11y_fill_prometheus_or_elastic(query_service_type, url, username, password)
     ColorLogger.info(f"O11y Filling {query_service_type} form...")
     page.locator("#endpoint-input").wait_for(state="visible")
     if not page.locator("#endpoint-input").is_visible():
-        ColorLogger.error(f"Query Service type: {query_service_type} is not visible.")
-        sys.exit(f"Exiting program: Query Service type: {query_service_type} is not visible.")
+        Util.exit_error(f"Query Service type: {query_service_type} is not visible.", page, "o11y_fill_prometheus_or_elastic.png")
 
     page.fill("#endpoint-input", url)
     print(f"Fill {query_service_type} URL: {url}")
@@ -407,69 +491,6 @@ def o11y_fill_prometheus_or_elastic(query_service_type, url, username, password)
     if password != "":
         page.fill("#password-input", password)
         print(f"Fill {query_service_type} Password: {password}")
-
-def o11y_add_query_or_exporter(dp_name, menu_name, tab_name, name_input=""):
-    ColorLogger.info("O11y start to add Query or Exporter...")
-    dp_title = dp_name if dp_name else "Global"
-    print(f"Adding {menu_name} -> {tab_name} for Data Plane '{dp_title}'...")
-    page.locator(".stepper a", has_text=tab_name + " configurations").click()
-    if name_input == "":
-        name_input = Util.get_o11y_sub_name_input(dp_name, menu_name, tab_name, "")
-
-    page.wait_for_timeout(1500)
-    if page.locator("proxies-exporters-list table").locator("td", has_text=name_input).is_visible():
-        ColorLogger.success(f"The {name_input} is already exist in {menu_name} -> {tab_name}.")
-        return
-
-    page.locator("proxies-exporters-list button", has_text="Add").click()
-    print(f"Clicked 'Observability -> {menu_name} -> {tab_name} -> Add' button")
-    o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name)
-
-def o11y_add_log_exporter(dp_name, table_index, name_input=""):
-    ColorLogger.info("O11y start to add Log Exporter...")
-    dp_title = dp_name if dp_name else "Global"
-    tab_name = "Exporter"
-    menu_name = "Logs"
-    tab_sub_name = "User Apps" if table_index == 0 else "Services"
-
-    print(f"Adding {menu_name} -> {tab_name} -> {tab_sub_name} for Data Plane '{dp_title}'...")
-    page.locator(".stepper a", has_text=tab_name + " configurations").click()
-    if name_input == "":
-        name_input = Util.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
-
-    page.wait_for_timeout(1000)
-    if page.locator("proxies-exporters-list table").nth(table_index).locator("td", has_text=name_input).is_visible():
-        ColorLogger.success(f"The {name_input} is already exist in {menu_name} -> {tab_name} -> {tab_sub_name}.")
-        return
-
-    page.locator("proxies-exporters-list button", has_text="Add").nth(table_index).click()
-    print(f"Clicked 'Observability -> {menu_name} -> {tab_name} -> Add' button")
-    o11y_new_resource_fill_form(menu_name, tab_name, name_input, dp_name)
-
-def o11y_config_logs_metrics_traces(dp_name="", is_global=False):
-    ColorLogger.info("O11y start to config Logs/Metrics/Traces...")
-    dp_title = dp_name if dp_name else "Global"
-    print(f"Config {dp_title} Data Plane -> Observability -> Logs/Metrics/Traces ...")
-    goto_dataplane_config_sub_menu("Observability")
-    add_button_selector = "observability-data-plane .o11y-btn .add-dp-o11y-icon"
-    if is_global:
-        add_button_selector = ".global-configuration-details .add-global-o11y-icon"
-    if not page.locator(add_button_selector).is_visible():
-        ColorLogger.warning(f"New UI for Data plane '{dp_title}' Observability is not available.")
-        return
-
-    goto_dataplane_config_o11y_sub("Logs")
-    o11y_add_query_or_exporter(dp_name, "Logs", "Query Service")
-    o11y_add_log_exporter(dp_name, 0)
-    o11y_add_log_exporter(dp_name, 1)
-
-    goto_dataplane_config_o11y_sub("Metrics")
-    o11y_add_query_or_exporter(dp_name, "Metrics", "Query Service")
-    o11y_add_query_or_exporter(dp_name, "Metrics", "Exporter")
-
-    goto_dataplane_config_o11y_sub("Traces")
-    o11y_add_query_or_exporter(dp_name, "Traces", "Query Service")
-    o11y_add_query_or_exporter(dp_name, "Traces", "Exporter")
 
 def dp_config_resources_storage():
     ColorLogger.info("Config Data Plane Resources Storage...")
@@ -498,57 +519,66 @@ def dp_config_resources_storage():
         page.wait_for_timeout(1000)
         ColorLogger.success(f"Add Storage '{resource_name}' successfully.")
 
-def dp_config_resources_ingress():
+def dp_config_resources_ingress(ingress_controller, resource_name, fqdn):
     ColorLogger.info("Config Data Plane Resources Ingress...")
     page.locator("#resources-menu-item .menu-item-text", has_text="Resources").wait_for(state="visible")
     page.locator("#resources-menu-item .menu-item-text", has_text="Resources").click()
     print("Clicked 'Resources' left side menu")
     page.locator("#toggle-ingress-expansion").click()
-    resource_name = ENV.TP_AUTO_INGRESS_CONTROLLER
-    page.wait_for_timeout(2000)
+    print("Clicked expand Icon, and wait for Ingress Controller table")
+    page.wait_for_timeout(5000)
     print(f"Check if Ingress Controller '{resource_name}' is exist...")
     if page.locator("#ingress-resource-table tr td:first-child", has_text=resource_name).is_visible():
         ColorLogger.success(f"Ingress Controller '{resource_name}' is already created.")
     else:
+        print(f"Ingress Controller table do not have '{resource_name}'")
         print(f"Adding Ingress Controller '{resource_name}', and wait for 'Add Ingress Controller' button ...")
         page.locator(".ingress .add-resource-btn button").wait_for(state="visible")
         page.locator(".ingress .add-resource-btn button").click()
         print("Clicked 'Add Ingress Controller' button")
+
+        # Add Ingress Controller dialog popup
         page.locator('.pl-modal__header', has_text="Add Ingress Controller").wait_for(state="visible")
         print("Dialog 'Add Ingress Controller' popup")
+        page.locator('#ingress-controller-dropdown input').click()
+        print("Clicked 'Ingress Controller' dropdown")
+        page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).wait_for(state="visible")
+        print(f"Waiting for '{ingress_controller}' in Ingress Controller dropdown")
+        page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).click()
+        print(f"Selected '{ingress_controller}' in Ingress Controller dropdown")
         page.fill('#resourceName-input', resource_name)
+        print(f"Filled Resource Name: {resource_name}")
         page.fill('#ingressClassName-input', resource_name)
-        page.fill('#fqdn-input', ENV.TP_AUTO_FLOGO_CAPABILITY_URL)
-        print(f"Filled Ingress Controller, {resource_name}, {ENV.TP_AUTO_FLOGO_CAPABILITY_URL}")
+        print(f"Filled Ingress Class Name: {resource_name}")
+        page.fill('#fqdn-input', fqdn)
+        print(f"Filled FQDN: {fqdn}")
+
+        # for Ingress Key and Value
+        # if ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS != "" and ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES != "":
+        #     keys = ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS.split(" ")
+        #     values = ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES.split(" ")
+        #     for i in range(len(keys)):
+        #         key = keys[i].strip()
+        #         value = values[i].strip()
+        #         page.fill("#key-input", key)
+        #         page.fill("#value-textarea", value)
+        #         print(f"Filled Ingress Key: {key}, Value: {value}")
+        #         page.wait_for_timeout(500)
+        #         page.locator(".olly-header__inputs button", has_text="Save").click()
+        #         print("Clicked 'Save' button")
+        #         page.wait_for_timeout(500)
+
         page.wait_for_timeout(1000)
         page.locator("#save-ingress-configuration").click()
         print("Clicked 'Add' button")
         page.wait_for_timeout(1000)
-        ColorLogger.success(f"Add Ingress Controller '{resource_name}' successfully.")
-
-def flogo_goto_capability(dp_name, is_check_status=True):
-    ColorLogger.info("Flogo Going to capability...")
-    is_exit = False
-    goto_dataplane(dp_name)
-    print("Check if Flogo capability is ready...")
-    if Util.check_dom_visibility(page, page.locator("capability-card #flogo"), 10, 120, True):
-        print("Waiting for Flogo capability status is ready...")
-        if not is_check_status:
-            page.locator("capability-card #flogo .image-name").click()
-            print("Ignore check 'Flogo' capability status, get into 'Flogo' capability page")
+        if page.locator(".pl-notification--error").is_visible():
+            error_content = page.locator(".pl-notification__message").text_content()
+            Util.warning_screenshot(f"Config Data Plane Resources Ingress Error: {error_content}", page, "dp_config_resources_ingress.png")
+            page.locator("#cancel-ingress-configuration").click()
+            print("Clicked 'Cancel' button")
             return
-        if Util.check_dom_visibility(page, page.locator("capability-card #flogo .status .success")):
-            page.locator("capability-card #flogo .image-name").click()
-            print("Flogo capability status is ready, get into 'Flogo' capability")
-        else:
-            ColorLogger.error("Flogo capability is provisioned, but status is not ready.")
-            is_exit = True
-    else:
-        ColorLogger.error("Flogo capability is not provisioned yet.")
-        is_exit = True
-
-    if is_exit:
-        sys.exit("Exiting program: Flogo capability is not provisioned yet.")
+        ColorLogger.success(f"Add Ingress Controller '{resource_name}' successfully.")
 
 def flogo_provision_capability(dp_name):
     ColorLogger.info("Flogo Provisioning capability...")
@@ -563,47 +593,54 @@ def flogo_provision_capability(dp_name):
         ColorLogger.success(f"Data Plane '{dp_name}' status is running.")
         page.locator('button', has_text="Provision a capability").click()
         print("Clicked 'Provision a capability' button")
+        page.wait_for_timeout(2000)
         Util.click_button_until_enabled(page, page.locator('#FLOGO-capability-select-button'))
         print("Clicked 'Provision TIBCO Flogo® Enterprise' -> 'Start' button")
 
         print("Waiting for Flogo capability page is loaded")
         page.locator(".resources-content").wait_for(state="visible")
         print("Flogo capability page is loaded")
+        page.wait_for_timeout(3000)
 
         page.locator('#storage-class-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
-        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class")
-        page.locator('#ingress-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER)).locator('label').click()
-        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER}' Ingress Controller")
+        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for Flogo capability")
+        page.locator('#ingress-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress Controller for Flogo capability")
 
         page.locator("#btnNextCapabilityProvision").click()
+        print("Clicked Flogo 'Next' button, finished step 1")
         page.locator(".eula-container input").click()
+        print("Clicked Flogo 'EUA' checkbox")
         page.locator("#qaProvisionFlogo").click()
-        print("Selected 'EUA', then clicked 'Provision Flogo Version' button")
-        page.locator("flogo-tp-pl-icon svg.complete").wait_for(state="visible")
+        print("Clicked 'Flogo Provision Capability' button, waiting for Flogo Capability Provision Request Completed")
+        page.locator(".notification-message", has_text="Successfully provisioned Flogo").wait_for(state="visible")
         ColorLogger.success("Provision Flogo capability successful.")
         page.locator("#qaBackToDP").click()
         print("Clicked 'Go Back To Data Plane Details' button")
     else:
-        ColorLogger.error("'Provision a capability' button is not visible.")
-        sys.exit("Exiting program: Flogo capability is not provisioned yet.")
+        Util.exit_error("'Provision a capability' button is not visible.", page, "flogo_provision_capability.png")
+
+    print("Reload Data Plane page, and check if Flogo capability is provisioned...")
+    Util.refresh_page(page)
+    print("Waiting for Flogo capability is in capability list...")
+    page.wait_for_timeout(5000)
+    if is_capability_provisioned("Flogo"):
+        ColorLogger.success("Flogo capability is in capability list")
+    else:
+        Util.warning_screenshot("Flogo capability is not in capability list", page, "flogo_provision_capability-2.png")
 
 def flogo_provision_connector(dp_name):
     ColorLogger.info("Flogo Provisioning connector...")
 
-    flogo_goto_capability(dp_name, False)
-    page.wait_for_timeout(1000)
-    print("Before flogo provision connector, Check if Flogo have API error...")
-    if page.locator(".notification-message", has_text="Could not get custom extension provisioned in the Data plane").is_visible():
-        ColorLogger.error("Flogo capability page API error: Could not get custom extension provisioned in the Data plane.")
-        return
+    # program will exit if Flogo capability is not provisioned yet
+    goto_capability(dp_name, "Flogo")
 
     print("Flogo Checking connectors...")
     if page.locator(".capability-connectors-container .total-capability", has_text="(2)").is_visible():
         ColorLogger.success("Flogo connectors are already provisioned.")
         return
 
-    # program will exit if Flogo capability is not provisioned yet
-    flogo_goto_capability(dp_name)
+    page.wait_for_timeout(2000)
     print("Start Create Flogo app connector...")
 
     page.locator(".capability-buttons", has_text="Provision Flogo & Connectors").wait_for(state="visible")
@@ -624,21 +661,15 @@ def flogo_provision_connector(dp_name):
 def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
     ColorLogger.info("Flogo Creating app build...")
 
-    flogo_goto_capability(dp_name, False)
-    page.wait_for_timeout(1000)
-    print("Before flogo app build and deploy, Check if Flogo have API error...")
-    if page.locator(".notification-message", has_text="Could not get custom extension provisioned in the Data plane").is_visible():
-        ColorLogger.error("Flogo capability page API error: Could not get custom extension provisioned in the Data plane.")
-        return
+    # program will exit if Flogo capability is not provisioned yet
+    goto_capability(dp_name, "Flogo")
 
     print("Flogo Checking app build...")
     if page.locator(".app-build-container td", has_text=app_name).is_visible():
         ColorLogger.success(f"Flogo app build {app_name} is already created.")
         return
 
-    # program will exit if Flogo capability is not provisioned yet
-    flogo_goto_capability(dp_name)
-    page.wait_for_timeout(1000)
+    page.wait_for_timeout(2000)
     print("Start Create Flogo app build...")
 
     page.locator(".capability-buttons", has_text="Create New App Build And Deploy").click()
@@ -680,8 +711,7 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
     print(f"Clicked 'Namespace' dropdown, and waiting for namespace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
     page.wait_for_timeout(1000)
     if not page.locator("flogo-namespace-picker .namespace-dropdown li", has_text=ENV.TP_AUTO_K8S_DP_NAMESPACE).is_visible():
-        ColorLogger.error(f"Namespace '{ENV.TP_AUTO_K8S_DP_NAMESPACE}' is not list in the dropdown.")
-        sys.exit(f"Exiting program: Namespace '{ENV.TP_AUTO_K8S_DP_NAMESPACE}' is not list in the dropdown.")
+        Util.exit_error(f"Namespace '{ENV.TP_AUTO_K8S_DP_NAMESPACE}' is not list in the dropdown.", page, "flogo_app_build_and_deploy.png")
 
     page.locator("flogo-namespace-picker .namespace-dropdown li", has_text=ENV.TP_AUTO_K8S_DP_NAMESPACE).click()
     print(f"Selected namespace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
@@ -700,6 +730,10 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
     page.locator('.finish-container .step-description', has_text="Building the app...").wait_for(state="visible")
     print("Waiting for 'Building the app...'")
     print("Check if Flogo app deployed successfully...")
+    if Util.check_dom_visibility(page, page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 10):
+        Util.exit_error(f"Flogo app build '{app_name}' is not deployed.", page, "flogo_app_build_and_deploy_deploy.png")
+
+    print("No deploy error, continue waiting for deploy status...")
     if Util.check_dom_visibility(page, page.locator('.finish-container .step-description', has_text="Successfully deployed App")):
         ColorLogger.success(f"Flogo app build '{app_name}' is deployed.")
 
@@ -713,12 +747,11 @@ def flogo_app_deploy(dp_name, app_name):
         return
 
     # program will exit if Flogo capability is not provisioned yet
-    flogo_goto_capability(dp_name)
+    goto_capability(dp_name, "Flogo")
 
     print(f"Waiting for Flogo app build {app_name} is deployed...")
     if not Util.check_dom_visibility(page, page.locator(".app-build-container td:first-child", has_text=app_name), 20, 180, True):
-        ColorLogger.error(f"Flogo app {app_name} is not deployed.")
-        sys.exit(f"Exiting program: Flogo app {app_name} is not deployed.")
+        Util.exit_error(f"Flogo app {app_name} is not deployed.", page, "flogo_app_deploy.png")
 
     page.locator(".app-build-container tr", has=page.locator("td", has_text=app_name)).nth(0).locator('flogo-app-build-actions button[data-pl-dropdown-role="toggler"]').click()
     print(f"Clicked action menu button for {app_name}")
@@ -742,17 +775,18 @@ def flogo_app_deploy(dp_name, app_name):
     page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
     print(f"Clicked menu navigator Data Plane '{dp_name}'")
 
+    print(f"Waiting for Flogo app '{app_name}' is deployed...")
     if Util.check_dom_visibility(page, page.locator("apps-list td.app-name a", has_text=app_name), 10, 120):
         ColorLogger.success(f"Deploy Flogo app '{app_name}' in namespace {dp_name_space} Successfully")
     else:
-        ColorLogger.error(f"Deploy Flogo app '{app_name}' in namespace {dp_name_space} failed.")
+        Util.warning_screenshot(f"Deploy Flogo app '{app_name}' in namespace {dp_name_space} may failed.", page, "flogo_app_deploy-2.png")
 
 def flogo_app_config(dp_name, app_name):
     ColorLogger.info(f"Flogo Config app '{app_name}'...")
     goto_app_detail(dp_name, app_name)
 
     if page.locator(".no-endpoints", has_text="There are no Endpoints configured for the application").is_visible():
-        ColorLogger.error(f"There is some error for Flogo app '{app_name}', it has no Endpoints configured.")
+        Util.warning_screenshot(f"There is some error for Flogo app '{app_name}', it has no Endpoints configured.", page, "flogo_app_config.png")
         return
 
     # set Endpoint Visibility to Public
@@ -765,13 +799,13 @@ def flogo_app_config(dp_name, app_name):
     page.locator(".pl-modal__footer-right button", has_text="Cancel").wait_for(state="visible")
     print("Dialog 'Set Endpoint Visibility' popup")
     if page.locator(".modal-header", has_text="Update Endpoint visibility to Public").is_visible():
-        if page.locator(".capability-table-row-details label[for='ingress-radio-button-0']", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER).is_visible():
-            page.locator(".capability-table-row-details label[for='ingress-radio-button-0']", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER).click()
-            print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER}' from Resource Name column")
+        if page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).is_visible():
+            page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).click()
+            print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' from Resource Name column")
             page.locator("button", has_text="Update Endpoint visibility to Public").click()
             print("Clicked 'Update Endpoint visibility to Public' button")
         else:
-            ColorLogger.warning(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER}' is not available.")
+            Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' is not available.", page, "flogo_app_config-endpoint.png")
     else:
         if page.locator(".modal-header", has_text="Update Endpoint visibility to Private").is_visible():
             page.locator(".pl-modal__footer-right button", has_text="Cancel").click()
@@ -814,7 +848,7 @@ def flogo_app_start(dp_name, app_name):
             app_status = page.locator("flogo-app-run-status .scale-status-text").inner_text()
             ColorLogger.success(f"Flogo app '{app_name}' status is '{app_status}' now.")
         else:
-            ColorLogger.error(f"Wait too long to scale Flogo app '{app_name}'.")
+            Util.warning_screenshot(f"Wait too long to scale Flogo app '{app_name}'.", page, "flogo_app_start.png")
 
 def flogo_app_test_endpoint(dp_name, app_name):
     ColorLogger.info(f"Flogo Test app endpoint '{app_name}'...")
@@ -824,6 +858,7 @@ def flogo_app_test_endpoint(dp_name, app_name):
     page.locator(".pl-primarynav__menu .pl-primarynav__item", has_text="Endpoints").click()
 
     print("Check if 'Test' button is visible...")
+    page.wait_for_timeout(2000)
     if page.locator(".endpoints-container .action-button a", has_text="Test").is_visible():
         with page.context.expect_page() as new_page_info:
             page.locator(".endpoints-container .action-button a", has_text="Test").click()
@@ -851,13 +886,12 @@ def flogo_app_test_endpoint(dp_name, app_name):
             print("Closed Swagger page")
             ColorLogger.success(f"Test Flogo app '{app_name}', endpoint '/flogo'")
         else:
-            ColorLogger.error(f"Swagger page is not loaded, title '{app_name}' is not displayed.")
+            Util.warning_screenshot(f"Swagger page is not loaded, title '{app_name}' is not displayed.", page, "flogo_app_test_endpoint.png")
     else:
-        ColorLogger.error(f"'Test' button is not visible in Flogo app {app_name}, need to config it and start app.")
+        Util.warning_screenshot(f"'Test' button is not visible in Flogo app {app_name}, need to config it and start app.", page, "flogo_app_test_endpoint.png")
 
-def flogo_is_app_created(dp_name, app_name):
+def flogo_is_app_created(app_name):
     ColorLogger.info(f"Checking if Flogo app '{app_name}' is created")
-    goto_dataplane(dp_name)
     try:
         print(f"Checking if Flogo app '{app_name}' is already created...")
         page.wait_for_timeout(3000)
@@ -868,46 +902,349 @@ def flogo_is_app_created(dp_name, app_name):
             print(f"Flogo app '{app_name}' has not been created.")
             return False
     except Exception as e:
-        print(f"An error occurred while Checking Flogo app '{app_name}': {e}")
-        ColorLogger.error(f"An error occurred while Checking Flogo app '{app_name}': {e}")
+        ColorLogger.warning(f"An error occurred while Checking Flogo app '{app_name}': {e}")
         return False
 
-ENV = EnvConfig()
+def flogo_is_app_running(app_name):
+    ColorLogger.info(f"Checking if Flogo app '{app_name}' is running")
+    try:
+        print(f"Checking if Flogo app '{app_name}' is already running...")
+        page.wait_for_timeout(3000)
+        if page.locator("#app-list-table tr.FLOGO", has=page.locator("td.app-name", has_text=app_name)).locator("td", has_text="Running").is_visible():
+            ColorLogger.success(f"Flogo app '{app_name}' is already running.")
+            ENV.set_flogo_app_status("Running")
+            return True
+        else:
+            print(f"Flogo app '{app_name}' has not been running.")
+            return False
+    except Exception as e:
+        ColorLogger.warning(f"An error occurred while Checking Flogo app '{app_name}': {e}")
+        return False
+
+def bwce_provision_capability(dp_name):
+    ColorLogger.info("BWCE Provisioning capability...")
+    goto_dataplane(dp_name)
+    if page.locator("capability-card #bwce").is_visible():
+        ColorLogger.success("BWCE capability is already provisioned.")
+        return
+
+    print("Checking if 'Provision a capability' button is visible.")
+    if Util.check_dom_visibility(page, page.locator('button', has_text="Provision a capability"), 10, 100):
+        print("'Provision a capability' button is visible.")
+        ColorLogger.success(f"Data Plane '{dp_name}' status is running.")
+        page.locator('button', has_text="Provision a capability").click()
+        print("Clicked 'Provision a capability' button")
+        page.wait_for_timeout(2000)
+        Util.click_button_until_enabled(page, page.locator('#BWCE-capability-select-button'))
+        print("Clicked 'Provision TIBCO BusinessWorks™ Container Edition' -> 'Start' button")
+
+        print("Waiting for BWCE capability page is loaded")
+        page.locator(".resources-content").wait_for(state="visible")
+        print("BWCE capability page is loaded")
+        page.wait_for_timeout(3000)
+
+        page.locator('#ingress-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE}' Ingress Controller")
+
+        page.locator("#btnNextCapabilityProvision", has_text="Next").click()
+        print("Clicked BWCE 'Next' button, finished step 1")
+        page.locator(".resource-agree label").click()
+        print("Clicked BWCE 'EUA' checkbox")
+        page.locator("#btnNextCapabilityProvision", has_text="BWCE Provision Capability").click()
+        print("Clicked 'BWCE Provision Capability' button, waiting for BWCE Capability Provision Request Completed")
+        if Util.check_dom_visibility(page, page.locator(".resource-success .title", has_text="Capability Provision Request Completed"), 5, 60):
+            ColorLogger.success("Provision Flogo capability successful.")
+        page.locator("#capProvBackToDPBtn").click()
+        print("Clicked 'Go Back To Data Plane Details' button")
+    else:
+        Util.exit_error("'Provision a capability' button is not visible.", page, "bwce_provision_capability.png")
+
+    print("Reload Data Plane page, and check if BWCE capability is provisioned...")
+    Util.refresh_page(page)
+    print("Waiting for BWCE capability is in capability list...")
+    page.wait_for_timeout(5000)
+    if is_capability_provisioned("BWCE"):
+        ColorLogger.success("BWCE capability is in capability list")
+    else:
+        Util.warning_screenshot("BWCE capability is not in capability list", page, "bwce_provision_capability-2.png")
+
+def ems_provision_capability(dp_name, ems_server_name):
+    capability_name = f"{ems_server_name}-dev"
+    ColorLogger.info("EMS Provisioning capability...")
+    goto_dataplane(dp_name)
+    if page.locator("capability-card #ems .pl-tooltip__trigger", has_text=capability_name).is_visible():
+        ColorLogger.success("EMS capability is already provisioned.")
+        return
+
+    print("Checking if 'Provision a capability' button is visible.")
+    if Util.check_dom_visibility(page, page.locator('button', has_text="Provision a capability"), 10, 100):
+        print("'Provision a capability' button is visible.")
+        ColorLogger.success(f"Data Plane '{dp_name}' status is running.")
+        page.locator('button', has_text="Provision a capability").click()
+        print("Clicked 'Provision a capability' button")
+        page.wait_for_timeout(2000)
+        Util.click_button_until_enabled(page, page.locator('#EMS-capability-select-button'))
+        print("Clicked 'Provision TIBCO Enterprise Message Service™' -> 'Start' button")
+
+        print("Waiting for EMS capability page is loaded")
+        page.locator(".resources-content").wait_for(state="visible")
+        print("EMS capability page is loaded")
+        page.wait_for_timeout(3000)
+
+        # step1: Resources
+        page.locator('#message-storage-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Message Storage")
+
+        page.locator('#log-storage-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Log Storage")
+
+        page.locator("#btnNextCapabilityProvision", has_text="Next").click()
+        print("Clicked EMS step 1 'Next' button")
+
+        # step2: Configuration
+        page.locator("#ems-config-capability-instance").wait_for(state="visible")
+        print("Waiting for EMS configuration step 2 is loaded")
+        page.fill("#ems-config-capability-instance", ems_server_name)
+        print(f"Filled EMS 'Server Name' with '{ems_server_name}'")
+        page.locator("label[for='ems-config-eula']").click()
+        print("Clicked EMS 'EUA' checkbox")
+        page.locator("#btn_next_configuration", has_text="Next").click()
+        print("Clicked EMS step 2 'Next' button")
+
+        # step3: Custom Config
+        print("Skipped EMS step 3")
+
+        # step4: Configuration
+        page.locator("#btn_next_confirmation", has_text="Provision TIBCO Enterprise Message Service").click()
+        print("Clicked EMS step 4 'Provision TIBCO Enterprise Message Service' button, waiting for EMS Capability Provision Request Completed")
+
+        if Util.check_dom_visibility(page, page.get_by_text("EMS server is provisioned and ready to use!"), 5, 60):
+            ColorLogger.success("Provision EMS capability successful.")
+        page.locator("#btn_go_to_dta_pln").click()
+        print("Clicked 'Go Back To Data Plane Details' button")
+    else:
+        Util.exit_error("'Provision a capability' button is not visible.", page, "ems_provision_capability.png")
+
+    print("Reload Data Plane page, and check if EMS capability is provisioned...")
+    Util.refresh_page(page)
+    print("Waiting for EMS capability is in capability list...")
+    page.wait_for_timeout(5000)
+    if is_capability_provisioned("EMS", capability_name):
+        ColorLogger.success(f"EMS capability {capability_name} is in capability list")
+    else:
+        Util.warning_screenshot(f"EMS capability {capability_name} is not in capability list", page, "ems_provision_capability-2.png")
+
+def pulsar_provision_capability(dp_name, pulsar_server_name):
+    capability_name = f"{pulsar_server_name}-dev"
+    ColorLogger.info("Pulsar Provisioning capability...")
+    goto_dataplane(dp_name)
+    if page.locator("capability-card #pulsar .pl-tooltip__trigger", has_text=capability_name).is_visible():
+        ColorLogger.success("Pulsar capability is already provisioned.")
+        return
+
+    print("Checking if 'Provision a capability' button is visible.")
+    if Util.check_dom_visibility(page, page.locator('button', has_text="Provision a capability"), 10, 100):
+        print("'Provision a capability' button is visible.")
+        ColorLogger.success(f"Data Plane '{dp_name}' status is running.")
+        page.locator('button', has_text="Provision a capability").click()
+        print("Clicked 'Provision a capability' button")
+        page.wait_for_timeout(2000)
+        Util.click_button_until_enabled(page, page.locator('#PULSAR-capability-select-button'))
+        print("Clicked 'Provision TIBCO® Messaging Quasar - Powered by Apache Pulsar™' -> 'Start' button")
+
+        print("Waiting for Pulsar capability page is loaded")
+        page.locator(".resources-content").wait_for(state="visible")
+        print("Pulsar capability page is loaded")
+        page.wait_for_timeout(3000)
+
+        # step1: Resources
+        page.locator('#message-storage-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Message Storage")
+
+        page.locator('#journal-storage-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Journal Storage")
+
+        page.locator('#log-storage-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Log Storage")
+
+        page.locator("#btnNextCapabilityProvision", has_text="Next").click()
+        print("Clicked Pulsar step 1 'Next' button")
+
+        # step2: Configuration
+        page.locator("#cap-config-capability-instance").wait_for(state="visible")
+        print("Waiting for Pulsar configuration step 2 is loaded")
+        page.fill("#cap-config-capability-instance", pulsar_server_name)
+        print(f"Filled Pulsar 'Server Name' with '{pulsar_server_name}'")
+        page.locator("label[for='cap-config-eula']").click()
+        print("Clicked Pulsar 'EUA' checkbox")
+        page.locator("#btn_next_configuration", has_text="Next").click()
+        print("Clicked Pulsar step 2 'Next' button")
+
+        # step3: Custom Config
+        print("Skipped Pulsar step 3")
+
+        # step4: Configuration
+        page.locator("#btn_next_confirmation", has_text="Provision TIBCO® Messaging Quasar - Powered by Apache Pulsar™").click()
+        print("Clicked Pulsar step 4 'Provision TIBCO® Messaging Quasar - Powered by Apache Pulsar™' button, waiting for Pulsar Capability Provision Request Completed")
+
+        if Util.check_dom_visibility(page, page.get_by_text("Pulsar server is provisioned and ready to use!"), 5, 60):
+            ColorLogger.success("Provision Pulsar capability successful.")
+        page.locator("#btn_go_to_dta_pln").click()
+        print("Clicked 'Go Back To Data Plane Details' button")
+    else:
+        Util.exit_error("'Provision a capability' button is not visible.", page, "pulsar_provision_capability.png")
+
+    print("Reload Data Plane page, and check if Pulsar capability is provisioned...")
+    Util.refresh_page(page)
+    print("Waiting for Pulsar capability is in capability list...")
+    page.wait_for_timeout(5000)
+    if is_capability_provisioned("Pulsar", capability_name):
+        ColorLogger.success(f"Pulsar capability {capability_name} is in capability list")
+    else:
+        Util.warning_screenshot(f"Pulsar capability {capability_name} is not in capability list", page, "pulsar_provision_capability-2.png")
+
+def tibcohub_provision_capability(dp_name, hub_name):
+    capability_name = f"{hub_name}"
+    ColorLogger.info("TibcoHub Provisioning capability...")
+    goto_dataplane(dp_name)
+    if page.locator("capability-card #tibcohub .pl-tooltip__trigger", has_text=capability_name).is_visible():
+        ColorLogger.success("TibcoHub capability is already provisioned.")
+        return
+
+    print("Checking if 'Provision a capability' button is visible.")
+    if Util.check_dom_visibility(page, page.locator('button', has_text="Provision a capability"), 10, 100):
+        print("'Provision a capability' button is visible.")
+        ColorLogger.success(f"Data Plane '{dp_name}' status is running.")
+        page.locator('button', has_text="Provision a capability").click()
+        print("Clicked 'Provision a capability' button")
+        page.wait_for_timeout(2000)
+        Util.click_button_until_enabled(page, page.locator('#TIBCOHUB-capability-select-button'))
+        print("Clicked 'Provision TIBCO® Developer Hub' -> 'Start' button")
+
+        print("Waiting for TibcoHub capability page is loaded")
+        page.locator(".resources-content").wait_for(state="visible")
+        print("TibcoHub capability page is loaded")
+        page.wait_for_timeout(3000)
+
+        # step1: Resources for TibcoHub capability
+        page.locator('#storage-class-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for TibcoHub capability")
+
+        page.locator('#ingress-resource-table tr', has=page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB)).locator('label').click()
+        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB}' Ingress Controller for TibcoHub capability")
+
+        page.locator("#btnNextCapabilityProvision", has_text="Next").click()
+        print("Clicked TibcoHub step 1 'Next' button")
+
+        # step2: Configuration
+        page.locator("#thub-config-capability-instance").wait_for(state="visible")
+        print("Waiting for TibcoHub configuration step 2 is loaded")
+        page.fill("#thub-config-capability-instance", hub_name)
+        print(f"Filled TibcoHub 'Developer Hub Name' with '{hub_name}'")
+        page.locator("label[for='thub-config-eula']").click()
+        print("Clicked TibcoHub 'EUA' checkbox")
+        page.locator("#btn_next_configuration", has_text="Next").click()
+        print("Clicked TibcoHub step 2 'Next' button")
+
+        # step3: Custom Configuration
+        page.locator("#btn_next_custom_configuration", has_text="Next").click()
+        print("Clicked TibcoHub step 3 'Next' button")
+
+        # step4: Confirmation
+        page.locator("#btn_next_confirmation", has_text="Next").click()
+        print("Clicked TibcoHub step 4 'Next' button, waiting for TibcoHub Capability Provision Request Completed")
+
+        if Util.check_dom_visibility(page, page.get_by_text("Sit back while we provision your capability"), 5, 60):
+            ColorLogger.success("Provision TibcoHub capability successful.")
+        page.locator("#btn_go_to_dta_pln").click()
+        print("Clicked 'Go Back To Data Plane Details' button")
+    else:
+        Util.exit_error("'Provision a capability' button is not visible.", page, "tibcohub_provision_capability.png")
+
+    print("Reload Data Plane page, and check if TibcoHub capability is provisioned...")
+    Util.refresh_page(page)
+    print("Waiting for TibcoHub capability is in capability list...")
+    page.wait_for_timeout(5000)
+    if is_capability_provisioned("TibcoHub", capability_name):
+        ColorLogger.success(f"TibcoHub capability {capability_name} is in capability list")
+    else:
+        ColorLogger.warning(f"TibcoHub capability {capability_name} is not in capability list")
+
 if __name__ == "__main__":
     ENV.pre_check()
-    START_TIME = time.time()
 
-    browser = Util.browser_launch(ENV.IS_HEADLESS)
-    page = Util.browser_page(browser)
-    login(page)
-    login_check(page)
+    page = Util.browser_launch()
+    try:
+        login(page)
+        login_check(page)
 
-    set_user_permission()
+        set_user_permission()
 
-    # config global dataplane
-    # o11y_config_dataplane_resource()
+        # config global dataplane
+        # o11y_config_dataplane_resource()
 
-    goto_left_navbar("Data Planes")
-    k8s_create_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
-    goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
-    goto_dataplane_config()
-    dp_config_resources_storage()
-    dp_config_resources_ingress()
-    flogo_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+        if ENV.TP_AUTO_IS_CREATE_DP:
+            # for create dataplane and config dataplane resources
+            goto_left_navbar("Data Planes")
+            k8s_create_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+            goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+            goto_dataplane_config()
+            dp_config_resources_storage()
+            if ENV.TP_AUTO_IS_PROVISION_BWCE:
+                dp_config_resources_ingress(ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE, ENV.TP_AUTO_FQDN_BWCE)
+            if ENV.TP_AUTO_IS_PROVISION_FLOGO:
+                dp_config_resources_ingress(ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO, ENV.TP_AUTO_FQDN_FLOGO)
+            if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
+                dp_config_resources_ingress(ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB, ENV.TP_AUTO_FQDN_TIBCOHUB)
+            o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
 
-    goto_dataplane_config()
-    o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
+            # for provision BWCE capability
+            if ENV.TP_AUTO_IS_PROVISION_BWCE:
+                goto_left_navbar("Data Planes")
+                goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
-    if not flogo_is_app_created(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME):
-        flogo_provision_connector(ENV.TP_AUTO_K8S_DP_NAME)
-        flogo_app_build_and_deploy(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_FILE_NAME, ENV.FLOGO_APP_NAME)
-        flogo_app_deploy(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
-        flogo_app_config(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
-    flogo_app_start(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
-    flogo_app_test_endpoint(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
-    logout(page)
-    Util.browser_close(browser)
+                bwce_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
 
-    Util.print_env_info(ENV)
-    END_TIME = time.time()
-    ColorLogger.info(f"Create Data Plane / Flogo App, running time: {END_TIME - START_TIME:.2f} seconds")
+            # for provision EMS capability
+            if ENV.TP_AUTO_IS_PROVISION_EMS:
+                goto_left_navbar("Data Planes")
+                goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+                ems_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_EMS_CAPABILITY_SERVER_NAME)
+
+            # for provision Flogo capability, connector, app, and start app
+            if ENV.TP_AUTO_IS_PROVISION_FLOGO:
+                goto_left_navbar("Data Planes")
+                goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+                # check if Flogo app is created, if not, create it
+                if not flogo_is_app_created(ENV.FLOGO_APP_NAME):
+                    flogo_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+                    flogo_provision_connector(ENV.TP_AUTO_K8S_DP_NAME)
+                    flogo_app_build_and_deploy(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_FILE_NAME, ENV.FLOGO_APP_NAME)
+                    flogo_app_deploy(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
+
+                # check if Flogo app is created and running, if not, start it
+                if flogo_is_app_created(ENV.FLOGO_APP_NAME) and not flogo_is_app_running(ENV.FLOGO_APP_NAME):
+                    flogo_app_config(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
+                    flogo_app_start(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
+                    flogo_app_test_endpoint(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
+
+            # for provision Pulsar capability
+            if ENV.TP_AUTO_IS_PROVISION_PULSAR:
+                goto_left_navbar("Data Planes")
+                goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+                pulsar_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_PULSAR_CAPABILITY_SERVER_NAME)
+
+            # for provision TibcoHub capability
+            if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
+                goto_left_navbar("Data Planes")
+                goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+                tibcohub_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
+        logout(page)
+    except Exception as e:
+        Util.exit_error(f"Unhandled error: {e}", page, "unhandled_error_run.png")
+    Util.browser_close()
+
+    Util.print_env_info()
