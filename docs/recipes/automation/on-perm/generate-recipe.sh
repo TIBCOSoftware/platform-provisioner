@@ -1,9 +1,25 @@
 #!/bin/bash
 
 #
-# © 2024 Cloud Software Group, Inc.
+# © 2024 - 2025 Cloud Software Group, Inc.
 # All Rights Reserved. Confidential & Proprietary.
 #
+
+#######################################
+# generate-recipe.sh: this script will generate the recipe for deploying TP on-prem
+# Globals:
+#   None
+# Arguments:
+#   1 - 3: the choice of the source of the recipe
+# Returns:
+#   None
+# Notes:
+#   The recipe comes from provisioner-config-local chart. It can be generated from public repo or local repo.
+#   The default recipe values are designed for Docker Desktop environment. It can be adjusted for different k8s environments by running adjust-recipe.sh.
+#   After adjust the recipes; we can use ./update-recipe-tokens.sh to update the tokens for private repos.
+# Samples:
+#   ./generate-recipe.sh 1 1
+#######################################
 
 # This script will generate the recipe for deploying TP on-prem
 function select_recipe_source() {
@@ -35,7 +51,6 @@ function select_recipe_source() {
         # set recipe to use local script
         if [[ -f ${_recipe_file_name} ]]; then
           echo "Update recipe ${_recipe_file_name} to use local script..."
-          echo "set IS_LOCAL_AUTOMATION to true to run local script"
           export GUI_TP_AUTO_USE_LOCAL_SCRIPT=true
           export GUI_TP_AUTO_USE_GITHUB_SCRIPT=false
           yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT = env(GUI_TP_AUTO_USE_LOCAL_SCRIPT))' ${_recipe_file_name}
@@ -98,6 +113,7 @@ function generate_recipe() {
   update_05-tp-auto-deploy-dp
 }
 
+# Update the recipe file 05-tp-auto-deploy-dp.yaml
 update_05-tp-auto-deploy-dp() {
   local recipe_file="05-tp-auto-deploy-dp.yaml"
 
@@ -121,6 +137,7 @@ update_05-tp-auto-deploy-dp() {
   done
 }
 
+# Check if yq is installed
 check_yq() {
   if ! command -v yq &> /dev/null; then
     echo "Error: yq is not installed. Please install yq before running this script."

@@ -5,6 +5,8 @@ from playwright.sync_api import sync_playwright
 from color_logger import ColorLogger
 from env import ENV
 import time
+from datetime import datetime
+from report import ReportYaml
 
 class Util:
     _browser = None
@@ -34,20 +36,69 @@ class Util:
             ColorLogger.success("Browser Closed Successfully.")
 
         if Util._run_start_time is not None:
-            ColorLogger.info(f"Total running time: {time.time() - Util._run_start_time:.2f} seconds")
+            ColorLogger.info(f"Total running time: {time.time() - Util._run_start_time:.2f} seconds, current time: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
 
     @staticmethod
     def screenshot_page(page, filename):
         if filename == "":
             ColorLogger.warning(f"Screenshot filename={filename} MUST be set.")
             return
-        screenshot_dir = ENV.TP_AUTO_SCREENSHOT_PATH
+        attempt_folder = str(ENV.RETRY_TIME)
+        screenshot_dir = os.path.join(
+            ENV.TP_AUTO_REPORT_PATH,
+            attempt_folder,
+            "screenshots"
+        )
         # check folder screenshot_dir exist or not, if not create it
         if not os.path.exists(screenshot_dir):
             os.makedirs(screenshot_dir, exist_ok=True)
         file_path = os.path.join(screenshot_dir, filename)
         page.screenshot(path=file_path, full_page=True)
         print(f"Screenshot saved to {file_path}")
+
+    @staticmethod
+    def wait_for_success_message(page, timeout=30):
+        start_time = time.time()
+
+        while True:
+            elapsed_time = time.time() - start_time
+            if elapsed_time > timeout:
+                print("Timeout: Neither success nor error notification appeared.")
+                return False
+
+            try:
+                if page.locator(".notification-message").is_visible():
+                    return True
+
+                if page.locator(".pl-notification--error").is_visible():
+                    return False
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
+                pass
+            time.sleep(0.5)
+
+    @staticmethod
+    def download_file(file_obj, filename):
+        """
+        Downloads a file and saves it to the 'dp_commands' directory.
+
+        Args:
+            file_obj: The content of the file to be saved. It should have a `save_as` method.
+            filename (str): The name of the file to be saved.
+
+        Returns:
+            str: The path to the saved file.
+        """
+        # Create 'dp_commands' folder if it does not exist
+        steps_dir = os.path.join(ENV.TP_AUTO_REPORT_PATH, "dp_commands")
+        if not os.path.exists(steps_dir):
+            os.makedirs(steps_dir, exist_ok=True)
+        # Define the full file path
+        file_path = os.path.join(steps_dir, filename)
+        # Save the file content to the specified path
+        file_obj.save_as(file_path)
+        print(f"File saved to {file_path}")
+        return file_path
 
     @staticmethod
     def exit_error(message, page=None, filename=""):
@@ -70,6 +121,20 @@ class Util:
 
     @staticmethod
     def print_env_info(is_print_auth=True, is_print_dp=True):
+        ReportYaml.set(".ENV.CP_MAIL_URL", ENV.TP_AUTO_MAIL_URL)
+        ReportYaml.set(".ENV.CP_ADMIN_URL", ENV.TP_AUTO_ADMIN_URL)
+        ReportYaml.set(".ENV.CP_ADMIN_USER", ENV.CP_ADMIN_EMAIL)
+        ReportYaml.set(".ENV.CP_ADMIN_PASSWORD", ENV.CP_ADMIN_PASSWORD)
+        ReportYaml.set(".ENV.CP_URL", ENV.TP_AUTO_LOGIN_URL)
+        ReportYaml.set(".ENV.CP_USER", ENV.DP_USER_EMAIL)
+        ReportYaml.set(".ENV.CP_PASSWORD", ENV.DP_USER_PASSWORD)
+        ReportYaml.set(".ENV.ELASTIC_URL", ENV.TP_AUTO_ELASTIC_URL)
+        ReportYaml.set(".ENV.KIBANA_URL", ENV.TP_AUTO_KIBANA_URL)
+        ReportYaml.set(".ENV.ELASTIC_USER", ENV.TP_AUTO_ELASTIC_USER)
+        ReportYaml.set(".ENV.ELASTIC_PASSWORD", ENV.TP_AUTO_ELASTIC_PASSWORD)
+        ReportYaml.set(".ENV.PROMETHEUS_URL", ENV.TP_AUTO_PROMETHEUS_URL)
+        ReportYaml.set(".ENV.PROMETHEUS_USER", ENV.TP_AUTO_PROMETHEUS_USER)
+        ReportYaml.set(".ENV.PROMETHEUS_PASSWORD", ENV.TP_AUTO_PROMETHEUS_PASSWORD)
         str_num = 90
         col_space = 28
         print("=" * str_num)
@@ -79,11 +144,11 @@ class Util:
             print("-" * str_num)
             print(f"{'Mail URL:':<{col_space}}{ENV.TP_AUTO_MAIL_URL}")
             print("-" * str_num)
-            print(f"{'Admin URL:':<{col_space}}{ENV.TP_AUTO_ADMIN_URL}")
+            print(f"{'CP Admin URL:':<{col_space}}{ENV.TP_AUTO_ADMIN_URL}")
             print(f"{'Admin Email:':<{col_space}}{ENV.CP_ADMIN_EMAIL}")
             print(f"{'Admin Password:':<{col_space}}{ENV.CP_ADMIN_PASSWORD}")
             print("-" * str_num)
-            print(f"{'Login URL:':<{col_space}}{ENV.TP_AUTO_LOGIN_URL}")
+            print(f"{'CP Login URL:':<{col_space}}{ENV.TP_AUTO_LOGIN_URL}")
             print(f"{'User Email:':<{col_space}}{ENV.DP_USER_EMAIL}")
             print(f"{'User Password:':<{col_space}}{ENV.DP_USER_PASSWORD}")
         if is_print_dp:
@@ -101,25 +166,33 @@ class Util:
             if ENV.TP_AUTO_PROMETHEUS_PASSWORD != "":
                 print(f"{'User Password:':<{col_space}}{ENV.TP_AUTO_PROMETHEUS_PASSWORD}")
             print("-" * str_num)
-            if ENV.TP_AUTO_IS_CREATE_DP:
+            dp_names = ReportYaml.get_dataplanes()
+            if len(dp_names) > 0:
                 print(f"{'Data Plane, App': ^{str_num}}")
                 print("-" * str_num)
-                print(f"{'DataPlane Name:':<{col_space}}{ENV.TP_AUTO_K8S_DP_NAME}")
-                if ENV.TP_AUTO_IS_CONFIG_O11Y:
-                    print(f"{'DataPlane Configured:':<{col_space}}{ENV.TP_AUTO_IS_CONFIG_O11Y}")
+                for dp_name in dp_names:
+                    print(f"{'DataPlane Name:':<{col_space}}{dp_name}")
 
-                print(f"{'Provisioned capabilities:':<{col_space}}"
-                      f"{'BWCE ' if ENV.TP_AUTO_IS_PROVISION_BWCE else ''}"
-                      f"{'EMS ' if ENV.TP_AUTO_IS_PROVISION_EMS else ''}"
-                      f"{'Flogo ' if ENV.TP_AUTO_IS_PROVISION_FLOGO else ''}"
-                      f"{'Pulsar ' if ENV.TP_AUTO_IS_PROVISION_PULSAR else ''}"
-                      f"{'TibcoHub' if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB else ''}"
-                      )
+                    is_config_o11y = ReportYaml.get_dataplane_info(dp_name, "o11yConfig")
+                    if is_config_o11y == "True":
+                        print(f"{'DataPlane Configured:':<{col_space}}{is_config_o11y}")
 
-                if ENV.TP_AUTO_IS_PROVISION_FLOGO:
-                    print(f"{'Flogo App Name:':<{col_space}}{ENV.FLOGO_APP_NAME}")
-                    if ENV.FLOGO_APP_STATUS != "":
-                        print(f"{'Flogo App Status:':<{col_space}}{ENV.FLOGO_APP_STATUS}")
+                    dp_capabilities = ReportYaml.get_capabilities(dp_name)
+                    if len(dp_capabilities) > 0:
+                        print(f"{'Provisioned capabilities:':<{col_space}}"
+                              f"{[cap.upper() for cap in dp_capabilities]}"
+                              )
+
+                    for dp_capability in dp_capabilities:
+                        app_names = ReportYaml.get_capability_apps(dp_name, dp_capability)
+                        if len(app_names) > 0:
+                            print(f"{dp_capability.capitalize()}")
+
+                        for app_name in app_names:
+                            app_status = ReportYaml.get_capability_app_info(dp_name, dp_capability, app_name, "status")
+                            print(f"{'  App Name:':<{col_space}}{app_name}")
+                            if app_status:
+                                print(f"{'  App Status:':<{col_space}}{app_status}")
         print("=" * str_num)
 
     @staticmethod
