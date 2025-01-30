@@ -65,6 +65,7 @@ cd "${DEV_PATH}" || exit
 
 # default network is host
 [[ -z "${PIPELINE_CONTAINER_NETWORK}" ]] && export PIPELINE_CONTAINER_NETWORK="host"
+[[ -z "${PIPELINE_CONTAINER_TTY}" ]] && export PIPELINE_CONTAINER_TTY="-it"
 
 [[ -z "${PIPELINE_INPUT_RECIPE}" ]] && export PIPELINE_INPUT_RECIPE="recipe.yaml"
 [[ -z "${PIPELINE_TRIGGER_RUN_SH}" ]] && export PIPELINE_TRIGGER_RUN_SH="true"
@@ -135,7 +136,7 @@ export PIPELINE_INPUT_RECIPE_CONTENT=""
 echo "Using platform provisioner docker image: ${PIPELINE_DOCKER_IMAGE}"
 
 # is used to export functions; so subshell can use it
-docker run -it --rm \
+docker run "${PIPELINE_CONTAINER_TTY}" --rm \
   --name provisioner-pipeline-task \
   --net "${PIPELINE_CONTAINER_NETWORK}" \
   -e ACCOUNT \

@@ -1,6 +1,7 @@
 from color_logger import ColorLogger
 from util import Util
 from env import ENV
+from report import ReportYaml
 
 def active_user_in_mail(email, is_admin=False):
     ColorLogger.info(f"Active user {email} in mail...")
@@ -20,6 +21,7 @@ def active_user_in_mail(email, is_admin=False):
         response = page.goto(ENV.TP_AUTO_MAIL_URL, timeout=5000)
         if response and response.status == 200:
             print(f"URL {ENV.TP_AUTO_MAIL_URL} is accessible")
+            ReportYaml.set(".ENV.REPORT_TP_AUTO_MAIL", True)
     except Exception as e:
         Util.exit_error(f"An error occurred while accessing {ENV.TP_AUTO_MAIL_URL}: {e}", page, "active_user_in_mail_1.png")
 
@@ -55,7 +57,7 @@ def active_user_in_mail(email, is_admin=False):
         new_page.locator("#ta-sign-in-button").click()
         ColorLogger.success(f"User {email} has been active in new window completed.")
     else:
-        Util.exit_error(f"Can not active Email for {email}", page, "active_user_in_mail_3.png")
+        Util.exit_error(f"Can not active Email for {email}", new_page, "active_user_in_mail_3.png")
 
     new_page.close()
 
@@ -87,6 +89,7 @@ def login_admin_user():
 
     page.locator(".pcp-page-title", has_text="Welcome").wait_for(state="visible")
     ColorLogger.success(f"Admin user {ENV.CP_ADMIN_EMAIL} login successful.")
+    ReportYaml.set(".ENV.REPORT_TP_AUTO_ADMIN", True)
 
 def logout_admin_user():
     ColorLogger.info(f"Loging out admin user...")
@@ -207,6 +210,7 @@ def login(page):
     if Util.check_dom_visibility(page, page.locator("#user-profile"), 5, 10, True):
         page.wait_for_selector('#user-profile')
         print(f"User {ENV.DP_USER_EMAIL} profile is displayed...")
+        ReportYaml.set(".ENV.REPORT_AUTO_ACTIVE_USER", True)
         ColorLogger.success("Login successful!")
         page.wait_for_timeout(1000)
     else:

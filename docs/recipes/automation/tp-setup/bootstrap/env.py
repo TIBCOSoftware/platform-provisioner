@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from color_logger import ColorLogger
 from helper import Helper
 import os
@@ -6,6 +7,8 @@ import os
 @dataclass(frozen=True)
 class EnvConfig:
     IS_HEADLESS = Helper.is_headless()
+
+    RETRY_TIME = datetime.now().strftime("%Y%m%d-%H%M%S") or ""
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or ""
     DP_HOST_PREFIX = os.environ.get("DP_HOST_PREFIX") or "cp-sub1"
     DP_USER_EMAIL = os.environ.get("DP_USER_EMAIL") or "cp-sub1@tibco.com"
@@ -15,7 +18,8 @@ class EnvConfig:
 
     # automation setup
     TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or "1.3"
-    TP_AUTO_SCREENSHOT_PATH = os.environ.get("TP_AUTO_SCREENSHOT_PATH") or os.path.join(os.getcwd(), "screenshots")
+    TP_AUTO_REPORT_PATH = os.environ.get("TP_AUTO_REPORT_PATH") or os.path.join(os.getcwd(), "report")
+    TP_AUTO_REPORT_YAML_FILE = os.environ.get("TP_AUTO_REPORT_YAML_FILE") or "report.yaml"
 
     TP_AUTO_IS_CREATE_DP = os.environ.get("TP_AUTO_IS_CREATE_DP", "false").lower() == "true"
     TP_AUTO_IS_CONFIG_O11Y = os.environ.get("TP_AUTO_IS_CONFIG_O11Y", "false").lower() == "true"
@@ -63,6 +67,7 @@ class EnvConfig:
 
     # data plane config
     TP_AUTO_INGRESS_CONTROLLER = os.environ.get("TP_AUTO_INGRESS_CONTROLLER") or "nginx"
+    TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME") or "nginx"
     TP_AUTO_INGRESS_CONTROLLER_BWCE = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_BWCE") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE}"
     TP_AUTO_INGRESS_CONTROLLER_FLOGO = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_FLOGO") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}"
     TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}"
@@ -78,10 +83,8 @@ class EnvConfig:
     # need to make sure the flogo app name is unique and lower case in above json file
     FLOGO_APP_NAME = Helper.get_app_name(FLOGO_APP_FILE_NAME)
 
-    # mutable class attributes
-    FLOGO_APP_STATUS = ""
-
     def pre_check(self):
+        ColorLogger.info(f"Current Retry time at '{self.RETRY_TIME}'")
         ColorLogger.info(f"Current CP version is '{self.TP_AUTO_CP_VERSION}'")
         ColorLogger.info(f"Headless mode is {self.IS_HEADLESS}")
         if not self.GITHUB_TOKEN:
@@ -113,8 +116,5 @@ class EnvConfig:
             ColorLogger.warning(f"CP_ADMIN_EMAIL is not set, will use default: {self.CP_ADMIN_EMAIL}")
         if not os.environ.get("CP_ADMIN_PASSWORD"):
             ColorLogger.warning(f"CP_ADMIN_PASSWORD is not set, will use default: {self.CP_ADMIN_PASSWORD}")
-
-    def set_flogo_app_status(self, status: str):
-        object.__setattr__(self, "FLOGO_APP_STATUS", status)
 
 ENV = EnvConfig()

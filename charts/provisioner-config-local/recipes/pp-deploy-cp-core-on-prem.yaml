@@ -26,7 +26,7 @@ meta:
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.3.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
     GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.3.53
-    GUI_CP_PLATFORM_BASE_VERSION: 1.3.437
+    GUI_CP_PLATFORM_BASE_VERSION: 1.3.439 # HF4
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"

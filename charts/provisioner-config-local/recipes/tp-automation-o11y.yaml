@@ -18,10 +18,10 @@ meta:
     GUI_TP_AUTO_CP_VERSION: ""    # keep it empty, unless you see an error with GUI_TP_AUTO_CP_VERSION in the logs
     GUI_TP_AUTO_USE_LOCAL_SCRIPT: false
     GUI_TP_AUTO_USE_GITHUB_SCRIPT: true
-    GUI_TP_AUTO_SCREENSHOT_PATH: "/tmp/auto/screenshots"
+    GUI_TP_AUTO_REPORT_PATH: "/tmp/auto/report"
     GUI_TP_AUTO_GITHUB_REPO_NAME: "github.com/TIBCOSoftware/platform-provisioner"
     GUI_TP_AUTO_GITHUB_REPO_PATH: "docs/recipes/automation/tp-setup/bootstrap"
-    GUI_TP_AUTO_GITHUB_REPO_BRANCH: "provisioner-config-local-1.1.16"
+    GUI_TP_AUTO_GITHUB_REPO_BRANCH: "provisioner-config-local-{{ .Chart.Version }}"
 
     # DP capabilities deployment
     GUI_TP_AUTO_ACTIVE_USER: true
@@ -56,6 +56,7 @@ meta:
     GUI_TP_AUTO_K8S_DP_NAMESPACE: "k8s-auto-dp1ns"
     GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT: "k8s-auto-dp1sa"
     GUI_TP_AUTO_INGRESS_CONTROLLER: "nginx"
+    GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: "nginx"
     GUI_TP_AUTO_STORAGE_CLASS: "hostpath"
 
     # DP o11y setup
@@ -87,10 +88,11 @@ meta:
     TP_AUTO_USE_LOCAL_SCRIPT: ${GUI_TP_AUTO_USE_LOCAL_SCRIPT:-false}
     TP_AUTO_USE_GITHUB_SCRIPT: ${GUI_TP_AUTO_USE_GITHUB_SCRIPT:-true}
     TP_AUTO_SCRIPT_FOLDER: ${GUI_TP_AUTO_SCRIPT_FOLDER:-"/tmp/auto"}
-    TP_AUTO_SCREENSHOT_PATH: ${GUI_TP_AUTO_SCREENSHOT_PATH:-"/tmp/auto/screenshots"}
+    TP_AUTO_REPORT_PATH: ${GUI_TP_AUTO_REPORT_PATH:-"/tmp/auto/report"}
+    TP_AUTO_REPORT_YAML_FILE: report.yaml
     TP_AUTO_GITHUB_REPO_NAME: ${GUI_TP_AUTO_GITHUB_REPO_NAME:-"github.com/TIBCOSoftware/platform-provisioner"}
     TP_AUTO_GITHUB_REPO_PATH: ${GUI_TP_AUTO_GITHUB_REPO_PATH:-"docs/recipes/automation/tp-setup/bootstrap"}
-    TP_AUTO_GITHUB_REPO_BRANCH: ${GUI_TP_AUTO_GITHUB_REPO_BRANCH:-"provisioner-config-local-1.1.16"}
+    TP_AUTO_GITHUB_REPO_BRANCH: ${GUI_TP_AUTO_GITHUB_REPO_BRANCH:-"provisioner-config-local-{{ .Chart.Version }}"}
 
     # DP capabilities deployment
     TP_AUTO_ACTIVE_USER: ${GUI_TP_AUTO_ACTIVE_USER:-true}
@@ -127,6 +129,7 @@ meta:
     TP_AUTO_K8S_DP_NAMESPACE: ${GUI_TP_AUTO_K8S_DP_NAMESPACE:-"k8s-auto-dp1ns"}
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT: ${GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT:-"k8s-auto-dp1sa"}
     TP_AUTO_INGRESS_CONTROLLER: ${GUI_TP_AUTO_INGRESS_CONTROLLER:-"nginx"}
+    TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: ${GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME:-"nginx"}
     TP_AUTO_STORAGE_CLASS: ${GUI_TP_AUTO_STORAGE_CLASS:-"hostpath"}
 
     # DP o11y setup
@@ -145,6 +148,7 @@ meta:
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
     PYTHON_FILE_ENTRY_POINT: run.py
+    PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
 tasks:
@@ -190,8 +194,6 @@ tasks:
     content: |
       cd ${TP_AUTO_SCRIPT_FOLDER}
       pip install -r requirements.txt
-      rm -rf downloads
-      rm -rf screenshots
 - condition: ${TP_AUTO_ACTIVE_USER} # only create admin and subscription
   clusters:
     - name: ${TP_CLUSTER_NAME}
@@ -200,6 +202,20 @@ tasks:
     fileName: script.sh
     content: |
       cd ${TP_AUTO_SCRIPT_FOLDER}
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      
+      if [[ -f "$_report_file" ]]; then
+        if [[ "$(yq '.ENV.REPORT_AUTO_ACTIVE_USER' "$_report_file")" == "true" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "ENV.REPORT_AUTO_ACTIVE_USER is true. User has been active. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       python ${PYTHON_FILE_LOGIN_POINT}
       _result=$?
       echo "python return code: ${_result}"
@@ -213,6 +229,21 @@ tasks:
     content: |
       export TP_AUTO_IS_CREATE_DP=${TP_AUTO_ENABLE_DP}
       cd ${TP_AUTO_SCRIPT_FOLDER}
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        # Get all dataPlane.name and concatenate them into a,b,c format
+        dp_names=$(yq '.dataPlane[].name' "$_report_file" | tr '\n' ',' | sed 's/,$//')
+        if [[ -n "$dp_names" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[$dp_names] already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       python ${PYTHON_FILE_ENTRY_POINT}
       _result=$?
       echo "python return code: ${_result}"
@@ -279,6 +310,18 @@ tasks:
       export TP_AUTO_IS_PROVISION_PULSAR=${TP_AUTO_ENABLE_PULSAR}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: true
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python ${PYTHON_FILE_ENV_POINT}
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}

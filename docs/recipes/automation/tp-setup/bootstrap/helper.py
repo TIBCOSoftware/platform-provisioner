@@ -15,27 +15,6 @@ class Helper:
         return os.environ.get("HEADLESS", "true").lower() == "true"
 
     @staticmethod
-    def download_file(file_obj, filename):
-        """
-        Downloads a file and saves it to the 'downloads' directory.
-
-        Args:
-            file_obj: The content of the file to be saved. It should have a `save_as` method.
-            filename (str): The name of the file to be saved.
-
-        Returns:
-            str: The path to the saved file.
-        """
-        # Create 'downloads' folder if it does not exist
-        steps_dir = os.path.join(os.getcwd(), "downloads")
-        os.makedirs(steps_dir, exist_ok=True)
-        # Define the full file path
-        file_path = os.path.join(steps_dir, filename)
-        # Save the file content to the specified path
-        file_obj.save_as(file_path)
-        return file_path
-
-    @staticmethod
     def run_shell_file(script_path):
         # Check if the script file exists
         if not os.path.exists(script_path):
@@ -64,8 +43,23 @@ class Helper:
             print(f"An unexpected error occurred: {e}")
 
     @staticmethod
+    def run_command(commands):
+        try:
+            result = subprocess.run(
+                commands,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            print(f"Error running yq command: {e}")
+            return None
+
+    @staticmethod
     def get_command_output(command):
         try:
+            command = f"{Helper.get_kube_config_path()} {command}"
             result = subprocess.run(
                 command,
                 shell=True,
@@ -75,8 +69,16 @@ class Helper:
             )
             return result.stdout.strip()  # Return standard output
         except subprocess.CalledProcessError as e:
+            print(f"Failed command: {command}")
             print(f"Command failed with error: {e.stderr.strip()}")
             return None
+
+    @staticmethod
+    def get_kube_config_path():
+        tp_auto_kubeconfig = os.environ.get("TP_AUTO_KUBECONFIG")
+        if tp_auto_kubeconfig:
+            return f"KUBECONFIG={tp_auto_kubeconfig}"
+        return ""
 
     @staticmethod
     def get_elastic_password():
