@@ -112,26 +112,6 @@ function redeploy-tp-o11y-stack() {
   deploy-tp-o11y-stack
 }
 
-# deploy-tp-o11y-resource deploys TP o11y resources # 6
-function deploy-tp-o11y-resource() {
-  local _recipe_file_name="05-tp-auto-deploy-dp.yaml"
-  if [[ ! -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
-    echo "Recipe file ${_recipe_file_name} not found."
-    return 1
-  fi
-  # change GUI_TP_AUTO_IS_CONFIG_O11Y to true to config TP o11y
-  _old=$(yq '.meta.guiEnv.GUI_TP_AUTO_IS_CONFIG_O11Y' 05-tp-auto-deploy-dp.yaml)
-  export GUI_TP_AUTO_IS_CONFIG_O11Y=true
-  yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_IS_CONFIG_O11Y = env(GUI_TP_AUTO_IS_CONFIG_O11Y))' 05-tp-auto-deploy-dp.yaml
-  export PIPELINE_NAME=generic-runner
-  export PIPELINE_DOCKER_IMAGE="${PIPELINE_DOCKER_IMAGE_TESTER}"
-  export PIPELINE_INPUT_RECIPE="${CURRENT_PATH}/${_recipe_file_name}"
-  bash -c "${PIPELINE_SCRIPT}"
-  # set GUI_TP_AUTO_IS_CONFIG_O11Y back
-  export GUI_TP_AUTO_IS_CONFIG_O11Y=${_old}
-  yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_IS_CONFIG_O11Y = env(GUI_TP_AUTO_IS_CONFIG_O11Y))' 05-tp-auto-deploy-dp.yaml
-}
-
 # run-with-retry runs a command with retries
 function run-with-retry() {
   local _cmd=$1
@@ -189,15 +169,14 @@ function main() {
   while true; do
     if [[ -z $choice ]]; then
       echo "Please select an option:"
-      echo "1. Deploy TP from scratch. (All steps: 2,5,7,3,7,4,6)"
+      echo "1. Deploy TP from scratch. (All steps: 2,5,7,3,7,4)"
       echo "2. Prepare TP cluster (Ingress, DB, storage, etc.)"
       echo "3. Deploy platform-bootstrap and platform-base only"
       echo "4. Deploy CP subscription (Admin, sub user, DP, app, etc.)"
       echo "5. Deploy o11y stack (Elastic, Prometheus, OTel Collector, etc.)"
-      echo "6. Deploy TP o11y resources (Config, o11y, etc.)"
-      echo "7. Cleanup resource (Remove resource limits, etc.)"
-      echo "8. Undeploy o11y stack then Redeploy o11y stack (dp-config-es-es-default-0 pod is pending)"
-      echo "9. Exit"
+      echo "6. Cleanup resource (Remove resource limits, etc.)"
+      echo "7. Undeploy o11y stack then Redeploy o11y stack (dp-config-es-es-default-0 pod is pending)"
+      echo "8. Exit"
       read -rp "Enter your choice (1-8): " choice
     fi
 
@@ -220,8 +199,6 @@ function main() {
 
         # run with retry for # 4
         run-with-retry deploy-subscription "${TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT}"
-
-        deploy-tp-o11y-resource # 6
 
         end_time=$(date +%s)
         total_time=$((end_time - start_time))
@@ -250,21 +227,16 @@ function main() {
         break
         ;;
       6)
-        echo "Deploying TP o11y resources..."
-        deploy-tp-o11y-resource
-        break
-        ;;
-      7)
         echo "Cleaning up resources..."
         post-deploy-cleanup-resource
         break
         ;;
-      8)
+      7)
         echo "Undeploy o11y stack then Redeploy o11y stack..."
         redeploy-tp-o11y-stack
         break
         ;;
-      9)
+      8)
         echo "Exiting..."
         break
         ;;
