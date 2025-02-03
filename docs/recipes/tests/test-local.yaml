@@ -17,6 +17,7 @@ meta:
     RUN1: true
 tasks:
   - condition: ${RUN1}
+    name: "test local script"
     script:
       ignoreErrors: false
       base64Encoded: false

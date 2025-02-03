@@ -220,7 +220,14 @@ function generic-runner::setup_script() {
 function generic-runner::run_task() {
   local _task_index=${1}
   local _task_content=${2}
-  common::info "running task #${_task_index}"
+  local _task_name=""
+
+  _task_name=$(echo "${_task_content}" | common::yq4-get '.name')
+  if [[ -n "${_task_name}" ]]; then
+    common::info "running task #${_task_index}, task name: \"${_task_name}\""
+  else
+    common::info "running task #${_task_index}"
+  fi
 
   local _task_script_section=""
   _task_script_section=$(echo "${_task_content}" | common::yq4-get '.script')

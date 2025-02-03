@@ -18,7 +18,9 @@ meta:
     CP_CHART_REPO: ${GUI_CP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform CP public repo
     CP_CHART_REPO_USER_NAME: ${GUI_CP_CHART_REPO_USER_NAME:-"cp-test"}
     CP_CHART_REPO_TOKEN: ${GUI_CP_CHART_REPO_TOKEN:-""}
-    DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # TIBCO Platform DP public repo
+    DP_CHART_REPO_HOST: ${GUI_DP_CHART_REPO_HOST:-"https://tibcosoftware.github.io"} # used in CP platform-base global.tibco.helm.url
+    DP_CHART_REPO_PATH: ${GUI_DP_CHART_REPO_PATH:-"tp-helm-charts"}
+    DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # Used in platform-bootstrap dpHelmRepositories
     DP_CHART_REPO_USER_NAME: ${GUI_DP_CHART_REPO_USER_NAME:-"cp-test"}
     DP_CHART_REPO_TOKEN: ${GUI_DP_CHART_REPO_TOKEN:-""}
 
@@ -38,11 +40,14 @@ meta:
     CP_EXTERNAL_ENVIRONMENT: ${GUI_CP_EXTERNAL_ENVIRONMENT:-"production"}
     CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
     CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # 37 pods * 50Mi = 1850Mi
+    CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: ${GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS:-true}
+    CP_GLOBAL_USE_SINGLE_NAMESPACE: ${GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE:-true}
 
     # domain
     CP_DNS_DOMAIN: ${GUI_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     CP_SERVICE_DNS_DOMAIN: ${CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}
     CP_TUNNEL_DNS_DOMAIN: ${CP_INSTANCE_ID}-tunnel.${CP_DNS_DOMAIN}
+
     # storage
     CP_STORAGE_CLASS: ${GUI_CP_STORAGE_CLASS:-"standard"} # standard, gp2, hostpath, efs-sc
     CP_STORAGE_PV_NAME: "${GUI_CP_STORAGE_PV_NAME}" # control-plane-pv the name of PV for kind, works with CP_STORAGE_CREATE_PV flag
@@ -52,10 +57,13 @@ meta:
     CP_NODE_CIDR: ${GUI_TP_CLUSTER_NODE_CIDR:-"10.180.0.0/16"}
     CP_POD_CIDR: ${GUI_TP_CLUSTER_POD_CIDR:-"10.180.0.0/16"}
     CP_SERVICE_CIDR: ${GUI_TP_SERVICE_CIDR:-"10.96.0.0/12"}
+
     # third party
     CP_EXT_NAMESPACE: ${GUI_CP_EXT_NAMESPACE:-"tibco-ext"}
+
     # network policies
     CP_CREATE_NETWORK_POLICIES: ${GUI_CP_CREATE_NETWORK_POLICIES:-false}
+
     # CP DB setup env
     CP_DB_HOST: ${GUI_CP_DB_HOST:-"postgresql.tibco-ext.svc.cluster.local"} #
     CP_DB_PORT: ${GUI_CP_DB_PORT:-"5432"}
@@ -68,6 +76,7 @@ meta:
     CP_DB_DELETE_ON_UNINSTALL: ${GUI_CP_DB_DELETE_ON_UNINSTALL:-"false"}
     CP_DB_SSL_ROOT_CERT_SECRET_NAME: ${GUI_CP_DB_SSL_ROOT_CERT_SECRET_NAME:-"db-ssl-root-cert"}
     CP_DB_SSL_ROOT_CERT_FILENAME: ${GUI_CP_DB_SSL_ROOT_CERT_FILENAME:-"db_ssl_root.cert"}
+
     # CP mail server
     CP_MAIL_MAILDEV_SERVICE_NAME: ${GUI_CP_MAIL_MAILDEV_SERVICE_NAME:-"development-mailserver"}
     CP_MAIL_SERVER_TYPE: ${GUI_CP_MAIL_SERVER_TYPE:-"smtp"} # smtp, ses, sendgrid
@@ -77,8 +86,10 @@ meta:
     CP_MAIL_SERVER_PORT_NUMBER: ${GUI_CP_MAIL_SERVER_PORT_NUMBER:-"1025"}
     CP_MAIL_SERVER_USERNAME: ${GUI_CP_MAIL_SERVER_USERNAME:-""}
     CP_MAIL_SERVER_PASSWORD: ${GUI_CP_MAIL_SERVER_PASSWORD:-""}
+
     # CP SSO
     CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: ${GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD:-"easy-to-remember"}
+
     # CP ingress
     CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
     CP_BOOTSTRAP_INGRESS_ROUTER: ${GUI_CP_BOOTSTRAP_INGRESS_ROUTER:-true} # set to false will create ingress for router and hybrid-proxy
@@ -90,9 +101,11 @@ meta:
     TP_GENERATE_CERTIFICATES: ${GUI_TP_GENERATE_CERTIFICATES:-true} # if true, will create cluster issuer and certificate for tp-certificate using cert-manager. For local use set to false
     TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
+
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.3.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
     CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.3.53} # use ^1.0.0 for latest
     CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.3.437} # use ^1.0.0 for latest
+
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}
     CP_CREATE_NAMESPACE: ${GUI_CP_CREATE_NAMESPACE:-true}
@@ -464,6 +477,8 @@ helmCharts:
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
           createNetworkPolicy: ${CP_CREATE_NETWORK_POLICIES}
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
   cluster:
     names:
       - ${CP_CLUSTER_NAME}
@@ -519,8 +534,14 @@ helmCharts:
         tibco:
           db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
           db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
+          helm:
+            url: "${DP_CHART_REPO_HOST}"
+            repo: "${DP_CHART_REPO_PATH}"
+            username: "${DP_CHART_REPO_USER_NAME}"
+            password: "${DP_CHART_REPO_TOKEN}"
         cp:
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
         external:
           environment: ${CP_EXTERNAL_ENVIRONMENT}
           helmRepo: ${CP_CHART_REPO}
