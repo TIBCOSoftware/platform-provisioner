@@ -24,9 +24,14 @@ class Helper:
         os.chmod(script_path, 0o755)
 
         try:
+            kube_config_path = Helper.get_kube_config_path()
+            if kube_config_path:
+                command = ["env", Helper.get_kube_config_path(), script_path]
+            else:
+                command = [script_path]
             # Execute the shell script using subprocess
             result = subprocess.run(
-                [script_path],             # Path to the script
+                command,             # Path to the script
                 shell=False,               # Run without invoking the shell for added security
                 check=True,                # Raise an error if the script exits with a non-zero status
                 capture_output=True,       # Capture standard output and standard error
@@ -90,13 +95,7 @@ class Helper:
 
     @staticmethod
     def get_storage_class():
-        output = Helper.get_command_output("kubectl get sc")
-        if "hostpath" in output:
-            return "hostpath"
-        elif "standard" in output:
-            return "standard"
-        else:
-            return ""
+        return Helper.get_command_output("kubectl get sc | awk '/\\(default\\)/ {print $1}'")
 
     @staticmethod
     def get_app_name(app_file_name):

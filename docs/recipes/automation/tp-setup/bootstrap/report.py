@@ -46,6 +46,10 @@ class ReportYamlHandler:
             ) += {{"{dp_key}": {dp_value}}}
         """)
 
+    # check if the dataplane exists
+    def is_dataplane_created(self, dp_name):
+        return dp_name in self.get_dataplanes()
+
     def get_dataplane_info(self, dp_name, dp_key):
         return self.get(f"""
             (.dataPlane[] 
@@ -72,14 +76,27 @@ class ReportYamlHandler:
         """)
         return capabilities.split("\n") if capabilities else []
 
-    def set_capability_info(self, dp_name, capability, app_key, app_value):
-        app_value = self.format_value(app_value)
+    # check if the capability of dataplane exists
+    def is_capability_for_dataplane_created(self, dp_name, capability):
+        return capability in self.get_capabilities(dp_name)
+
+    def set_capability_info(self, dp_name, capability, capability_key, capability_value):
+        capability_value = self.format_value(capability_value)
         self.set(f"""
             (.dataPlane[] 
                 | select(.name == "{dp_name}") 
                 | .capability[] 
                 | select(.name == "{capability}")
-            ) += {{"{app_key}": {app_value}}}
+            ) += {{"{capability_key}": {capability_value}}}
+        """)
+
+    def get_capability_info(self, dp_name, capability, capability_key):
+        return self.get(f"""
+            (.dataPlane[]
+                | select(.name == "{dp_name}")
+                | .capability[]
+                | select(.name == "{capability}").{capability_key}
+            )
         """)
 
     def set_capability_app(self, dp_name, capability, app_name):
@@ -102,6 +119,9 @@ class ReportYamlHandler:
            )
         """)
         return apps.split("\n") if apps else []
+
+    def is_app_created(self, dp_name, capability, app_name):
+        return app_name in self.get_capability_apps(dp_name, capability)
 
     def set_capability_app_info(self, dp_name, capability, app_name, app_key, app_value):
         app_value = self.format_value(app_value)
@@ -148,11 +168,13 @@ class ReportYamlHandler:
             {{"ENV": .ENV, "dataPlane": .dataPlane}}
         """)
         self.set(f"""
-            .dataPlane[] |= (
-              {{"name": .name, "storage": .storage, "o11yConfig": .o11yConfig, "nginx-flogo": ."nginx-flogo", "nginx-bwce": ."nginx-bwce", "capability": .capability}}
-            )
+            .dataPlane[] |= ({{
+                "name": .name, "storage": .storage, "o11yConfig": .o11yConfig,
+                "{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}": .{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO},
+                "{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE}": .{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE},
+                "capability": .capability
+            }})
         """)
-
 
     def _run_yq_command(self, args):
         """Run a yq command with the given arguments."""

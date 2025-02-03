@@ -19,6 +19,8 @@ meta:
     GUI_TP_AUTO_USE_LOCAL_SCRIPT: false
     GUI_TP_AUTO_USE_GITHUB_SCRIPT: true
     GUI_TP_AUTO_REPORT_PATH: "/tmp/auto/report"
+    GUI_TP_AUTO_REPORT_YAML_FILE: "report.yaml"
+    GUI_TP_AUTO_REPORT_TXT_FILE: "report.txt"
     GUI_TP_AUTO_GITHUB_REPO_NAME: "github.com/TIBCOSoftware/platform-provisioner"
     GUI_TP_AUTO_GITHUB_REPO_PATH: "docs/recipes/automation/tp-setup/bootstrap"
     GUI_TP_AUTO_GITHUB_REPO_BRANCH: "provisioner-config-local-{{ .Chart.Version }}"
@@ -89,7 +91,8 @@ meta:
     TP_AUTO_USE_GITHUB_SCRIPT: ${GUI_TP_AUTO_USE_GITHUB_SCRIPT:-true}
     TP_AUTO_SCRIPT_FOLDER: ${GUI_TP_AUTO_SCRIPT_FOLDER:-"/tmp/auto"}
     TP_AUTO_REPORT_PATH: ${GUI_TP_AUTO_REPORT_PATH:-"/tmp/auto/report"}
-    TP_AUTO_REPORT_YAML_FILE: report.yaml
+    TP_AUTO_REPORT_YAML_FILE: ${GUI_TP_AUTO_REPORT_YAML_FILE:-"report.yaml"}
+    TP_AUTO_REPORT_TXT_FILE: ${GUI_TP_AUTO_REPORT_TXT_FILE:-"report.txt"}
     TP_AUTO_GITHUB_REPO_NAME: ${GUI_TP_AUTO_GITHUB_REPO_NAME:-"github.com/TIBCOSoftware/platform-provisioner"}
     TP_AUTO_GITHUB_REPO_PATH: ${GUI_TP_AUTO_GITHUB_REPO_PATH:-"docs/recipes/automation/tp-setup/bootstrap"}
     TP_AUTO_GITHUB_REPO_BRANCH: ${GUI_TP_AUTO_GITHUB_REPO_BRANCH:-"provisioner-config-local-{{ .Chart.Version }}"}

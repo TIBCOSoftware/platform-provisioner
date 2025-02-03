@@ -120,7 +120,7 @@ class Util:
         page.wait_for_load_state()
 
     @staticmethod
-    def print_env_info(is_print_auth=True, is_print_dp=True):
+    def set_cp_env():
         ReportYaml.set(".ENV.CP_MAIL_URL", ENV.TP_AUTO_MAIL_URL)
         ReportYaml.set(".ENV.CP_ADMIN_URL", ENV.TP_AUTO_ADMIN_URL)
         ReportYaml.set(".ENV.CP_ADMIN_USER", ENV.CP_ADMIN_EMAIL)
@@ -135,8 +135,12 @@ class Util:
         ReportYaml.set(".ENV.PROMETHEUS_URL", ENV.TP_AUTO_PROMETHEUS_URL)
         ReportYaml.set(".ENV.PROMETHEUS_USER", ENV.TP_AUTO_PROMETHEUS_USER)
         ReportYaml.set(".ENV.PROMETHEUS_PASSWORD", ENV.TP_AUTO_PROMETHEUS_PASSWORD)
+        # ReportYaml.sort_yaml_order()
+
+    @staticmethod
+    def print_env_info(is_print_auth=True, is_print_dp=True):
         str_num = 90
-        col_space = 28
+        col_space = 30
         print("=" * str_num)
         if is_print_auth:
             print("-" * str_num)
@@ -166,33 +170,59 @@ class Util:
             if ENV.TP_AUTO_PROMETHEUS_PASSWORD != "":
                 print(f"{'User Password:':<{col_space}}{ENV.TP_AUTO_PROMETHEUS_PASSWORD}")
             print("-" * str_num)
+
+            dataplane_fields = [
+                ("o11yConfig", "DataPlane O11y Configured", "true"),
+                ("storage", "DataPlane storage", ENV.TP_AUTO_STORAGE_CLASS),
+                (ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE),
+                (ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO),
+                (ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB),
+            ]
+            capability_fields = [
+                ("provisionConnector", "Provision connector"),
+                ("appBuild", "Create App Build"),
+            ]
+            app_fields = [
+                ("status", "Status"),
+                ("endpointPublic", "Set endpoint to Public"),
+                ("enableTrace", "Enabled trace"),
+                ("testedEndpoint", "Tested Endpoint"),
+            ]
             dp_names = ReportYaml.get_dataplanes()
             if len(dp_names) > 0:
-                print(f"{'Data Plane, App': ^{str_num}}")
+                print(f"{'Data Plane, Capability, App': ^{str_num}}")
                 print("-" * str_num)
                 for dp_name in dp_names:
-                    print(f"{'DataPlane Name:':<{col_space}}{dp_name}")
+                    print(f"{'DataPlane Name':<{col_space}}{dp_name}")
 
-                    is_config_o11y = ReportYaml.get_dataplane_info(dp_name, "o11yConfig")
-                    if is_config_o11y == "True":
-                        print(f"{'DataPlane Configured:':<{col_space}}{is_config_o11y}")
+                    for field_key, field_label, field_value in dataplane_fields:
+                        if ReportYaml.get_dataplane_info(dp_name, field_key) == "true":
+                            print(f"{field_label:<{col_space}}{field_value}")
 
                     dp_capabilities = ReportYaml.get_capabilities(dp_name)
                     if len(dp_capabilities) > 0:
-                        print(f"{'Provisioned capabilities:':<{col_space}}"
+                        print(f"{'Provisioned capabilities':<{col_space}}"
                               f"{[cap.upper() for cap in dp_capabilities]}"
                               )
 
                     for dp_capability in dp_capabilities:
                         app_names = ReportYaml.get_capability_apps(dp_name, dp_capability)
-                        if len(app_names) > 0:
+                        provision_connector = ReportYaml.get_capability_info(dp_name, dp_capability, "provisionConnector")
+                        app_build = ReportYaml.get_capability_info(dp_name, dp_capability, "appBuild")
+                        if len(app_names) > 0 or provision_connector or app_build:
                             print(f"{dp_capability.capitalize()}")
 
+                        for field_key, field_label in capability_fields:
+                            field_value = ReportYaml.get_capability_info(dp_name, dp_capability, field_key)
+                            if field_value:
+                                print(f"    {field_label:<{col_space}}{field_value}")
+
                         for app_name in app_names:
-                            app_status = ReportYaml.get_capability_app_info(dp_name, dp_capability, app_name, "status")
-                            print(f"{'  App Name:':<{col_space}}{app_name}")
-                            if app_status:
-                                print(f"{'  App Status:':<{col_space}}{app_status}")
+                            print(f"{'  App Name':<{col_space}}{app_name}")
+                            for field_key, field_label in app_fields:
+                                field_value = ReportYaml.get_capability_app_info(dp_name, dp_capability, app_name, field_key)
+                                if field_value:
+                                    print(f"    {field_label:<{col_space}}{field_value}")
         print("=" * str_num)
 
     @staticmethod

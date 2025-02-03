@@ -251,4 +251,5 @@ if __name__ == "__main__":
 
     Util.browser_close()
 
+    Util.set_cp_env()
     Util.print_env_info(True, False)

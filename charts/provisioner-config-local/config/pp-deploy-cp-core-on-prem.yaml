@@ -92,13 +92,27 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CHART_REPO_TOKEN"
   description: ""
-- name: "DP Chart repo"
+#- name: "DP Chart repo"
+#  groupIndex: 1
+#  type: string
+#  guiType: input
+#  reference: "meta.guiEnv.GUI_DP_CHART_REPO"
+#  description: |
+#    The helm chart repository to deploy DP. The default value is public repo. To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_DP_CHART_REPO_TOKEN`
+- name: "DP Chart repo host"
   groupIndex: 1
   type: string
   guiType: input
-  reference: "meta.guiEnv.GUI_DP_CHART_REPO"
+  reference: "meta.guiEnv.GUI_DP_CHART_REPO_HOST"
   description: |
-    The helm chart repository to deploy DP. The default value is public repo. To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_DP_CHART_REPO_TOKEN`
+    The host name of the DP chart repository. like: https://tibcosoftware.github.io
+- name: "DP Chart repo path"
+  groupIndex: 1
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_DP_CHART_REPO_PATH"
+  description: |
+    The path of the DP chart repository. like: tp-helm-charts
 - name: "DP Chart repo user name"
   groupIndex: 1
   type: string
@@ -210,6 +224,13 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_EXT_NAMESPACE"
   description: "The CP third party tools namespace."
+- name: "Enable CP resource constraints"
+  groupIndex: 5
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS"
+  description: |
+    Set to true to enable resource constraints for CP. Default is true.
 
 # groupIndex: 6 CP ingress
 - name: "CP DNS domain"

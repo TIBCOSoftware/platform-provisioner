@@ -36,6 +36,7 @@ package recipe
 // the task to run
 #task: {
 	condition?: "true" | "false" | true | false | *true
+	name?: string // The name of the task. This will be used to identify the task in the pipeline
 	repo?: {
 		git!:
 			github!: #github
