@@ -11,8 +11,8 @@
 function setup-sc() {
   local _namespace=$1
   local _service_account=$2
-  oc adm policy add-scc-to-user tp-scc system:serviceaccount:${NAMESPACE}:default
-  oc adm policy add-scc-to-user tp-scc system:serviceaccount:${NAMESPACE}:${SERVICE_ACCOUNT}
+  oc adm policy add-scc-to-user tp-scc system:serviceaccount:${_namespace}:default
+  oc adm policy add-scc-to-user tp-scc system:serviceaccount:${_namespace}:${_service_account}
 }
 
 function main() {
