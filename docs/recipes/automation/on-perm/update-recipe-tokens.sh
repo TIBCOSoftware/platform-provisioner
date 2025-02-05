@@ -65,7 +65,7 @@ function set_jfrog_token() {
     read -rp "Enter JFrog Container Registry (Press Enter to skip): " GUI_CP_CONTAINER_REGISTRY
   fi
   if [ -n "$GUI_CP_CONTAINER_REGISTRY" ]; then
-    echo "Update GitHub token for ${_recipe_file_name}..."
+    echo "Update jFrog token for ${_recipe_file_name}..."
     export GUI_CP_CONTAINER_REGISTRY
     yq eval -i '(.meta.guiEnv.GUI_CP_CONTAINER_REGISTRY = env(GUI_CP_CONTAINER_REGISTRY))' "$_recipe_file_name"
   fi
@@ -74,7 +74,7 @@ function set_jfrog_token() {
     read -rp "Enter JFrog Container Registry Repository (Press Enter to skip): " GUI_CP_CONTAINER_REGISTRY_REPOSITORY
   fi
   if [ -n "$GUI_CP_CONTAINER_REGISTRY_REPOSITORY" ]; then
-    echo "Update GitHub token for ${_recipe_file_name}..."
+    echo "Update jFrog token for ${_recipe_file_name}..."
     export GUI_CP_CONTAINER_REGISTRY_REPOSITORY
     yq eval -i '(.meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_REPOSITORY = env(GUI_CP_CONTAINER_REGISTRY_REPOSITORY))' "$_recipe_file_name"
   fi
@@ -83,7 +83,7 @@ function set_jfrog_token() {
     read -rp "Enter JFrog Container Registry Username (Press Enter to skip): " GUI_CP_CONTAINER_REGISTRY_USERNAME
   fi
   if [ -n "$GUI_CP_CONTAINER_REGISTRY_USERNAME" ]; then
-    echo "Update GitHub token for ${_recipe_file_name}..."
+    echo "Update jFrog token for ${_recipe_file_name}..."
     export GUI_CP_CONTAINER_REGISTRY_USERNAME
     yq eval -i '(.meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_USERNAME = env(GUI_CP_CONTAINER_REGISTRY_USERNAME))' "$_recipe_file_name"
   fi
@@ -92,7 +92,7 @@ function set_jfrog_token() {
     read -rp "Enter JFrog Container Registry Password (Press Enter to skip): " GUI_CP_CONTAINER_REGISTRY_PASSWORD
   fi
   if [ -n "$GUI_CP_CONTAINER_REGISTRY_PASSWORD" ]; then
-    echo "Update GitHub token for ${_recipe_file_name}..."
+    echo "Update jFrog token for ${_recipe_file_name}..."
     export GUI_CP_CONTAINER_REGISTRY_PASSWORD
     yq eval -i '(.meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_PASSWORD = env(GUI_CP_CONTAINER_REGISTRY_PASSWORD))' "$_recipe_file_name"
   fi
@@ -111,7 +111,7 @@ function set_ssl_cert() {
     read -rp "Enter SSL Certificate (Press Enter to skip): " GUI_TP_TLS_CERT
   fi
   if [ -n "$GUI_TP_TLS_CERT" ]; then
-    echo "Update GitHub token for ${_recipe_file_name}..."
+    echo "Update SSL Certificate for ${_recipe_file_name}..."
     export GUI_TP_TLS_CERT
     yq eval -i '(.meta.guiEnv.GUI_TP_TLS_CERT = env(GUI_TP_TLS_CERT))' "$_recipe_file_name"
   fi
@@ -120,7 +120,7 @@ function set_ssl_cert() {
     read -rp "Enter SSL Certificate Key (Press Enter to skip): " GUI_TP_TLS_KEY
   fi
   if [ -n "$GUI_TP_TLS_KEY" ]; then
-    echo "Update GitHub token for ${_recipe_file_name}..."
+    echo "Update SSL Certificate for ${_recipe_file_name}..."
     export GUI_TP_TLS_KEY
     yq eval -i '(.meta.guiEnv.GUI_TP_TLS_KEY = env(GUI_TP_TLS_KEY))' "$_recipe_file_name"
   fi
