@@ -3,13 +3,15 @@ from datetime import datetime
 from color_logger import ColorLogger
 from helper import Helper
 import os
+import pytz
 
 @dataclass(frozen=True)
 class EnvConfig:
     IS_HEADLESS = Helper.is_headless()
 
-    RETRY_TIME = datetime.now().strftime("%Y%m%d-%H%M%S") or ""
-    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or ""
+    # GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or ""        # GitHub token is not used for now
+    RETRY_TIME = datetime.now(pytz.timezone("America/Chicago"))
+    RETRY_TIME_FOLDER = RETRY_TIME.strftime("%Y%m%d-%H%M%S")
     DP_HOST_PREFIX = os.environ.get("DP_HOST_PREFIX") or "cp-sub1"
     DP_USER_EMAIL = os.environ.get("DP_USER_EMAIL") or "cp-sub1@tibco.com"
     DP_USER_PASSWORD = os.environ.get("DP_USER_PASSWORD") or "Tibco@123"
@@ -17,7 +19,7 @@ class EnvConfig:
     CP_ADMIN_PASSWORD = os.environ.get("CP_ADMIN_PASSWORD") or "Tibco@123"
 
     # automation setup
-    TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or "1.3"
+    TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or "1.4"
     TP_AUTO_REPORT_PATH = os.environ.get("TP_AUTO_REPORT_PATH") or os.path.join(os.getcwd(), "report")
     TP_AUTO_REPORT_YAML_FILE = os.environ.get("TP_AUTO_REPORT_YAML_FILE") or "report.yaml"  # automation script will create this file
     TP_AUTO_REPORT_TXT_FILE = os.environ.get("TP_AUTO_REPORT_TXT_FILE") or "report.txt"    # this is the final report file for user to view
@@ -45,7 +47,7 @@ class EnvConfig:
 
     TP_AUTO_LOGIN_URL = os.environ.get("TP_AUTO_LOGIN_URL") or f"https://{DP_HOST_PREFIX}.{TP_AUTO_CP_SERVICE_DNS_DOMAIN}/cp/login"
     TP_AUTO_MAIL_URL = os.environ.get("TP_AUTO_MAIL_URL") or f"https://mail.{TP_AUTO_CP_DNS_DOMAIN}/#/"
-    TP_AUTO_ADMIN_URL = os.environ.get("TP_AUTO_ADMIN_URL") or f"https://admin.{TP_AUTO_CP_SERVICE_DNS_DOMAIN}/admin/login"
+    TP_AUTO_ADMIN_URL = os.environ.get("TP_AUTO_ADMIN_URL") or f"https://admin.{TP_AUTO_CP_SERVICE_DNS_DOMAIN}/admin"
 
     # elastic and prometheus
     TP_AUTO_ELASTIC_URL = os.environ.get("TP_AUTO_ELASTIC_URL") or f"https://elastic.{TP_AUTO_CP_DNS_DOMAIN}/"
@@ -85,11 +87,10 @@ class EnvConfig:
     FLOGO_APP_NAME = Helper.get_app_name(FLOGO_APP_FILE_NAME)
 
     def pre_check(self):
-        ColorLogger.info(f"Current Retry time at '{self.RETRY_TIME}'")
+        current_time = self.RETRY_TIME.strftime("%Y-%m-%d %H:%M:%S")
+        ColorLogger.info(f"Current Retry time at '{current_time}'")
         ColorLogger.info(f"Current CP version is '{self.TP_AUTO_CP_VERSION}'")
         ColorLogger.info(f"Headless mode is {self.IS_HEADLESS}")
-        if not self.GITHUB_TOKEN:
-            ColorLogger.warning(f"GITHUB_TOKEN is not set, DataPlane Helm Chart Repository Only support for 'Global Repository'.")
         if not self.TP_AUTO_CP_VERSION:
             ColorLogger.warning("CP version GUI_TP_AUTO_CP_VERSION is not set")
         if not self.TP_AUTO_IS_CREATE_DP:

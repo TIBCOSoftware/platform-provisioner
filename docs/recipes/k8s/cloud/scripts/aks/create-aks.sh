@@ -21,6 +21,8 @@
 #   TP_PUBLIC_IP_NAME: public ip name
 #   TP_AKS_SUBNET_NAME: aks subnet name
 #   TP_APISERVER_SUBNET_NAME: api server subnet name
+#   TP_SERVICE_CIDR: ip range from which to assign service cluster ip. This range must not overlap with any Subnet IP ranges
+#   TP_SERVICE_DNS_IP: ip address assigned to the kubernetes dns service. This address must be within the kubernetes service address range
 # Arguments:
 #   None
 # Returns:
@@ -39,6 +41,8 @@ export TP_RESOURCE_GROUP=${TP_RESOURCE_GROUP:-"tp-resource-group"}
 export TP_USER_ASSIGNED_IDENTITY_NAME="${TP_CLUSTER_NAME}-identity"
 export TP_NETWORK_POLICY=${TP_NETWORK_POLICY:-"azure"}
 export TP_VNET_NAME=${TP_VNET_NAME:-"${TP_CLUSTER_NAME}-vnet"}
+export TP_SERVICE_CIDR=${TP_SERVICE_CIDR:-"10.0.0.0/16"}
+export TP_SERVICE_DNS_IP=${TP_SERVICE_DNS_IP:-"10.0.0.10"}
 export TP_APPLICATION_GW_SUBNET_NAME=${TP_APPLICATION_GW_SUBNET_NAME:-"${TP_CLUSTER_NAME}-application-gw-subnet"}
 export TP_PUBLIC_IP_NAME=${TP_PUBLIC_IP_NAME:-"${TP_CLUSTER_NAME}-public-ip"}
 export TP_AKS_SUBNET_NAME=${TP_AKS_SUBNET_NAME:-"${TP_CLUSTER_NAME}-aks-subnet"}
@@ -103,6 +107,8 @@ az aks create -g "${TP_RESOURCE_GROUP}" -n "${TP_CLUSTER_NAME}" \
   --outbound-type userAssignedNATGateway \
   --appgw-name gateway \
   --vnet-subnet-id "${_aks_vnet_subnet_id}" \
+  --service-cidr "${TP_SERVICE_CIDR}" \
+  --dns-service-ip "${TP_SERVICE_DNS_IP}" \
   --appgw-subnet-id "${_application_gw_subnet_id}" \
   --enable-apiserver-vnet-integration \
   --apiserver-subnet-id "${_apiserver_subnet_id}" \
