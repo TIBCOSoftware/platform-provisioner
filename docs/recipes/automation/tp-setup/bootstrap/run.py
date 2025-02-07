@@ -1,71 +1,37 @@
 import os
 
 from color_logger import ColorLogger
-from page_auth import login, login_check, logout
 from util import Util
 from helper import Helper
 from env import ENV
 from report import ReportYaml
+from po_user_management import PageObjectUserManagement
+from po_auth import PageObjectAuth
 
-def grant_permission(permission):
-    ColorLogger.info(f"Granting permission for {permission}...")
-    page.locator(".policy-description", has_text=permission).click()
-    # check if input aria-checked="true" does not exist, then click
-    is_selected = page.locator('.dp-selector-container input').get_attribute("aria-checked")
-    print(f"Permission {permission} is selected: {is_selected}")
-    if is_selected != "true":
-        page.locator('.dp-selector-container label').click()
-        print("Grant permission for " + permission)
+def k8s_delete_dataplane(dp_name):
+    ColorLogger.info(f"Deleting Data Plane '{dp_name}'")
+    goto_left_navbar_dataplane()
 
-def set_user_permission():
-    if ReportYaml.get(".ENV.REPORT_USER_PERMISSION") == "true":
-        ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, user permission is already set.")
-        return
-    ColorLogger.info("Setting user permission...")
-    page.locator("#nav-bar-menu-list-dataPlanes").wait_for(state="visible")
-    page.click("#nav-bar-menu-list-dataPlanes")
-    page.locator("#register-dp-button").wait_for(state="visible")
-    print("Checking if user has permission...")
-    if not page.locator("#register-dp-button").is_disabled():
-        ColorLogger.success(f"User {ENV.DP_USER_EMAIL} already has all permissions.")
-        ReportYaml.set(".ENV.REPORT_USER_PERMISSION", True)
-        return
+    is_dataplane_visible = Util.refresh_until_success(page,
+                                                      page.locator('.data-plane-name', has_text=dp_name),
+                                                      page.locator(".data-planes-content"),
+                                                      "DataPlane list page is load.")
 
-    print("Start set user permission...")
-    page.click("#nav-bar-menu-item-usrMgmt")
-    page.click("#users-menu-item")
-    page.locator(f'.user-name-text[id="go-to-user-details-{ENV.DP_USER_EMAIL}"]').wait_for(state="visible")
-    print(f"{ENV.DP_USER_EMAIL} is found.")
-    # check if user has all permissions
-    page.locator(f'.user-name-text[id="go-to-user-details-{ENV.DP_USER_EMAIL}"]').click()
-    page.wait_for_timeout(1000)
-    print(f"Assign Permissions for {ENV.DP_USER_EMAIL}")
-    # if table.permissions has 8 rows, then exit this function
-    if page.locator("table.permissions .pl-table__row").count() == 8:
-        ColorLogger.success(f"User {ENV.DP_USER_EMAIL} already has all permissions.")
-        ReportYaml.set(".ENV.REPORT_USER_PERMISSION", True)
-        return
+    if is_dataplane_visible:
+        page.locator('data-plane-card', has=page.locator('.data-plane-name', has_text=dp_name)).locator('.delete-dp-dropdown button').nth(0).click()
+        print(f"Clicked '⋮' icon in Data Plane {dp_name} card")
+        page.locator(".is-shown .pl-dropdown-menu__action", has_text="Delete Data Plane").nth(0).wait_for(state="visible")
+        page.locator(".is-shown .pl-dropdown-menu__action", has_text="Delete Data Plane").nth(0).click()
+        print(f"Clicked 'Delete Data Plane' menu item")
+        page.locator(".delete-dp-modal").wait_for(state="visible")
+        print("'Delete Data Plane' dialog popup.")
+        page.locator(".delete-dp-modal #confirm-button").click()
+        if Util.wait_for_success_message(page, 5):
+            print("'Delete Data Plane' success message is displayed.")
+            page.locator('.data-plane-name', has_text=dp_name).wait_for(state="detached")
+            ColorLogger.success(f"Deleted Data Plane '{dp_name}'")
 
-    page.click("#assign-permissions-btn")
-
-    grant_permission("IdP Manager")
-    grant_permission("Team Admin")
-    grant_permission("Data plane Manager")
-    grant_permission("Capability Manager")
-    grant_permission("Application Manager")
-    grant_permission("Application Viewer")
-    grant_permission("View permissions")
-    # if button is not disabled, then click
-    if not page.locator("#next-assign-permissions").is_disabled():
-        page.click("#next-assign-permissions")
-        page.click("#assign-permissions-update")
-        ColorLogger.success(f"Grant All permission to {ENV.DP_USER_EMAIL}")
-        ReportYaml.set(".ENV.REPORT_USER_PERMISSION", True)
-    else:
-        ColorLogger.success(f"User {ENV.DP_USER_EMAIL} already has all permissions.")
-        ReportYaml.set(".ENV.REPORT_USER_PERMISSION", True)
-
-def k8s_create_dataplane(dp_name):
+def k8s_create_dataplane(dp_name, retry=0):
     if ReportYaml.is_dataplane_created(dp_name):
         ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, DataPlane '{dp_name}' is already created.")
         return
@@ -142,8 +108,13 @@ def k8s_create_dataplane(dp_name):
 
     # step Register Data Plane
     print("Check if create Data Plane is successful...")
-    if not Util.check_dom_visibility(page, page.locator("#data-plane-finished-btn"), 3, 30):
-        Util.exit_error(f"Data Plane '{dp_name}' creation failed.", page, "k8s_create_dataplane_finish.png")
+    if not Util.check_dom_visibility(page, page.locator(".register-data-plane-content"), 3, 45):
+        k8s_delete_dataplane(dp_name)
+        if retry >= 3:
+            Util.exit_error(f"Data Plane '{dp_name}' creation failed.", page, "k8s_create_dataplane_finish.png")
+
+        ColorLogger.warning(f"Data Plane '{dp_name}' creation failed, retry {retry + 1} times.")
+        k8s_create_dataplane(dp_name, retry + 1)
 
     download_commands = page.locator("#download-commands")
     commands_title = page.locator(".register-data-plane p.title").all_text_contents()
@@ -156,6 +127,7 @@ def k8s_create_dataplane(dp_name):
     # click Done button
     page.click("#data-plane-finished-btn")
     print("Data Plane create successful, clicked 'Done' button")
+    ReportYaml.set_dataplane_info(dp_name, "runCommands", True)
     page.locator('#confirm-button', has_text="Yes").wait_for(state="visible")
     page.locator('#confirm-button', has_text="Yes").click()
 
@@ -194,6 +166,7 @@ def k8s_wait_tunnel_connected(dp_name):
         Util.exit_error(f"DataPlane {dp_name} tunnel is not connected, exit program and recheck again.", page, "k8s_wait_tunnel_connected_2.png")
 
     ColorLogger.success(f"DataPlane {dp_name} tunnel is connected.")
+    ReportYaml.set_dataplane_info(dp_name, "tunnelConnected", True)
 
 def goto_left_navbar(item_name):
     ColorLogger.info(f"Going to left side menu ...")
@@ -222,16 +195,27 @@ def goto_dataplane(dp_name):
     ColorLogger.info(f"Going to k8s Data Plane '{dp_name}'...")
     page.click("#nav-bar-menu-list-dataPlanes")
     page.wait_for_timeout(2000)
+    is_dataplane_visible = Util.refresh_until_success(page,
+                                                      page.locator('.data-plane-name', has_text=dp_name),
+                                                      page.locator(".data-planes-content"),
+                                                      "DataPlane list page is load.")
 
-    if not page.locator('.data-plane-name', has_text=dp_name).is_visible():
+    if is_dataplane_visible:
+        page.locator('data-plane-card', has=page.locator('.data-plane-name', has_text=dp_name)).locator('button', has_text="Go to Data Plane").click()
+        print("Clicked 'Go to Data Plane' button")
+        page.wait_for_timeout(2000)
+        is_dataplane_detail_visible = Util.refresh_until_success(page,
+                                                                 page.locator('.domain-data-title', has_text=dp_name),
+                                                                 page.locator('.domain-data-title', has_text=dp_name),
+                                                                 f"DataPlane '{dp_name}' detail page is load.")
+        if is_dataplane_detail_visible:
+            print(f"Navigated to Data Plane '{dp_name}' detail page")
+            page.wait_for_timeout(1000)
+        else:
+            Util.exit_error(f"DataPlane {dp_name} detail page is not load.", page, "goto_dataplane.png")
+
+    else:
         Util.exit_error(f"DataPlane {dp_name} does not exist", page, "goto_dataplane.png")
-
-    page.locator('data-plane-card', has=page.locator('.data-plane-name', has_text=dp_name)).locator('button', has_text="Go to Data Plane").click()
-    print("Clicked 'Go to Data Plane' button")
-    page.wait_for_timeout(2000)
-    page.locator('.domain-data-title', has_text=dp_name).wait_for(state="visible")
-    print(f"Navigated to Data Plane '{dp_name}' page")
-    page.wait_for_timeout(1000)
 
 def goto_dataplane_config():
     ColorLogger.info(f"Going to Data plane Configuration page...")
@@ -249,14 +233,18 @@ def goto_dataplane_config_sub_menu(sub_menu_name = ""):
 def goto_app_detail(dp_name, app_name):
     ColorLogger.info(f"Going to app '{app_name}' detail page")
     goto_dataplane(dp_name)
-    if not page.locator("apps-list td.app-name a", has_text=app_name).is_visible():
+    is_app_visible = Util.refresh_until_success(page,
+                                                page.locator("apps-list td.app-name a", has_text=app_name),
+                                                page.locator("apps-list td.app-name a", has_text=app_name),
+                                                      "App detail page is load.")
+    if is_app_visible:
+        page.locator("apps-list td.app-name a", has_text=app_name).click()
+        print(f"Clicked app '{app_name}'")
+        page.locator(".app-name-section .name", has_text=app_name).wait_for(state="visible")
+        print(f"Navigated to app '{app_name}' detail page")
+        page.wait_for_timeout(500)
+    else:
         Util.exit_error(f"The app '{app_name}' is not deployed yet.", page, "goto_app_detail.png")
-
-    page.locator("apps-list td.app-name a", has_text=app_name).click()
-    print(f"Clicked app '{app_name}'")
-    page.locator(".app-name-section .name", has_text=app_name).wait_for(state="visible")
-    print(f"Navigated to app '{app_name}' detail page")
-    page.wait_for_timeout(500)
 
 def goto_capability(dp_name, capability, is_check_status=True):
     ColorLogger.info(f"{capability} Going to capability...")
@@ -265,14 +253,25 @@ def goto_capability(dp_name, capability, is_check_status=True):
     card_id = capability.lower()
     if Util.check_dom_visibility(page, page.locator(f"capability-card #{card_id}"), 10, 120, True):
         print(f"Waiting for {capability} capability status is ready...")
-        if not is_check_status:
-            page.locator(f"capability-card #{card_id} .image-name").click()
-            print(f"Ignore check '{capability}' capability status, get into '{capability}' capability page")
-            return
-        if Util.check_dom_visibility(page, page.locator(f"capability-card #{card_id} .status .success")):
-            print(f"{capability} capability status is ready")
+        is_capability_success = Util.check_dom_visibility(page, page.locator(f"capability-card #{card_id} .status .success"))
+        if not is_check_status or is_capability_success:
             page.locator(f"capability-card #{card_id} .image-name").click()
             print(f"Clicked '{capability}' capability")
+            page.wait_for_timeout(3000)
+            if not is_check_status:
+                print(f"Ignore check '{capability}' capability status, get into '{capability}' capability page")
+            if is_capability_success:
+                print(f"{capability} capability status is ready")
+
+            is_capability_loaded = Util.refresh_until_success(page,
+                                                              page.locator(".capability-connectors-container .total-capability"),
+                                                              page.locator(".capability-connectors-container .total-capability"),
+                                                              f"{capability} capability detail page is loaded")
+            if is_capability_loaded:
+                print(f"Navigated to {capability} capability detail page")
+                page.wait_for_timeout(1000)
+            else:
+                Util.exit_error(f"{capability} capability page is not loaded.", page, f"{card_id}_goto_capability.png")
         else:
             Util.exit_error(f"{capability} capability is provisioned, but status is not ready.", page, f"{card_id}_goto_capability.png")
     else:
@@ -664,14 +663,21 @@ def flogo_provision_capability(dp_name):
 
         page.locator("#btnNextCapabilityProvision").click()
         print("Clicked Flogo 'Next' button, finished step 1")
-        page.locator(".eula-container input").click()
-        print("Clicked Flogo 'EUA' checkbox")
-        page.locator("#qaProvisionFlogo").click()
-        print("Clicked 'Flogo Provision Capability' button, waiting for Flogo Capability Provision Request Completed")
-        page.locator(".notification-message", has_text="Successfully provisioned Flogo").wait_for(state="visible")
-        ColorLogger.success("Provision Flogo capability successful.")
-        page.locator("#qaBackToDP").click()
-        print("Clicked 'Go Back To Data Plane Details' button")
+        is_eula_loaded = Util.refresh_until_success(page,
+                                                            page.locator(".eula-container input"),
+                                                            page.locator(".eula-container input"),
+                                                            "Flogo Capability step 2 is loaded.")
+        if is_eula_loaded:
+            page.locator(".eula-container input").click()
+            print("Clicked Flogo 'EUA' checkbox")
+            page.locator("#qaProvisionFlogo").click()
+            print("Clicked 'Flogo Provision Capability' button, waiting for Flogo Capability Provision Request Completed")
+            page.locator(".notification-message", has_text="Successfully provisioned Flogo").wait_for(state="visible")
+            ColorLogger.success("Provision Flogo capability successful.")
+            page.locator("#qaBackToDP").click()
+            print("Clicked 'Go Back To Data Plane Details' button")
+        else:
+            Util.exit_error("Flogo Capability step 2 is not loaded.", page, "flogo_provision_capability.png")
     else:
         Util.exit_error("'Provision a capability' button is not visible.", page, "flogo_provision_capability.png")
 
@@ -700,18 +706,35 @@ def flogo_provision_connector(dp_name, app_name):
     goto_capability(dp_name, capability, is_check_status)
 
     page.locator(".capability-connectors-container .total-capability").wait_for(state="visible")
-    page.wait_for_timeout(5000)
     print("Flogo capability page loaded, Checking connectors...")
+    page.wait_for_timeout(3000)
 
     connectors = [text.strip() for text in page.locator(".capability-connectors-container td:first-child").all_inner_texts()]
+    # Note: check 3 times, because sometimes Flogo connectors can not be loaded in time
+    # if connectors is empty, reload page, and check again, only check 3 times, if still empty, exit for loop
+    for i in range(3):
+        if connectors:
+            break
+        Util.refresh_page(page)
+        page.locator(".capability-connectors-container .total-capability").wait_for(state="visible")
+        print("Flogo capability page loaded, Checking connectors...")
+        page.wait_for_timeout(3000)
+        connectors = [text.strip() for text in page.locator(".capability-connectors-container td:first-child").all_inner_texts()]
+
+    # connectors = Util.refresh_until_success(page,
+    #                            [text.strip() for text in page.locator(".capability-connectors-container td:first-child").all_inner_texts()],
+    #                            page.locator(".capability-connectors-container .total-capability"),
+    #                            "Flogo capability page loaded, Checking connectors...")
+
     print(f"Flogo Connectors: {connectors}")
     required_connectors = {"Flogo", "General"}
     if required_connectors.issubset(set(connectors)):
         ColorLogger.success("Flogo connectors are already provisioned.")
         ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
+        page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
+        print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
         return
 
-    page.wait_for_timeout(2000)
     print("Start Create Flogo app connector...")
 
     page.locator(".capability-buttons", has_text="Provision Flogo & Connectors").wait_for(state="visible")
@@ -746,9 +769,26 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
 
     print("Flogo Checking app build...")
     page.locator(".app-build-container").wait_for(state="visible")
-    print("Flogo App Builds table is loaded.")
-    page.wait_for_timeout(5000)
-    if page.locator(".app-build-container td", has_text=app_name).is_visible():
+    print("Flogo capability page loaded, Checking Flogo App Builds...")
+    page.wait_for_timeout(3000)
+    # is_app_build_created = page.locator(".app-build-container td", has_text=app_name).is_visible()
+    # # Note: check 3 times, because sometimes Flogo App Builds can not be loaded in time
+    # # if not Flogo App Builds, reload page, and check again, only check 3 times, if still empty, exit for loop
+    # for i in range(3):
+    #     if is_app_build_created:
+    #         break
+    #     Util.refresh_page(page)
+    #     page.locator(".app-build-container").wait_for(state="visible")
+    #     print("Flogo capability page loaded, Checking Flogo App Builds...")
+    #     page.wait_for_timeout(3000)
+    #     is_app_build_created = page.locator(".app-build-container td", has_text=app_name).is_visible()
+
+    is_app_build_created = Util.refresh_until_success(page,
+                                                      page.locator(".app-build-container td", has_text=app_name),
+                                                      page.locator(".app-build-container"),
+                                                      "Flogo capability page loaded, Checking Flogo App Builds...")
+
+    if is_app_build_created:
         ColorLogger.success(f"Flogo app build {app_name} is already created.")
         ReportYaml.set_capability_info(dp_name, capability, "appBuild", True)
         return
@@ -759,6 +799,8 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
     print("Clicked 'Create New App Build And Deploy' button")
 
     # step1: Upload Files
+    page.locator("ul.items .is-active .step-text", has_text="Upload Files").wait_for(state="visible")
+    print("Flogo 'App Build & Deploy' Step 1: 'Upload Files' page is loaded")
     file_path = os.path.join(os.path.dirname(__file__), app_file_name)
     page.locator('input[type="file"]').evaluate("(input) => input.style.display = 'block'")
 
@@ -766,16 +808,17 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
     print(f"Selected file: {file_path}")
     page.locator('app-upload-file .dropzone-file-name', has_text=app_file_name).wait_for(state="visible")
     page.locator('#qaUploadApp').click()
-    print("Clicked 'Upload' button")
-    # 1.5 version renamed flogo-deploy-upload-app
+    print("Clicked 'Upload Selected File' button")
     page.locator('.upload-main-title', has_text="File Uploaded Successfully").wait_for(state="visible")
     print(f"File '{app_file_name}' Uploaded Successfully")
     page.locator('#qaNextAppDeploy').click()
     print("Clicked 'Next' button")
 
     # step2: Select Versions
-    page.locator(".version-container #app-name").wait_for(state="visible")
-    print("Flogo app build step2: Select Versions loaded.")
+    page.locator("#build-name").wait_for(state="visible")
+    page.wait_for_timeout(2000)
+    active_title = page.locator("ul.items .is-active .step-text").inner_text()
+    print(f"Flogo 'App Build & Deploy' Step 2: '{active_title}' page is loaded")
     if page.locator(".version-field-container .rovision-link", has_text="Provision Flogo in another tab").is_visible():
         with page.context.expect_page() as new_page_info:
             page.locator(".version-field-container .rovision-link", has_text="Provision Flogo in another tab").click()
@@ -793,7 +836,54 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
         page.locator(".refresh-link", has_text="Refresh List").click()
         page.wait_for_timeout(1000)
 
-    # TODO: flogo 1.5 does not have namespace picker, need to handle it later
+    # namespace picker is for 1.4 and 1.3
+    if page.locator("flogo-namespace-picker input").is_visible():
+        flogo_app_build_and_deploy_select_namespace()
+
+    # click 'Next' button in step2
+    page.locator('#qaNextAppDeploy').click()
+    print("Clicked 'Next' button")
+
+    # step3:
+    page.wait_for_timeout(2000)
+    active_title = page.locator("ul.items .is-active .step-text").inner_text()
+    print(f"Flogo 'App Build & Deploy' Step 3: '{active_title}' page is loaded")
+    # if step3 is "Finished", will deploy app later, it is for 1.5 version
+    # click "Deploy App" button will go to "Resource Configurations" step,
+    # same as 1.4 version, and then deploy flogo app from "Resource Configurations" step
+    if active_title == "Finished":
+        print("Waiting for 'Creating new app build...'")
+        page.locator('.finish-container .step-description', has_text="Creating new app build...").wait_for(state="visible")
+        print("Waiting for 'Successfully created app build'")
+        page.locator('.finish-container .step-description', has_text="Successfully created app build").wait_for(state="visible")
+        print(f"Successfully created Flogo {app_name} app build")
+        page.locator('.finish-buttons-container button', has_text="Deploy App").wait_for(state="visible")
+        page.locator('.finish-buttons-container button', has_text="Deploy App").click()
+        print("Clicked 'Deploy App' button from Finish tab")
+        page.locator('.app-managed-container .deploy-app button', has_text="Deploy App").nth(0).wait_for(state="visible")
+        page.locator('.app-managed-container .deploy-app button', has_text="Deploy App").nth(0).click()
+        print("Clicked 'Deploy App' button from Deploy App Dialog")
+
+        page.fill("#app-name", app_name)
+        print(f"Filled Application Name: {app_name}")
+        flogo_app_build_and_deploy_select_namespace()
+
+    # below steps is after "Resource Configurations" step
+    page.locator('#qaResourceAppDeploy').click()
+    print("Clicked 'Deploy App' button")
+
+    page.locator('.finish-container .deploy-banner-icon').wait_for(state="visible")
+    ColorLogger.success(f"Created Flogo app build '{app_name}' Successfully")
+    print("Check if Flogo app deployed successfully...")
+    if Util.check_dom_visibility(page, page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 10):
+        Util.exit_error(f"Flogo app build '{app_name}' is not deployed.", page, "flogo_app_build_and_deploy_deploy.png")
+
+    print("No deploy error, continue waiting for deploy status...")
+    if Util.check_dom_visibility(page, page.locator('.finish-container .step-description', has_text="Successfully deployed App"), 15, 300):
+        ColorLogger.success(f"Flogo app build '{app_name}' is deployed.")
+        ReportYaml.set_capability_info(dp_name, capability, "appBuild", True)
+
+def flogo_app_build_and_deploy_select_namespace():
     page.locator("flogo-namespace-picker input").click()
     print(f"Clicked 'Namespace' dropdown, and waiting for namespace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
     page.wait_for_timeout(1000)
@@ -804,28 +894,6 @@ def flogo_app_build_and_deploy(dp_name, app_file_name, app_name):
     print(f"Selected namespace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
     page.locator(".eula-container").click()
     print("Clicked 'EUA' checkbox")
-    page.locator('#qaNextAppDeploy').click()
-    print("Clicked 'Next' button")
-
-    # TODO: flogo 1.5 does not have step3: Resource Configuration, need to handle it later
-    # step3: Resource Configuration
-    # For compatibility with versions 1.5, first determine if there is a namespace picker
-    page.locator('#qaResourceAppDeploy').click()
-    print("Clicked 'Deploy App' button")
-
-    # step4: Finished
-    page.locator('.finish-container .deploy-banner-icon').wait_for(state="visible")
-    ColorLogger.success(f"Created Flogo app build '{app_name}' Successfully")
-    page.locator('.finish-container .step-description', has_text="Building the app...").wait_for(state="visible")
-    print("Waiting for 'Building the app...'")
-    print("Check if Flogo app deployed successfully...")
-    if Util.check_dom_visibility(page, page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 10):
-        Util.exit_error(f"Flogo app build '{app_name}' is not deployed.", page, "flogo_app_build_and_deploy_deploy.png")
-
-    print("No deploy error, continue waiting for deploy status...")
-    if Util.check_dom_visibility(page, page.locator('.finish-container .step-description', has_text="Successfully deployed App"), 15, 300):
-        ColorLogger.success(f"Flogo app build '{app_name}' is deployed.")
-        ReportYaml.set_capability_info(dp_name, capability, "appBuild", True)
 
 def flogo_app_deploy(dp_name, app_name):
     capability = "flogo"
@@ -862,23 +930,42 @@ def flogo_app_deploy(dp_name, app_name):
     page.locator(".app-build-container tr", has=page.locator("td", has_text=app_name)).nth(0).locator('flogo-app-build-actions .action-menu button', has_text="Deploy").click()
     print(f"Clicked 'Deploy' from action menu list for {app_name}")
 
-    page.locator(".pl-modal__footer-right button", has_text="Deploy App Build").wait_for(state="visible")
-    print("Dialog 'Deploy App Build' popup")
-    page.locator("flogo-namespace-picker input").click()
-
-    page.locator("flogo-namespace-picker .namespace-dropdown li", has_text=dp_name_space).click()
-    print(f"Selected Namespace '{dp_name_space}' for {dp_name}")
-
-    page.locator("#deployName").clear()
-    page.fill("#deployName", app_name)
-    print(f"Clear previous deploy name and Input lower case Deploy Name: {app_name}")
-
-    page.locator(".pl-modal__footer-right button", has_text="Deploy App Build").click()
-    print("Clicked 'Deploy App Build' button")
     page.wait_for_timeout(1000)
+    # .app-managed-container is for 1.5 version
+    if Util.check_dom_visibility(page, page.locator('.app-managed-container .deploy-app button', has_text="Deploy App").nth(0), 3, 6):
+        print("Deploy App Dialog popup")
+        page.locator('.app-managed-container .deploy-app button', has_text="Deploy App").nth(0).click()
+        print("Clicked 'Deploy App' button from Deploy App Dialog")
+        flogo_app_build_and_deploy_select_namespace()
 
-    page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
-    print(f"Clicked menu navigator Data Plane '{dp_name}'")
+        page.locator('#qaResourceAppDeploy').click()
+        print("Clicked 'Deploy App' button")
+        print("Check if Flogo app deployed successfully...")
+        if Util.check_dom_visibility(page, page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 10):
+            Util.exit_error(f"Flogo app '{app_name}' is not deployed.", page, "flogo_app_deploy.png")
+
+        print("No deploy error, continue waiting for deploy status...")
+        if Util.check_dom_visibility(page, page.locator('.finish-container .step-description', has_text="Successfully deployed App"), 10, 120):
+            page.locator("#qaDeployedApps").click()
+            print("Clicked 'View Deployed App' button, go back to Data Plane detail page")
+    else:
+        page.locator(".pl-modal__footer-right button", has_text="Deploy App Build").wait_for(state="visible")
+        print("Dialog 'Deploy App Build' popup")
+        page.locator("flogo-namespace-picker input").click()
+
+        page.locator("flogo-namespace-picker .namespace-dropdown li", has_text=dp_name_space).click()
+        print(f"Selected Namespace '{dp_name_space}' for {dp_name}")
+
+        page.locator("#deployName").clear()
+        page.fill("#deployName", app_name)
+        print(f"Clear previous deploy name and Input lower case Deploy Name: {app_name}")
+
+        page.locator(".pl-modal__footer-right button", has_text="Deploy App Build").click()
+        print("Clicked 'Deploy App Build' button")
+        page.wait_for_timeout(1000)
+
+        page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
+        print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
 
     print(f"Waiting for Flogo app '{app_name}' is deployed...")
     if Util.check_dom_visibility(page, page.locator("apps-list td.app-name a", has_text=app_name), 10, 120):
@@ -1353,10 +1440,12 @@ if __name__ == "__main__":
 
     page = Util.browser_launch()
     try:
-        login(page)
-        login_check(page)
+        po_user_management = PageObjectUserManagement(page)
+        po_auth = PageObjectAuth(page)
+        po_auth.login()
+        po_auth.login_check()
 
-        set_user_permission()
+        po_user_management.set_user_permission()
 
         # config global dataplane
         # o11y_config_dataplane_resource()
@@ -1429,7 +1518,7 @@ if __name__ == "__main__":
                 goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
                 tibcohub_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
-        logout(page)
+        po_auth.logout()
     except Exception as e:
         Util.exit_error(f"Unhandled error: {e}", page, "unhandled_error_run.png")
     Util.browser_close()

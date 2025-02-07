@@ -7,9 +7,11 @@ from env import ENV
 import time
 from datetime import datetime
 from report import ReportYaml
+import pytz
 
 class Util:
     _browser = None
+    _context = None
     _run_start_time = None
 
     @staticmethod
@@ -20,33 +22,47 @@ class Util:
             Util._browser = playwright.chromium.launch(headless=is_headless)
             ColorLogger.success("Browser Launched Successfully.")
 
-        context = Util._browser.new_context(
+        videos_dir = os.path.join(
+            ENV.TP_AUTO_REPORT_PATH,
+            str(ENV.RETRY_TIME_FOLDER),
+            "videos"
+        )
+        Util._context = Util._browser.new_context(
             viewport={"width": 2000, "height": 1080},
+            record_video_dir=videos_dir,
+            record_video_size={"width": 2000, "height": 1080},
             ignore_https_errors=True,
             accept_downloads=True
         )
 
-        return context.new_page()
+        return Util._context.new_page()
 
     @staticmethod
     def browser_close():
+        if Util._context is not None:
+            Util._context.close()
+
         if Util._browser is not None:
             Util._browser.close()
             Util._browser = None
             ColorLogger.success("Browser Closed Successfully.")
 
         if Util._run_start_time is not None:
-            ColorLogger.info(f"Total running time: {time.time() - Util._run_start_time:.2f} seconds, current time: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
+            chicago_time = datetime.now(pytz.timezone("America/Chicago")).strftime('%m/%d/%Y %H:%M:%S')
+            total_seconds = time.time() - Util._run_start_time
+            minutes = int(total_seconds // 60)
+            seconds = total_seconds % 60
+            ColorLogger.info(f"Total running time: {minutes} minutes {seconds:.2f} seconds")
+            ColorLogger.info(f"Current time: {chicago_time} at America/Chicago")
 
     @staticmethod
     def screenshot_page(page, filename):
         if filename == "":
             ColorLogger.warning(f"Screenshot filename={filename} MUST be set.")
             return
-        attempt_folder = str(ENV.RETRY_TIME)
         screenshot_dir = os.path.join(
             ENV.TP_AUTO_REPORT_PATH,
-            attempt_folder,
+            str(ENV.RETRY_TIME_FOLDER),
             "screenshots"
         )
         # check folder screenshot_dir exist or not, if not create it
@@ -67,7 +83,7 @@ class Util:
                 return False
 
             try:
-                if page.locator(".notification-message").is_visible():
+                if page.locator(".notification-message").is_visible() or page.locator(".pl-notification--success").is_visible():
                     return True
 
                 if page.locator(".pl-notification--error").is_visible():
@@ -257,3 +273,20 @@ class Util:
             arg=button_selector.element_handle()
         )
         button_selector.click()
+
+    @staticmethod
+    def refresh_until_success(page, retry_selector, waiting_selector, message="", max_retries=3):
+        current_condition = retry_selector.is_visible()
+        # Note: check 3 times, because sometimes page can not be loaded in time
+        # if current_condition is empty, reload page, and check again, only check 3 times, if still empty, exit for loop
+        for i in range(max_retries):
+            if current_condition:
+                return current_condition
+            Util.refresh_page(page)
+            waiting_selector.wait_for(state="visible")
+            if message:
+                print(message)
+            page.wait_for_timeout(3000)
+            current_condition = retry_selector.is_visible()
+
+        return current_condition

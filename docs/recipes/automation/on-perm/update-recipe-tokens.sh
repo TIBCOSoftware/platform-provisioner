@@ -128,10 +128,6 @@ function set_ssl_cert() {
 
 # main function
 function main() {
-  # env_token.sh is used for local testing token
-  if [ -f "${CURRENT_PATH}/env_token.sh" ]; then
-    source "${CURRENT_PATH}/env_token.sh"
-  fi
 
   set_github_token
   set_ssl_cert

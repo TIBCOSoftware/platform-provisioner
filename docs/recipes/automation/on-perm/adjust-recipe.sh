@@ -10,7 +10,7 @@
 # Globals:
 #   None
 # Arguments:
-#   1 - 4: the choice of the environment
+#   1 - 7: the choice of the environment
 # Returns:
 #   None
 # Notes:
@@ -28,8 +28,11 @@ function adjust_recipes() {
       echo "1. Adjust for k3s"
       echo "2. Adjust for OpenShift"
       echo "3. Adjust for Docker Desktop"
-      echo "4. Exit"
-      read -rp "Enter your choice (1-3): " choice
+      echo "4. Adjust for minikube"
+      echo "5. Adjust for kind"
+      # echo "6. Adjust for MicroK8s"
+      echo "7. Exit"
+      read -rp "Enter your choice (1-7): " choice
     fi
 
     case $choice in
@@ -72,7 +75,7 @@ function adjust_recipes() {
         break
         ;;
       2)
-        echo "Adjusting for openshift..."
+        echo "Adjusting for OpenShift..."
         _recipe_file_name="01-tp-on-perm.yaml"
         export TP_STORAGE_CLASS="crc-csi-hostpath-provisioner"
         if [[ -f "${_recipe_file_name}" ]]; then
@@ -146,6 +149,105 @@ function adjust_recipes() {
         break
         ;;
       4)
+        echo "Adjusting for minikube..."
+
+        echo "adjust kubeconfig for minikube..."
+        _kube_config="${HOME}/.kube/config"
+        # minikube kubectl -- config view --flatten > $_kube_config
+        original_server=$(yq '.clusters[] | select(.name == "minikube") | .cluster.server' $_kube_config)
+        # ca_cert=$(yq '.clusters[] | select(.name == "minikube") | .cluster."certificate-authority"' $_kube_config)
+        client_cert=$(yq '.users[] | select(.name == "minikube") | .user."client-certificate"' $_kube_config)
+        client_key=$(yq '.users[] | select(.name == "minikube") | .user."client-key"' $_kube_config)
+
+        if [[ "$(uname)" == "Darwin" ]]; then
+            # macOS ip address
+            local_ip=$(ipconfig getifaddr en0)
+        else
+            # Linux ip address
+            local_ip=$(hostname -I | awk '{print $1}')
+        fi
+        server=$(echo "$original_server" | sed "s/127\.0\.0\.1/$local_ip/")
+        _generated_config_name="minikube-gen"
+        # minikube certificate is valid for 10.96.0.1, 127.0.0.1, 10.0.0.1, 192.168.49.2, not 0.0.0.0
+        # kubectl config set-cluster ${_generated_config_name} --server=$server --certificate-authority=$ca_cert --embed-certs=true
+        kubectl config set-cluster ${_generated_config_name} --server=$server --insecure-skip-tls-verify=true
+        kubectl config set-credentials ${_generated_config_name} --client-certificate=$client_cert --client-key=$client_key --embed-certs=true
+        kubectl config set-context ${_generated_config_name} --cluster=${_generated_config_name} --user=${_generated_config_name}
+        kubectl config use-context ${_generated_config_name}
+
+        _recipe_file_name="01-tp-on-perm.yaml"
+        export TP_STORAGE_CLASS="standard"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE = "ClusterIP")' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_STORAGE_CLASS = env(TP_STORAGE_CLASS))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER = env(TP_STORAGE_CLASS))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = false)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER = true)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
+        fi
+
+        _recipe_file_name="02-tp-cp-on-perm.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "standard")' "$_recipe_file_name"
+        fi
+
+        _recipe_file_name="04-tp-adjust-resource.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TASK_REMOVE_RESOURCES = true)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TASK_SHOW_RESOURCES = false)' "$_recipe_file_name"
+        fi
+
+        _recipe_file_name="05-tp-auto-deploy-dp.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT = false)' ${_recipe_file_name}
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_GITHUB_SCRIPT = true)' ${_recipe_file_name}
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_STORAGE_CLASS = env(TP_STORAGE_CLASS))' ${_recipe_file_name}
+        fi
+
+        _recipe_file_name="06-tp-o11y-stack.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_STORAGE_CLASS = env(TP_STORAGE_CLASS))' "$_recipe_file_name"
+        fi
+        break
+        ;;
+      5)
+        echo "Adjusting for kind..."
+        _recipe_file_name="01-tp-on-perm.yaml"
+        export TP_STORAGE_CLASS="standard"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE = "ClusterIP")' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_STORAGE_CLASS = env(TP_STORAGE_CLASS))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER = env(TP_STORAGE_CLASS))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = true)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER = true)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
+        fi
+
+        _recipe_file_name="02-tp-cp-on-perm.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "nfs")' "$_recipe_file_name"
+        fi
+
+        _recipe_file_name="04-tp-adjust-resource.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TASK_REMOVE_RESOURCES = true)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TASK_SHOW_RESOURCES = false)' "$_recipe_file_name"
+        fi
+
+        _recipe_file_name="05-tp-auto-deploy-dp.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT = false)' ${_recipe_file_name}
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_GITHUB_SCRIPT = true)' ${_recipe_file_name}
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_STORAGE_CLASS = env(TP_STORAGE_CLASS))' ${_recipe_file_name}
+        fi
+
+        _recipe_file_name="06-tp-o11y-stack.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_STORAGE_CLASS = env(TP_STORAGE_CLASS))' "$_recipe_file_name"
+        fi
+        break
+        ;;
+      7)
         echo "Exiting..."
         break
         ;;
