@@ -150,7 +150,7 @@ meta:
 
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
-    PYTHON_FILE_ENTRY_POINT: run.py
+    PYTHON_FILE_ENTRY_POINT: page_dp.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
@@ -186,7 +186,7 @@ tasks:
     fileName: script.sh
     content: |
       mkdir -p ${TP_AUTO_SCRIPT_FOLDER}
-      cp * ${TP_AUTO_SCRIPT_FOLDER}
+      cp -R * ${TP_AUTO_SCRIPT_FOLDER}
       pip install -r requirements.txt
 - condition: ${TP_AUTO_USE_LOCAL_SCRIPT}
   clusters:

@@ -3,7 +3,7 @@ import os
 import sys
 import json
 
-from color_logger import ColorLogger
+from utils.color_logger import ColorLogger
 
 # do not import env.py or util.py in this file
 class Helper:
@@ -98,8 +98,17 @@ class Helper:
         return Helper.get_command_output("kubectl get sc | awk '/\\(default\\)/ {print $1}'")
 
     @staticmethod
+    def get_app_file_fullpath(app_file_name):
+        file_path = os.path.join(os.path.dirname(__file__), "..", "upload", app_file_name)
+
+        if not os.path.isfile(file_path):
+            ColorLogger.error(f"The app name is empty in file {file_path}.")
+            sys.exit()
+        return file_path
+
+    @staticmethod
     def get_app_name(app_file_name):
-        file_path = os.path.join(os.path.dirname(__file__), app_file_name)
+        file_path = Helper.get_app_file_fullpath(app_file_name)
         with open(file_path, "r") as f:
             flogo_json = json.load(f)
             app_name = flogo_json["name"]

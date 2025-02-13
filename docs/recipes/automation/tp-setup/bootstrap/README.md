@@ -55,7 +55,7 @@ export HEADLESS="false"
 
 # Optional, GITHUB_TOKEN is for private repo, no need to set it and use global repository by default
 export GITHUB_TOKEN=""
-python run.py
+python page_dp.py
 ```
 
 ## FAQ

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024 TIBCO Software Inc.
+# Copyright (c) 2024 - 2025 TIBCO Software Inc.
 # All Rights Reserved. Confidential & Proprietary.
 #
 
@@ -8,17 +8,17 @@
 #FROM --platform=${BUILDPLATFORM} ubuntu:24.04
 
 # Ubuntu 24 and 25 has strict glibc which will effect compbility between curl and coredns (star CNAME)
-# FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-noble-${TARGETARCH}
-# Ubuntu 22.04 playwright release
 # Microsoft artifact is not multi-arch build. see: https://mcr.microsoft.com/en-us/artifact/mar/playwright/tags
-FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-jammy-${TARGETARCH}
+FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-noble-${TARGETARCH}
+# Ubuntu 22.04 playwright release
+#FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-jammy-${TARGETARCH}
 
 ARG TARGETOS TARGETARCH
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     gettext gettext-base jq vim tree unzip net-tools iputils-tracepath iproute2 iputils-ping dnsutils \
-    apt-transport-https ca-certificates apt-transport-https lsb-release gnupg && \
+    apt-transport-https ca-certificates apt-transport-https software-properties-common curl wget lsb-release gnupg && \
     rm -rf /var/lib/apt/lists/*
 
 # Install AWS CLI v2
@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
 # installation: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
 # AWS use x86_64 and aarch64 but docker use amd64 and arm64
 ARG AWS_CLI_VERSION
-ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.18.0"}
+ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.24.2"}
 RUN AWS_ARCH=${TARGETARCH}; [ "${TARGETARCH}" = "arm64" ] && AWS_ARCH="aarch64" || true && \
     [ "${TARGETARCH}" = "amd64" ] && AWS_ARCH="x86_64" || true && \
     curl "https://awscli.amazonaws.com/awscli-exe-${TARGETOS}-${AWS_ARCH}-${AWS_CLI_VERSION}.zip" -o "awscliv2.zip" \
@@ -36,7 +36,7 @@ RUN AWS_ARCH=${TARGETARCH}; [ "${TARGETARCH}" = "arm64" ] && AWS_ARCH="aarch64" 
 
 # eksctl https://github.com/eksctl-io/eksctl/releases
 ARG EKSCTL_VERSION
-ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.191.0"}
+ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.203.0"}
 RUN CMD_NAME=eksctl && \
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/${EKSCTL_VERSION}/${CMD_NAME}_$(uname -s)_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${EKSCTL_VERSION} && \
@@ -56,12 +56,16 @@ RUN CMD_NAME=docker-credential-ecr-login && \
 # add Azure repo
 # check new version: apt-cache policy azure-cli
 # azure CLI supported ubuntu: https://packages.microsoft.com/repos/azure-cli/dists/
+# Must use -4 for curl othewise get error like: curl: (35) OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to packages.microsoft.com:443
+# ubuntu bug must add -k for curl or use wget: https://bugs.launchpad.net/ubuntu/+source/curl/+bug/2073448
 ARG AZURE_CLI_VERSION
-ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.64.0"}
+ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.69.0"}
 RUN mkdir -p /etc/apt/keyrings && \
-    curl -sLS https://packages.microsoft.com/keys/microsoft.asc | \
-      gpg --dearmor | tee /etc/apt/keyrings/microsoft.gpg > /dev/null && \
+    curl -4ksLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | tee /etc/apt/keyrings/microsoft.gpg > /dev/null && \
     chmod go+r /etc/apt/keyrings/microsoft.gpg && \
+#    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg && \
+#    install -D -o root -g root -m 644 microsoft.gpg /etc/apt/keyrings/microsoft.gpg && \
+#    rm -f microsoft.gpg && \
     AZ_DIST=$(lsb_release -cs) && \
     echo "Types: deb" > /etc/apt/sources.list.d/azure-cli.sources && \
     echo "URIs: https://packages.microsoft.com/repos/azure-cli/" >> /etc/apt/sources.list.d/azure-cli.sources && \
@@ -73,7 +77,7 @@ RUN mkdir -p /etc/apt/keyrings && \
 
 # Azure CLI Bicep https://github.com/Azure/bicep/releases
 ARG AZURE_CLI_BICEP_VERSION
-ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.30.23"}
+ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.33.93"}
 RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
     az --version && \
     az bicep install --version ${AZURE_CLI_BICEP_VERSION} && \
@@ -84,7 +88,7 @@ RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
 # check new version: apt-cache policy google-cloud-cli
 # installation: https://cloud.google.com/sdk/docs/install#deb
 ARG CLOUD_SDK_VERSION
-ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"495.0.0"}
+ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"510.0.0"}
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
     curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
     apt-get update -y && apt-get install -y google-cloud-cli=${CLOUD_SDK_VERSION}-0  google-cloud-cli-gke-gcloud-auth-plugin=${CLOUD_SDK_VERSION}-0 && \
@@ -96,7 +100,7 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
 
 # cue for yaml validation https://github.com/cue-lang/cue/releases
 ARG CUE_VERSION
-ENV CUE_VERSION=${CUE_VERSION:-"v0.10.0"}
+ENV CUE_VERSION=${CUE_VERSION:-"v0.12.0"}
 RUN CMD_NAME=cue && \
     curl --silent --location "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/${CMD_NAME}_${CUE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${CUE_VERSION} && \
@@ -105,7 +109,7 @@ RUN CMD_NAME=cue && \
 
 # yq 4 utility https://github.com/mikefarah/yq/releases
 ARG YQ_VERSION_440
-ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.44.3"}
+ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.1"}
 RUN CMD_NAME=yq && \
     curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
     chmod +x /usr/local/bin/${CMD_NAME}-4.40 && \
@@ -115,7 +119,7 @@ RUN CMD_NAME=yq && \
 RUN ln -sf /usr/local/bin/yq /usr/local/bin/yq4
 
 # vcluster for vcluster https://github.com/loft-sh/vcluster/releases
-ARG VCLUSTER_VERSION=v0.20.1
+ARG VCLUSTER_VERSION=v0.22.4
 RUN export CMD_NAME=vcluster && \
     curl --silent --location -o /tmp/${CMD_NAME} "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/${CMD_NAME}-${TARGETOS}-${TARGETARCH}" && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} && \
@@ -123,17 +127,19 @@ RUN export CMD_NAME=vcluster && \
     ${CMD_NAME} version
 
 # helm https://github.com/helm/helm/releases
-ARG HELM_VERSION_316
-ENV HELM_VERSION_316=${HELM_VERSION_316:-"v3.16.1"}
+ARG HELM_VERSION_317
+ENV HELM_VERSION_317=${HELM_VERSION_317:-"v3.17.1"}
 RUN CMD_NAME=helm && \
-    curl --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_316}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
-    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.16 && \
-    ln -sf /usr/local/bin/${CMD_NAME}-3.16 /usr/local/bin/helm
+    curl -k --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+#    wget -q "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" -O /tmp/helm.tar.gz && \
+#    tar xz -f /tmp/helm.tar.gz -C /tmp && \
+    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.17 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-3.17 /usr/local/bin/helm
 
 # kubectl https://kubernetes.io/releases/
-ARG KUBECTL_VERSION_131
-ENV KUBECTL_VERSION_131=${KUBECTL_VERSION_131:-"v1.31.1"}
+ARG KUBECTL_VERSION_132
+ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.1"}
 RUN CMD_NAME=kubectl && \
-    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_131}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
-    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.31 && \
-    ln -sf /usr/local/bin/${CMD_NAME}-1.31 /usr/local/bin/kubectl
+    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
+    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl

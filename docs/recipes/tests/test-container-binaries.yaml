@@ -29,8 +29,8 @@ meta:
     RUN1: true
   tools:
     yq: "4.40"
-    kubectl: "1.31" # comment out to show the default version
-    helm: "3.16" # comment out to show the default version
+    #kubectl: "1.31" # comment out to show the default version
+    #helm: "3.16" # comment out to show the default version
 tasks:
   - condition: ${RUN1}
     script:

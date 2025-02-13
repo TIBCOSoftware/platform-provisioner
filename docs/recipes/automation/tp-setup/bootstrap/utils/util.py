@@ -1,13 +1,12 @@
 import os
 import sys
-
-from playwright.sync_api import sync_playwright
-from color_logger import ColorLogger
-from env import ENV
-import time
-from datetime import datetime
-from report import ReportYaml
 import pytz
+import time
+from playwright.sync_api import sync_playwright
+from datetime import datetime
+from utils.color_logger import ColorLogger
+from utils.env import ENV
+from utils.report import ReportYaml
 
 class Util:
     _browser = None
@@ -27,6 +26,7 @@ class Util:
             str(ENV.RETRY_TIME_FOLDER),
             "videos"
         )
+        print(f"Record video to {videos_dir}")
         Util._context = Util._browser.new_context(
             viewport={"width": 2000, "height": 1080},
             record_video_dir=videos_dir,
@@ -80,7 +80,7 @@ class Util:
             elapsed_time = time.time() - start_time
             if elapsed_time > timeout:
                 print("Timeout: Neither success nor error notification appeared.")
-                return False
+                return None
 
             try:
                 if page.locator(".notification-message").is_visible() or page.locator(".pl-notification--success").is_visible():

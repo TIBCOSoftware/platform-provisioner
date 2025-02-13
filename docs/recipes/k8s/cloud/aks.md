@@ -14,7 +14,7 @@ export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-azure.yaml"
 
 ### Create AKS cluster
 
-After making sure that the pipeline can access the AWS account, we can now use deploy-tp-aks.yaml recipe to create a new AKS for TIBCO Platform.
+After making sure that the pipeline can access the Azure account, we can now use deploy-tp-aks.yaml recipe to create a new AKS for TIBCO Platform.
 
 ```bash
 export ACCOUNT="azure-" # Azure account prefix to trigger authenticating with Azure
