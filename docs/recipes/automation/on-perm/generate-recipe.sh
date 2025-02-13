@@ -8,7 +8,7 @@
 #######################################
 # generate-recipe.sh: this script will generate the recipe for deploying TP on-prem
 # Globals:
-#   PIPELINE_CHART_REPO: the helm chart repo for provisioner-config-local
+#   PIPELINE_CHART_REPO_PROVISIONER_CONFIG_LOCAL: the helm chart repo for provisioner-config-local
 #   PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL: the helm chart version for provisioner-config-local
 # Arguments:
 #   1 - 3: the choice of the source of the recipe
@@ -22,7 +22,7 @@
 #   ./generate-recipe.sh 1 1
 #######################################
 
-export PIPELINE_CHART_REPO=${PIPELINE_CHART_REPO:-"https://tibcosoftware.github.io/platform-provisioner"}
+export PIPELINE_CHART_REPO_PROVISIONER_CONFIG_LOCAL=${PIPELINE_CHART_REPO_PROVISIONER_CONFIG_LOCAL:-"https://tibcosoftware.github.io/platform-provisioner"}
 export PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL=${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL:-"^1.0.0"}
 
 # This script will generate the recipe for deploying TP on-prem
@@ -42,7 +42,7 @@ function select_recipe_source() {
     case $choice in
       1)
         # generate from public release
-        _data=$(helm template provisioner-config-local provisioner-config-local --repo "${PIPELINE_CHART_REPO}" --version "${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL}")
+        _data=$(helm template provisioner-config-local provisioner-config-local --repo "${PIPELINE_CHART_REPO_PROVISIONER_CONFIG_LOCAL}" --version "${PIPELINE_CHART_VERSION_PROVISIONER_CONFIG_LOCAL}")
         generate_recipe "${_data}" "${choice2}"
         break
         ;;

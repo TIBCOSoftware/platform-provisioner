@@ -1,7 +1,7 @@
-from color_logger import ColorLogger
-from util import Util
-from env import ENV
-from report import ReportYaml
+from utils.color_logger import ColorLogger
+from utils.util import Util
+from utils.env import ENV
+from utils.report import ReportYaml
 
 class PageObjectAuth:
     def __init__(self, page):

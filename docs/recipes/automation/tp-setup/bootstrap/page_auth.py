@@ -1,6 +1,6 @@
-from util import Util
-from env import ENV
-from po_auth import PageObjectAuth
+from utils.util import Util
+from utils.env import ENV
+from page_object.po_auth import PageObjectAuth
 
 if __name__ == "__main__":
     ENV.pre_check()

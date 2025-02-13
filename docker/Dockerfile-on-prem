@@ -1,0 +1,57 @@
+#
+# Copyright (c) 2025 TIBCO Software Inc.
+# All Rights Reserved. Confidential & Proprietary.
+#
+
+# actual run time docker image
+FROM alpine:3.21
+
+LABEL maintainer="cloud@tibco.com"
+# labels see: https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/annotations.md#annotations
+LABEL org.opencontainers.image.title="platform-provisioner"
+LABEL org.opencontainers.image.description="This provide basic tools for platform provisioner pipelines."
+LABEL org.opencontainers.image.source="https://github.com/TIBCOSoftware/tp-helm-charts"
+LABEL org.opencontainers.image.vendor="Cloud Software Group"
+
+ARG TARGETOS TARGETARCH
+
+# base packages
+RUN apk add --no-cache --upgrade coreutils util-linux gettext \
+        bash curl envsubst jq openssl openssh git yq-go cue-cli postgresql-client && rm -rf /var/cache/apk/*
+
+# for pipeline compatibility
+RUN ln -sf /usr/bin/yq /usr/local/bin/yq4
+
+# The following are for recipe meta.tools compatibility
+# yq 4 utility https://github.com/mikefarah/yq/releases
+ARG YQ_VERSION_440
+ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.1"}
+RUN CMD_NAME=yq && \
+    curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
+    chmod +x /usr/local/bin/${CMD_NAME}-4.40
+
+# vcluster for vcluster https://github.com/loft-sh/vcluster/releases
+ARG VCLUSTER_VERSION=v0.22.4
+RUN export CMD_NAME=vcluster && \
+    curl --silent --location -o /tmp/${CMD_NAME} "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/${CMD_NAME}-${TARGETOS}-${TARGETARCH}" && \
+    chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} && \
+    ln -sf /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} /usr/local/bin/${CMD_NAME} && \
+    ${CMD_NAME} version
+
+# helm https://github.com/helm/helm/releases
+ARG HELM_VERSION_317
+ENV HELM_VERSION_317=${HELM_VERSION_317:-"v3.17.0"}
+RUN CMD_NAME=helm && \
+    curl --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.17 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-3.17 /usr/local/bin/helm
+
+# kubectl https://kubernetes.io/releases/
+ARG KUBECTL_VERSION_132
+ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.1"}
+RUN CMD_NAME=kubectl && \
+    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
+    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl
+
+CMD ["/bin/bash"]

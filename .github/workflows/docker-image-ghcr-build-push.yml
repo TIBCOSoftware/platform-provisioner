@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tagName:
-        description: 'The pushed image tag name'
+        description: 'The pushed image tag name (comma-separated for multiple tags)'
         required: true
         default: 'latest'
       branchName:
@@ -18,7 +18,9 @@ on:
         type: choice
         options:
           - Dockerfile
+          - Dockerfile-on-prem
           - Dockerfile-tester
+          - Dockerfile-tester-on-prem
       platform:
         description: 'The platform to build the image for. linux/amd64, linux/arm64, linux/arm/v7 for Raspberry Pi'
         required: true
@@ -51,13 +53,31 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare tags
+        id: prep-tags
+        run: |
+          TAGS_INPUT="${{ github.event.inputs.tagName }}"
+          IMAGE_BASE="${{ env.REGISTRY }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}"
+
+          # process tags and remove spaces
+          TAGS=""
+          IFS=',' read -ra ADDR <<< "$TAGS_INPUT"
+          TAGS_LIST=()
+          for tag in "${ADDR[@]}"; do
+            CLEAN_TAG="$(echo -n "$tag" | xargs)"  # Trim spaces
+            TAGS_LIST+=("${IMAGE_BASE}:${CLEAN_TAG}")
+          done
+
+          # use comma as separator
+          FINAL_TAGS="$(IFS=','; echo "${TAGS_LIST[*]}")"
+          echo "TAGS=$FINAL_TAGS" >> $GITHUB_ENV
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           platforms: ${{ github.event.inputs.platform }}
           file: ./docker/${{ github.event.inputs.dockerfileName }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.tagName }}
+          tags: ${{ env.TAGS }}
           labels: |
             org.opencontainers.image.created=${{ env.BUILD_TIME }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}

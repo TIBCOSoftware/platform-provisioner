@@ -1,0 +1,61 @@
+#
+# Copyright (c) 2024 - 2025 TIBCO Software Inc.
+# All Rights Reserved. Confidential & Proprietary.
+#
+
+# standard ubuntu.
+# azure cli only works with 24.04 (not 24.10)
+#FROM --platform=${BUILDPLATFORM} ubuntu:24.04
+
+# Ubuntu 24 and 25 has strict glibc which will effect compbility between curl and coredns (star CNAME)
+# Microsoft artifact is not multi-arch build. see: https://mcr.microsoft.com/en-us/artifact/mar/playwright/tags
+FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-noble-${TARGETARCH}
+# Ubuntu 22.04 playwright release
+#FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-jammy-${TARGETARCH}
+
+ARG TARGETOS TARGETARCH
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gettext gettext-base jq vim tree unzip net-tools iputils-tracepath iproute2 iputils-ping dnsutils \
+    apt-transport-https ca-certificates apt-transport-https software-properties-common curl wget lsb-release python3-venv gnupg && \
+    rm -rf /var/lib/apt/lists/*
+
+# cue for yaml validation https://github.com/cue-lang/cue/releases
+ARG CUE_VERSION
+ENV CUE_VERSION=${CUE_VERSION:-"v0.12.0"}
+RUN CMD_NAME=cue && \
+    curl --silent --location "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/${CMD_NAME}_${CUE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+    chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${CUE_VERSION} && \
+    ln -sf /usr/local/bin/${CMD_NAME}-${CUE_VERSION} /usr/local/bin/${CMD_NAME} && \
+    ${CMD_NAME} version
+
+# yq 4 utility https://github.com/mikefarah/yq/releases
+ARG YQ_VERSION_440
+ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.1"}
+RUN CMD_NAME=yq && \
+    curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
+    chmod +x /usr/local/bin/${CMD_NAME}-4.40 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-4.40 /usr/local/bin/yq
+
+# for pipeline compatibility
+RUN ln -sf /usr/local/bin/yq /usr/local/bin/yq4
+
+# helm https://github.com/helm/helm/releases
+# ubuntu bug must add -k for curl or use wget: https://bugs.launchpad.net/ubuntu/+source/curl/+bug/2073448
+ARG HELM_VERSION_317
+ENV HELM_VERSION_317=${HELM_VERSION_317:-"v3.17.1"}
+RUN CMD_NAME=helm && \
+    curl -k --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+#    wget -q "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" -O /tmp/helm.tar.gz && \
+#    tar xz -f /tmp/helm.tar.gz -C /tmp && \
+    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.17 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-3.17 /usr/local/bin/helm
+
+# kubectl https://kubernetes.io/releases/
+ARG KUBECTL_VERSION_132
+ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.1"}
+RUN CMD_NAME=kubectl && \
+    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
+    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl
