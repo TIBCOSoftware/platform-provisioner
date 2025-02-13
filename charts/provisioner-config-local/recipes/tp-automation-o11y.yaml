@@ -90,6 +90,7 @@ meta:
     TP_AUTO_USE_LOCAL_SCRIPT: ${GUI_TP_AUTO_USE_LOCAL_SCRIPT:-false}
     TP_AUTO_USE_GITHUB_SCRIPT: ${GUI_TP_AUTO_USE_GITHUB_SCRIPT:-true}
     TP_AUTO_SCRIPT_FOLDER: ${GUI_TP_AUTO_SCRIPT_FOLDER:-"/tmp/auto"}
+    TP_AUTO_SCRIPT_PY_ENV_FOLDER: ${GUI_TP_AUTO_SCRIPT_PY_ENV_FOLDER:-"/tmp/auto-py-env"}
     TP_AUTO_REPORT_PATH: ${GUI_TP_AUTO_REPORT_PATH:-"/tmp/auto/report"}
     TP_AUTO_REPORT_YAML_FILE: ${GUI_TP_AUTO_REPORT_YAML_FILE:-"report.yaml"}
     TP_AUTO_REPORT_TXT_FILE: ${GUI_TP_AUTO_REPORT_TXT_FILE:-"report.txt"}
@@ -187,6 +188,8 @@ tasks:
     content: |
       mkdir -p ${TP_AUTO_SCRIPT_FOLDER}
       cp -R * ${TP_AUTO_SCRIPT_FOLDER}
+      python3 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       pip install -r requirements.txt
 - condition: ${TP_AUTO_USE_LOCAL_SCRIPT}
   clusters:
@@ -204,6 +207,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       cd ${TP_AUTO_SCRIPT_FOLDER}
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       
@@ -230,6 +234,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_CREATE_DP=${TP_AUTO_ENABLE_DP}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
@@ -258,6 +263,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_FLOGO=${TP_AUTO_ENABLE_FLOGO}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
@@ -271,6 +277,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
@@ -284,6 +291,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_TIBCOHUB=${TP_AUTO_ENABLE_TIBCOHUB}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
@@ -297,6 +305,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_EMS=${TP_AUTO_ENABLE_EMS}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
@@ -310,6 +319,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_PULSAR=${TP_AUTO_ENABLE_PULSAR}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
@@ -323,6 +333,7 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENV_POINT}
       _result=$?

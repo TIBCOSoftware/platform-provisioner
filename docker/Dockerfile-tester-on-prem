@@ -18,7 +18,7 @@ ARG TARGETOS TARGETARCH
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     gettext gettext-base jq vim tree unzip net-tools iputils-tracepath iproute2 iputils-ping dnsutils \
-    apt-transport-https ca-certificates apt-transport-https software-properties-common curl wget lsb-release gnupg && \
+    apt-transport-https ca-certificates apt-transport-https software-properties-common curl wget lsb-release python3-venv gnupg && \
     rm -rf /var/lib/apt/lists/*
 
 # cue for yaml validation https://github.com/cue-lang/cue/releases
