@@ -37,7 +37,7 @@ function adjust_recipes() {
 
     case $choice in
       1)
-        echo "Adjusting for k3s..."
+        echo "Adjusting kubernetes config for k3s..."
         _recipe_file_name="01-tp-on-perm.yaml"
         export TP_STORAGE_CLASS="local-path"
         if [[ -f "${_recipe_file_name}" ]]; then
@@ -75,7 +75,7 @@ function adjust_recipes() {
         break
         ;;
       2)
-        echo "Adjusting for OpenShift..."
+        echo "Adjusting kubernetes config for OpenShift..."
         _recipe_file_name="01-tp-on-perm.yaml"
         export TP_STORAGE_CLASS="crc-csi-hostpath-provisioner"
         if [[ -f "${_recipe_file_name}" ]]; then
@@ -112,7 +112,7 @@ function adjust_recipes() {
         break
         ;;
       3)
-        echo "Adjusting for Docker Desktop..."
+        echo "Adjusting kubernetes config for Docker Desktop..."
         _recipe_file_name="01-tp-on-perm.yaml"
         export TP_STORAGE_CLASS="hostpath"
         if [[ -f "${_recipe_file_name}" ]]; then
@@ -149,7 +149,7 @@ function adjust_recipes() {
         break
         ;;
       4)
-        echo "Adjusting for minikube..."
+        echo "Adjusting kubernetes config for minikube..."
 
         echo "adjust kubeconfig for minikube..."
         _kube_config="${HOME}/.kube/config"
@@ -211,7 +211,7 @@ function adjust_recipes() {
         break
         ;;
       5)
-        echo "Adjusting for kind..."
+        echo "Adjusting kubernetes config for kind..."
         _recipe_file_name="01-tp-on-perm.yaml"
         export TP_STORAGE_CLASS="standard"
         if [[ -f "${_recipe_file_name}" ]]; then

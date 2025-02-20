@@ -23,6 +23,7 @@ class EnvConfig:
     TP_AUTO_REPORT_PATH = os.environ.get("TP_AUTO_REPORT_PATH") or os.path.join(os.getcwd(), "report")
     TP_AUTO_REPORT_YAML_FILE = os.environ.get("TP_AUTO_REPORT_YAML_FILE") or "report.yaml"  # automation script will create this file
     TP_AUTO_REPORT_TXT_FILE = os.environ.get("TP_AUTO_REPORT_TXT_FILE") or "report.txt"    # this is the final report file for user to view
+    TP_AUTO_REPORT_TRACE = os.environ.get("TP_AUTO_REPORT_TRACE", "true").lower() == "true"
 
     TP_AUTO_IS_CREATE_DP = os.environ.get("TP_AUTO_IS_CREATE_DP", "false").lower() == "true"
     TP_AUTO_IS_CONFIG_O11Y = os.environ.get("TP_AUTO_IS_CONFIG_O11Y", "false").lower() == "true"
@@ -33,6 +34,7 @@ class EnvConfig:
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
 
     # k8s data plane
+    TP_AUTO_K8S_DP_NAME_GLOBAL = "Global"
     TP_AUTO_K8S_DP_NAME = os.environ.get("TP_AUTO_K8S_DP_NAME") or "k8s-auto-dp1"
     TP_AUTO_K8S_DP_NAMESPACE = os.environ.get("TP_AUTO_K8S_DP_NAMESPACE") or f"{TP_AUTO_K8S_DP_NAME}ns"
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_DP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_DP_NAME}sa"
@@ -81,7 +83,9 @@ class EnvConfig:
     # At most 0-9 dp are supported. If more dp are needed, the matching rule of dp selector is required
     TP_AUTO_MAX_DATA_PLANE = 9
 
-    # flogo
+    # apps: bwce, flogo
+    BWCE_APP_FILE_NAME = "tt_1.0.0.ear"
+    BWCE_APP_NAME = "tt"
     FLOGO_APP_FILE_NAME = "flogo.json"
     # need to make sure the flogo app name is unique and lower case in above json file
     FLOGO_APP_NAME = Helper.get_app_name(FLOGO_APP_FILE_NAME)

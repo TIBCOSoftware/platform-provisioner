@@ -6,11 +6,12 @@ from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
 
 class PageObjectDataPlaneFlogo(PageObjectDataPlane):
+    capability = "flogo"
     def __init__(self, page):
         super().__init__(page)
 
     def flogo_provision_capability(self, dp_name):
-        capability = "flogo"
+        capability = self.capability
         if ReportYaml.is_capability_for_dataplane_created(dp_name, capability):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, capability '{capability}' is already created in DataPlane '{dp_name}'.")
             return
@@ -80,7 +81,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             Util.warning_screenshot("Flogo capability is not in capability list", self.page, "flogo_provision_capability-2.png")
 
     def flogo_provision_connector(self, dp_name, app_name):
-        capability = "flogo"
+        capability = self.capability
         if ReportYaml.get_capability_info(dp_name, capability, "provisionConnector") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' Connector is already created in DataPlane '{dp_name}'.")
             return
@@ -88,12 +89,14 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
     
         # if app is created, not need to check capability status
         is_check_status = True
-        if ReportYaml.is_app_created(dp_name, capability, app_name) or self.flogo_is_app_created(app_name):
+        if ReportYaml.is_app_created(dp_name, capability, app_name) or self.is_app_created(capability, app_name):
             is_check_status = False
             print(f"'{capability}'App '{app_name}' has been created, no need to check '{capability}' capability status")
-        self.goto_capability(dp_name, capability, is_check_status)
+
+        capability_selector_path = ".capability-connectors-container .total-capability"
+        self.goto_capability(dp_name, capability, capability_selector_path, is_check_status)
     
-        self.page.locator(".capability-connectors-container .total-capability").wait_for(state="visible")
+        self.page.locator(capability_selector_path).wait_for(state="visible")
         print("Flogo capability page loaded, Checking connectors...")
         self.page.wait_for_timeout(3000)
     
@@ -104,15 +107,10 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             if connectors:
                 break
             Util.refresh_page(self.page)
-            self.page.locator(".capability-connectors-container .total-capability").wait_for(state="visible")
+            self.page.locator(capability_selector_path).wait_for(state="visible")
             print("Flogo capability page loaded, Checking connectors...")
             self.page.wait_for_timeout(3000)
             connectors = [text.strip() for text in self.page.locator(".capability-connectors-container td:first-child").all_inner_texts()]
-    
-        # connectors = Util.refresh_until_success(page,
-        #                            [text.strip() for text in self.page.locator(".capability-connectors-container td:first-child").all_inner_texts()],
-        #                            self.page.locator(".capability-connectors-container .total-capability"),
-        #                            "Flogo capability page loaded, Checking connectors...")
     
         print(f"Flogo Connectors: {connectors}")
         required_connectors = {"Flogo", "General"}
@@ -142,7 +140,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         print("Clicked 'Go back to Data Plane details' button")
     
     def flogo_app_build_and_deploy(self, dp_name, app_file_name, app_name):
-        capability = "flogo"
+        capability = self.capability
         if ReportYaml.get_capability_info(dp_name, capability, "appBuild") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' App Build '{app_name}' is already created in DataPlane '{dp_name}'.")
             return
@@ -150,10 +148,10 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
     
         # if app is created, not need to check capability status
         is_check_status = True
-        if ReportYaml.is_app_created(dp_name, capability, app_name) or self.flogo_is_app_created(app_name):
+        if ReportYaml.is_app_created(dp_name, capability, app_name) or self.is_app_created(capability, app_name):
             is_check_status = False
             print(f"'{capability}'App '{app_name}' has been created, no need to check '{capability}' capability status")
-        self.goto_capability(dp_name, capability, is_check_status)
+        self.goto_capability(dp_name, capability, ".capability-connectors-container .total-capability", is_check_status)
     
         print("Flogo Checking app build...")
         self.page.locator(".app-build-container").wait_for(state="visible")
@@ -246,7 +244,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             print("Waiting for 'Creating new app build...'")
             self.page.locator('.finish-container .step-description', has_text="Creating new app build...").wait_for(state="visible")
             print("Waiting for 'Successfully created app build'")
-            if Util.check_dom_visibility(self.page, self.page.locator('.finish-container .step-description', has_text="Successfully created app build"),3, 60):
+            if Util.check_dom_visibility(self.page, self.page.locator('.finish-container .step-description', has_text="Successfully created app build"),3, 300):
                 print(f"Successfully created Flogo {app_name} app build")
                 self.page.locator('.finish-buttons-container button', has_text="Deploy App").wait_for(state="visible")
                 self.page.locator('.finish-buttons-container button', has_text="Deploy App").click()
@@ -289,7 +287,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         print("Clicked 'EUA' checkbox")
     
     def flogo_app_deploy(self, dp_name, app_name):
-        capability = "flogo"
+        capability = self.capability
         if ReportYaml.is_app_created(dp_name, capability, app_name):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' App '{app_name}' is already created in DataPlane '{dp_name}'.")
             return
@@ -304,10 +302,10 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
     
         # if app is created, not need to check capability status
         is_check_status = True
-        if ReportYaml.is_app_created(dp_name, capability, app_name) or self.flogo_is_app_created(app_name):
+        if ReportYaml.is_app_created(dp_name, capability, app_name) or self.is_app_created(capability, app_name):
             is_check_status = False
             print(f"'{capability}'App '{app_name}' has been created, no need to check '{capability}' capability status")
-        self.goto_capability(dp_name, capability, is_check_status)
+        self.goto_capability(dp_name, capability, ".capability-connectors-container .total-capability", is_check_status)
     
         print(f"Waiting for Flogo app build {app_name} is deployed...")
         if not Util.check_dom_visibility(self.page, self.page.locator(".app-build-container td:first-child", has_text=app_name), 20, 180, True):
@@ -368,10 +366,10 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             Util.warning_screenshot(f"Deploy Flogo app '{app_name}' in namespace {dp_name_space} may failed.", self.page, "flogo_app_deploy-2.png")
     
     def flogo_app_config(self, dp_name, app_name):
-        capability = "flogo"
+        capability = self.capability
         ColorLogger.info(f"Flogo Config app '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name)
-    
+        self.goto_app_detail(dp_name, app_name, ".app-name-section .name")
+
         if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "endpointPublic") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' Endpoints is already Public in DataPlane '{dp_name}'.")
         else:
@@ -413,8 +411,10 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             print("Navigating to 'Engine Variables' tab menu")
             self.page.locator(".pl-primarynav__menu .pl-primarynav__item", has_text="Environmental Controls").click()
             print("Clicked 'Environmental Controls' tab menu")
+            self.page.wait_for_timeout(1000)
             self.page.locator(".environment-container .left-navigation li a", has_text="Engine Variables").wait_for(state="visible")
             self.page.locator(".environment-container .left-navigation li a", has_text="Engine Variables").click()
+            self.page.wait_for_timeout(1000)
             print("Clicked 'Engine Variables' left side menu")
             self.page.locator(".appVars-table tr.pl-table__row", has=self.page.locator("td", has_text="FLOGO_OTEL_TRACE")).wait_for(state="visible")
             flogo_otel_trace_selector = self.page.locator(".appVars-table tr.pl-table__row", has=self.page.locator("td", has_text="FLOGO_OTEL_TRACE")).locator("select")
@@ -431,13 +431,13 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                     ReportYaml.set_capability_app_info(dp_name, capability, app_name, "enableTrace", True)
     
     def flogo_app_start(self, dp_name, app_name):
-        capability = "flogo"
-        if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "status") == "Running":
+        capability = self.capability
+        if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "status") == "Running" or self.is_app_running(dp_name, capability, app_name):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' App '{app_name}' is Running in DataPlane '{dp_name}'.")
             return
         ColorLogger.info(f"Flogo Start app '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name)
-    
+        self.goto_app_detail(dp_name, app_name, ".app-name-section .name")
+
         print("Waiting to see if app status is Running...")
         self.page.locator("flogo-app-run-status .scale-status-text").wait_for(state="visible")
         # when app status is Running, or the action button is 'Stop', it means app is already running
@@ -458,13 +458,13 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 Util.warning_screenshot(f"Wait too long to scale Flogo app '{app_name}'.", self.page, "flogo_app_start.png")
     
     def flogo_app_test_endpoint(self, dp_name, app_name):
-        capability = "flogo"
+        capability = self.capability
         if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "testedEndpoint") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, has tested '{capability}' App '{app_name}' endpoint in DataPlane '{dp_name}'.")
             return
         ColorLogger.info(f"Flogo Test app endpoint '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name)
-    
+        self.goto_app_detail(dp_name, app_name, ".app-name-section .name")
+
         print("Navigating to 'Endpoints' tab menu")
         self.page.locator(".pl-primarynav__menu .pl-primarynav__item", has_text="Endpoints").click()
     
@@ -502,34 +502,3 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 Util.warning_screenshot(f"Swagger page is not loaded, title '{app_name}' is not displayed.", new_page, "flogo_app_test_endpoint.png")
         else:
             Util.warning_screenshot(f"'Test' button is not visible in Flogo app {app_name}, need to config it and start app.", self.page, "flogo_app_test_endpoint.png")
-    
-    def flogo_is_app_created(self, app_name):
-        ColorLogger.info(f"Checking if Flogo app '{app_name}' is created")
-        try:
-            print(f"Checking if Flogo app '{app_name}' is already created...")
-            self.page.locator("apps-list").wait_for(state="visible")
-            self.page.wait_for_timeout(3000)
-            if self.page.locator("#app-list-table tr.pl-table__row td.app-name", has_text=app_name).is_visible():
-                ColorLogger.success(f"Flogo app '{app_name}' is already created.")
-                return True
-            else:
-                print(f"Flogo app '{app_name}' has not been created.")
-                return False
-        except Exception as e:
-            ColorLogger.warning(f"An error occurred while Checking Flogo app '{app_name}': {e}")
-            return False
-    
-    def flogo_is_app_running(self, app_name):
-        ColorLogger.info(f"Checking if Flogo app '{app_name}' is running")
-        try:
-            print(f"Checking if Flogo app '{app_name}' is already running...")
-            self.page.wait_for_timeout(3000)
-            if self.page.locator("#app-list-table tr.FLOGO", has=self.page.locator("td.app-name", has_text=app_name)).locator("td", has_text="Running").is_visible():
-                ColorLogger.success(f"Flogo app '{app_name}' is already running.")
-                return True
-            else:
-                print(f"Flogo app '{app_name}' has not been running.")
-                return False
-        except Exception as e:
-            ColorLogger.warning(f"An error occurred while Checking Flogo app '{app_name}': {e}")
-            return False

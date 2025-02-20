@@ -16,7 +16,6 @@ meta:
     GUI_CP_CHART_REPO_TOKEN: ""
     GUI_DP_CHART_REPO_HOST: "https://tibcosoftware.github.io"
     GUI_DP_CHART_REPO_PATH: "tp-helm-charts"
-    GUI_DP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
     GUI_DP_CHART_REPO_USER_NAME: "cp-test"
     GUI_DP_CHART_REPO_TOKEN: ""
 
@@ -25,6 +24,11 @@ meta:
     GUI_CP_CONTAINER_REGISTRY_REPOSITORY: tibco-platform-docker-prod
     GUI_CP_CONTAINER_REGISTRY_USERNAME: ""
     GUI_CP_CONTAINER_REGISTRY_PASSWORD: ""
+
+    # proxy
+    GUI_CP_PROXY_HTTP_PROXY: ""
+    GUI_CP_PROXY_HTTPS_PROXY: ""
+    GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.4.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
     GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.4.85
@@ -113,7 +117,6 @@ meta:
     CP_CHART_REPO_TOKEN: ${GUI_CP_CHART_REPO_TOKEN:-""}
     DP_CHART_REPO_HOST: ${GUI_DP_CHART_REPO_HOST:-"https://tibcosoftware.github.io"} # used in CP platform-base global.tibco.helm.url
     DP_CHART_REPO_PATH: ${GUI_DP_CHART_REPO_PATH:-"tp-helm-charts"}
-    DP_CHART_REPO: ${GUI_DP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"} # Used in platform-bootstrap dpHelmRepositories
     DP_CHART_REPO_USER_NAME: ${GUI_DP_CHART_REPO_USER_NAME:-"cp-test"}
     DP_CHART_REPO_TOKEN: ${GUI_DP_CHART_REPO_TOKEN:-""}
 
@@ -122,6 +125,11 @@ meta:
     CP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_CP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
     CP_CONTAINER_REGISTRY_USERNAME: "${GUI_CP_CONTAINER_REGISTRY_USERNAME}"
     CP_CONTAINER_REGISTRY_PASSWORD: "${GUI_CP_CONTAINER_REGISTRY_PASSWORD}"
+
+    # CP proxy
+    CP_PROXY_HTTP_PROXY: ${GUI_CP_PROXY_HTTP_PROXY:-""}
+    CP_PROXY_HTTPS_PROXY: ${GUI_CP_PROXY_HTTPS_PROXY:-""}
+    CP_PROXY_NO_PROXY: ${GUI_CP_PROXY_NO_PROXY:-""}
 
     # env
     CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"cp-cluster"}
@@ -482,15 +490,6 @@ helmCharts:
             limits:
               cpu: 1250m
               memory: 1000Mi
-          dpHelmRepositories:
-            - alias: default
-              conf:
-                auth:
-                  password: ${DP_CHART_REPO_TOKEN}
-                  username: ${DP_CHART_REPO_USER_NAME}
-                repoUrl: ${DP_CHART_REPO}
-              default: true
-              type: chart-museum
         hybrid-proxy:
           enabled: true
           resources:
@@ -567,6 +566,10 @@ helmCharts:
             password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
             username: "${CP_CONTAINER_REGISTRY_USERNAME}"
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
           createNetworkPolicy: ${CP_CREATE_NETWORK_POLICIES}

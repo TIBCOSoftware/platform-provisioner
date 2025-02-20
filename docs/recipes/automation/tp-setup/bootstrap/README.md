@@ -1,3 +1,15 @@
+## Run Control Plane Automation Task Server
+
+```shell
+cd docs/recipes/automation
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+playwright install
+python -m waitress --port=3120 server:app
+open http://127.0.0.1:3120/
+```
+
 ## Test Automation script in Docker container (Dev)
 
 ```shell
@@ -33,7 +45,7 @@ pyenv install 3.12.8
 pyenv global 3.12.8
 python --version
 
-cd charts/provisioner-config-local/scripts/automation
+cd docs/recipes/automation
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

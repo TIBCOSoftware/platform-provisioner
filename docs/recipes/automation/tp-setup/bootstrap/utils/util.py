@@ -12,6 +12,7 @@ class Util:
     _browser = None
     _context = None
     _run_start_time = None
+    _is_trace = False
 
     @staticmethod
     def browser_launch(is_headless=ENV.IS_HEADLESS):
@@ -23,23 +24,26 @@ class Util:
 
         videos_dir = os.path.join(
             ENV.TP_AUTO_REPORT_PATH,
-            str(ENV.RETRY_TIME_FOLDER),
-            "videos"
+            str(ENV.RETRY_TIME_FOLDER)
         )
         print(f"Record video to {videos_dir}")
         Util._context = Util._browser.new_context(
             viewport={"width": 2000, "height": 1080},
-            record_video_dir=videos_dir,
             record_video_size={"width": 2000, "height": 1080},
+            record_video_dir=videos_dir,
             ignore_https_errors=True,
             accept_downloads=True
         )
-
+        if ENV.TP_AUTO_REPORT_TRACE:
+            Util._is_trace = True
+            ColorLogger.info("Start tracing with screenshots, snapshots, and sources.")
+            Util._context.tracing.start(screenshots=True, snapshots=True, sources=True)
         return Util._context.new_page()
 
     @staticmethod
     def browser_close():
         if Util._context is not None:
+            Util.stop_tracing()
             Util._context.close()
 
         if Util._browser is not None:
@@ -54,6 +58,17 @@ class Util:
             seconds = total_seconds % 60
             ColorLogger.info(f"Total running time: {minutes} minutes {seconds:.2f} seconds")
             ColorLogger.info(f"Current time: {chicago_time} at America/Chicago")
+
+    @staticmethod
+    def stop_tracing():
+        if Util._context is not None and Util._is_trace and ENV.TP_AUTO_REPORT_TRACE:
+            trace_path = os.path.join(
+                ENV.TP_AUTO_REPORT_PATH,
+                str(ENV.RETRY_TIME_FOLDER),
+                "trace.zip"
+            )
+            Util._context.tracing.stop(path=trace_path)
+            ColorLogger.info(f"Save tracing to file: {trace_path}")
 
     @staticmethod
     def screenshot_page(page, filename):
@@ -120,6 +135,7 @@ class Util:
     def exit_error(message, page=None, filename=""):
         if page is not None:
             Util.screenshot_page(page, f"error-{filename}")
+        Util.stop_tracing()
         ColorLogger.error(f"Exiting program: {message}")
         sys.exit(1)
 
@@ -245,7 +261,7 @@ class Util:
     def check_dom_visibility(page, dom_selector, interval=10, max_wait=180, is_refresh=False):
         total_attempts = max_wait // interval
         timeout = interval if interval < 5 else 5
-        print(f"Check dom visibility, wait {timeout} seconds first, then loop to check")
+        print(f"Check dom visibility, wait {timeout} seconds first, then loop to check for {max_wait} seconds.")
         page.wait_for_timeout(timeout * 1000)
         for attempt in range(total_attempts):
             if dom_selector.is_visible():

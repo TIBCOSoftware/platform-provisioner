@@ -1,3 +1,4 @@
+from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
 from page_object.po_auth import PageObjectAuth
@@ -14,7 +15,8 @@ if __name__ == "__main__":
             po_auth.admin_provision_user(ENV.DP_USER_EMAIL, ENV.DP_HOST_PREFIX)
             po_auth.active_user_in_mail(ENV.DP_USER_EMAIL)
     except Exception as e:
-        Util.exit_error(f"Unhandled error: {e}", page, "unhandled_error_auth.png")
+        current_filename = Path(__file__).stem
+        Util.exit_error(f"Unhandled error: {e}", page, f"unhandled_error_{current_filename}.png")
 
     Util.browser_close()
 

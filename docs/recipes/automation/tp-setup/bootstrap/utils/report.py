@@ -34,6 +34,13 @@ class ReportYamlHandler:
             )
         """)
 
+    def remove_dataplane(self, dp_name):
+        if dp_name not in self.get_dataplanes():
+            return
+        self.set(f"""
+            .dataPlane |= map(select(.name != "{dp_name}"))
+        """)
+
     def get_dataplanes(self):
         dps = self.get("(.dataPlane[].name)")
         return dps.split("\n") if dps else []
@@ -119,6 +126,17 @@ class ReportYamlHandler:
            )
         """)
         return apps.split("\n") if apps else []
+
+    def remove_capability_app(self, dp_name, capability, app_name):
+        if app_name not in self.get_capability_apps(dp_name, capability):
+            return
+        self.set(f"""
+            .dataPlane[] |= (
+                select(.name == "{dp_name}").capability[] |= (
+                    select(.name == "{capability}").app |= map(select(.name != "{app_name}"))
+                )
+            )
+        """)
 
     def is_app_created(self, dp_name, capability, app_name):
         return app_name in self.get_capability_apps(dp_name, capability)

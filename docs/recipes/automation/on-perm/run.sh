@@ -150,9 +150,9 @@ function main() {
   # don't print recipe
   export PIPELINE_RECIPE_PRINT=${PIPELINE_RECIPE_PRINT:-false}
   # runner image
-  export PIPELINE_DOCKER_IMAGE_RUNNER=${PIPELINE_DOCKER_IMAGE_RUNNER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest"}
+  export PIPELINE_DOCKER_IMAGE_RUNNER=${PIPELINE_DOCKER_IMAGE_RUNNER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:v1.1.0-on-prem"}
   # tester image
-  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:v1.0.0-tester"}
+  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:v1.1.0-tester-on-prem"}
 
   if [[ -f 05-tp-auto-deploy-dp.yaml ]]; then
     _IS_LOCAL_AUTOMATION=$(yq eval '.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT' 05-tp-auto-deploy-dp.yaml)
@@ -185,11 +185,23 @@ function main() {
         echo "Deploying TP from scratch..."
         start_time=$(date +%s)
         deploy-on-prem-base # 2
+        if [[ $? -ne 0 ]]; then
+          echo "Failed to deploy on-prem-base cluster."
+          exit 1
+        fi
         deploy-tp-o11y-stack # 5
+        if [[ $? -ne 0 ]]; then
+          echo "Failed to deploy o11y stack."
+          exit 1
+        fi
         post-deploy-cleanup-resource # 7
         echo "Wait for 30 seconds before deploying CP..."
         sleep 30
         deploy-tp # 3
+        if [[ $? -ne 0 ]]; then
+          echo "Failed to deploy CP."
+          exit 1
+        fi
         echo "Finish deploy TP in $(($(date +%s) - start_time)) seconds"
         post-deploy-adjust-dns # dns adjustment
         post-deploy-cleanup-resource # 7

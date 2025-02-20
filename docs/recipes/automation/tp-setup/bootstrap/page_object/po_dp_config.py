@@ -22,11 +22,11 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print(f"Clicked '{sub_menu_name}' left side menu")
         self.page.wait_for_timeout(500)
 
-    def o11y_get_new_resource(self, dp_name=""):
+    def o11y_get_new_resource(self, dp_name):
         # For 1.4 version
         add_new_resource_button = self.page.locator(".add-dp-observability-btn", has_text="Add new resource")
         if self.page.locator(".o11y-no-config .o11y-config-buttons").is_visible():
-            if dp_name == "":
+            if dp_name == ENV.TP_AUTO_K8S_DP_NAME_GLOBAL:
                 # For 1.5 Global data plane
                 add_new_resource_button = self.page.locator(".o11y-no-config .o11y-config-buttons .add-global-o11y-icon")
             else:
@@ -35,30 +35,35 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
     
         return add_new_resource_button
     
-    def o11y_config_dataplane_resource(self, dp_name=""):
+    def o11y_config_dataplane_resource(self, dp_name):
         if ReportYaml.get_dataplane_info(dp_name, "o11yConfig") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, o11yConfig is already created in DataPlane '{dp_name}'.")
             return
     
-        ColorLogger.info("O11y start config dataplane resource...")
+        ColorLogger.info(f"O11y start config {dp_name} dataplane resource...")
         if not ENV.TP_AUTO_IS_CONFIG_O11Y:
             ColorLogger.warning("TP_AUTO_IS_CONFIG_O11Y is false, skip config Observability Resource.")
             return
         dp_title = dp_name
-        # dp_name is empty, it means global data plane
-        if dp_name == "":
-            dp_title = "Global"
+        o11y_config_page_selector = ".data-plane-observability-content"         # for dp level
+        # dp_name is 'Global', it means global data plane
+        if dp_name == ENV.TP_AUTO_K8S_DP_NAME_GLOBAL:
             self.goto_left_navbar_dataplane()
             self.page.locator(".global-configuration button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")
-            self.page.locator(".pl-leftnav-layout .pl-leftnav-menu__link", has_text="Observability").wait_for(state="visible")
-            self.page.locator(".pl-leftnav-layout .pl-leftnav-menu__link", has_text="Observability").click()
+            o11y_selector = ".pl-leftnav-layout .pl-leftnav-menu__link"         # for 1.4 version
+            if Util.check_dom_visibility(self.page, self.page.locator(".pl-leftnav-layout .pl-tooltip__trigger", has_text="Observability"), 3, 6):
+                o11y_selector = ".pl-leftnav-layout .pl-tooltip__trigger"       # for 1.5+ version
+            self.page.locator(o11y_selector, has_text="Observability").wait_for(state="visible")
+            self.page.locator(o11y_selector, has_text="Observability").click()
             print("Clicked Global configuration -> 'Observability' left side menu")
+            o11y_config_page_selector = ".global-configuration-details"         # for global level
+            ReportYaml.set_dataplane(dp_name)
         else:
             self.goto_dataplane_config_sub_menu("Observability")
     
         print("Waiting for Observability config is loaded")
-        if not Util.check_dom_visibility(self.page, self.page.locator(".data-plane-observability-content"), 3, 10):
+        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 10):
             Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", self.page, "o11y_config_dataplane_resource.png")
     
         print("Checking if 'Add new resource' button is exist...")
@@ -191,9 +196,9 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print(f"Selected '{name_input}' in {tab_name} configurations")
     
     # when dp_name is empty, it means global data plane
-    def o11y_new_resource_fill_form(self, menu_name, tab_name, tab_sub_name, name_input, dp_name=""):
+    def o11y_new_resource_fill_form(self, menu_name, tab_name, tab_sub_name, name_input, dp_name):
         ColorLogger.info("O11y start to fill new resource form...")
-        dp_title = dp_name if dp_name else "Global"
+        dp_title = dp_name
         print(f"Fill form for Data Plane: {dp_title} -> O11y-> {menu_name} -> {tab_name} ...")
         self.page.locator("configuration-modal .pl-modal").wait_for(state="visible")
         self.page.fill("#config-name-input", name_input)
