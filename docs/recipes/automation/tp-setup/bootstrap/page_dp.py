@@ -1,12 +1,13 @@
+from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
 from page_object.po_user_management import PageObjectUserManagement
 from page_object.po_auth import PageObjectAuth
 from page_object.po_dataplane import PageObjectDataPlane
 from page_object.po_dp_config import PageObjectDataPlaneConfiguration
-from page_object.po_dp_flogo import PageObjectDataPlaneFlogo
 from page_object.po_dp_bwce import PageObjectDataPlaneBWCE
 from page_object.po_dp_ems import PageObjectDataPlaneEMS
+from page_object.po_dp_flogo import PageObjectDataPlaneFlogo
 from page_object.po_dp_pulsar import PageObjectDataPlanePulsar
 from page_object.po_dp_tibcohub import PageObjectDataPlaneTibcoHub
 
@@ -15,7 +16,6 @@ if __name__ == "__main__":
 
     page = Util.browser_launch()
     try:
-        po_user_management = PageObjectUserManagement(page)
         po_auth = PageObjectAuth(page)
         po_dp = PageObjectDataPlane(page)
         po_dp_config = PageObjectDataPlaneConfiguration(page)
@@ -27,10 +27,8 @@ if __name__ == "__main__":
         po_auth.login()
         po_auth.login_check()
 
+        po_user_management = PageObjectUserManagement(page)
         po_user_management.set_user_permission()
-
-        # config global dataplane
-        # o11y_config_dataplane_resource()
 
         if ENV.TP_AUTO_IS_CREATE_DP:
             # for create dataplane and config dataplane resources
@@ -65,6 +63,13 @@ if __name__ == "__main__":
                 po_dp_bwce.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
                 po_dp_bwce.bwce_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+                po_dp_bwce.bwce_provision_connector(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_NAME)
+                po_dp_bwce.bwce_app_build_and_deploy(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_FILE_NAME, ENV.BWCE_APP_NAME)
+                po_dp_bwce.bwce_app_deploy(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_NAME)
+
+                po_dp_bwce.bwce_app_config(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_NAME)
+                po_dp_bwce.bwce_app_start(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_NAME)
+                po_dp_bwce.bwce_app_test_endpoint(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_NAME)
 
             # for provision EMS capability
             if ENV.TP_AUTO_IS_PROVISION_EMS:
@@ -102,7 +107,8 @@ if __name__ == "__main__":
                 po_dp_tibcohub.tibcohub_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
         po_auth.logout()
     except Exception as e:
-        Util.exit_error(f"Unhandled error: {e}", page, "unhandled_error_run.png")
+        current_filename = Path(__file__).stem
+        Util.exit_error(f"Unhandled error: {e}", page, f"unhandled_error_{current_filename}.png")
     Util.browser_close()
 
     Util.set_cp_env()

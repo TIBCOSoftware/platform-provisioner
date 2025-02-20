@@ -51,6 +51,7 @@ class PageObjectDataPlane:
                                                                      f"DataPlane '{dp_name}' detail page is load.")
             if is_dataplane_detail_visible:
                 print(f"Navigated to Data Plane '{dp_name}' detail page")
+                ReportYaml.set_dataplane(dp_name)
                 self.page.wait_for_timeout(1000)
             else:
                 Util.exit_error(f"DataPlane {dp_name} detail page is not load.", self.page, "goto_dataplane.png")
@@ -58,7 +59,7 @@ class PageObjectDataPlane:
         else:
             Util.exit_error(f"DataPlane {dp_name} does not exist", self.page, "goto_dataplane.png")
 
-    def goto_capability(self, dp_name, capability, is_check_status=True):
+    def goto_capability(self, dp_name, capability, capability_selector_path, is_check_status=True):
         ColorLogger.info(f"{capability} Going to capability...")
         self.goto_dataplane(dp_name)
         print(f"Check if {capability} capability is ready...")
@@ -76,8 +77,8 @@ class PageObjectDataPlane:
                     print(f"{capability} capability status is ready")
 
                 is_capability_loaded = Util.refresh_until_success(self.page,
-                                                                  self.page.locator(".capability-connectors-container .total-capability"),
-                                                                  self.page.locator(".capability-connectors-container .total-capability"),
+                                                                  self.page.locator(capability_selector_path),
+                                                                  self.page.locator(capability_selector_path),
                                                                   f"{capability} capability detail page is loaded")
                 if is_capability_loaded:
                     print(f"Navigated to {capability} capability detail page")
@@ -89,7 +90,7 @@ class PageObjectDataPlane:
         else:
             Util.exit_error(f"{capability} capability is not provisioned yet.", self.page, f"{card_id}_goto_capability.png")
 
-    def goto_app_detail(self, dp_name, app_name):
+    def goto_app_detail(self, dp_name, app_name, app_selector_path):
         ColorLogger.info(f"Going to app '{app_name}' detail page")
         self.goto_dataplane(dp_name)
         is_app_visible = Util.refresh_until_success(self.page,
@@ -99,7 +100,7 @@ class PageObjectDataPlane:
         if is_app_visible:
             self.page.locator("apps-list td.app-name a", has_text=app_name).click()
             print(f"Clicked app '{app_name}'")
-            self.page.locator(".app-name-section .name", has_text=app_name).wait_for(state="visible")
+            self.page.locator(app_selector_path, has_text=app_name).wait_for(state="visible")
             print(f"Navigated to app '{app_name}' detail page")
             self.page.wait_for_timeout(500)
         else:
@@ -129,6 +130,38 @@ class PageObjectDataPlane:
             ColorLogger.warning(f"An error occurred while Checking capability '{capability}': {e}")
             return False
 
+    def is_app_created(self, capability, app_name):
+        ColorLogger.info(f"Checking if {capability} app '{app_name}' is created")
+        try:
+            print(f"Checking if {capability} app '{app_name}' is already created...")
+            self.page.locator("apps-list").wait_for(state="visible")
+            self.page.wait_for_timeout(3000)
+            if self.page.locator("#app-list-table tr.pl-table__row td.app-name", has_text=app_name).is_visible():
+                ColorLogger.success(f"{capability} app '{app_name}' is already created.")
+                return True
+            else:
+                print(f"{capability} app '{app_name}' has not been created.")
+                return False
+        except Exception as e:
+            ColorLogger.warning(f"An error occurred while Checking {capability} app '{app_name}': {e}")
+            return False
+
+    def is_app_running(self, dp_name, capability, app_name):
+        ColorLogger.info(f"Checking if {capability} app '{app_name}' is running")
+        try:
+            self.goto_dataplane(dp_name)
+            print(f"Checking if {capability} app '{app_name}' is already running...")
+            self.page.wait_for_timeout(3000)
+            if self.page.locator(f"#app-list-table tr.{capability.upper()}", has=self.page.locator("td.app-name", has_text=app_name)).locator("td", has_text="Running").is_visible():
+                ColorLogger.success(f"{capability} app '{app_name}' is already running.")
+                return True
+            else:
+                print(f"{capability} app '{app_name}' has not been running.")
+                return False
+        except Exception as e:
+            ColorLogger.warning(f"An error occurred while Checking {capability} app '{app_name}': {e}")
+            return False
+
     def k8s_delete_dataplane(self, dp_name):
         ColorLogger.info(f"Deleting Data Plane '{dp_name}'")
         self.goto_left_navbar_dataplane()
@@ -142,15 +175,35 @@ class PageObjectDataPlane:
             self.page.locator('data-plane-card', has=self.page.locator('.data-plane-name', has_text=dp_name)).locator('.delete-dp-dropdown button').nth(0).click()
             print(f"Clicked '⋮' icon in Data Plane {dp_name} card")
             self.page.locator(".is-shown .pl-dropdown-menu__action", has_text="Delete Data Plane").nth(0).wait_for(state="visible")
-            self.page.locator(".is-shown .pl-dropdown-menu__action", has_text="Delete Data Plane").nth(0).click()
+            # check if 'Force Delete Data Plane' is visible, use Force Delete Data Plane as first choice
+            if self.page.locator(".is-shown .pl-dropdown-menu__action", has_text="Force Delete Data Plane").is_visible():
+                self.page.locator(".is-shown .pl-dropdown-menu__action", has_text="Force Delete Data Plane").click()
+            else:
+                self.page.locator(".is-shown .pl-dropdown-menu__action", has_text="Delete Data Plane").nth(0).click()
             print(f"Clicked 'Delete Data Plane' menu item")
             self.page.locator(".delete-dp-modal").wait_for(state="visible")
             print("'Delete Data Plane' dialog popup.")
+            if Util.check_dom_visibility(self.page, self.page.locator(".delete-dp-modal #download-commands"), 2, 4):
+                print("Delete Data Plane command is displayed.")
+                # Note: the label height is too small, need to adjust it to trigger click event
+                self.page.evaluate("""
+                    document.querySelector(".delete-dp-modal label[for='agree-delete-btn']").style.minHeight = '20px';
+                    document.querySelector(".delete-dp-modal label[for='agree-delete-btn']").style.width = '100%';
+                """)
+                self.page.locator(".delete-dp-modal label[for='agree-delete-btn']").click()
+                print("Clicked confirm checkbox")
+                self.k8s_run_dataplane_command(dp_name, "Delete Data Plane", self.page.locator(".delete-dp-modal #download-commands"), 0)
+
             self.page.locator(".delete-dp-modal #confirm-button").click()
+            print("Clicked 'Delete' button in Delete Data Plane dialog")
             if Util.wait_for_success_message(self.page, 5):
                 print("'Delete Data Plane' success message is displayed.")
                 self.page.locator('.data-plane-name', has_text=dp_name).wait_for(state="detached")
                 ColorLogger.success(f"Deleted Data Plane '{dp_name}'")
+                ReportYaml.remove_dataplane(dp_name)
+        else:
+            ColorLogger.warning(f"Data Plane '{dp_name}' does not exist.")
+            return
 
     def k8s_create_dataplane(self, dp_name, retry=0):
         if ReportYaml.is_dataplane_created(dp_name):
@@ -289,7 +342,23 @@ class PageObjectDataPlane:
         ColorLogger.success(f"DataPlane {dp_name} tunnel is connected.")
         ReportYaml.set_dataplane_info(dp_name, "tunnelConnected", True)
 
-    # below functions will move to po_dp_{capability}.py
-
+    def k8s_delete_app(self, dp_name, capability, app_name):
+        ColorLogger.info(f"Deleting {capability} app '{app_name}' in DataPlane {dp_name}")
+        self.goto_dataplane(dp_name)
+        self.page.wait_for_timeout(3000)
+        app_row = self.page.locator(f"#app-list-table tr.{capability.upper()}", has=self.page.locator("td.app-name", has_text=app_name))
+        if app_row.is_visible():
+            app_row.locator(".actions a:has(svg[id^='delete'])").click()
+            print(f"Clicked 'Delete' icon in app '{app_name}' row")
+            self.page.locator(".confirmation .pl-modal__container").wait_for(state="visible")
+            print(f"Delete confirmation dialog is displayed.")
+            self.page.locator(".confirmation #confirm-button", has_text="Yes").click()
+            print("Clicked 'Yes' button in confirmation dialog")
+            self.page.wait_for_timeout(2000)
+            if not self.page.locator(f"#app-list-table tr.{capability.upper()}", has=self.page.locator("td.app-name", has_text=app_name)).is_visible():
+                ColorLogger.success(f"Deleted {capability} app '{app_name}' in DataPlane {dp_name}")
+                ReportYaml.remove_capability_app(dp_name, capability, app_name)
+        else:
+            ColorLogger.warning(f"{capability} app '{app_name}' does not exist.")
 
 

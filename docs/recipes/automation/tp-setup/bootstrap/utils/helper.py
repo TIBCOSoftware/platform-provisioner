@@ -30,6 +30,7 @@ class Helper:
             else:
                 command = [script_path]
             # Execute the shell script using subprocess
+            print(f"Running script: {script_path}")
             result = subprocess.run(
                 command,             # Path to the script
                 shell=False,               # Run without invoking the shell for added security
@@ -58,13 +59,14 @@ class Helper:
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
-            print(f"Error running yq command: {e}")
+            print(f"Error running command: {e}")
             return None
 
     @staticmethod
     def get_command_output(command):
         try:
             command = f"{Helper.get_kube_config_path()} {command}"
+            print(f"Run command: {command}")
             result = subprocess.run(
                 command,
                 shell=True,

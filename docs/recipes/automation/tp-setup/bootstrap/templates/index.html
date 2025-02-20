@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Plane Automation Task</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.1/mini-default.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+  <style>
+    .container .row .row { align-items: center; }
+    .container .row .row label {
+      height: 42px;
+      display: flex;
+      align-items: center;
+    }
+    .container .row .row input[type="text"], .container .row .row select {
+      width: 100%;
+    }
+    .logs { max-height: 600px; margin: 0 8px !important; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Control Plane Automation Task</h1>
+  <form>
+    <fieldset>
+      <legend>Environment</legend>
+      <div class="row">
+        <div class="col-sm-6">
+          <div class="row">
+            <div class="col-sm-3"><label for="TP_AUTO_LOGIN_URL">CP Login URL</label></div>
+            <div class="col-sm-9"><input type="text" id="TP_AUTO_LOGIN_URL"></div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-3"><label for="DP_USER_EMAIL">User Email</label></div>
+            <div class="col-sm-9"><input type="text" id="DP_USER_EMAIL"></div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-3"><label for="DP_USER_PASSWORD">User Password</label></div>
+            <div class="col-sm-9"><input type="text" id="DP_USER_PASSWORD"></div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-3"><label for="TP_AUTO_K8S_DP_NAME">DataPlane Name</label></div>
+            <div class="col-sm-9"><input type="text" id="TP_AUTO_K8S_DP_NAME"></div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div class="row">
+            <div class="col-sm-3"><label for="HEADLESS">Run in Browser</label></div>
+            <div class="col-sm-3"><input type="checkbox" id="HEADLESS"></div>
+            <div class="col-sm-3"><label for="FORCE_RUN_AUTOMATION" title="Will pre-set required steps if it is selected(Not include create dataplane.)">Force Run Automation</label></div>
+            <div class="col-sm-3"><input type="checkbox" id="FORCE_RUN_AUTOMATION"></div>
+          </div>
+          <div class="row">
+            <div class="col-sm-3"><label for="IS_CLEAN_REPORT">Is clean report</label></div>
+            <div class="col-sm-3"><input type="checkbox" id="IS_CLEAN_REPORT"></div>
+            <div class="col-sm-3"></div>
+            <div class="col-sm-3"></div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-3"><label for="autoCase">Automation Case</label></div>
+            <div class="col-sm-9">
+              <select id="autoCase">
+                <option>--Select Case--</option>
+                <option value="page_env">Show Current Environment</option>
+                <option value="page_auth">Active User</option>
+                <optgroup label="DataPlane">
+                  <option value="case.create_global_config">Config Global O11y</option>
+                  <option value="case.k8s_create_dp">Create DataPlane</option>
+                  <option value="case.k8s_config_dp_o11y">Config DataPlane O11y</option>
+                  <option value="case.k8s_delete_dp">Delete DataPlane</option>
+                </optgroup>
+                <optgroup label="Provision Capability">
+                  <option value="provision_bwce">Provision BWCE</option>
+                  <option value="provision_ems">Provision EMS</option>
+                  <option value="provision_flogo">Provision Flogo</option>
+                  <option value="provision_pulsar">Provision Pulsar</option>
+                  <option value="provision_tibcohub">Provision TibcoHub</option>
+                </optgroup>
+                <optgroup label="Create And Start app">
+                  <option value="case.k8s_create_and_start_bwce_app">Create And Start BWCE App</option>
+                  <option value="case.k8s_create_and_start_flogo_app">Create And Start Flogo App</option>
+                </optgroup>
+                <optgroup label="Delete app">
+                  <option value="delete_bwce_app">Delete BWCE App</option>
+                  <option value="delete_flogo_app">Delete Flogo App</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-3">
+              <label for="TP_AUTO_KUBECONFIG" title="Run './gcp.sh 6' to get the GCP kubeconfig path">GCP IP</label>
+            </div>
+            <div class="col-sm-9">
+<!--              <input type="text" id="TP_AUTO_KUBECONFIG">-->
+              <select id="TP_AUTO_KUBECONFIG"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-sm-6">
+          <div class="row">
+            <div class="col-sm-3"></div>
+            <div class="col-sm-9">
+              <button type="button" id="runBtn" class="primary" onclick="runScript()">Run</button>
+              <button type="button" id="stopBtn" class="secondary" onclick="stopScript()" disabled>Stop</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  </form>
+  <pre class="logs language-log"><code id="output"></code></pre>
+</div>
+
+<script>
+  window.onload = function() {
+    loadData();
+    loadGCPKubeConfig();
+  };
+
+  async function loadData() {
+    try {
+      let response = await fetch('/get_env');
+      let data = await response.json();
+
+      Object.keys(data).forEach(key => {
+        let element = document.getElementById(key);
+        if (element) {
+          if (element.type === "text") {
+            element.value = data[key];
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error loading config:", error);
+    }
+  }
+
+  async function loadGCPKubeConfig() {
+    try {
+      let response = await fetch('/get-kube-config');
+      let data = await response.json();
+
+      let select = document.getElementById("TP_AUTO_KUBECONFIG");
+      // if data is empty, hide select element's parent div.row
+      if (Object.keys(data).length === 0) {
+        select.parentElement.parentElement.style.display = "none";
+        return;
+      }
+
+      select.innerHTML = '<option value="">--Select GCP IP--</option>';
+
+      for (const [ip, path] of Object.entries(data)) {
+        let option = document.createElement("option");
+        option.value = path;
+        option.textContent = ip;
+        select.appendChild(option);
+      }
+    } catch (error) {
+      console.error("Error loading config:", error);
+    }
+  }
+
+  function handleSpecialCase(params) {
+    const provisionCaseMapping = {
+      "provision_bwce": "TP_AUTO_IS_PROVISION_BWCE",
+      "provision_ems": "TP_AUTO_IS_PROVISION_EMS",
+      "provision_flogo": "TP_AUTO_IS_PROVISION_FLOGO",
+      "provision_pulsar": "TP_AUTO_IS_PROVISION_PULSAR",
+      "provision_tibcohub": "TP_AUTO_IS_PROVISION_TIBCOHUB"
+    };
+
+    if (provisionCaseMapping[params.case]) {
+      params[provisionCaseMapping[params.case]] = true;
+      params.case = "case.k8s_provision_capability";
+    }
+
+    const deleteCaseMapping = {
+      "delete_bwce_app": "bwce",
+      "delete_flogo_app": "flogo",
+    };
+
+    if (deleteCaseMapping[params.case]) {
+      params.CAPABILITY = deleteCaseMapping[params.case];
+      params.case = "case.k8s_delete_app";
+    }
+    return params;
+  }
+
+  function runScript() {
+    const outputElement = document.getElementById("output");
+    const preElement = outputElement.parentElement;
+    outputElement.innerHTML = "Running script...\n";
+
+    const runButton = document.getElementById("runBtn");
+    const stopButton = document.getElementById("stopBtn");
+
+    runButton.disabled = true;
+    stopButton.disabled = false;
+
+    const additionalParams = {
+      TP_AUTO_IS_CONFIG_O11Y: true,
+      case: document.getElementById("autoCase").value,
+      HEADLESS: !document.getElementById("HEADLESS").checked,
+      FORCE_RUN_AUTOMATION: document.getElementById("FORCE_RUN_AUTOMATION").checked,
+      IS_CLEAN_REPORT: document.getElementById("IS_CLEAN_REPORT").checked,
+
+      TP_AUTO_LOGIN_URL: document.getElementById("TP_AUTO_LOGIN_URL").value,
+      DP_USER_EMAIL: document.getElementById("DP_USER_EMAIL").value,
+      DP_USER_PASSWORD: document.getElementById("DP_USER_PASSWORD").value,
+      TP_AUTO_K8S_DP_NAME: document.getElementById("TP_AUTO_K8S_DP_NAME").value,
+      TP_AUTO_KUBECONFIG: document.getElementById("TP_AUTO_KUBECONFIG").value,
+    };
+    const params = new URLSearchParams({ ...handleSpecialCase(additionalParams) });
+    fetch(`/run-script?${params.toString()}`)
+      .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        function readStream() {
+          reader.read().then(({ done, value }) => {
+            if (done) {
+              Prism.highlightElement(outputElement);
+              runButton.disabled = false;
+              stopButton.disabled = true;
+              return
+            }
+            outputElement.innerHTML += decoder.decode(value, { stream: true });
+
+            setTimeout(() => {
+              Prism.highlightElement(outputElement);
+              preElement.scrollTop = preElement.scrollHeight;
+            }, 50);
+            readStream();  // Continue reading
+          });
+        }
+        readStream();
+      })
+      .catch(error => console.error('Error:', error));
+  }
+  function stopScript() {
+    const outputElement = document.getElementById("output");
+    const preElement = outputElement.parentElement;
+
+    fetch('/stop-script')
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById("output").innerHTML += `\n[INFO] ${data.message}\n`;
+        preElement.scrollTop = preElement.scrollHeight;
+
+        document.getElementById("runBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+      })
+  }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
+</html>

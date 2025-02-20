@@ -47,7 +47,7 @@ class PageObjectAuth:
 
         with self.page.context.expect_page() as new_page_info:
             iframe.locator("a.btn-activate", has_text="Sign in").click()
-            print("Clicked 'Sign in' button.")
+            print(f"Clicked 'Sign in' button from email title '{email_title}'.")
 
         new_page = new_page_info.value
         print("New window detected and captured.")
@@ -77,7 +77,7 @@ class PageObjectAuth:
         print(f"Navigating to admin page {ENV.TP_AUTO_ADMIN_URL}...")
 
         print("Wait for 'Sign in with Default IdP' button is visible and clickable...")
-        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 5, 10, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 3, 10, True):
             ColorLogger.warning(f"Unable to load Admin login page {ENV.TP_AUTO_ADMIN_URL}")
             return False
         Util.click_button_until_enabled(self.page, self.page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP"))
@@ -171,7 +171,7 @@ class PageObjectAuth:
             print("Wait to see Welcome page...")
             self.page.wait_for_timeout(500)
             if self.page.locator(".title", has_text="Welcome").is_visible():
-                self. logout()
+                self.logout()
                 ColorLogger.success(f"Host prefix {host_prefix} is already exist.")
                 return True
             else:
@@ -204,7 +204,7 @@ class PageObjectAuth:
         ColorLogger.info(f"Navigating to login page {ENV.TP_AUTO_LOGIN_URL}...")
         self.page.goto(ENV.TP_AUTO_LOGIN_URL)
         print("Wait for login page is visible...")
-        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 5, 10, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 3, 10, True):
             ColorLogger.warning(f"Unable to load login page {ENV.TP_AUTO_LOGIN_URL}")
             return False
 
@@ -222,7 +222,7 @@ class PageObjectAuth:
             return False
 
         print(f"Waiting for user profile...")
-        if Util.check_dom_visibility(self.page, self.page.locator("#user-profile"), 5, 10, True):
+        if Util.check_dom_visibility(self.page, self.page.locator("#user-profile"), 3, 10, True):
             self.page.wait_for_selector('#user-profile')
             print(f"User {ENV.DP_USER_EMAIL} profile is displayed...")
             ReportYaml.set(".ENV.REPORT_AUTO_ACTIVE_USER", True)

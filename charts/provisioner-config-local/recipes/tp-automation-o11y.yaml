@@ -21,6 +21,7 @@ meta:
     GUI_TP_AUTO_REPORT_PATH: "/tmp/auto/report"
     GUI_TP_AUTO_REPORT_YAML_FILE: "report.yaml"
     GUI_TP_AUTO_REPORT_TXT_FILE: "report.txt"
+    GUI_TP_AUTO_REPORT_TRACE: "true"
     GUI_TP_AUTO_GITHUB_REPO_NAME: "github.com/TIBCOSoftware/platform-provisioner"
     GUI_TP_AUTO_GITHUB_REPO_PATH: "docs/recipes/automation/tp-setup/bootstrap"
     GUI_TP_AUTO_GITHUB_REPO_BRANCH: "provisioner-config-local-{{ .Chart.Version }}"
@@ -59,6 +60,9 @@ meta:
     GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT: "k8s-auto-dp1sa"
     GUI_TP_AUTO_INGRESS_CONTROLLER: "nginx"
     GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: "nginx"
+    GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME: "ingress-nginx-controller"
+    GUI_TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE: "ingress-system"
+    GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT: "443:https"
     GUI_TP_AUTO_STORAGE_CLASS: "hostpath"
 
     # DP o11y setup
@@ -94,6 +98,7 @@ meta:
     TP_AUTO_REPORT_PATH: ${GUI_TP_AUTO_REPORT_PATH:-"/tmp/auto/report"}
     TP_AUTO_REPORT_YAML_FILE: ${GUI_TP_AUTO_REPORT_YAML_FILE:-"report.yaml"}
     TP_AUTO_REPORT_TXT_FILE: ${GUI_TP_AUTO_REPORT_TXT_FILE:-"report.txt"}
+    TP_AUTO_REPORT_TRACE: ${GUI_TP_AUTO_REPORT_TRACE:-"true"}
     TP_AUTO_GITHUB_REPO_NAME: ${GUI_TP_AUTO_GITHUB_REPO_NAME:-"github.com/TIBCOSoftware/platform-provisioner"}
     TP_AUTO_GITHUB_REPO_PATH: ${GUI_TP_AUTO_GITHUB_REPO_PATH:-"docs/recipes/automation/tp-setup/bootstrap"}
     TP_AUTO_GITHUB_REPO_BRANCH: ${GUI_TP_AUTO_GITHUB_REPO_BRANCH:-"provisioner-config-local-{{ .Chart.Version }}"}
@@ -134,6 +139,9 @@ meta:
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT: ${GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT:-"k8s-auto-dp1sa"}
     TP_AUTO_INGRESS_CONTROLLER: ${GUI_TP_AUTO_INGRESS_CONTROLLER:-"nginx"}
     TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: ${GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME:-"nginx"}
+    TP_INGRESS_CONTROLLER_SERVICE_NAME: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME:-"ingress-nginx-controller"}
+    TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE:-"ingress-system"}
+    TP_INGRESS_CONTROLLER_SERVICE_PORT: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT:-"443:https"}
     TP_AUTO_STORAGE_CLASS: ${GUI_TP_AUTO_STORAGE_CLASS:-"hostpath"}
 
     # DP o11y setup
@@ -172,7 +180,11 @@ tasks:
     fileName: script.sh
     content: |
       cd /tmp
-      nohup kubectl port-forward -n ingress-system --address 0.0.0.0 service/ingress-nginx-controller 80:http 443:https &
+      nohup setsid bash -c 'while true; do
+        kubectl port-forward -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" --address 0.0.0.0 service/"${TP_INGRESS_CONTROLLER_SERVICE_NAME}" "${TP_INGRESS_CONTROLLER_SERVICE_PORT}"
+        echo "kubectl port-forward crashed, restarting..."
+        sleep 5
+      done' &
 - condition: ${TP_AUTO_USE_GITHUB_SCRIPT}
   clusters:
     - name: ${TP_CLUSTER_NAME}

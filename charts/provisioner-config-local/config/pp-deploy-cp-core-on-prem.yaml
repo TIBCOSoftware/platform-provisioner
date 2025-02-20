@@ -92,13 +92,6 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CHART_REPO_TOKEN"
   description: ""
-#- name: "DP Chart repo"
-#  groupIndex: 1
-#  type: string
-#  guiType: input
-#  reference: "meta.guiEnv.GUI_DP_CHART_REPO"
-#  description: |
-#    The helm chart repository to deploy DP. The default value is public repo. To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_DP_CHART_REPO_TOKEN`
 - name: "DP Chart repo host"
   groupIndex: 1
   type: string
@@ -231,6 +224,27 @@ options:
   reference: "meta.guiEnv.GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS"
   description: |
     Set to true to enable resource constraints for CP. Default is true.
+- name: "CP proxy http proxy"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_PROXY_HTTP_PROXY"
+  description: |
+    The CP proxy http proxy. Example: http://proxy.example.com:8080
+- name: "CP proxy https proxy"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_PROXY_HTTPS_PROXY"
+  description: |
+    The CP proxy https proxy. Example: https://proxy.example.com:8080
+- name: "CP proxy no proxy"
+  groupIndex: 5
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_PROXY_NO_PROXY"
+  description: |
+    The CP proxy no proxy. Example: .example1.com,.example2.com
 
 # groupIndex: 6 CP ingress
 - name: "CP DNS domain"
