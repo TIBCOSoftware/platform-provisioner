@@ -447,7 +447,6 @@ helmCharts:
         labels:
           app.cloud.tibco.com/created-by: pipeline
         annotations:
-          kubernetes.io/ingress.class: ${CP_INGRESS_CLASSNAME}
           nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
         spec:
           ingressClassName: ${CP_INGRESS_CLASSNAME}

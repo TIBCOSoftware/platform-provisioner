@@ -95,7 +95,7 @@ preTasks:
 helmCharts:
 - name: cert-manager
   condition: ${TP_INSTALL_CERT_MANAGER}
-  version: v1.16.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.17.1 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -139,7 +139,7 @@ helmCharts:
         EOF
 - name: external-dns
   condition: ${TP_INSTALL_EXTERNAL_DNS}
-  version: 1.15.0 # release: https://github.com/kubernetes-sigs/external-dns/releases
+  version: 1.15.2 # release: https://github.com/kubernetes-sigs/external-dns/releases
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/external-dns/
@@ -439,11 +439,17 @@ helmCharts:
         database: "postgres"
       global:
         storageClass: ${TP_STORAGE_CLASS}
+      primary:
+        # resourcesPreset: "nano" # nano micro small https://github.com/bitnami/charts/blob/7ba54fc3775106036c813a3819c76feab6deee83/bitnami/common/templates/_resources.tpl#L15
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
   flags:
     createNamespace: true
     timeout: 1h
 - name: eck-operator
-  version: 2.14.0 # release: https://artifacthub.io/packages/helm/elastic/eck-operator
+  version: 2.16.1 # release: https://artifacthub.io/packages/helm/elastic/eck-operator
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:
@@ -470,20 +476,20 @@ helmCharts:
     content: |
       domain: ${TP_DOMAIN}
       es:
-        version: "8.15.2"
+        version: "8.17.2"
         ingress:
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-es-http
         storage:
           name: ${TP_STORAGE_CLASS}
       kibana:
-        version: "8.15.2"
+        version: "8.17.2"
         ingress:
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-kb-http
       apm:
         enabled: true
-        version: "8.15.2"
+        version: "8.17.2"
         ingress:
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-apm-http
@@ -497,7 +503,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
 - name: kube-prometheus-stack
-  version: "65.2.0" # release: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+  version: "69.3.3" # release: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
   condition: ${TP_INSTALL_O11Y}
   repo:
     helm:

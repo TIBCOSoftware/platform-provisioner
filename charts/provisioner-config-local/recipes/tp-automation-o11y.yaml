@@ -165,6 +165,7 @@ meta:
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
 tasks:
 - condition: ${TP_OVERWRITE_DNS} # this is used for overwrite DNS
+  name: overwrite-dns
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -173,6 +174,7 @@ tasks:
     content: |
       echo "nameserver 10.178.2.10" > /etc/resolv.conf
 - condition: ${TP_PORT_FORWARD} # this is used for run pipeline locally
+  name: port-forward
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -180,12 +182,22 @@ tasks:
     fileName: script.sh
     content: |
       cd /tmp
+      # need to output underneath errors to stdout
+      kubectl get svc -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" "${TP_INGRESS_CONTROLLER_SERVICE_NAME}" > /dev/null
+      if [ $? -ne 0 ]; then
+        echo "Service ${TP_INGRESS_CONTROLLER_SERVICE_NAME} not found in namespace ${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}"
+        exit 1
+      else
+        echo "Service ${TP_INGRESS_CONTROLLER_SERVICE_NAME} found in namespace ${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}"
+      fi
+      echo "starting port-forward..."
       nohup setsid bash -c 'while true; do
         kubectl port-forward -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" --address 0.0.0.0 service/"${TP_INGRESS_CONTROLLER_SERVICE_NAME}" "${TP_INGRESS_CONTROLLER_SERVICE_PORT}"
         echo "kubectl port-forward crashed, restarting..."
         sleep 5
       done' &
 - condition: ${TP_AUTO_USE_GITHUB_SCRIPT}
+  name: clone-github-script
   clusters:
     - name: ${TP_CLUSTER_NAME}
   repo:
@@ -204,6 +216,7 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       pip install -r requirements.txt
 - condition: ${TP_AUTO_USE_LOCAL_SCRIPT}
+  name: setup-local-script
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -211,8 +224,11 @@ tasks:
     fileName: script.sh
     content: |
       cd ${TP_AUTO_SCRIPT_FOLDER}
+      python3 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       pip install -r requirements.txt
 - condition: ${TP_AUTO_ACTIVE_USER} # only create admin and subscription
+  name: active-user
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -240,6 +256,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: ${TP_AUTO_ENABLE_DP} # only create DP
+  name: create-dp
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -269,6 +286,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: ${TP_AUTO_ENABLE_FLOGO} # only deploy flogo
+  name: deploy-flogo
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -283,6 +301,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: ${TP_AUTO_ENABLE_BWCE} # only deploy bwce
+  name: deploy-bwce
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -297,6 +316,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: ${TP_AUTO_ENABLE_TIBCOHUB} # only deploy tibcohub
+  name: deploy-tibcohub
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -311,6 +331,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: ${TP_AUTO_ENABLE_EMS} # only deploy bwce
+  name: deploy-ems
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -325,6 +346,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: ${TP_AUTO_ENABLE_PULSAR} # only deploy bwce
+  name: deploy-pulsar
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -339,6 +361,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: true
+  name: print-report
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:

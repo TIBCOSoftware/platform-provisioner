@@ -10,8 +10,8 @@ kubectl scale deployment dns-operator --replicas=0 -n openshift-dns-operator
 # this operator will scale dns operator back
 kubectl scale deployment cluster-version-operator --replicas=0 -n openshift-cluster-version
 
-export REGEX_PATTERN_BASE64="KC4qKVwubG9jYWxob3N0XC5kYXRhcGxhbmVzXC5wcm8K"
-export TARGET_SERVICE="ingress-nginx-controller.ingress-system.svc.cluster.local"
+export REGEX_PATTERN_BASE64=${REGEX_PATTERN_BASE64:-"KC4qKVwubG9jYWxob3N0XC5kYXRhcGxhbmVzXC5wcm8K"}
+export TARGET_SERVICE=${TARGET_SERVICE:-"ingress-nginx-controller.ingress-system.svc.cluster.local"}
 REGEX_PATTERN=$(echo $REGEX_PATTERN_BASE64 | base64 --decode)
 kubectl get configmap dns-default -n openshift-dns -o json | jq --arg regex "$REGEX_PATTERN" --arg target "$TARGET_SERVICE" '
 .data.Corefile |=
