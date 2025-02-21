@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: helm-install
+meta:
+  guiEnv:
+    note: "deploy-bw5dm"
+
+    # github
+    GUI_BW5_CHART_REPO: "https://raw.githubusercontent.com/tibco/cicinfra-integration/gh-pages/"
+    GUI_BW5_CHART_REPO_USER_NAME: "bw-dev"
+    GUI_BW5_CHART_REPO_TOKEN: ""
+
+    # env
+    GUI_TP_CLUSTER_NAME: "on-prem"
+
+    # BW5DM
+    GUI_BW5_CHART_VERSION: "^1.1.0"
+    GUI_TP_BWDM_RELEASE_NAME: "bw5dm"
+
+    # flow control
+    GUI_TP_DEPLOY_RVDM: true
+    GUI_TP_DEPLOY_EMS_SERVER: true
+    GUI_TP_DEPLOY_EMSDM: true
+    GUI_TP_DEPLOY_HAWKCONSOLE: true
+    GUI_PIPELINE_LOG_DEBUG: true
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
+    PIPELINE_CHECK_DOCKER_STATUS: false
+
+    # github
+    TP_CHART_REPO: ${GUI_BW5_CHART_REPO:-https://raw.githubusercontent.com/tibco/cicinfra-integration/gh-pages/}
+    TP_CHART_REPO_USER_NAME: ${GUI_BW5_CHART_REPO_USER_NAME}
+    TP_CHART_REPO_TOKEN: ${GUI_BW5_CHART_REPO_TOKEN}
+
+    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+
+    # BW5DM
+    BW5_CHART_VERSION: ${GUI_BW5_CHART_VERSION:-"^1.1.0"}
+    TP_BWDM_RELEASE_NAME: ${GUI_TP_BWDM_RELEASE_NAME:-bw5dm}
+    
+    # flow control
+    TP_DEPLOY_RVDM: ${GUI_TP_DEPLOY_RVDM:-true}
+    TP_DEPLOY_EMS_SERVER: ${GUI_TP_DEPLOY_EMS_SERVER:-true}
+    TP_DEPLOY_EMSDM: ${GUI_TP_DEPLOY_EMSDM:-true}
+    TP_DEPLOY_HAWKCONSOLE: ${GUI_TP_DEPLOY_HAWKCONSOLE:-true}
+  tools:
+    yq: "4.40"
+helmCharts:
+  - name: bw5dm-chart
+    condition: true
+    version: ${BW5_CHART_VERSION}
+    namespace: bw5dm
+    releaseName: ${TP_BWDM_RELEASE_NAME}
+    repo:
+      helm:
+        url: ${TP_CHART_REPO}
+        username: "${TP_CHART_REPO_USER_NAME}"
+        password: "${TP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        githubToken: ${TP_CHART_REPO_TOKEN}
+        secret:
+          enabled: true
+        ems-server:
+          enabled: ${TP_DEPLOY_EMS_SERVER}
+        bw5emsdm:
+          enabled: ${TP_DEPLOY_EMSDM}
+          deployment:
+            env:
+              - name: OTEL_TRACES_ENDPOINT
+                value: "http://otel-metrics.elastic.svc"
+              # Use the ems-server above by default, if you want to use a different one, set info below
+              # - name: EMS_URL
+              #   value: "tcp://newemsserver:7222"
+              # - name: EMS_USER
+              #   value: "admin"
+              # - name: EMS_PASSWORD
+              #   value: "abc"
+        bw5rvdm:
+          enabled: ${TP_DEPLOY_RVDM}
+          deployment:
+            env:
+              - name: OTEL_TRACES_ENDPOINT
+                value: "http://otel-metrics.elastic.svc1"
+
+        hawkconsole:
+          enabled: ${TP_DEPLOY_HAWKCONSOLE}
+    cluster:
+      names:
+        - ${TP_CLUSTER_NAME}
+    flags:
+      wait: true
+      timeout: 1h
+      createNamespace: true

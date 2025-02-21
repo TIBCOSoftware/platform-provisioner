@@ -29,8 +29,7 @@ forward_port_to_instance() {
 
 ssh_instance() {
   echo "SSH instance"
-  ssh-keygen -R "${GCP_INSTANCE_IP}"
-  ssh -o "StrictHostKeyChecking no" -A -L ${LOCAL_PORT}:0.0.0.0:${GCP_PORT} -i "${KEY_PEM}" ubuntu@"${GCP_INSTANCE_IP}"
+  ssh -o "StrictHostKeyChecking no" -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
 }
 
 copy_instance_kubeconfig() {
@@ -171,7 +170,7 @@ function connect_ins() {
       echo "Executing Task 5: SSH login to instance"
       check_pem_key
 
-      prompt_for_gcp_instance_ip
+      prompt_for_instance_ip
 
       ssh_instance
       ;;

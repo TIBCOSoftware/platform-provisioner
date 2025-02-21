@@ -59,7 +59,8 @@ LABEL org.opencontainers.image.vendor="Cloud Software Group"
 ARG TARGETOS TARGETARCH
 
 # base packages
-RUN apk add --no-cache --upgrade coreutils util-linux gettext bash curl wget envsubst jq openssl openssh git python3 yq kubectl helm postgresql-client && rm -rf /var/cache/apk/*
+RUN apk add --no-cache --upgrade coreutils util-linux gettext bash curl wget envsubst jq \
+        openssl openssh git python3 yq kubectl helm postgresql-client docker-cli && rm -rf /var/cache/apk/*
 
 # COPY AWSCLI V2 to BASE_IMAGE
 COPY --from=builder-aws /opt/aws-cli/ /opt/aws-cli/

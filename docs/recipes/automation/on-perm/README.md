@@ -4,20 +4,31 @@ The goal of this automation is to create full running TP on-perm environment fro
 
 In the on-perm use case; we assume there will be an on-perm cluster running. The default target is Docker for Desktop.
 
-## Setup flow
+## Setup flow for local on-perm use case
+
+After changing the provisioner-config-local helm chart, you can follow the steps below to validate the changes.
+
+### 0. check out the project and navigate to current folder
 
 ### 1. Generate recipe from provisioner-config-local helm chart
 ```bash
-./generate-recipe.sh 1 1
+# generate all recipes from local provisioner-config-local helm chart
+./generate-recipe.sh 2 1
 ```
 
 ### 2. Adjust recipe for your k8s environment
 ```bash
-# choose the environment you will deploy to
+# choose the environment you will deploy to (default is Docker for Desktop)
 ./adjust-recipe.sh
 ```
 
-### 3. (Optional) Update recipe tokens
+### 3. (Optional) Adjust ingress for your k8s environment
+```bash
+# 1 for nginx, 2 for traefik
+./adjust-ingress.sh
+```
+
+### 4. (Optional) Update recipe tokens
 ```bash
 ./update-recipe-tokens.sh
 ```

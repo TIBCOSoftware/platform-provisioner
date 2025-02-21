@@ -1,0 +1,62 @@
+pipelineName: "Deploy BW5"
+description: |
+  This pipeline will deploy BW5 suit in the TP cluster. It will install 
+  * RVDM
+  * EMS Server
+  * Hawk Console
+  * BW5
+  You need to have access to the TIBCO BW5 private chart repo to use this pipeline.
+  This pipeline only works on x86 architecture. (arm64 is not supported. i.e no Mac M silicon)
+
+options:
+- name: "BW5 Chart repository"
+  groupIndex: 1
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_BW5_CHART_REPO"
+  description: |
+    The helm chart repository to deploy BW5. The default value is the BW5 private repo.
+- name: "BW5 Chart repo user name"
+  groupIndex: 1
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_BW5_CHART_REPO_USER_NAME"
+  description: "The CP chart repository user name. (optional)"
+- name: "BW Chart repo token"
+  groupIndex: 1
+  type: password
+  guiType: input
+  required: true
+  reference: "meta.guiEnv.GUI_BW5_CHART_REPO_TOKEN"
+  description: |
+    The token to access the BW5 private chart repo. It is required to deploy BW5.
+- name: "Deploy RVDM"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_DEPLOY_RVDM"
+  description: |
+    If checked, the pipeline will deploy RVDM.
+- name: "Deploy EMS Server"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_DEPLOY_EMS_SERVER"
+  description: |
+    If checked, the pipeline will deploy EMS Server.
+- name: "Deploy BW5 EMS DM"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_DEPLOY_EMSDM"
+  description: |
+    If checked, the pipeline will deploy BW5 EMS DM.
+- name: "Deploy Hawk Console"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_DEPLOY_HAWKCONSOLE"
+  description: |
+    If checked, the pipeline will deploy Hawk Console.
+- name: "Enable debug log"
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"
+recipe: |
+{{ .Files.Get "recipes/tp-deploy-bw5dm.yaml" | indent 2 }}

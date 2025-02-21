@@ -75,7 +75,7 @@ meta:
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager
-  version: v1.16.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.17.1 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -123,7 +123,7 @@ helmCharts:
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 4.11.3 # release: https://github.com/kubernetes/ingress-nginx/releases
+  version: 4.11.4 # release: https://github.com/kubernetes/ingress-nginx/releases can not upgrade to 4.12.0 PCP-10252
   repo:
     helm:
       url: https://kubernetes.github.io/ingress-nginx
@@ -171,7 +171,7 @@ helmCharts:
 - condition: ${TP_INSTALL_TRAEFIK_INGRESS}
   name: traefik
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: "32.1.1" # release: https://github.com/traefik/traefik-helm-chart/releases
+  version: "34.4.0" # release: https://github.com/traefik/traefik-helm-chart/releases
   repo:
     helm:
       url: https://traefik.github.io/charts
