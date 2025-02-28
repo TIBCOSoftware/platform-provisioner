@@ -93,6 +93,7 @@ function generate_recipe() {
         echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-remove-resource.yaml"]' | yq eval .recipe > 04-tp-adjust-resource.yaml
         echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-automation-o11y.yaml"]' | yq eval .recipe > 05-tp-auto-deploy-dp.yaml
         echo "${_data}" | yq eval .data | yq eval '.["pp-o11y-full.yaml"]' | yq eval .recipe > 06-tp-o11y-stack.yaml
+        echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-deploy-bw5dm.yaml"]' | yq eval .recipe > 07-tp-bw5-stack.yaml
         break
         ;;
       2)

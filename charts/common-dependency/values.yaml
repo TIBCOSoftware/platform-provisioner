@@ -32,3 +32,7 @@ serviceAccount: tekton-task
 githubToken: ""
 # read-only jfrog dev token which is used to share between pipelines
 jfrogDevToken: ""
+# base64 encoded ssh private key which is used to connect to instance
+pipelineSshPrivateKeyBase64: ""
+# base64 encoded ssh public key which is used to connect to instance
+pipelineSshPublicKeyBase64: ""

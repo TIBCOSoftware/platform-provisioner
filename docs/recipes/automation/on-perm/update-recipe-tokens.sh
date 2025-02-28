@@ -49,6 +49,13 @@ function set_github_token() {
       echo "Update GitHub token for ${_recipe_file_name}..."
       yq eval -i '(.meta.guiEnv.GUI_GITHUB_TOKEN = env(GITHUB_TOKEN))' ${_recipe_file_name}
     fi
+
+    local _recipe_file_name="07-tp-bw5-stack.yaml"
+    if [[ -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
+      echo "Update GitHub token for ${_recipe_file_name}..."
+      yq eval -i '(.meta.guiEnv.GUI_BW5_CHART_REPO_TOKEN = env(GITHUB_TOKEN))' ${_recipe_file_name}
+    fi
+
   fi
 }
 

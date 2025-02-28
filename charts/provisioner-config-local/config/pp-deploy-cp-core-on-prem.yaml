@@ -28,8 +28,8 @@ groups:
   index: 5
   description: |
     ## TIBCO Platform Control Plane specific configurations.
-    * The CP chart version matrix: [link](https://docs.tibco.com/pub/platform-cp/1.4.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm)
-    * The CP chart config doc: [link](https://docs.tibco.com/pub/platform-cp/1.4.0/doc/html/Default.htm#Installation/configuration-reference.htm)
+    * The CP chart version matrix: [link](https://docs.tibco.com/pub/platform-cp/1.5.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm)
+    * The CP chart config doc: [link](https://docs.tibco.com/pub/platform-cp/1.5.0/doc/html/Default.htm#Installation/configuration-reference.htm)
     ---
 - title: "CP ingress"
   index: 6
