@@ -64,7 +64,8 @@ function adjust_recipes() {
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT = false)' ${_recipe_file_name}
           yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_USE_GITHUB_SCRIPT = true)' ${_recipe_file_name}
-          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_STORAGE_CLASS = env(TP_STORAGE_CLASS))' ${_recipe_file_name}
+          # yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_STORAGE_CLASS = env(TP_STORAGE_CLASS))' ${_recipe_file_name}
+          yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_STORAGE_CLASS = "nfs")' ${_recipe_file_name} # BMDP Hawk need RWM but they will change soon.
         fi
 
         _recipe_file_name="06-tp-o11y-stack.yaml"

@@ -106,6 +106,19 @@ function deploy-tp-o11y-stack() {
   bash -c "${PIPELINE_SCRIPT}"
 }
 
+# deploy bw5 stack
+function deploy-tp-bw5-stack() {
+  local _recipe_file_name="07-tp-bw5-stack.yaml"
+  if [[ ! -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
+    echo "Recipe file ${_recipe_file_name} not found."
+    return 1
+  fi
+  export PIPELINE_NAME=helm-install
+  export PIPELINE_DOCKER_IMAGE="${PIPELINE_DOCKER_IMAGE_RUNNER}"
+  export PIPELINE_INPUT_RECIPE="${CURRENT_PATH}/${_recipe_file_name}"
+  bash -c "${PIPELINE_SCRIPT}"
+}
+
 # redeploy O11Y stack
 function redeploy-tp-o11y-stack() {
   helm delete -n elastic-system dp-config-es
@@ -176,8 +189,9 @@ function main() {
       echo "5. Deploy o11y stack (Elastic, Prometheus, OTel Collector, etc.)"
       echo "6. Cleanup resource (Remove resource limits, etc.)"
       echo "7. Undeploy o11y stack then Redeploy o11y stack (dp-config-es-es-default-0 pod is pending)"
-      echo "8. Exit"
-      read -rp "Enter your choice (1-8): " choice
+      echo "8. Deploy BW5 stack (BW5, tra/admin, ems.)"
+      echo "-1. Exit"
+      read -rp "Enter your choice (1-8 or -1): " choice
     fi
 
     case $choice in
@@ -249,6 +263,11 @@ function main() {
         break
         ;;
       8)
+        echo "Deploy classic BW5 stack..."
+        deploy-tp-bw5-stack
+        break
+        ;;
+      -1)
         echo "Exiting..."
         break
         ;;
