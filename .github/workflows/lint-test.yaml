@@ -1,6 +1,9 @@
 name: Lint and Test Charts
 
-on: pull_request
+on:
+  pull_request:
+    paths:
+      - 'charts/**'
 
 jobs:
   lint-test:
@@ -14,23 +17,36 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
-          version: v3.15.3
+          version: 3.17.1
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.x'
+          check-latest: true
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.6.1
+        uses: helm/chart-testing-action@v2.7.0
+
+      # get target branch name for the current pull request. we want to lint only the changed charts with target branch.
+      - name: Get target branch name
+        id: get_target_branch
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "TARGET_BRANCH=${{ github.base_ref }}" >> $GITHUB_ENV
+          else
+            echo "TARGET_BRANCH=$(echo ${{ github.ref }} | sed 's/refs\/heads\///')" >> $GITHUB_ENV
+          fi
 
       - name: Run chart-testing (list-changed)
         id: list-changed
         run: |
-          changed="$(ct list-changed --config .github/linters/ct.yaml)"
+          changed="$(ct list-changed --config .github/linters/ct.yaml --target-branch ${TARGET_BRANCH})"
+          charts=$(echo "$changed" | tr '\n' ' ' | xargs)
           if [[ -n "$changed" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "changed_charts=$charts" >> $GITHUB_OUTPUT
           fi
 
+      # only validate changed charts for the current PR
       - name: Run chart-testing (lint)
-        run: ct lint --config .github/linters/ct.yaml
-
+        run: ct lint --config .github/linters/ct.yaml --target-branch "${TARGET_BRANCH}"

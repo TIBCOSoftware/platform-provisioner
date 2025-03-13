@@ -11,7 +11,9 @@ jobs:
   release:
     if: ${{ github.event.label.name == 'chart-build' }}
     permissions:
-      contents: write
+      contents: write # to push chart release and create a release (helm/chart-releaser-action)
+      packages: write # needed for ghcr access
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,10 +29,10 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
-          version: '3.16.4'
+          version: '3.17.1'
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
+        uses: helm/chart-releaser-action@v1.7.0
         with:
           skip_existing: true
           packages_with_index: false
