@@ -88,7 +88,7 @@ cd "${DEV_PATH}" || exit
 
 # this is used for k8s on docker for mac
 if [[ "${PIPELINE_ON_PREM_DOCKER_FOR_MAC}" == "true" ]]; then
-  DOCKER_FOR_MAC_NODE_IP=$(kubectl get nodes -o yaml | yq '.items[].status.addresses[] | select(.type == "InternalIP") | .address')
+  DOCKER_FOR_MAC_NODE_IP=$(kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}')
   export _DOCKER_FOR_MAC_ADD_HOST="--add-host=kubernetes.docker.internal:${DOCKER_FOR_MAC_NODE_IP}"
 else
   export _DOCKER_FOR_MAC_ADD_HOST="--add-host=kubernetes.docker.internal:127.0.0.1"

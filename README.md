@@ -1,111 +1,57 @@
-<!-- TOC -->
-* [Platform Provisioner by TIBCO®](#platform-provisioner-by-tibco)
-  * [Get recipes from TIBCO GitHub](#get-recipes-from-tibco-github)
-  * [Run the Platform Provisioner in headless mode with Docker container](#run-the-platform-provisioner-in-headless-mode-with-docker-container)
-    * [Prerequisite](#prerequisite)
-    * [Run the Platform Provisioner](#run-the-platform-provisioner)
-  * [Run the Platform Provisioner in headless mode with the Tekton pipeline](#run-the-platform-provisioner-in-headless-mode-with-the-tekton-pipeline)
-    * [Prerequisite](#prerequisite-1)
-      * [Install Tekton with Tekton dashboard](#install-tekton-with-tekton-dashboard)
-    * [Run the platform-provisioner in headless mode](#run-the-platform-provisioner-in-headless-mode)
-  * [Docker image for Platform Provisioner](#docker-image-for-platform-provisioner)
-<!-- TOC -->
-
 # Platform Provisioner by TIBCO®
 
-Platform Provisioner by TIBCO® is a system that can provision a platform on any cloud provider (AWS, Azure) or on-prem. It consists of the following components:
-* Recipes: contains all the information to provision a platform.
-* Pipelines: The script that can run inside the Docker image to parse and run the recipe. Normally, the pipelines encapsulate as a helm chart.
+Platform Provisioner by TIBCO® is a lightweight, extensible, and easy to use recipe based provisioning system for cloud native platforms.
+It consists of the following components:
+* Recipes: contains all the information to provision a platform infrastructure and applications. 
+* Pipelines: The script that run inside the Docker image to parse and run the recipe.
 * A runtime Docker image: The Docker image that contains all the supporting tools to run a pipeline with given recipe.
 
-## Get recipes from TIBCO GitHub
+## Why Platform Provisioner?
 
-This repo provides some recipes to test the pipeline and cloud connection. It is located under [recipes](docs/recipes) folder.
-* tp-base: contains the base recipe to provision TIBCO Platform.
-* controplane: contains the recipe to provision TIBCO® Control Plane.
-* k8s: contains the recipe to provision Kubernetes cluster.
+The Platform Provisioner is designed the best fit for the following use cases:
+* Developer/DevOps engineer wants to provision a platform infrastructure and applications in both cloud and on-premises.
+* SRE/DevOps engineer has code snippets to run every 3 month or so for the operation tasks.
+* Platform team wants to provide a zero trust provisioning system for multi-cloud environment.
+* Platform team wants to dynamically provision a platform infrastructure and applications on demand. 
+* Platform team wants to provide a self-service provisioning system for the developers.
 
-## Run the Platform Provisioner in headless mode with Docker container
+The Platform Provisioner does not want to create another layer of abstraction on top of the existing tools. It provides 2 kinds of pipelines: generic-runner and helm-install. 
+The pipelines are focused on workflow orchestration and recipe parsing. So that the user can put their favorite tools in the docker image and use the recipe to manage their workflow.
+The pipelines are designed to be extensible and easy to use.
 
-The platform-provisioner can be run in headless mode with Docker container. The Docker container contains all the necessary tools to run the pipeline scripts.
-The `platform-provisioner.sh` script will create a Docker container and run the pipeline scripts with a given recipe.
+## Getting Started
+
+The platform-provisioner can be run in headless mode with Docker container as well as in the Cloud Kubernetes cluster with Tekton.
+For more information see: [README.md](docs/design/README.md)
 
 ### Prerequisite
 
 * Docker installed
 * Bash shell
+* [yq](https://mikefarah.gitbook.io/yq) version 4 installed
 
 ### Run the Platform Provisioner
 
-Go to the directory where you save the recipe and run the following command.
+Go to the project root directory and run the following command.
 ```bash
-export PIPELINE_INPUT_RECIPE=""
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TIBCOSoftware/platform-provisioner/main/dev/platform-provisioner.sh)"
+export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-container-binaries.yaml"
+./dev/platform-provisioner.sh
 ```
 
-## Run the Platform Provisioner in headless mode with the Tekton pipeline
+For this sample pipeline: 
+* The recipe is `docs/recipes/tests/test-container-binaries.yaml`
+* The pipeline is called `generic-runner`
+* The runtime Docker image is `ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest`
 
-The platform-provisioner can be run in headless mode with Tekton installed in the target Kubernetes cluster. 
-In this case, the recipe and pipeline will be scheduled by Tekton and run in the target Kubernetes cluster.
+The platform provisioner script [platform-provisioner.sh](dev/platform-provisioner.sh) will 
+* Parse the recipe and copy the recipe to the Docker container
+* Load pipeline script `generic-runner` to the Docker container
+* Run the pipeline script with the recipe inside the Docker container
 
-### Prerequisite
 
-* Docker installed
-* Bash shell
-* yq version 4 installed
+## Versioning
 
-#### Install Tekton with Tekton dashboard
-```bash
-export PIPELINE_SKIP_TEKTON_DASHBOARD=false
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TIBCOSoftware/platform-provisioner/main/dev/platform-provisioner-install.sh)"
-```
-
-After the installation, you can run the following command to port-forward the Tekton dashboard to local machine.
-```bash
-kubectl port-forward -n tekton-pipelines service/tekton-dashboard 8080:9097
-```
-
-We can now access Tekton provided dashboard: http://localhost:8080
-
-### Run the platform-provisioner in headless mode
-
-Go to the directory where you save the recipe and run the following command
-```bash
-export PIPELINE_INPUT_RECIPE="<path to recipe>"
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TIBCOSoftware/platform-provisioner/main/dev/platform-provisioner-pipelinerun.sh)"
-```
-
-You will be able to see the running pipelinerun on Tekton Dashboard by clicking the PipelineRuns on the left.
-
-## Docker image for Platform Provisioner
-
-We provide a Dockerfile to build the Docker image. The Docker image is used to run the pipeline. It contains the necessary tools to run the pipeline scripts.
-
-<details>
-<summary>Steps to build Docker image</summary>
-To build Docker image locally, run the following command:
-
-```bash
-cd docker
-./build.sh
-```
-
-This will build the Docker image called `platform-provisioner:latest`.
-
-To build multi-arch Docker image and push to remote Docker registry, run the following command:
-
-```bash
-export DOCKER_REGISTRY="<your Docker registry repo>"
-export PUSH_DOCKER_IMAGE=true
-cd docker
-./build.sh
-```
-This will build the Docker image called `<your Docker registry repo>/platform-provisioner:latest` and push to remote Docker registry.
-
-</details>
-
-> [!Note]
-> For other options, please see [docker/build.sh](docker/build.sh).
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
 
 ---
 Copyright 2024 Cloud Software Group, Inc.
