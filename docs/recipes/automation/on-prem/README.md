@@ -1,10 +1,10 @@
 # On-Premises setup automation
 
-The goal of this automation is to create full running TP on-perm environment from scratch with one script. 
+The goal of this automation is to create full running TP on-prem environment from scratch with one script. 
 
-In the on-perm use case; we assume there will be an on-perm cluster running. The default target is Docker for Desktop.
+In the on-prem use case; we assume there will be an on-prem cluster running. The default target is Docker for Desktop.
 
-## Setup flow for local on-perm use case
+## Setup flow for local on-prem use case
 
 After changing the provisioner-config-local helm chart, you can follow the steps below to validate the changes.
 
@@ -33,17 +33,17 @@ After changing the provisioner-config-local helm chart, you can follow the steps
 ./update-recipe-tokens.sh
 ```
 
-### 4. Install the full TP on-perm environment
-Before trigger the run.sh script; you can manually set TP versions that you want to install on 02-tp-cp-on-perm.yaml file.
+### 4. Install the full TP on-prem environment
+Before trigger the run.sh script; you can manually set TP versions that you want to install on 02-tp-cp-on-prem.yaml file.
 ```bash
 ./run.sh 1
 ```
 
 ## What happens in the run.sh script?
 Basically the `run.sh` script will: 
-* Deploy on-perm tools like ingress, Postgres
+* Deploy on-prem tools like ingress, Postgres
 * Deploy TIBCO Platform Control Plane
-* Adjust resource and DNS for local on-perm use case
+* Adjust resource and DNS for local on-prem use case
 * Register admin user
 * Create a new CP subscription
 * Deploy a DP

@@ -22,13 +22,7 @@ class PageObjectAuth:
             password = ENV.CP_ADMIN_PASSWORD
 
         print("Check email and active user...")
-        try:
-            response = self.page.goto(ENV.TP_AUTO_MAIL_URL, timeout=5000)
-            if response and response.status == 200:
-                print(f"URL {ENV.TP_AUTO_MAIL_URL} is accessible")
-                ReportYaml.set(".ENV.REPORT_TP_AUTO_MAIL", True)
-        except Exception as e:
-            Util.exit_error(f"An error occurred while accessing {ENV.TP_AUTO_MAIL_URL}: {e}", self.page, "active_user_in_mail_1.png")
+        Util.check_url_accessible(self.page, ENV.TP_AUTO_MAIL_URL, "REPORT_TP_AUTO_MAIL", "active_user_in_mail.png")
 
         self.page.goto(ENV.TP_AUTO_MAIL_URL)
         print(f"Navigating to mail page {ENV.TP_AUTO_MAIL_URL}...")
@@ -38,7 +32,7 @@ class PageObjectAuth:
         email_selector.wait_for(state="visible")
         print(f"Page {ENV.TP_AUTO_MAIL_URL} has been loaded...")
         if not email_selector.locator(".title-subline", has_text=email).is_visible():
-            Util.exit_error(f"Active Email for {email} is not found.", self.page, "active_user_in_mail_2.png")
+            Util.exit_error(f"Active Email for {email} is not found.", self.page, "active_user_in_mail.png")
 
         email_selector.click()
         self.page.wait_for_timeout(1000)

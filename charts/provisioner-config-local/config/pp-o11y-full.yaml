@@ -41,14 +41,14 @@ groups:
   index: 6
   description: |
     ## O11y ingress specific configurations. 
-    * Normally we use localhost.dataplanes.pro or localhost as on-perm domain.
+    * Normally we use localhost.dataplanes.pro or localhost as on-prem domain.
     * The service will be like: https://kibana.localhost.dataplanes.pro/ or http://kibana.localhost/
     ---
 - title: "Cluster storage"
   index: 7
   description: |
     ## Cluster storage specific configurations.
-    * For the on-perm setup we have
+    * For the on-prem setup we have
       * Docker Desktop: `hostpath` (support ReadWriteMany)
       * minikube: `standard` (support ReadWriteMany)
       * kind: `standard` (Don't support ReadWriteMany)

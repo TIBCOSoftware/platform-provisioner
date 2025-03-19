@@ -16,10 +16,14 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print("Clicked 'Data Plane configuration' button")
         self.page.wait_for_timeout(500)
 
-    def goto_dataplane_config_sub_menu(self, sub_menu_name = ""):
+    def goto_dataplane_config_sub_menu(self, sub_menu_name, child_menu_name=""):
         ColorLogger.info(f"Going to Data plane config -> '{sub_menu_name}' side menu")
         self.page.locator("#left-sub-menu .menu-item-text", has_text=sub_menu_name).click()
         print(f"Clicked '{sub_menu_name}' left side menu")
+        if child_menu_name:
+            self.page.locator(".menu-item-list .pl-leftnav-menu__nested .pl-leftnav-menu__link", has_text=child_menu_name).wait_for(state="visible")
+            self.page.locator(".menu-item-list .pl-leftnav-menu__nested .pl-leftnav-menu__link", has_text=child_menu_name).click()
+            print(f"Clicked '{child_menu_name}' left side menu")
         self.page.wait_for_timeout(500)
 
     def o11y_get_new_resource(self, dp_name):
@@ -118,53 +122,69 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print(f"Data plane '{dp_title}' 'Configure Log Server' Step 1 is configured.")
     
         # Step 2: Configure Metrics Server
+        # skip configure step 2 if TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG is true
         system_toggle = self.page.locator("#metrics-toggle-system-config")
-        if system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true":
-            print("Metrics System Config is enabled")
-            self.page.locator("label[for='metrics-toggle-system-config']").click()
-            print("Clicked 'Metrics System Config' toggle button, then wait for 1 second.")
-            self.page.wait_for_timeout(1000)
-    
-        # Add or Select Metrics -> Query Service configurations
-        menu_name = "Metrics"
-        tab_name = "Query Service"
-        self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-metrics-proxy-btn")
-    
-        # Add or Select Metrics -> Exporter configurations
-        tab_name = "Exporter"
-        if self.page.locator("label[for='metrics-exporter-toggle']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='metrics-exporter-toggle']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='metrics-exporter-toggle']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-metrics-exporter-btn")
+        is_system_toggle_enabled = system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true"
+        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG:
+            if is_system_toggle_enabled:
+                print("Use system config for Step 2: Configure Metrics Server")
+            else:
+                Util.exit_error(f"Data Plane '{dp_title}' Observability system config is not visible for Step 2.", self.page, "o11y_config_dataplane_resource.png")
+        else:
+            if is_system_toggle_enabled:
+                print("Metrics System Config is enabled")
+                self.page.locator("label[for='metrics-toggle-system-config']").click()
+                print("Clicked 'Metrics System Config' toggle button, then wait for 1 second.")
+                self.page.wait_for_timeout(1000)
+
+            # Add or Select Metrics -> Query Service configurations
+            menu_name = "Metrics"
+            tab_name = "Query Service"
+            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-metrics-proxy-btn")
+
+            # Add or Select Metrics -> Exporter configurations
+            tab_name = "Exporter"
+            if self.page.locator("label[for='metrics-exporter-toggle']", has_text=f"{tab_name} disabled").is_visible():
+                self.page.locator("label[for='metrics-exporter-toggle']").click()
+                print(f"Clicked '{tab_name}' toggle button")
+            if self.page.locator("label[for='metrics-exporter-toggle']", has_text=f"{tab_name} enabled").is_visible():
+                self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-metrics-exporter-btn")
         self.page.locator("#go-to-traces-configuration").click()
         print("Clicked 'Next' button")
         print(f"Data plane '{dp_title}' 'Configure Metrics Server' Step 2 is configured.")
     
         # Step 3: Configure Traces Server
+        # skip configure step 3 if TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG is true
         system_toggle = self.page.locator("#traces-toggle-system-config")
-        if system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true":
-            print("Traces System Config is enabled")
-            self.page.locator("label[for='traces-toggle-system-config']").click()
-            print("Clicked 'Traces System Config' toggle button, then wait for 1 second.")
-            self.page.wait_for_timeout(1000)
-    
-        # Add or Select Traces -> Query Service configurations
-        menu_name = "Traces"
-        tab_name = "Query Service"
-        if self.page.locator("label[for='traces-proxy']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='traces-proxy']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='traces-proxy']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-proxy-btn")
-    
-        # Add or Select Traces -> Exporter configurations
-        tab_name = "Exporter"
-        if self.page.locator("label[for='traces-exporter']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='traces-exporter']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='traces-exporter']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-exporter-btn")
+        is_system_toggle_enabled = system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true"
+        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG:
+            if is_system_toggle_enabled:
+                print("Use system config for Step 3: Configure Traces Server")
+            else:
+                Util.exit_error(f"Data Plane '{dp_title}' Observability system config is not visible for Step 3.", self.page, "o11y_config_dataplane_resource.png")
+        else:
+            if is_system_toggle_enabled:
+                print("Traces System Config is enabled")
+                self.page.locator("label[for='traces-toggle-system-config']").click()
+                print("Clicked 'Traces System Config' toggle button, then wait for 1 second.")
+                self.page.wait_for_timeout(1000)
+
+            # Add or Select Traces -> Query Service configurations
+            menu_name = "Traces"
+            tab_name = "Query Service"
+            if self.page.locator("label[for='traces-proxy']", has_text=f"{tab_name} disabled").is_visible():
+                self.page.locator("label[for='traces-proxy']").click()
+                print(f"Clicked '{tab_name}' toggle button")
+            if self.page.locator("label[for='traces-proxy']", has_text=f"{tab_name} enabled").is_visible():
+                self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-proxy-btn")
+
+            # Add or Select Traces -> Exporter configurations
+            tab_name = "Exporter"
+            if self.page.locator("label[for='traces-exporter']", has_text=f"{tab_name} disabled").is_visible():
+                self.page.locator("label[for='traces-exporter']").click()
+                print(f"Clicked '{tab_name}' toggle button")
+            if self.page.locator("label[for='traces-exporter']", has_text=f"{tab_name} enabled").is_visible():
+                self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-exporter-btn")
         self.page.locator("#save-observability").click()
         print(f"Data plane '{dp_title}' 'Configure Traces Server' Step 3 is configured.")
         self.page.wait_for_timeout(1000)

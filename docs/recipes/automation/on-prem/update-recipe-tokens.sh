@@ -38,7 +38,7 @@ function set_github_token() {
   else
     export GITHUB_TOKEN
     echo "Setting GitHub token..."
-    local _recipe_file_name="02-tp-cp-on-perm.yaml"
+    local _recipe_file_name="02-tp-cp-on-prem.yaml"
     if [[ -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
       echo "Update GitHub token for ${_recipe_file_name}..."
       yq eval -i '(.meta.guiEnv.GUI_CP_CHART_REPO_TOKEN = env(GITHUB_TOKEN)) |
@@ -62,7 +62,7 @@ function set_github_token() {
 # set_jfrog_token sets the JFrog token for CP private repo
 function set_jfrog_token() {
   # Ask for JFrog variables one by one
-  local _recipe_file_name="02-tp-cp-on-perm.yaml"
+  local _recipe_file_name="02-tp-cp-on-prem.yaml"
   if [[ ! -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
     echo "Recipe file ${_recipe_file_name} not found."
     return 0
@@ -108,7 +108,7 @@ function set_jfrog_token() {
 # set_ssl_cert sets the SSL certificate for TP
 function set_ssl_cert() {
   # Ask for SSL cert variables one by one
-  local _recipe_file_name="01-tp-on-perm.yaml"
+  local _recipe_file_name="01-tp-on-prem.yaml"
   if [[ ! -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
     echo "Recipe file ${_recipe_file_name} not found."
     return 0
@@ -135,7 +135,6 @@ function set_ssl_cert() {
 
 # main function
 function main() {
-
   set_github_token
   set_ssl_cert
   set_jfrog_token

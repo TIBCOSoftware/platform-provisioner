@@ -21,7 +21,7 @@ recipe: |
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       PIPELINE_CHECK_DOCKER_STATUS: false
-      TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-perm"}
+      TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
       TP_CLUSTER_STORAGE_CLASS_NAME: ${GUI_TP_CLUSTER_STORAGE_CLASS_NAME:-standard}
   helmCharts:
     - name: postgresql # chart name
