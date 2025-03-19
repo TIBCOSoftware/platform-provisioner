@@ -20,7 +20,7 @@ recipe: |
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       PIPELINE_CHECK_DOCKER_STATUS: false
-      CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"on-perm"}
+      CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"on-prem"}
       CP_NAMESPACE: ${GUI_CP_NAMESPACE}
   tasks:
     - condition: true

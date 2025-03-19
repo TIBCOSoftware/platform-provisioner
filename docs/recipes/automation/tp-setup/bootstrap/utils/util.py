@@ -258,6 +258,17 @@ class Util:
         print("=" * str_num)
 
     @staticmethod
+    def check_url_accessible(page, url, env_key, screenshot_name):
+        try:
+            response = page.goto(url, timeout=5000)
+            if response and response.status == 200:
+                print(f"URL {url} is accessible")
+                if env_key:
+                    ReportYaml.set(f".ENV.{env_key}", True)
+        except Exception as e:
+            Util.exit_error(f"An error occurred while accessing {url}: {e}", page, screenshot_name)
+
+    @staticmethod
     def check_dom_visibility(page, dom_selector, interval=10, max_wait=180, is_refresh=False):
         total_attempts = max_wait // interval
         timeout = interval if interval < 5 else 5

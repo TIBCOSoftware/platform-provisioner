@@ -3,7 +3,10 @@
 ```shell
 cd docs/recipes/automation
 python -m venv .venv
+# For Mac
 source .venv/bin/activate
+# For windows
+# source .venv/Scripts/activate
 pip install -r requirements.txt
 playwright install
 python -m waitress --port=3120 server:app
@@ -30,7 +33,7 @@ open http://127.0.0.1:3120/
 
 # Optional, GITHUB_TOKEN is for private repo, no need to set it and use global repository by default
 export GITHUB_TOKEN=""
-cd docs/recipes/automation/on-perm
+cd docs/recipes/automation/on-prem
 # only generate recipe 05-tp-auto-deploy-dp.yaml, and run python automation script only
 ./generate-recipe.sh 2 3 && ./run.sh 4
 ```
@@ -47,7 +50,10 @@ python --version
 
 cd docs/recipes/automation
 python -m venv .venv
+# For Mac
 source .venv/bin/activate
+# For windows
+# source .venv/Scripts/activate
 pip install -r requirements.txt
 
 # Install playwright (Only need to run once)
@@ -70,10 +76,21 @@ export GITHUB_TOKEN=""
 python page_dp.py
 ```
 
+## Run Python Automation case/e2e individually
+
+```shell
+# set HEADLESS to false will popup browser window, true will use headless mode.
+export HEADLESS="false"
+python -u -m case.k8s_config_dp_o11y
+
+
+pytest --html=report/report.html --self-contained-html  e2e/dataplane/configuration/o11y/test_connection.py
+```
+
 ## FAQ
 1. If pod `dp-config-es-es-default-0` is pending, run the following command to fix it.
     ```shell
-    cd docs/recipes/automation/on-perm
+    cd docs/recipes/automation/on-prem
     # Undeploy o11y stack then Redeploy o11y stack 
     ./run.sh 7
     ```

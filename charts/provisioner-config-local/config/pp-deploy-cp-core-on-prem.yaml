@@ -41,7 +41,7 @@ groups:
   index: 7
   description: |
     ## Cluster storage specific configurations.
-    * For the on-perm setup we have
+    * For the on-prem setup we have
       * Docker Desktop: `hostpath` (support ReadWriteMany)
       * minikube: `standard` (support ReadWriteMany)
       * kind: `standard` (Don't support ReadWriteMany)
@@ -254,7 +254,7 @@ options:
   reference: "meta.guiEnv.GUI_CP_DNS_DOMAIN"
   required: true
   description: |
-    The CP DNS domain for on-perm setup.
+    The CP DNS domain for on-prem setup.
 - name: "TP tls cert"
   groupIndex: 6
   type: string

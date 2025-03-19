@@ -31,6 +31,10 @@
             <div class="col-sm-3"><label for="TP_AUTO_LOGIN_URL">CP Login URL</label></div>
             <div class="col-sm-9"><input type="text" id="TP_AUTO_LOGIN_URL"></div>
           </div>
+          <div class="row">
+            <div class="col-sm-3"><label for="DP_HOST_PREFIX">Host Prefix</label></div>
+            <div class="col-sm-9"><input type="text" id="DP_HOST_PREFIX"></div>
+          </div>
 
           <div class="row">
             <div class="col-sm-3"><label for="DP_USER_EMAIL">User Email</label></div>
@@ -46,17 +50,22 @@
             <div class="col-sm-3"><label for="TP_AUTO_K8S_DP_NAME">DataPlane Name</label></div>
             <div class="col-sm-9"><input type="text" id="TP_AUTO_K8S_DP_NAME"></div>
           </div>
+
+          <div class="row">
+            <div class="col-sm-3"><label for="TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG">Is Using O11y System Config</label></div>
+            <div class="col-sm-9"><input type="checkbox" id="TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG"></div>
+          </div>
         </div>
         <div class="col-sm-6">
           <div class="row">
             <div class="col-sm-3"><label for="HEADLESS">Run in Browser</label></div>
-            <div class="col-sm-3"><input type="checkbox" id="HEADLESS"></div>
-            <div class="col-sm-3"><label for="FORCE_RUN_AUTOMATION" title="Will pre-set required steps if it is selected(Not include create dataplane.)">Force Run Automation</label></div>
-            <div class="col-sm-3"><input type="checkbox" id="FORCE_RUN_AUTOMATION"></div>
+            <div class="col-sm-3"><input type="checkbox" id="HEADLESS" title="Will run test case in the popup browser"></div>
+            <div class="col-sm-3"><label for="FORCE_RUN_AUTOMATION">Force Run Automation</label></div>
+            <div class="col-sm-3"><input type="checkbox" id="FORCE_RUN_AUTOMATION" title="Will pre-set required steps if it is selected(Not include create dataplane.)"></div>
           </div>
           <div class="row">
             <div class="col-sm-3"><label for="IS_CLEAN_REPORT">Is clean report</label></div>
-            <div class="col-sm-3"><input type="checkbox" id="IS_CLEAN_REPORT"></div>
+            <div class="col-sm-3"><input type="checkbox" id="IS_CLEAN_REPORT" checked="checked"></div>
             <div class="col-sm-3"></div>
             <div class="col-sm-3"></div>
           </div>
@@ -67,7 +76,7 @@
               <select id="autoCase">
                 <option>--Select Case--</option>
                 <option value="page_env">Show Current Environment</option>
-                <option value="page_auth">Active User</option>
+                <option value="page_auth">Active User(Create new subscription)</option>
                 <optgroup label="DataPlane">
                   <option value="case.create_global_config">Config Global O11y</option>
                   <option value="case.k8s_create_dp">Create DataPlane</option>
@@ -95,7 +104,7 @@
 
           <div class="row">
             <div class="col-sm-3">
-              <label for="TP_AUTO_KUBECONFIG" title="Run './gcp.sh 6' to get the GCP kubeconfig path">GCP IP</label>
+              <label for="TP_AUTO_KUBECONFIG">GCP IP</label>
             </div>
             <div class="col-sm-9">
 <!--              <input type="text" id="TP_AUTO_KUBECONFIG">-->
@@ -209,12 +218,14 @@
 
     const additionalParams = {
       TP_AUTO_IS_CONFIG_O11Y: true,
+      TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG: document.getElementById("TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG").checked,
       case: document.getElementById("autoCase").value,
       HEADLESS: !document.getElementById("HEADLESS").checked,
       FORCE_RUN_AUTOMATION: document.getElementById("FORCE_RUN_AUTOMATION").checked,
       IS_CLEAN_REPORT: document.getElementById("IS_CLEAN_REPORT").checked,
 
       TP_AUTO_LOGIN_URL: document.getElementById("TP_AUTO_LOGIN_URL").value,
+      DP_HOST_PREFIX: document.getElementById("DP_HOST_PREFIX").value,
       DP_USER_EMAIL: document.getElementById("DP_USER_EMAIL").value,
       DP_USER_PASSWORD: document.getElementById("DP_USER_PASSWORD").value,
       TP_AUTO_K8S_DP_NAME: document.getElementById("TP_AUTO_K8S_DP_NAME").value,

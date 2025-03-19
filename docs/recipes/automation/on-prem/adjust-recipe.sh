@@ -31,14 +31,14 @@ function adjust_recipes() {
       echo "4. Adjust for minikube"
       echo "5. Adjust for kind"
       # echo "6. Adjust for MicroK8s"
-      echo "7. Exit"
+      echo "0. Exit"
       read -rp "Enter your choice (1-7): " choice
     fi
 
     case $choice in
       1)
         echo "Adjusting kubernetes config for k3s..."
-        _recipe_file_name="01-tp-on-perm.yaml"
+        _recipe_file_name="01-tp-on-prem.yaml"
         export TP_STORAGE_CLASS="local-path"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE = "ClusterIP")' "$_recipe_file_name"
@@ -49,7 +49,7 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
         fi
 
-        _recipe_file_name="02-tp-cp-on-perm.yaml"
+        _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "nfs")' "$_recipe_file_name"
         fi
@@ -77,7 +77,7 @@ function adjust_recipes() {
         ;;
       2)
         echo "Adjusting kubernetes config for OpenShift..."
-        _recipe_file_name="01-tp-on-perm.yaml"
+        _recipe_file_name="01-tp-on-prem.yaml"
         export TP_STORAGE_CLASS="crc-csi-hostpath-provisioner"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE = "ClusterIP")' "$_recipe_file_name"
@@ -88,7 +88,7 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
         fi
 
-        _recipe_file_name="02-tp-cp-on-perm.yaml"
+        _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "nfs")' "$_recipe_file_name"
         fi
@@ -114,7 +114,7 @@ function adjust_recipes() {
         ;;
       3)
         echo "Adjusting kubernetes config for Docker Desktop..."
-        _recipe_file_name="01-tp-on-perm.yaml"
+        _recipe_file_name="01-tp-on-prem.yaml"
         export TP_STORAGE_CLASS="hostpath"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE = "LoadBalancer")' "$_recipe_file_name"
@@ -125,7 +125,7 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
         fi
 
-        _recipe_file_name="02-tp-cp-on-perm.yaml"
+        _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "hostpath")' "$_recipe_file_name"
         fi
@@ -176,7 +176,7 @@ function adjust_recipes() {
         kubectl config set-context ${_generated_config_name} --cluster=${_generated_config_name} --user=${_generated_config_name}
         kubectl config use-context ${_generated_config_name}
 
-        _recipe_file_name="01-tp-on-perm.yaml"
+        _recipe_file_name="01-tp-on-prem.yaml"
         export TP_STORAGE_CLASS="standard"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE = "ClusterIP")' "$_recipe_file_name"
@@ -187,7 +187,7 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
         fi
 
-        _recipe_file_name="02-tp-cp-on-perm.yaml"
+        _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "standard")' "$_recipe_file_name"
         fi
@@ -213,7 +213,7 @@ function adjust_recipes() {
         ;;
       5)
         echo "Adjusting kubernetes config for kind..."
-        _recipe_file_name="01-tp-on-perm.yaml"
+        _recipe_file_name="01-tp-on-prem.yaml"
         export TP_STORAGE_CLASS="standard"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE = "ClusterIP")' "$_recipe_file_name"
@@ -224,7 +224,7 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
         fi
 
-        _recipe_file_name="02-tp-cp-on-perm.yaml"
+        _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "nfs")' "$_recipe_file_name"
         fi
@@ -248,7 +248,7 @@ function adjust_recipes() {
         fi
         break
         ;;
-      7)
+      0)
         echo "Exiting..."
         break
         ;;

@@ -24,7 +24,7 @@ menuConfig:
     - label: "TP base on-prem"
       url: "/pipelines/helm-install?title=tp-base-on-prem"
       config: pp-deploy-tp-base-on-prem.yaml
-    - label: "TP base on-perm with certificate"
+    - label: "TP base on-prem with certificate"
       url: "/pipelines/helm-install?title=tp-base-on-prem-cert"
       config: pp-deploy-tp-base-on-prem-cert.yaml
   - separator: true

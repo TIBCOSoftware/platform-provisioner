@@ -81,14 +81,14 @@ function generate_recipe() {
       echo "1. All TP recipes (Infra, TP, O11y, DNS adjustment, Resource adjustment, Auto deploy DP etc.)"
       echo "2. TP recipes"
       echo "3. Auto deploy DP recipe"
-      echo "4. Exit"
+      echo "0. Exit"
       read -rp "Enter your choice (1-4): " choice2
     fi
 
     case $choice2 in
       1)
-        echo "${_data}" | yq eval .data | yq eval '.["pp-deploy-tp-base-on-prem-cert.yaml"]' | yq eval .recipe > 01-tp-on-perm.yaml
-        echo "${_data}" | yq eval .data | yq eval '.["pp-deploy-cp-core-on-prem.yaml"]' | yq eval .recipe > 02-tp-cp-on-perm.yaml
+        echo "${_data}" | yq eval .data | yq eval '.["pp-deploy-tp-base-on-prem-cert.yaml"]' | yq eval .recipe > 01-tp-on-prem.yaml
+        echo "${_data}" | yq eval .data | yq eval '.["pp-deploy-cp-core-on-prem.yaml"]' | yq eval .recipe > 02-tp-cp-on-prem.yaml
         echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-config-coredns.yaml"]' | yq eval .recipe > 03-tp-adjust-dns.yaml
         echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-remove-resource.yaml"]' | yq eval .recipe > 04-tp-adjust-resource.yaml
         echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-automation-o11y.yaml"]' | yq eval .recipe > 05-tp-auto-deploy-dp.yaml
@@ -97,14 +97,14 @@ function generate_recipe() {
         break
         ;;
       2)
-        echo "${_data}" | yq eval .data | yq eval '.["pp-deploy-cp-core-on-prem.yaml"]' | yq eval .recipe > 02-tp-cp-on-perm.yaml
+        echo "${_data}" | yq eval .data | yq eval '.["pp-deploy-cp-core-on-prem.yaml"]' | yq eval .recipe > 02-tp-cp-on-prem.yaml
         break
         ;;
       3)
         echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-automation-o11y.yaml"]' | yq eval .recipe > 05-tp-auto-deploy-dp.yaml
         break
         ;;
-      4)
+      0)
         echo "Exiting..."
         break
         ;;

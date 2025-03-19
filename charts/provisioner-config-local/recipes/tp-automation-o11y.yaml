@@ -11,7 +11,7 @@ meta:
     note: "tp-automation-o11y"
     GUI_PIPELINE_LOG_DEBUG: false
 
-    GUI_TP_CLUSTER_NAME: 'on-perm'
+    GUI_TP_CLUSTER_NAME: 'on-prem'
     GUI_GITHUB_TOKEN: ""
 
     # automation setup
@@ -35,6 +35,9 @@ meta:
     GUI_TP_AUTO_ENABLE_TIBCOHUB: false
     GUI_TP_AUTO_ENABLE_EMS: false
     GUI_TP_AUTO_ENABLE_PULSAR: false
+    GUI_TP_AUTO_ENABLE_BMDP: false
+    GUI_TP_AUTO_IS_EBABLE_RVDM: true
+    GUI_TP_AUTO_IS_EBABLE_EMSDM: true
 
     # CP setup
     GUI_TP_AUTO_CP_INSTANCE_ID: "cp1"
@@ -77,6 +80,16 @@ meta:
     GUI_TP_AUTO_FQDN_BWCE: ""
     GUI_TP_AUTO_FQDN_FLOGO: ""
     GUI_TP_AUTO_FQDN_TIBCOHUB: ""
+    GUI_TP_AUTO_FQDN_BMDP: "bmdp.dummy.hostname"
+
+    # BMDP setup
+    GUI_TP_AUTO_K8S_BMDP_NAME: "k8s-auto-bmdp1"
+    GUI_TP_AUTO_K8S_BMDP_NAMESPACE: "k8s-auto-bmdp1ns"
+    GUI_TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT: "k8s-auto-bmdp1sa"
+    GUI_TP_AUTO_K8S_BMDP_BW5_EMSDM: "tra5130ems"
+    GUI_TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL: "tcp://ems.bw5dm.svc.cluster.local:7222"
+    GUI_TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME: "admin"
+    GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ""
 
     # flow control
     GUI_TP_PORT_FORWARD: true
@@ -114,6 +127,9 @@ meta:
     TP_AUTO_ENABLE_TIBCOHUB: ${GUI_TP_AUTO_ENABLE_TIBCOHUB:-true}
     TP_AUTO_ENABLE_EMS: ${GUI_TP_AUTO_ENABLE_EMS:-true}
     TP_AUTO_ENABLE_PULSAR: ${GUI_TP_AUTO_ENABLE_PULSAR:-true}
+    TP_AUTO_ENABLE_BMDP: ${GUI_TP_AUTO_ENABLE_BMDP:-false}
+    TP_AUTO_IS_EBABLE_RVDM: ${GUI_TP_AUTO_IS_EBABLE_RVDM:-true}
+    TP_AUTO_IS_EBABLE_EMSDM: ${GUI_TP_AUTO_IS_EBABLE_EMSDM:-true}
 
     # CP setup
     TP_AUTO_CP_INSTANCE_ID: ${GUI_TP_AUTO_CP_INSTANCE_ID:-"cp1"}
@@ -156,10 +172,21 @@ meta:
     TP_AUTO_FQDN_BWCE: ${GUI_TP_AUTO_FQDN_BWCE:-""}
     TP_AUTO_FQDN_FLOGO: ${GUI_TP_AUTO_FQDN_FLOGO:-""}
     TP_AUTO_FQDN_TIBCOHUB: ${GUI_TP_AUTO_FQDN_TIBCOHUB:-""}
+    TP_AUTO_FQDN_BMDP: ${GUI_TP_AUTO_FQDN_BMDP:-""}
+
+    # BMDP setup
+    TP_AUTO_K8S_BMDP_NAME: ${GUI_TP_AUTO_K8S_BMDP_NAME:-"k8s-auto-bmdp1"}
+    TP_AUTO_K8S_BMDP_NAMESPACE: ${GUI_TP_AUTO_K8S_BMDP_NAMESPACE:-"k8s-auto-bmdp1ns"}
+    TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT: ${GUI_TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT:-"k8s-auto-bmdp1sa"}
+    TP_AUTO_K8S_BMDP_BW5_EMSDM: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMSDM:-"tra5130ems"}
+    TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL:-"tcp://ems.bw5dm.svc.cluster.local:7222"}
+    TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME:-"admin"}
+    TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD:-""}
 
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
     PYTHON_FILE_ENTRY_POINT: page_dp.py
+    PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
@@ -238,7 +265,7 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       cd ${TP_AUTO_SCRIPT_FOLDER}
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
-      
+
       if [[ -f "$_report_file" ]]; then
         if [[ "$(yq '.ENV.REPORT_AUTO_ACTIVE_USER' "$_report_file")" == "true" ]]; then
           echo "----------------------------------------------------------------"
@@ -250,7 +277,7 @@ tasks:
           cat "$_report_file"
         fi
       fi
-      
+
       python ${PYTHON_FILE_LOGIN_POINT}
       _result=$?
       echo "python return code: ${_result}"
@@ -280,7 +307,7 @@ tasks:
           cat "$_report_file"
         fi
       fi
-      
+
       python ${PYTHON_FILE_ENTRY_POINT}
       _result=$?
       echo "python return code: ${_result}"
@@ -357,6 +384,36 @@ tasks:
       export TP_AUTO_IS_PROVISION_PULSAR=${TP_AUTO_ENABLE_PULSAR}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       python ${PYTHON_FILE_ENTRY_POINT}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_BMDP} # only create BMDP
+  name: create-dp
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      export TP_AUTO_IS_CREATE_BMDP=${TP_AUTO_ENABLE_BMDP}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        # Get all dataPlane.name and concatenate them into a,b,c format
+        bmdp_names=$(yq '.dataPlane[].name' "$_report_file" | tr '\n' ',' | sed 's/,$//')
+        if [[ -n "$dp_names" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[$dp_names] already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+
+      python ${PYTHON_FILE_ENTRY_POINT_BMDP}
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}

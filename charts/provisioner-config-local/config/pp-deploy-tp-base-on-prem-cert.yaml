@@ -13,11 +13,11 @@ groups:
   description: |
     Cluster Ingress configurations. 
     * domain: `*.localhost.dataplanes.pro` point to `127.0.0.1`.
-    * ingress service type: We can only have `ONE` main ingress uses service type `LoadBalancer` for on-perm setup.
+    * ingress service type: We can only have `ONE` main ingress uses service type `LoadBalancer` for on-prem setup.
 - title: "Cluster storage"
   index: 7
   description: |
-    Cluster storage specific configurations. For the on-perm setup we have
+    Cluster storage specific configurations. For the on-prem setup we have
     * Docker Desktop: `hostpath` (support ReadWriteMany)
     * minikube: `standard` (support ReadWriteMany)
     * kind: `standard` (Don't support ReadWriteMany)

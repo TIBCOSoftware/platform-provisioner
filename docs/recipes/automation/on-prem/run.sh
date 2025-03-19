@@ -30,7 +30,7 @@ export PIPELINE_SCRIPT="${PIPELINE_SCRIPT:-${_PIPELINE_PUBLIC_SCRIPT}}"
 
 # deploy-on-prem-base deploys base on-prem
 function deploy-on-prem-base() {
-  local _recipe_file_name="01-tp-on-perm.yaml"
+  local _recipe_file_name="01-tp-on-prem.yaml"
   if [[ ! -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
     echo "Recipe file ${_recipe_file_name} not found."
     return 1
@@ -43,7 +43,7 @@ function deploy-on-prem-base() {
 
 # deploy-tp deploys CP on-prem
 function deploy-tp() {
-  local _recipe_file_name="02-tp-cp-on-perm.yaml"
+  local _recipe_file_name="02-tp-cp-on-prem.yaml"
   if [[ ! -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
     echo "Recipe file ${_recipe_file_name} not found."
     return 1
@@ -190,7 +190,7 @@ function main() {
       echo "6. Cleanup resource (Remove resource limits, etc.)"
       echo "7. Undeploy o11y stack then Redeploy o11y stack (dp-config-es-es-default-0 pod is pending)"
       echo "8. Deploy BW5 stack (BW5, tra/admin, ems.)"
-      echo "-1. Exit"
+      echo "0. Exit"
       read -rp "Enter your choice (1-8 or -1): " choice
     fi
 
