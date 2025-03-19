@@ -191,7 +191,7 @@ function main() {
       echo "7. Undeploy o11y stack then Redeploy o11y stack (dp-config-es-es-default-0 pod is pending)"
       echo "8. Deploy BW5 stack (BW5, tra/admin, ems.)"
       echo "0. Exit"
-      read -rp "Enter your choice (1-8 or -1): " choice
+      read -rp "Enter your choice (0-8): " choice
     fi
 
     case $choice in
@@ -267,7 +267,7 @@ function main() {
         deploy-tp-bw5-stack
         break
         ;;
-      -1)
+      0)
         echo "Exiting..."
         break
         ;;
