@@ -32,7 +32,7 @@ function adjust_recipes() {
       echo "5. Adjust for kind"
       # echo "6. Adjust for MicroK8s"
       echo "0. Exit"
-      read -rp "Enter your choice (1-7): " choice
+      read -rp "Enter your choice (0-5): " choice
     fi
 
     case $choice in

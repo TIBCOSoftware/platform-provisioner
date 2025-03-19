@@ -82,7 +82,7 @@ function generate_recipe() {
       echo "2. TP recipes"
       echo "3. Auto deploy DP recipe"
       echo "0. Exit"
-      read -rp "Enter your choice (1-4): " choice2
+      read -rp "Enter your choice (0-3): " choice2
     fi
 
     case $choice2 in

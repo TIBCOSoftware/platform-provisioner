@@ -13,7 +13,7 @@ function adjust_ingress() {
       echo "1. Adjust for nginx"
       echo "2. Adjust for traefik"
       echo "0. Exit"
-      read -rp "Enter your choice (1-7): " choice
+      read -rp "Enter your choice (0-2): " choice
     fi
 
     case $choice in
