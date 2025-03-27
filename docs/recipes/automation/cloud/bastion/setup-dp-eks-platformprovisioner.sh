@@ -1,6 +1,6 @@
 #!/bin/bash
 # Note: Run ths script with -x for debugging
-# Version: 20241217
+# Version: 20250327
 
 source _common.sh
 
@@ -56,16 +56,19 @@ function init() {
         echo "####################################################################################################################"
         cat <<EOT > ${HOME}/config.props
 export INSTALL_PREREQ=true
+export SKIP_HELM_CHARTS=false # Set to true to set all .helmCharts[].condition to false so that only K8s is setup
 # Replacement for recipe globalEnvVariable below
-export ACCOUNT=<<e.g., 334987654321>>
-export REGION=us-east-1
+export ACCOUNT="<<e.g., 334987654321>>"
+export REGION="us-east-1"
+
 export PIPELINE_LOG_DEBUG=true
-export TP_CLUSTER_NAME=tp-cluster
-export TP_DOMAIN=tp-ingress.dataplanes.pro
+export TP_CLUSTER_NAME="tp-cluster"
+export TP_DOMAIN="tp-ingress.dataplanes.pro"
 export TP_INSTALL_K8S=true
 export TP_INSTALL_EFS=true
 export TP_INSTALL_POSTGRES=true
 export TP_INSTALL_O11Y=true
+export TP_INSTALL_METRICS_SERVER=false
 export PIPELINE_AWS_MANAGED_ACCOUNT_ROLE="platform-provisioner" # AWS Role to assume to with needed permissions
 export PIPELINE_INITIAL_ASSUME_ROLE="true" # Default value is false. Set this to true to assume role to PIPELINE_AWS_MANAGED_ACCOUNT_ROLE
 export PIPELINE_USE_LOCAL_CREDS="false" # Default value is true.Set this to false to assume role to PIPELINE_AWS_MANAGED_ACCOUNT_ROLE
@@ -79,6 +82,7 @@ EOT
         if [ -z "${ACCOUNT}" ]; then echo "ACCOUNT is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${REGION}" ]; then echo "REGION is not set in config.props. Please set value."; exit 0; fi        
         if [ -z "${INSTALL_PREREQ}" ]; then echo "INSTALL_PREREQ is not set in config.props. Please set value."; exit 0; fi
+        if [ -z "${SKIP_HELM_CHARTS}" ]; then echo "SKIP_HELM_CHARTS is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${PIPELINE_LOG_DEBUG}" ]; then echo "PIPELINE_LOG_DEBUG is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${TP_CLUSTER_NAME}" ]; then echo "TP_CLUSTER_NAME is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${TP_DOMAIN}" ]; then echo "TP_DOMAIN is not set in config.props. Please set value."; exit 0; fi
@@ -86,6 +90,7 @@ EOT
         if [ -z "${TP_INSTALL_EFS}" ]; then echo "TP_INSTALL_EFS is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${TP_INSTALL_POSTGRES}" ]; then echo "TP_INSTALL_POSTGRES is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${TP_INSTALL_O11Y}" ]; then echo "TP_INSTALL_O11Y is not set in config.props. Please set value."; exit 0; fi
+        if [ -z "${TP_INSTALL_METRICS_SERVER}" ]; then echo "TP_INSTALL_METRICS_SERVER is not set in config.props. Please set value."; exit 0; fi		
         if [ -z "${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE}" ]; then echo "PIPELINE_AWS_MANAGED_ACCOUNT_ROLE is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${PIPELINE_INITIAL_ASSUME_ROLE}" ]; then echo "PIPELINE_INITIAL_ASSUME_ROLE is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${PIPELINE_USE_LOCAL_CREDS}" ]; then echo "PIPELINE_USE_LOCAL_CREDS is not set in config.props. Please set value."; exit 0; fi
@@ -205,12 +210,57 @@ EOT
     fi
 }
 
+function platform_provisioner_update_deploy_recipe() {
+
+    cd ${HOME}/platform-provisioner
+    export PIPELINE_INPUT_RECIPE="docs/recipes/k8s/cloud/deploy-tp-eks_with_values.yaml"
+    cp docs/recipes/k8s/cloud/deploy-tp-eks.yaml ${PIPELINE_INPUT_RECIPE}
+
+    # Note: Do not use envsubst because that would replace the rest of the ${...} references which we do not want. We want a more targeted replacement only in the "globalEnvVariable:" section.
+    # The below are no longer needed because the new code block will match and replace based on what are provided in config.props
+    #if [[ "${PIPELINE_LOG_DEBUG}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_LOG_DEBUG = env(PIPELINE_LOG_DEBUG)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_CLUSTER_NAME}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_NAME = env(TP_CLUSTER_NAME)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_DOMAIN}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_DOMAIN = env(TP_DOMAIN)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_INSTALL_K8S}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_K8S = env(TP_INSTALL_K8S)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_INSTALL_EFS}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_EFS = env(TP_INSTALL_EFS)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_INSTALL_POSTGRES}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_POSTGRES = env(TP_INSTALL_POSTGRES)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_INSTALL_O11Y}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_O11Y = env(TP_INSTALL_O11Y)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_INSTALL_METRICS_SERVER}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_METRICS_SERVER = env(TP_INSTALL_METRICS_SERVER)' ${PIPELINE_INPUT_RECIPE} ; fi	
+
+    CONFIG_DELIMITER="="
+    while IFS=${CONFIG_DELIMITER} read -r KEY VALUE; do
+	    if [[ ${KEY} != \#* ]] ; then
+            if [ -z "${KEY}" ] || [ -z "${VALUE}" ]; then echo "Skipping Key: '${KEY}' Value: '${VALUE}'"; continue; fi	
+            KEY=${KEY#"export "} # removes export if exists
+			KEY=$(common::trim_string_remove_comment ${KEY})
+            YAML_KEY_PATH=".meta.globalEnvVariable.${KEY}"  
+			VALUE=$(common::trim_string_remove_comment ${VALUE})
+            echo "Updating recipe '${PIPELINE_INPUT_RECIPE}' YAML path '${YAML_KEY_PATH}' with value '${VALUE}' ..."
+	        common::update_yaml_value ${PIPELINE_INPUT_RECIPE} ${YAML_KEY_PATH} ${VALUE}
+		else
+		    echo "Skipping commented ${KEY}"
+		fi
+    done < ${HOME}/config.props
+
+    # Special handling below where we are using from a different variable or inserting if it does not exists
+    if [[ "${TP_CLUSTER_REGION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_REGION = env(REGION)' ${PIPELINE_INPUT_RECIPE} ; fi
+    if [[ "${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_AWS_MANAGED_ACCOUNT_ROLE = env(PIPELINE_AWS_MANAGED_ACCOUNT_ROLE)' ${PIPELINE_INPUT_RECIPE} ; fi
+    if [[ "${PIPELINE_INITIAL_ASSUME_ROLE}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_INITIAL_ASSUME_ROLE = env(PIPELINE_INITIAL_ASSUME_ROLE)' ${PIPELINE_INPUT_RECIPE} ; fi
+    if [[ "${PIPELINE_USE_LOCAL_CREDS}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_USE_LOCAL_CREDS = env(PIPELINE_USE_LOCAL_CREDS)' ${PIPELINE_INPUT_RECIPE} ; fi
+
+    if [ "${SKIP_HELM_CHARTS}" == true ]; then yq -i '.helmCharts[].condition = false' ${PIPELINE_INPUT_RECIPE}; fi
+
+    echo "Updated deploy recipe file at ${HOME}/platform-provisioner/${PIPELINE_INPUT_RECIPE}"
+	
+}
+
 function platform_provisioner_verify_access() {
 
     cd ${HOME}/platform-provisioner
     echo "########## Verify AWS Account Access ##########"
     export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-aws.yaml"
     ./dev/platform-provisioner.sh 
+    platform_provisioner_update_deploy_recipe
 
 }
 
@@ -218,22 +268,8 @@ function platform_provisioner_create() {
 
     cd ${HOME}/platform-provisioner
     echo "########## Create EKS Cluster With Dataplane Components ##########"
-    # Note: Do not use envsubst because that would replace the rest of the ${...} references which we do not want. We want a more targeted replacement only in the "globalEnvVariable:" section.
     export PIPELINE_INPUT_RECIPE="docs/recipes/k8s/cloud/deploy-tp-eks_with_values.yaml"
-    cp docs/recipes/k8s/cloud/deploy-tp-eks.yaml ${PIPELINE_INPUT_RECIPE}
-
-    if [[ "${PIPELINE_LOG_DEBUG}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_LOG_DEBUG = env(PIPELINE_LOG_DEBUG)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_CLUSTER_NAME}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_NAME = env(TP_CLUSTER_NAME)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_DOMAIN}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_DOMAIN = env(TP_DOMAIN)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_CLUSTER_REGION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_REGION = env(REGION)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_INSTALL_K8S}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_K8S = env(TP_INSTALL_K8S)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_INSTALL_EFS}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_EFS = env(TP_INSTALL_EFS)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_INSTALL_POSTGRES}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_POSTGRES = env(TP_INSTALL_POSTGRES)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_INSTALL_O11Y}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_O11Y = env(TP_INSTALL_O11Y)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${PIPELINE_AWS_MANAGED_ACCOUNT_ROLE}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_AWS_MANAGED_ACCOUNT_ROLE = env(PIPELINE_AWS_MANAGED_ACCOUNT_ROLE)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${PIPELINE_INITIAL_ASSUME_ROLE}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_INITIAL_ASSUME_ROLE = env(PIPELINE_INITIAL_ASSUME_ROLE)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${PIPELINE_USE_LOCAL_CREDS}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_USE_LOCAL_CREDS = env(PIPELINE_USE_LOCAL_CREDS)' ${PIPELINE_INPUT_RECIPE} ; fi
-
+    platform_provisioner_update_deploy_recipe
     ./dev/platform-provisioner.sh
 
 }
@@ -342,7 +378,11 @@ function platform_provisioner_cleanup() {
             aws ec2 delete-volume --volume-id ${VOLUME_ID}
             sleep ${SLEEP_BETWEEN_TASK_SEC}
     done
-
+	
+	sleep ${SLEEP_BETWEEN_TASK_SEC}
+    
+	rm -rf ${HOME}/.kube
+	
 }
 
 main "$@"; exit

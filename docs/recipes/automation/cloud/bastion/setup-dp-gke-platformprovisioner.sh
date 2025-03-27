@@ -1,6 +1,6 @@
 #!/bin/bash
 # Note: Run ths script with -x for debugging
-# Version: 20241217
+# Version: 20250327
 
 source _common.sh
 
@@ -56,6 +56,7 @@ function init() {
         echo "####################################################################################################################"
         cat <<EOT > ${HOME}/config.props
 export INSTALL_PREREQ=true
+export SKIP_HELM_CHARTS=false # Set to true to set all .helmCharts[].condition to false so that only K8s is setup
 # Replacement for recipe globalEnvVariable below
 export PIPELINE_LOG_DEBUG=true
 export ACCOUNT="gcp-822123456789"
@@ -63,7 +64,7 @@ export GCP_PROJECT_ID="psg-us"
 export GCP_REGION="us-central1" # currently us-east1 cannot be used because it does not have a zone a which is hard coded in create-gke.sh
 export TP_CLUSTER_NAME="tp-cluster"
 export TP_CLUSTER_VERSION="1.31"
-export TP_AUTHORIZED_IP="<<Your public ip address eg: x.x.x.x/32>>
+export TP_AUTHORIZED_IP="77.185.75.24/32" # Your public IP CIDR
 export TP_TOP_LEVEL_DOMAIN="gcp.dataplanes.pro"
 export TP_SANDBOX="psa"
 export TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN="gke-dp"
@@ -76,6 +77,7 @@ EOT
 
         # Check for required environment variables   
         if [ -z "${INSTALL_PREREQ}" ]; then echo "INSTALL_PREREQ is not set in config.props. Please set value."; exit 0; fi
+		if [ -z "${SKIP_HELM_CHARTS}" ]; then echo "SKIP_HELM_CHARTS is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${PIPELINE_LOG_DEBUG}" ]; then echo "PIPELINE_LOG_DEBUG is not set in config.props. Please set value."; exit 0; fi
         if [ -z "${GCP_PROJECT_ID}" ]; then echo "GCP_PROJECT_ID is not set in config.props. Please set value."; exit 0; fi        
         if [ -z "${GCP_REGION}" ]; then echo "GCP_REGION is not set in config.props. Please set value."; exit 0; fi        
@@ -156,7 +158,6 @@ function install_gcp_prereq() {
 		# skaffold 2.13.1
 	fi
 
-	##### CONTINUE HERE.... UNABLE TO CONNECT TO GKE.... 
 	gke-gcloud-auth-plugin --version &> /dev/null
 	RESULT=$?
 	if [ "${RESULT}" -ne 0 ]; then
@@ -192,12 +193,56 @@ function check_gcp_access() {
 	fi
 }
 
+function platform_provisioner_update_deploy_recipe() {
+
+    cd ${HOME}/platform-provisioner
+	export PIPELINE_INPUT_RECIPE="docs/recipes/k8s/cloud/deploy-tp-gke_with_values.yaml"
+    cp docs/recipes/k8s/cloud/deploy-tp-gke.yaml ${PIPELINE_INPUT_RECIPE}
+
+    # Note: Do not use envsubst because that would replace the rest of the ${...} references which we do not want. We want a more targeted replacement only in the "globalEnvVariable:" section.
+    # The below are no longer needed because the new code block will match and replace based on what are provided in config.props
+    #if [[ "${PIPELINE_LOG_DEBUG}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_LOG_DEBUG = env(PIPELINE_LOG_DEBUG)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${GCP_REGION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.GCP_REGION = env(GCP_REGION)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_CLUSTER_NAME}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_NAME = env(TP_CLUSTER_NAME)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_CLUSTER_VERSION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_VERSION = env(TP_CLUSTER_VERSION)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_AUTHORIZED_IP}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_AUTHORIZED_IP = env(TP_AUTHORIZED_IP)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_TOP_LEVEL_DOMAIN}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_TOP_LEVEL_DOMAIN = env(TP_TOP_LEVEL_DOMAIN)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_SANDBOX}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_SANDBOX = env(TP_SANDBOX)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN = env(TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN)' ${PIPELINE_INPUT_RECIPE} ; fi
+    #if [[ "${TP_INSTALL_O11Y}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_O11Y = env(TP_INSTALL_O11Y)' ${PIPELINE_INPUT_RECIPE} ; fi
+
+    CONFIG_DELIMITER="="
+    while IFS=${CONFIG_DELIMITER} read -r KEY VALUE; do
+	    if [[ ${KEY} != \#* ]] ; then
+		    if [ -z "${KEY}" ] || [ -z "${VALUE}" ]; then echo "Skipping Key: '${KEY}' Value: '${VALUE}'"; continue; fi	
+            KEY=${KEY#"export "} # removes export if exists
+			KEY=$(common::trim_string_remove_comment ${KEY})
+            YAML_KEY_PATH=".meta.globalEnvVariable.${KEY}"
+			VALUE=$(common::trim_string_remove_comment ${VALUE})
+            echo "Updating recipe '${PIPELINE_INPUT_RECIPE}' YAML path '${YAML_KEY_PATH}' with value '${VALUE}' ..."
+	        common::update_yaml_value ${PIPELINE_INPUT_RECIPE} ${YAML_KEY_PATH} ${VALUE}
+		else
+		    echo "Skipping commented ${KEY}"
+		fi
+    done < ${HOME}/config.props
+
+    # Special handling below where we are using from a different variable or inserting if it does not exists
+    if [[ "${GCP_PROJECT_ID}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.GCP_PROJECT_ID = env(GCP_PROJECT_ID)' ${PIPELINE_INPUT_RECIPE} ; fi
+    if [[ "${GCP_REGION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_REGION = env(GCP_REGION)' ${PIPELINE_INPUT_RECIPE} ; fi
+	
+    if [ "${SKIP_HELM_CHARTS}" == true ]; then yq -i '.helmCharts[].condition = false' ${PIPELINE_INPUT_RECIPE}; fi
+
+    echo "Updated deploy recipe file at ${HOME}/platform-provisioner/${PIPELINE_INPUT_RECIPE}"
+	
+}
+
 function platform_provisioner_verify_access() {
 
     cd ${HOME}/platform-provisioner
     echo "########## Verify GCP Account Access ##########"
     export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-gcp.yaml"
     ./dev/platform-provisioner.sh 
+    platform_provisioner_update_deploy_recipe
 
 }
 
@@ -205,23 +250,8 @@ function platform_provisioner_create() {
 
     cd ${HOME}/platform-provisioner
     echo "########## Create EKS Cluster With Dataplane Components ##########"
-    # Note: Do not use envsubst because that would replace the rest of the ${...} references which we do not want. We want a more targeted replacement only in the "globalEnvVariable:" section.
 	export PIPELINE_INPUT_RECIPE="docs/recipes/k8s/cloud/deploy-tp-gke_with_values.yaml"
-    cp docs/recipes/k8s/cloud/deploy-tp-gke.yaml ${PIPELINE_INPUT_RECIPE}
-
-    if [[ "${PIPELINE_LOG_DEBUG}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.PIPELINE_LOG_DEBUG = env(PIPELINE_LOG_DEBUG)' ${PIPELINE_INPUT_RECIPE} ; fi
-	
-    if [[ "${GCP_PROJECT_ID}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.GCP_PROJECT_ID = env(GCP_PROJECT_ID)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${GCP_REGION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.GCP_REGION = env(GCP_REGION)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_CLUSTER_NAME}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_NAME = env(TP_CLUSTER_NAME)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_CLUSTER_VERSION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_VERSION = env(TP_CLUSTER_VERSION)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${GCP_REGION}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_CLUSTER_REGION = env(GCP_REGION)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_AUTHORIZED_IP}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_AUTHORIZED_IP = env(TP_AUTHORIZED_IP)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_TOP_LEVEL_DOMAIN}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_TOP_LEVEL_DOMAIN = env(TP_TOP_LEVEL_DOMAIN)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_SANDBOX}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_SANDBOX = env(TP_SANDBOX)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN = env(TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN)' ${PIPELINE_INPUT_RECIPE} ; fi
-    if [[ "${TP_INSTALL_O11Y}" != "" ]]; then yq eval -i '.meta.globalEnvVariable.TP_INSTALL_O11Y = env(TP_INSTALL_O11Y)' ${PIPELINE_INPUT_RECIPE} ; fi
-
+    platform_provisioner_update_deploy_recipe	
     ./dev/platform-provisioner.sh
 
 }
@@ -236,7 +266,9 @@ function platform_provisioner_teardown() {
 }
 
 function platform_provisioner_cleanup() {
-   echo "No additional cleanup neeeded"
+
+   rm -rf ${HOME}/.kube
+   
 }
 
 main "$@"; exit
