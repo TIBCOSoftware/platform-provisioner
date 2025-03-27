@@ -3,7 +3,7 @@ kind: helm-install
 helmCharts:
 - condition: true # possible values: true, false
   name: ingress-nginx # chart name
-  version: 4.0.5 # chart version
+  version: 4.11.5 # chart version
   namespace: ingress # namespace to install the chart
   releaseName: ingress-nginx-release
   repo:

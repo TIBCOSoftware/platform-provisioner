@@ -50,7 +50,19 @@ meta:
     TP_INGRESS_NAMESPACE: ingress-system
     TP_INGRESS_SERVICE_TYPE: LoadBalancer # NodePort for kind, LoadBalancer for others
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
-    TP_ES_RELEASE_NAME: dp-config-es
+    
+    # o11y
+    TP_ES_RELEASE_NAME: "dp-config-es" # name of dp-config-es release name
+    # elasticsearch
+    TP_DEPLOY_ES: "true" # set to true to deploy elasticsearch
+    TP_CONFIG_ES_VERSION: "8.17.3" # version of elasticsearch
+    TP_CONFIG_ES_KIBANA_COUNT: "0" # number of kibana instances
+    TP_DEPLOY_ES_INGRESS: "true" # set to true to deploy elasticsearch ingress
+    TP_DEPLOY_KIBANA: "true" # set to true to deploy kibana
+    TP_DEPLOY_KIBANA_INGRESS: "true" # set to true to deploy kibana ingress
+    # apm
+    TP_DEPLOY_APM: "true" # set to true to deploy apm
+    TP_DEPLOY_APM_INGRESS: "true" # set to true to deploy apm ingress
 
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard-rwx-tp"} # standard-rwx-tp for GCP Filestore
@@ -218,7 +230,7 @@ helmCharts:
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 4.11.4 # release: https://github.com/kubernetes/ingress-nginx/releases
+  version: 4.11.5 # release: https://github.com/kubernetes/ingress-nginx/releases
   repo:
     helm:
       url: https://kubernetes.github.io/ingress-nginx
@@ -268,7 +280,7 @@ helmCharts:
 - condition: ${TP_INSTALL_TRAEFIK_INGRESS}
   name: traefik
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: "34.4.0" # release: https://github.com/traefik/traefik-helm-chart/releases
+  version: "34.4.1" # release: https://github.com/traefik/traefik-helm-chart/releases
   repo:
     helm:
       url: https://traefik.github.io/charts
@@ -410,21 +422,27 @@ helmCharts:
     content: |
       domain: ${TP_DOMAIN}
       es:
-        version: "8.17.2"
+        enabled: "${TP_DEPLOY_ES}"
+        version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabled: "${TP_DEPLOY_ES_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-es-http
         storage:
           name: ${TP_STORAGE_CLASS}
       kibana:
-        version: "8.17.2"
+        enabled: "${TP_DEPLOY_KIBANA}"
+        count: ${TP_CONFIG_ES_KIBANA_COUNT}
+        version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabeld: "${TP_DEPLOY_KIBANA_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-kb-http
       apm:
-        enabled: true
-        version: "8.17.2"
+        enabled: "${TP_DEPLOY_APM}"
+        version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabled: "${TP_DEPLOY_APM_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-apm-http
   cluster:

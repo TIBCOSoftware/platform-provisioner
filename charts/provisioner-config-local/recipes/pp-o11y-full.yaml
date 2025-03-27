@@ -20,9 +20,15 @@ meta:
     GUI_TP_CONFIG_ES_NAMESPACE: "elastic-system"
     GUI_TP_ES_RELEASE_NAME: "dp-config-es"
     GUI_TP_ECK_VERSION: "2.16.1"
-    GUI_TP_CONFIG_ES_VERSION: "8.17.2"
+    GUI_TP_CONFIG_ES_VERSION: "8.17.3"
     GUI_TP_CONFIG_CHART_VERSION: "^1.0.0"
     GUI_TP_CONFIG_ES_KIBANA_COUNT: 0
+    GUI_TP_DEPLOY_ES: "true"
+    GUI_TP_DEPLOY_ES_INGRESS: "true"
+    GUI_TP_DEPLOY_KIBANA: "true"
+    GUI_TP_DEPLOY_KIBANA_INGRESS: "true"
+    GUI_TP_DEPLOY_APM: "true"
+    GUI_TP_DEPLOY_APM_INGRESS: "true"
 
     # prometheus
     GUI_TP_KUBE_PROMETHEUS_STACK_VERSION: "69.3.3"
@@ -56,6 +62,12 @@ meta:
     TP_CONFIG_ES_VERSION: "${GUI_TP_CONFIG_ES_VERSION}" # https://www.elastic.co/guide/en/elasticsearch/reference/current/es-release-notes.html
     TP_CONFIG_ES_NAMESPACE: "${GUI_TP_CONFIG_ES_NAMESPACE}"
     TP_CONFIG_ES_KIBANA_COUNT: ${GUI_TP_CONFIG_ES_KIBANA_COUNT:-0}
+    TP_DEPLOY_ES: ${GUI_TP_DEPLOY_ES}
+    TP_DEPLOY_ES_INGRESS: ${GUI_TP_DEPLOY_ES_INGRESS}
+    TP_DEPLOY_KIBANA: ${GUI_TP_DEPLOY_KIBANA}
+    TP_DEPLOY_KIBANA_INGRESS: ${GUI_TP_DEPLOY_KIBANA_INGRESS}
+    TP_DEPLOY_APM: ${GUI_TP_DEPLOY_APM}
+    TP_DEPLOY_APM_INGRESS: ${GUI_TP_DEPLOY_APM_INGRESS}
     TP_ECK_VERSION: "${GUI_TP_ECK_VERSION}" # helm search repo elastic/eck-operator https://www.elastic.co/guide/en/cloud-on-k8s/master/eck-release-notes.html
 
     # prometheus
@@ -99,22 +111,27 @@ helmCharts:
     content: |
       domain: ${TP_DOMAIN}
       es:
+        enabled: "${TP_DEPLOY_ES}"
         version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabled: "${TP_DEPLOY_ES_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-es-http
         storage:
           name: ${TP_STORAGE_CLASS}
       kibana:
+        enabled: "${TP_DEPLOY_KIBANA}"
         count: ${TP_CONFIG_ES_KIBANA_COUNT}
         version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabeld: "${TP_DEPLOY_KIBANA_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-kb-http
       apm:
-        enabled: true
+        enabled: "${TP_DEPLOY_APM}"
         version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabled: "${TP_DEPLOY_APM_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-apm-http
   cluster:
