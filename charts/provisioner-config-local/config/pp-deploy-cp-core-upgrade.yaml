@@ -2,7 +2,7 @@ pipelineName: "Upgrade Control Plane chart"
 description: |
   This recipe is used to upgrade the platform-base helm charts on the specified cluster. It will keep the previous chart values and upgrade the helm chart.
   * Upgrade to the latest version of the platform-base chart: `^1.0.0`
-  * The CP chart version matrix: [link](https://docs.tibco.com/pub/platform-cp/1.5.0/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm)
+  * The CP chart version matrix: [link](https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm)
   
   CP helm chart repo: 
   * public: https://tibcosoftware.github.io/tp-helm-charts (no need for GitHub token)

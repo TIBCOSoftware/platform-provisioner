@@ -34,7 +34,6 @@ meta:
     TP_INGRESS_RELEASE_NAME: dp-config-aws-ingress
     TP_SECONDARY_INGRESS_RELEASE_NAME: dp-config-aws-secondary-ingress
     TP_INGRESS_NAMESPACE: ingress-system
-    TP_ES_RELEASE_NAME: dp-config-es
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     # network policy
     TP_CLUSTER_ENABLE_NETWORK_POLICY: ${GUI_TP_CLUSTER_ENABLE_NETWORK_POLICY:-true}
@@ -48,6 +47,18 @@ meta:
     # TP versions
     TP_CHART_VERSION_DP_CONFIG_AWS: ${GUI_TP_VERSION_DP_CONFIG_AWS:-"1.3.6"}
     TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_VERSION_DP_CONFIG_ES:-"1.2.1"}
+    # o11y
+    TP_ES_RELEASE_NAME: "dp-config-es" # name of dp-config-es release name
+    # elasticsearch
+    TP_DEPLOY_ES: "true" # set to true to deploy elasticsearch
+    TP_CONFIG_ES_VERSION: "8.17.3" # version of elasticsearch
+    TP_CONFIG_ES_KIBANA_COUNT: "0" # number of kibana instances
+    TP_DEPLOY_ES_INGRESS: "true" # set to true to deploy elasticsearch ingress
+    TP_DEPLOY_KIBANA: "true" # set to true to deploy kibana
+    TP_DEPLOY_KIBANA_INGRESS: "true" # set to true to deploy kibana ingress
+    # apm
+    TP_DEPLOY_APM: "true" # set to true to deploy apm
+    TP_DEPLOY_APM_INGRESS: "true" # set to true to deploy apm ingress
     # flow control
     TP_INSTALL_K8S: ${GUI_TP_INSTALL_K8S:-true} # change to true to install k8s
     TP_INSTALL_EFS: ${GUI_TP_INSTALL_EFS:-true} # change to true to install efs
@@ -476,21 +487,27 @@ helmCharts:
     content: |
       domain: ${TP_DOMAIN}
       es:
-        version: "8.17.2"
+        enabled: "${TP_DEPLOY_ES}"
+        version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabled: "${TP_DEPLOY_ES_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-es-http
         storage:
           name: ${TP_STORAGE_CLASS}
       kibana:
-        version: "8.17.2"
+        enabled: "${TP_DEPLOY_KIBANA}"
+        count: ${TP_CONFIG_ES_KIBANA_COUNT}
+        version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabeld: "${TP_DEPLOY_KIBANA_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-kb-http
       apm:
-        enabled: true
-        version: "8.17.2"
+        enabled: "${TP_DEPLOY_APM}"
+        version: "${TP_CONFIG_ES_VERSION}"
         ingress:
+          enabled: "${TP_DEPLOY_APM_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-apm-http
   cluster:

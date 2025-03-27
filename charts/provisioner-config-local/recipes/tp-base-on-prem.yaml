@@ -119,7 +119,7 @@ helmCharts:
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 4.11.4 # release: https://github.com/kubernetes/ingress-nginx/releases can not upgrade to 4.12.0 PCP-10252
+  version: 4.11.5 # release: https://github.com/kubernetes/ingress-nginx/releases can not upgrade to 4.12.0 PCP-10252
   repo:
     helm:
       url: https://kubernetes.github.io/ingress-nginx
@@ -147,7 +147,7 @@ helmCharts:
 - condition: ${TP_INSTALL_TRAEFIK_INGRESS}
   name: traefik
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: "34.4.0" # release: https://github.com/traefik/traefik-helm-chart/releases
+  version: "34.4.1" # release: https://github.com/traefik/traefik-helm-chart/releases
   repo:
     helm:
       url: https://traefik.github.io/charts
