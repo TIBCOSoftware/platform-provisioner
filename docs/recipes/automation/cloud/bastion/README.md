@@ -28,6 +28,7 @@ To use these scripts, follow the steps below.
 4. [Tear down](#teardown)
 5. [Additional Optional Steps](#optional)
     - [Step - Setup Public Certificate](#pubcert)
+    - [Step - Setup Authorized IP](#authip)	
 6. [References](#ref)
 
 # Steps
@@ -230,7 +231,7 @@ To use these scripts, follow the steps below.
     set UserName=<<ubuntu>>
     set PublicEndpoint=<<AWS: ec2-34-207-144-190.compute-1.amazonaws.com or AWS/Azure/GCP: 52.146.88.196>>
     set KeyPair=<<%userprofile%/user-kp.pem>>
-    set ScriptFile=<<Full path with wildcard to local folder where the automation script was copied to in pre-requisite, e.g. C:\MySrc\github\platform-provisioner\docs\recipes\automation\cloud\*>>
+    set ScriptFile=<<Full path with wildcard to local folder where the automation script was copied to in pre-requisite, e.g. C:\MySrc\github\platform-provisioner\docs\recipes\automation\cloud\bastion\*>>
     scp -o "StrictHostKeyChecking no" -i "%KeyPair%" "%ScriptFile%" %UserName%@%PublicEndpoint%:/home/%UserName%
     ssh -o "StrictHostKeyChecking no" -o ServerAliveInterval=60 -i "%KeyPair%" %UserName%@%PublicEndpoint%
     chmod +x *.sh
@@ -239,7 +240,13 @@ To use these scripts, follow the steps below.
 > [!NOTE]
 > IMPORTANT - If you are using TIBCO managed SSO for AWS, use the View role for the proceeding steps. Otherwise, just use your standard AWS credential. 
 
-2. Execute the script with proper credential, selecting Start Type: 1 (Verify Access) and re-executing the script selecting Start Type: 2 (Create)
+2. Execute the script with proper credential, selecting Start Type: 1 (Verify Access) and re-executing the script selecting Start Type: 2 (Create). 
+
+> [!NOTE]
+> Start Type: 1 (Verify Access) will also generate an updated recipe in ${HOME}/platform-provisioner/docs/recipes/k8s/cloud/deploy-tp-<<aks,eks,gke>>_with_values.yaml so that it can be validated before the Start Type: 2 (Create) is executed. Additional variables in the .meta.globalEnvVariable.* of the recipe can be overriden by adding the export statement in the config.props file.
+
+> [!NOTE]
+> If you get an error like "docker: Error response from daemon: invalid mount config for type "bind": bind source path does not exist: /home/ubuntu/.kube/config", please run Start Type: 4 (Cleanup) before proceeding.
 
     ```
     #### For AWS Only ####
@@ -367,6 +374,42 @@ No additional steps needed for GCP.
             Name:    bwce.tp-eks-ingress.cs-nam.dataplanes.pro
             Address:  3.226.108.156
             ```
+
+<a name="authip" />
+
+### Step - Setup Authorized IP - this step is optional and only if you want to add authorized ip to access the public load balancer ingress
+
+- From your bastion run the command below
+
+    ```
+    #### For Azure Only ####
+	
+    # Use the below to restrict access to public load balancer after provisioning is done
+    helm upgrade --reuse-values -n ingress-system dp-config-aks-ingress dp-config-aks \
+      --repo "https://tibcosoftware.github.io/tp-helm-charts" --version "1.3.1" -f - <<EOF
+    clusterIssuer:
+      create: false
+    httpIngress:
+      enabled: false
+    ingress-nginx:
+      enabled: true
+      controller:
+        service:
+          type: LoadBalancer 
+          loadBalancerSourceRanges: 
+          - 50.250.150.1/24
+          - 77.185.75.24/32
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: '*.aks-dp.cs-nam.azure.dataplanes.pro'
+            service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: '/healthz' 
+          enableHttp: false 
+        config:
+          use-forwarded-headers: 'true'          
+        extraArgs:
+          default-ssl-certificate: ingress-system/tp-certificate-main-ingress
+    EOF
+    ```
+
 <a name="ref" />
 
 ## References

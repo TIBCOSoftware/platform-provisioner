@@ -154,3 +154,65 @@ function common::install_prereq() {
     fi
 
 }
+
+function common::update_yaml_value() {
+    # This is only tested with Path (e.g., .meta.globalEnvVariable.REPLACE_RECIPE). Not with maps or arrays.
+
+    if [ -z "${1}" ]; then 
+        echo 'ERROR!!! Parameter 1 YAML_FILE not provided'
+        exit 1
+    else
+        YAML_FILE="${1}"
+    fi	
+
+    if [ -z "${2}" ]; then 
+        echo 'ERROR!!! Parameter 2 YAML_KEY_PATH not provided'
+        exit 1
+    else
+        local YAML_KEY_PATH="${2}"
+    fi
+
+    if [ -z "${3}" ]; then 
+        echo 'ERROR!!! Parameter 3 NEW_VALUE not provided'
+        exit 1
+    else
+        local NEW_VALUE="${3}"
+    fi
+
+    # Check if yq is installed
+    yq --version &> /dev/null
+    RESULT=$?
+    if [ "${RESULT}" -ne 0 ]; then
+	    echo 'ERROR!!! yq is not installed. Please install before using this function'
+		exit 1
+    fi
+
+    # Check if yaml file exists
+    if [[ ! -f "${YAML_FILE}" ]] ; then
+        echo "ERROR!!! YAML file ${YAML_FILE} not found"
+        exit 1
+    fi
+
+    DELIMITER="."
+    YAML_PATH="${YAML_KEY_PATH%${DELIMITER}*}"
+    YAML_KEY="${YAML_KEY_PATH##*${DELIMITER}}"
+
+    # Only update the value if the YAML path exists and YAML_KEY_PATH does not start with #
+    if [[ ${YAML_KEY_PATH} != \#* ]] ; then
+        if $(yq eval "${YAML_PATH} | has(\"${YAML_KEY}\")" "${YAML_FILE}") 2>/dev/null; then
+            yq eval -i "${YAML_KEY_PATH} = ${NEW_VALUE}" "${YAML_FILE}"
+            echo "Key ${YAML_KEY_PATH} in ${YAML_FILE} updated to ${NEW_VALUE}."
+        else
+	        echo "WARNING!!! ${YAML_KEY_PATH} not found in ${YAML_FILE}. No changes made."
+	    fi
+	else
+	    echo "Skipping commented ${YAML_KEY_PATH}}..."
+	fi
+}
+
+function common::trim_string_remove_comment() {
+    STR=${1}
+    STR=$(echo ${STR} | sed 's/ #.*//') # remove trailing comment string
+    STR=$(echo ${STR} | sed 's/^[ \t]*//;s/[ \t]*$//') # remove leading and trailing spaces and tabs
+    echo "${STR}"
+}
