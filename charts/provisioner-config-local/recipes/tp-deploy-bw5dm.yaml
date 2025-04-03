@@ -15,7 +15,7 @@ meta:
     # BW5DM
     GUI_BW5_CHART_VERSION: "^1.1.0"
     GUI_TP_BWDM_RELEASE_NAME: "bw5dm"
-    GUI_TP_OTEL_TRACES_ENDPOINT: "http://jaeger-collector.k8s-auto-bmdp1ns.svc:4318/v1/traces"
+    GUI_TP_OTEL_TRACES_ENDPOINT: "http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"
 
     # flow control
     GUI_TP_DEPLOY_RVDM: true
@@ -38,7 +38,7 @@ meta:
     # BW5DM
     BW5_CHART_VERSION: ${GUI_BW5_CHART_VERSION:-"^1.1.0"}
     TP_BWDM_RELEASE_NAME: ${GUI_TP_BWDM_RELEASE_NAME:-bw5dm}
-    TP_OTEL_TRACES_ENDPOINT: ${GUI_TP_OTEL_TRACES_ENDPOINT:-"http://jaeger-collector.k8s-auto-bmdp1ns.svc:4318/v1/tracess"}
+    TP_OTEL_TRACES_ENDPOINT: ${GUI_TP_OTEL_TRACES_ENDPOINT:-"http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"}
 
     # flow control
     TP_DEPLOY_RVDM: ${GUI_TP_DEPLOY_RVDM:-true}

@@ -24,8 +24,11 @@ class EnvConfig:
     TP_AUTO_REPORT_YAML_FILE = os.environ.get("TP_AUTO_REPORT_YAML_FILE") or "report.yaml"  # automation script will create this file
     TP_AUTO_REPORT_TXT_FILE = os.environ.get("TP_AUTO_REPORT_TXT_FILE") or "report.txt"    # this is the final report file for user to view
     TP_AUTO_REPORT_TRACE = os.environ.get("TP_AUTO_REPORT_TRACE", "true").lower() == "true"
-
     TP_AUTO_IS_CREATE_DP = os.environ.get("TP_AUTO_IS_CREATE_DP", "false").lower() == "true"
+    TP_AUTO_IS_CREATE_BMDP = os.environ.get("TP_AUTO_IS_CREATE_BMDP", "true").lower() == "true"
+    TP_AUTO_IS_EBABLE_RVDM = os.environ.get("TP_AUTO_IS_EBABLE_RVDM", "true").lower() == "true"
+    TP_AUTO_IS_EBABLE_EMSDM = os.environ.get("TP_AUTO_IS_EBABLE_EMSDM", "true").lower() == "true"
+    TP_AUTO_IS_EBABLE_EMS_SERVER = os.environ.get("TP_AUTO_IS_EBABLE_EMS_SERVER", "true").lower() == "true"
     TP_AUTO_IS_CONFIG_O11Y = os.environ.get("TP_AUTO_IS_CONFIG_O11Y", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_BWCE = os.environ.get("TP_AUTO_IS_PROVISION_BWCE", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_EMS = os.environ.get("TP_AUTO_IS_PROVISION_EMS", "false").lower() == "true"
@@ -38,6 +41,21 @@ class EnvConfig:
     TP_AUTO_K8S_DP_NAME = os.environ.get("TP_AUTO_K8S_DP_NAME") or "k8s-auto-dp1"
     TP_AUTO_K8S_DP_NAMESPACE = os.environ.get("TP_AUTO_K8S_DP_NAMESPACE") or f"{TP_AUTO_K8S_DP_NAME}ns"
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_DP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_DP_NAME}sa"
+
+    # BMDP
+    TP_AUTO_K8S_BMDP_NAME = os.environ.get("TP_AUTO_K8S_BMDP_NAME") or "k8s-auto-bmdp1"
+    TP_AUTO_K8S_BMDP_NAMESPACE = os.environ.get("TP_AUTO_K8S_BMDP_NAMESPACE") or f"{TP_AUTO_K8S_BMDP_NAME}ns"
+    TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_BMDP_NAME}sa"
+    TP_AUTO_FQDN_BMDP = os.environ.get("TP_AUTO_FQDN_BMDP") or os.uname().nodename
+    TP_AUTO_K8S_BMDP_BW5_RVDM = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM") or "tra5130rv"
+    TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE") or "7474"
+    TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK") or ""
+    TP_AUTO_K8S_BMDP_BW5_RVDM_RV_DAEMON = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_DAEMON") or "tcp:rvd.bw5dm.svc.cluster.local:7474"
+    TP_AUTO_K8S_BMDP_BW5_EMSDM = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMSDM") or "tra5130ems"
+    TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMS_URL") or "tcp://ems.bw5dm.svc.cluster.local:7222"
+    TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME") or "admin"
+    TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD") or ""
+
 
     # CP_DNS_DOMAIN
     TP_AUTO_CP_INSTANCE_ID = os.environ.get("TP_AUTO_CP_INSTANCE_ID") or "cp1"

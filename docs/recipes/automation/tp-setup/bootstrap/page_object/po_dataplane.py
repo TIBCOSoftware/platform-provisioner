@@ -310,6 +310,161 @@ class PageObjectDataPlane:
         print(f"Verifying Data Plane {dp_name} is created in the list")
         self.k8s_wait_tunnel_connected(dp_name)
 
+    def k8s_create_bmdp(self, dp_name, retry=0):
+        if ReportYaml.is_dataplane_created(dp_name):
+            ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, DataPlane '{dp_name}' is already created.")
+            return
+
+        ColorLogger.info(f"Creating k8s Data Plane '{dp_name}'...")
+        self.page.wait_for_timeout(2000)
+
+        if self.page.locator(".data-plane-name").count() > ENV.TP_AUTO_MAX_DATA_PLANE:
+            Util.exit_error("Too many data planes, please delete some data planes first.", self.page, "k8s_create_dataplane.png")
+
+        if self.page.locator('.data-plane-name', has_text=dp_name).is_visible():
+            ReportYaml.set_dataplane(dp_name)
+            ColorLogger.success(f"DataPlane '{dp_name}' is already created.")
+            return
+
+        self.page.click("#register-dp-button")
+        self.page.locator("#select-control-tower-dp-button").wait_for(state="visible")
+        self.page.click("#select-control-tower-dp-button")
+        print("Waiting for Step 1: 'Pre-Requisites' page is loaded")
+        if Util.check_dom_visibility(self.page, self.page.locator("#data-plane-pre-requisites-btn"), 1, 5):
+        # if self.page.locator("#data-plane-pre-requisites-btn").is_visible():
+        # Util.check_dom_visibility(self.page, self.page.locator("#data-plane-pre-requisites-btn"), 1, 5):
+            tp_version = 1.4
+            # step 1 Pre-Requisites
+            print("configure for 1.4")
+            self.page.click("#data-plane-pre-requisites-btn")
+            print("Clicked Next button, Finish Pre-Requisites")
+           # step 2 Basic
+            self.page.locator(".pl-secondarynav a.is-active", has_text="Basic").wait_for(state="visible")
+            self.page.fill("#data-plane-name-text-input", dp_name)
+            print(f"Input Data Plane Name: {dp_name}")
+            self.page.locator('label[for="terms-checkbox"]').click()
+            self.page.click("#data-plane-basics-btn")
+            print("Clicked Next button, Finish Basic")
+        else:
+            tp_version = 1.5
+            self.page.fill("#data-plane-name-text-input", dp_name)
+            print(f"Input Data Plane Name: {dp_name}")
+            self.page.fill("#data-plane-machine-host-name-text-input", ENV.TP_AUTO_FQDN_BMDP)
+            self.page.locator('label[for="terms-checkbox"]').click()
+            self.page.locator(".pl-button.pl-button--no-border.big-button.big-button-secondary").click()
+            print("Clicked Advanced Configuration button. Go with Advanced Configuration")
+
+        # step 3 Namespace & Service account
+        print("Waiting for 'Namespace & Service account' page is loaded")
+        self.page.locator(".pl-secondarynav a.is-active", has_text="Namespace & Service account").wait_for(state="visible")
+        self.page.fill("#namespace-text-input", ENV.TP_AUTO_K8S_BMDP_NAMESPACE)
+        print(f"Input NameSpace: {ENV.TP_AUTO_K8S_BMDP_NAMESPACE}")
+        self.page.fill("#service-account-text-input", ENV.TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT)
+        print(f"Input Service Account: {ENV.TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT}")
+        self.page.click("#data-plane-namespace-btn")
+        print("Clicked Next button, Finish Namespace & Service account")
+
+        # step 4 Configure resources - storage class
+        print("Waiting for 'Configure resources' page is loaded")
+        self.page.locator(".pl-secondarynav a.is-active", has_text="Resources").wait_for(state="visible")
+        self.page.fill("#storage-resource-name-text-input", "storageclass")
+        print(f"Input Storage Resource Name: storageclass")
+        self.page.fill("#storage-description-text-input", "storageclass")
+        print(f"Input Storage Description: storageclass")
+        # set the storage class to nfs for now, due to a known issue with hawkconsole
+        # self.page.fill("#storage-class-name-text-input", "{ENV.TP_AUTO_STORAGE_CLASS}")
+        self.page.fill("#storage-class-name-text-input", "nfs")
+        print(f"Input Storage Class Name: nfs")
+
+        # step 4 Configure resources - ingress controller
+        self.page.fill("#ingress-resource-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER)
+        print(f"Input Ingress Description: ${ENV.TP_AUTO_INGRESS_CONTROLLER}")
+        self.page.fill("#ingress-class-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME)
+        print(f"Input Ingress Class Name: {ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME}")
+        self.page.fill("#ingress-fqdn-text-input", ENV.TP_AUTO_FQDN_BMDP)
+        print(f"Input Ingress FQDN: {ENV.TP_AUTO_FQDN_BMDP}")
+        self.page.click("#data-plane-resources-btn")
+        print("Clicked Next button, Finish Configure resources")
+
+        # step 5 Configuration
+        print("Waiting for 'Configuration' page is loaded")
+        self.page.locator(".pl-secondarynav a.is-active", has_text="Configuration").wait_for(state="visible")
+        # use global repository, no need below code
+        # if page.locator('label[for="helm-chart-repo-global"]').is_visible():
+        #     if ENV.GITHUB_TOKEN == "":
+        #         print("GITHUB_TOKEN is empty, choose 'Global Repository'")
+        #         page.locator('label[for="helm-chart-repo-global"]').click()
+        #     else:
+        #         print("GITHUB_TOKEN is set, choose 'Custom Helm Chart Repository'")
+        #         if page.locator('label[for="helm-chart-repo-custom"]').is_visible():
+        #             page.locator('label[for="helm-chart-repo-custom"]').click()
+        #             print("Choose 'Custom Helm Chart Repository'")
+        #
+        #
+        #         page.fill("#alias-input", f"tp-private-{dp_name}")
+        #         print(f"Input Repository Alias: tp-private-{dp_name}")
+        #         page.fill("#url-input", "https://raw.githubusercontent.com")
+        #         print("Input Registry URL: https://raw.githubusercontent.com")
+        #         page.fill("#repo-input", "tibco/tp-helm-charts/gh-pages")
+        #         print("Input Repository: tibco/tp-helm-charts/gh-pages")
+        #         page.fill("#username-input", "cp-test")
+        #         print("Input Username: cp-test")
+        #         page.fill("#password-input", ENV.GITHUB_TOKEN)
+        #         print(f"Input Password: {ENV.GITHUB_TOKEN}")
+
+        self.page.click("#data-plane-preview-next-btn")
+        print("Clicked Next button, Finish Configuration")
+
+        # step 6 Preview (for 1.4 and above)
+        if Util.check_dom_visibility(self.page, self.page.locator(".pl-secondarynav a.is-active", has_text="Preview"), 3, 9):
+            print("'Preview' page is loaded")
+            self.page.wait_for_timeout(1000)
+            if self.page.locator("#data-plane-preview-create-btn").is_visible():
+                self.page.click("#data-plane-preview-create-btn")
+                print("Clicked Next button, Finish Preview")
+            elif self.page.locator("#data-plane-config-prev-btn").is_visible():
+                self.page.click("#data-plane-config-prev-btn")
+                print("Clicked  'Register on Control Plane now', Finish Preview")
+
+        # step 7 Register Data Plane
+        print("Check if create Data Plane is successful...")
+        if not Util.check_dom_visibility(self.page, self.page.locator(".install-content"), 2, 10) \
+            and not Util.check_dom_visibility(self.page, self.page.locator(".pl-button.pl-button--primary .pl-button__text"), 1, 3):
+            self.k8s_delete_dataplane(dp_name)
+            if retry >= 3:
+                Util.exit_error(f"Data Plane '{dp_name}' creation failed.", self.page, "k8s_create_dataplane_finish.png")
+
+            ColorLogger.warning(f"Data Plane '{dp_name}' creation failed, retry {retry + 1} times.")
+            self.k8s_create_bmdp(dp_name, retry + 1)
+
+        if tp_version == 1.4:
+            download_commands = self.page.locator("#download-commands")
+            commands_title = self.page.locator(".install-content p.title").all_text_contents()
+            commands_title.pop(0)
+        else:
+            self.page.locator(".pl-button.pl-button--no-border .pl-button__text").click()
+            download_commands = self.page.locator("#download-commands")
+            commands_title = self.page.locator(".expandable.register-commands-container p.title").all_text_contents()
+
+        print("commands_title:", commands_title)
+
+        # Execute each command dynamically based on its position
+        for index, step_name in enumerate(commands_title):
+            self.k8s_run_dataplane_command(dp_name, step_name, download_commands.nth(index), index + 1)
+
+        # click Done button
+        self.page.click("#data-plane-finished-btn")
+        print("BMDP create successful, clicked 'Done' button")
+        ReportYaml.set_dataplane_info(dp_name, "runCommands", True)
+        self.page.locator('#confirm-button', has_text="Yes").wait_for(state="visible")
+        self.page.locator('#confirm-button', has_text="Yes").click()
+
+        # verify data plane is created in the list
+        self.page.wait_for_timeout(2000)
+        print(f"Verifying Data Plane {dp_name} is created in the list")
+        self.k8s_wait_tunnel_connected(dp_name, False)
+        self.k8s_wait_bmdp_ready(dp_name)
+
     def k8s_run_dataplane_command(self, dp_name, step_name, download_selector, step):
         ColorLogger.info(f"Running command for: {step_name}")
         print(f"Download: {step_name}")
@@ -324,7 +479,18 @@ class PageObjectDataPlane:
         print(f"Command for step: {step_name} is executed, wait for 3 seconds.")
         self.page.wait_for_timeout(3000)
 
-    def k8s_wait_tunnel_connected(self, dp_name):
+    def k8s_wait_bmdp_ready(self, dp_name):
+        ColorLogger.info(f"Wait for '{dp_name}' getting ready...")
+        self.goto_dataplane(dp_name)
+        if not Util.check_dom_visibility(self.page, self.page.locator(".domain-data-status__text.green"), 20, 300, True):
+            Util.exit_error(f"Data Plane '{dp_name}' is not ready.", self.page, "dp_config_bmdp_status.png")
+
+        ColorLogger.success(f"Data Plane '{dp_name}' is ready.")
+        ReportYaml.set_dataplane(dp_name)
+        ReportYaml.set_dataplane_info(dp_name, "status", "Running successfully")
+
+
+    def k8s_wait_tunnel_connected(self, dp_name, is_update_report=True):
         print(f"Waiting for Data Planes {dp_name} tunnel connected.")
         self.goto_left_navbar_dataplane()
         print(f"Navigated to Data Planes list page, and checking for {dp_name} in created and tunnel connected.")
@@ -333,7 +499,8 @@ class PageObjectDataPlane:
             Util.exit_error(f"DataPlane {dp_name} is not created.", self.page, "k8s_wait_tunnel_connected_1.png")
 
         ColorLogger.success(f"DataPlane {dp_name} is created, waiting for tunnel connected.")
-        ReportYaml.set_dataplane(dp_name)
+        if is_update_report:
+            ReportYaml.set_dataplane(dp_name)
         data_plane_card = self.page.locator(".data-plane-card", has=self.page.locator('.data-plane-name', has_text=dp_name))
         print(f"Waiting for DataPlane {dp_name} tunnel connected...")
         if not Util.check_dom_visibility(self.page, data_plane_card.locator('.tunnel-status svg.green'), 10, 180):

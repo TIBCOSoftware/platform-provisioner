@@ -30,6 +30,11 @@ function pull_helm_chart() {
   common::debug "downloading chart ${_name} form ${_url} with version ${_version}"
 
   _cmd="${HELM_COMMAND_LINE} pull --repo ${_url} ${_name} --version ${_version}"
+  if [[ "${_url}" =~ ^oci:// ]]; then
+    # helm pull oci://troposphere/tsc-top-level-chart --version 0.1.0
+    # special case for oci repo: see: https://github.com/helm/helm/blob/0199b748aaea3091852d16687c9f9f809061777c/pkg/cmd/install.go#L116
+    _cmd="${HELM_COMMAND_LINE} pull ${_url} --version ${_version}"
+  fi
   if [[ -n "${_username}" ]]; then
     _cmd="${_cmd} --username ${_username}"
   fi

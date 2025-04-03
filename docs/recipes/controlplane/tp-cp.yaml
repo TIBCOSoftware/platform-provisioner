@@ -40,7 +40,6 @@ meta:
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
     CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
     CP_FROM_REPLY_TO_EMAIL: ${GUI_CP_FROM_REPLY_TO_EMAIL:-""}
-    CP_LOG_ENABLE: ${GUI_CP_LOG_ENABLE:-false}
     CP_EXTERNAL_ENVIRONMENT: ${GUI_CP_EXTERNAL_ENVIRONMENT:-"production"}
     CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
     CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # 37 pods * 50Mi = 1850Mi
@@ -56,6 +55,13 @@ meta:
     CP_STORAGE_CLASS: ${GUI_CP_STORAGE_CLASS:-"standard"} # standard, gp2, hostpath, efs-sc
     CP_STORAGE_PV_NAME: "${GUI_CP_STORAGE_PV_NAME}" # control-plane-pv the name of PV for kind, works with CP_STORAGE_CREATE_PV flag
     CP_STORAGE_PV_SIZE: "${GUI_CP_STORAGE_PV_SIZE:-10Gi}"
+
+    # CP logging
+    CP_LOG_ENABLE: ${GUI_CP_LOG_ENABLE:-false}
+    CP_LOG_ENDPOINT: ${GUI_CP_LOG_ENDPOINT:-"https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200"} # optional logserver endpoint
+    CP_LOG_USERNAME: ${GUI_CP_LOG_USERNAME:-"elastic"} # optional logserver username
+    CP_LOG_PASSWORD: ${GUI_CP_LOG_PASSWORD:-""} # optional logserver password
+    CP_LOG_INDEX: ${GUI_CP_LOG_INDEX:-"tibco-cp-logs"} # optional logserver index, default is tibco-cp-logs
 
     # node
     CP_NODE_CIDR: ${GUI_TP_CLUSTER_NODE_CIDR:-"10.180.0.0/16"}
@@ -445,7 +451,7 @@ helmCharts:
               cpu: 1000m
               memory: 1000Mi
         otel-collector:
-          enabled: false
+          enabled: ${CP_LOG_ENABLE}
       global:
         external:
           clusterInfo:
@@ -459,6 +465,11 @@ helmCharts:
               requests:
                 storage: ${CP_STORAGE_PV_SIZE}
             storageClassName: ${CP_STORAGE_CLASS}
+          logserver:
+            endpoint: "${CP_LOG_ENDPOINT}" # optional logserver endpoint, if you have ELK stack or other logging solution
+            username: "${CP_LOG_USERNAME}" # optional logserver username
+            password: "${CP_LOG_PASSWORD}" # optional logserver password
+            index: "${CP_LOG_INDEX}" # optional logserver index
         tibco:
           logging:
             fluentbit:
@@ -486,7 +497,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
-    extra: "--values tls_values.yaml --values volume_values.yaml"
+    extra: "--values tls_values.yaml --values volume_values.yaml --values log_values.yaml"
   hooks:
     preDeploy:
       ignoreErrors: false
@@ -511,11 +522,22 @@ helmCharts:
           echo "TLS values:"
           cat tls_values.yaml
         fi
+
         touch volume_values.yaml
         if [[ "${CP_STORAGE_PV_NAME}" != "" ]]; then
           yq eval '.global.external.storage.volumeName = env(CP_STORAGE_PV_NAME)' volume_values.yaml > volume_values.yaml
           echo "Volume values:"
           cat volume_values.yaml
+        fi
+
+        touch log_values.yaml
+        if [[ "${CP_LOG_ENABLE}" == "true" && -z "${CP_LOG_PASSWORD}" ]]; then
+          # update es logging password
+          export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' | base64 --decode)
+          yq eval '.global.external.logserver.password = env(HOOK_CP_LOG_PASSWORD)' log_values.yaml > log_values.tmp.yaml
+          mv log_values.tmp.yaml log_values.yaml
+          echo "Log values:"
+          cat log_values.yaml
         fi
 - name: platform-base
   version: ${CP_PLATFORM_BASE_VERSION}

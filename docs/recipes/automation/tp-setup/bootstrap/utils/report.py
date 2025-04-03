@@ -48,8 +48,8 @@ class ReportYamlHandler:
     def set_dataplane_info(self, dp_name, dp_key, dp_value):
         dp_value = self.format_value(dp_value)
         self.set(f"""
-            (.dataPlane[] 
-                | select(.name == "{dp_name}") 
+            (.dataPlane[]
+                | select(.name == "{dp_name}")
             ) += {{"{dp_key}": {dp_value}}}
         """)
 
@@ -59,25 +59,25 @@ class ReportYamlHandler:
 
     def get_dataplane_info(self, dp_name, dp_key):
         return self.get(f"""
-            (.dataPlane[] 
+            (.dataPlane[]
                | select(.name == "{dp_name}").{dp_key}
             )
         """)
 
     def set_capability(self, dp_name, capability):
-        if dp_name in self.get_capabilities(dp_name):
+        if capability in self.get_capabilities(dp_name):
             return
         self.set(f"""
-            (.dataPlane[] 
-                | select(.name == "{dp_name}") 
+            (.dataPlane[]
+                | select(.name == "{dp_name}")
                 | .capability
             ) |= (map(select(.name != "{capability}")) + [{{"name": "{capability}"}}])
         """)
 
     def get_capabilities(self, dp_name):
         capabilities = self.get(f"""
-            (.dataPlane[] 
-                | select(.name == "{dp_name}") 
+            (.dataPlane[]
+                | select(.name == "{dp_name}")
                 | .capability[].name
             )
         """)
@@ -90,9 +90,9 @@ class ReportYamlHandler:
     def set_capability_info(self, dp_name, capability, capability_key, capability_value):
         capability_value = self.format_value(capability_value)
         self.set(f"""
-            (.dataPlane[] 
-                | select(.name == "{dp_name}") 
-                | .capability[] 
+            (.dataPlane[]
+                | select(.name == "{dp_name}")
+                | .capability[]
                 | select(.name == "{capability}")
             ) += {{"{capability_key}": {capability_value}}}
         """)
@@ -110,18 +110,18 @@ class ReportYamlHandler:
         if app_name in self.get_capability_apps(dp_name, capability):
             return
         self.set(f"""
-           (.dataPlane[] 
-               | select(.name == "{dp_name}") 
-               | .capability[] 
+           (.dataPlane[]
+               | select(.name == "{dp_name}")
+               | .capability[]
                | select(.name == "{capability}").app
            ) |= (map(select(.name != "{app_name}")) + [{{"name": "{app_name}"}}])
         """)
 
     def get_capability_apps(self, dp_name, capability):
         apps = self.get(f"""
-           (.dataPlane[] 
-               | select(.name == "{dp_name}") 
-               | .capability[] 
+           (.dataPlane[]
+               | select(.name == "{dp_name}")
+               | .capability[]
                | select(.name == "{capability}").app[].name
            )
         """)
