@@ -46,7 +46,7 @@ class EnvConfig:
     TP_AUTO_K8S_BMDP_NAME = os.environ.get("TP_AUTO_K8S_BMDP_NAME") or "k8s-auto-bmdp1"
     TP_AUTO_K8S_BMDP_NAMESPACE = os.environ.get("TP_AUTO_K8S_BMDP_NAMESPACE") or f"{TP_AUTO_K8S_BMDP_NAME}ns"
     TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_BMDP_NAME}sa"
-    TP_AUTO_FQDN_BMDP = os.environ.get("TP_AUTO_FQDN_BMDP") or os.uname().nodename
+    TP_AUTO_FQDN_BMDP = os.environ.get("TP_AUTO_FQDN_BMDP")
     TP_AUTO_K8S_BMDP_BW5_RVDM = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM") or "tra5130rv"
     TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE") or "7474"
     TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK") or ""
