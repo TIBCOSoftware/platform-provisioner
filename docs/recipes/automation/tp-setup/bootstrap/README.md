@@ -1,7 +1,7 @@
 ## Run Control Plane Automation Task Server
 
 ```shell
-cd docs/recipes/automation
+cd docs/recipes/automation/tp-setup/bootstrap
 python -m venv .venv
 # For Mac
 source .venv/bin/activate
@@ -48,7 +48,7 @@ pyenv install 3.12.8
 pyenv global 3.12.8
 python --version
 
-cd docs/recipes/automation
+cd docs/recipes/automation/tp-setup/bootstrap
 python -m venv .venv
 # For Mac
 source .venv/bin/activate
@@ -84,7 +84,8 @@ export HEADLESS="false"
 python -u -m case.k8s_config_dp_o11y
 
 
-pytest --html=report/report.html --self-contained-html  e2e/dataplane/configuration/o11y/test_connection.py
+pytest --html=report/report.html --self-contained-html  e2e/dataplane/configuration/o11y/test_test_connection_button.py
+pytest --html=report/report.html --self-contained-html  e2e/observability/test_observability_list.py
 ```
 
 ## FAQ

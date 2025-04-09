@@ -1,13 +1,13 @@
+from page_object.po_global import PageObjectGlobal
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.helper import Helper
 from utils.env import ENV
 from utils.report import ReportYaml
 
-class PageObjectDataPlane:
+class PageObjectDataPlane(PageObjectGlobal):
     def __init__(self, page):
-        self.page = page
-        self.env = ENV
+        super().__init__(page)
 
     def goto_left_navbar(self, item_name):
         ColorLogger.info(f"Going to left side menu ...")
@@ -24,7 +24,7 @@ class PageObjectDataPlane:
     def goto_global_dataplane(self):
         ColorLogger.info(f"Going to Global Data Plane...")
         self.page.click("#nav-bar-menu-list-dataPlanes")
-        # wait for 1 seconds
+        # wait for 1 second
         self.page.wait_for_timeout(1000)
 
         self.page.locator(".global-configuration button").click()
@@ -173,7 +173,7 @@ class PageObjectDataPlane:
 
         if is_dataplane_visible:
             self.page.locator('data-plane-card', has=self.page.locator('.data-plane-name', has_text=dp_name)).locator('.delete-dp-dropdown button').nth(0).click()
-            print(f"Clicked '⋮' icon in Data Plane {dp_name} card")
+            print(f"Clicked '...' icon in Data Plane {dp_name} card")
             self.page.locator(".is-shown .pl-dropdown-menu__action", has_text="Delete Data Plane").nth(0).wait_for(state="visible")
             # check if 'Force Delete Data Plane' is visible, use Force Delete Data Plane as first choice
             if self.page.locator(".is-shown .pl-dropdown-menu__action", has_text="Force Delete Data Plane").is_visible():

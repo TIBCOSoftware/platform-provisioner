@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import os
+import re
 from flask import Flask, render_template, Response, request, jsonify
 from typing import Optional
 
@@ -31,15 +32,15 @@ def stop_script():
     """ Stop the currently running script """
     global process
 
-    if process is not None:  # Ensure process is assigned
-        if process.poll() is None:  # Ensure process is running
+    if process is not None:  # Ensure the process is assigned
+        if process.poll() is None:  # Ensure the process is running
             print(f"[INFO] Stopping process (PID: {process.pid})...")
             process.terminate()  # Try to terminate gracefully
             try:
                 process.wait(timeout=2)  # Wait up to 2 seconds
             except subprocess.TimeoutExpired:
                 process.kill()  # Force kill if termination fails
-            process = None  # Reset process after stopping
+            process = None  # Reset the process after stopping
             return jsonify({"status": "stopped", "message": "Process terminated successfully"})
 
     return jsonify({"status": "no_process", "message": "No process running"})
@@ -48,11 +49,11 @@ def stop_script():
 def run_script():
     """ Execute a Python script and stream real-time output """
     # case is from query parameter
-    autoCase = request.args.get('case')
-    isCleanReport = request.args.get('IS_CLEAN_REPORT')
-    if not autoCase:
+    auto_case = request.args.get('case')
+    is_clean_report = request.args.get('IS_CLEAN_REPORT')
+    if not auto_case:
         return "Error: Missing 'case' parameter", 400
-    if isCleanReport == "true":
+    if is_clean_report == "true":
         report_folder = os.path.join(os.getcwd(), "report")
         report_yaml_file = os.path.join(report_folder, "report.yaml")
         report_txt_file = os.path.join(report_folder, "report.txt")
@@ -77,9 +78,9 @@ def run_script():
     def generate():
         global process
         # Start the script using unbuffered output
-        print(f'{sys.executable}, "-u", "-m", {autoCase}')
+        print(f'{sys.executable}, "-u", "-m", {auto_case}')
         process = subprocess.Popen(
-            [sys.executable, "-u", "-m", autoCase],  # `-u` ensures unbuffered output
+            [sys.executable, "-u", "-m", auto_case],  # `-u` ensures unbuffered output
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -89,8 +90,13 @@ def run_script():
 
         # Stream output line by line
         try:
+            ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+            yield '<pre>\n'
             for line in iter(lambda: process.stdout.readline() if process and process.poll() is None else None, None):
-                yield line.strip() + '<br>\n'
+                if line and line.strip():
+                    clean_line = ansi_escape.sub('', line)      # Remove ANSI escape codes, remove color codes
+                    yield clean_line.strip() + '\n'
+            yield '</pre>\n'
 
             if process:
                 process.stdout.close()

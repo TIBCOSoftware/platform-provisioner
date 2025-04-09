@@ -637,7 +637,13 @@ helmCharts:
         if [[ "${CP_LOG_ENABLE}" == "true" && -z "${CP_LOG_PASSWORD}" ]]; then
           # update es logging password
           export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' | base64 --decode)
-          yq eval '.global.external.logserver.password = env(HOOK_CP_LOG_PASSWORD)' log_values.yaml > log_values.tmp.yaml
+          if [[ -n "${HOOK_CP_LOG_PASSWORD}" ]]; then
+            yq eval '.global.external.logserver.password = env(HOOK_CP_LOG_PASSWORD)' log_values.yaml > log_values.tmp.yaml
+          else
+            echo "Log server password not found, please set it in the recipe"
+            echo "disable otel-collector"
+            yq eval '.tp-cp-bootstrap.otel-collector.enabled = false' log_values.yaml > log_values.tmp.yaml
+          fi
           mv log_values.tmp.yaml log_values.yaml
           echo "Log values:"
           cat log_values.yaml

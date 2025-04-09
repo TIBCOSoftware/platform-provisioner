@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control Plane Automation Task</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.1/mini-default.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/themes/prism-tomorrow.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/components/prism-core.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/plugins/autoloader/prism-autoloader.min.js"></script>
   <style>
     .container .row .row { align-items: center; }
     .container .row .row label {
@@ -16,7 +18,11 @@
     .container .row .row input[type="text"], .container .row .row select {
       width: 100%;
     }
-    .logs { max-height: 600px; margin: 0 8px !important; }
+    .logs {
+      max-height: 600px;
+      margin: 0 8px 20px !important;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
@@ -75,11 +81,11 @@
             <div class="col-sm-9">
               <select id="autoCase">
                 <option>--Select Case--</option>
-                <option value="page_env">Show Current Environment</option>
-                <option value="page_auth">Active User(Create new subscription)</option>
+                <option value="page_env">Show Current Environment (Login CP/Elastic Credentials)</option>
+                <option value="page_auth">Active User (Create new subscription)</option>
                 <optgroup label="DataPlane">
                   <option value="case.create_global_config">Config Global O11y</option>
-                  <option value="case.k8s_create_dp">Create DataPlane</option>
+                  <option value="case.k8s_create_dp">Create K8s DataPlane</option>
                   <option value="case.k8s_config_dp_o11y">Config DataPlane O11y</option>
                   <option value="case.k8s_delete_dp">Delete DataPlane</option>
                 </optgroup>
@@ -272,7 +278,5 @@
       })
   }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 </body>
 </html>

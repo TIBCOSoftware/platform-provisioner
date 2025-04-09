@@ -205,9 +205,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.wait_for_timeout(2000)
         active_title = self.page.locator("ul.items .is-active .step-text").inner_text()
         print(f"Flogo 'App Build & Deploy' Step 2: '{active_title}' page is loaded")
-        if self.page.locator(".version-field-container .rovision-link", has_text="Provision Flogo in another tab").is_visible():
+        if self.page.locator(".version-field-container .provision-link", has_text="Provision Flogo in another tab").is_visible():
             with self.page.context.expect_page() as new_page_info:
-                self.page.locator(".version-field-container .rovision-link", has_text="Provision Flogo in another tab").click()
+                self.page.locator(".version-field-container .provision-link", has_text="Provision Flogo in another tab").click()
                 print("Clicked 'Provision Flogo in another tab' link")
     
             new_page = new_page_info.value
@@ -219,8 +219,22 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             new_page.locator("#qaPluginProvision").click()
             new_page.close()
             ColorLogger.success("Provision Flogo & Connectors successful.")
+            print("Wait for 5 seconds, then clicked 'Refresh List' button")
+            self.page.wait_for_timeout(5000)
             self.page.locator(".refresh-link", has_text="Refresh List").click()
             self.page.wait_for_timeout(1000)
+            # check if Flogo version and Connectors General version is loaded
+            for _ in range(5):
+                flogo_version_value = self.page.locator(".flogo-version-container flogo-tp-dropdown input").input_value().strip()
+                flogo_general_value = self.page.locator(".provisioned-container flogo-tp-dropdown input").input_value().strip()
+                if flogo_version_value and flogo_general_value:
+                    print(f"Flogo version {flogo_version_value} is loaded")
+                    print(f"Connectors General version {flogo_general_value} is loaded")
+                    break
+                print("Flogo or Connectors General version is not loaded, will click 'Refresh List' button")
+                self.page.locator(".refresh-link", has_text="Refresh List").click()
+                print("Clicked 'Refresh List' button, then wait for 5 seconds")
+                self.page.wait_for_timeout(5000)
     
         # namespace picker is for 1.4 and 1.3
         if self.page.locator("flogo-namespace-picker input").is_visible():
