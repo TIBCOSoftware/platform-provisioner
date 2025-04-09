@@ -2,6 +2,8 @@ import subprocess
 import os
 import sys
 import json
+import platform
+from pathlib import Path
 
 from utils.color_logger import ColorLogger
 
@@ -15,6 +17,14 @@ class Helper:
         return os.environ.get("HEADLESS", "true").lower() == "true"
 
     @staticmethod
+    def get_windows_bash():
+        bash_path = Path(r"C:\Program Files\Git\bin\bash.exe")
+        if not bash_path.exists():
+            ColorLogger.error(f"The git bash '{bash_path}' does not exist.")
+            sys.exit()
+        return bash_path
+
+    @staticmethod
     def run_shell_file(script_path):
         # Check if the script file exists
         if not os.path.exists(script_path):
@@ -24,11 +34,11 @@ class Helper:
         os.chmod(script_path, 0o755)
 
         try:
-            kube_config_path = Helper.get_kube_config_path()
-            if kube_config_path:
-                command = ["env", Helper.get_kube_config_path(), script_path]
-            else:
-                command = [script_path]
+            command = [script_path]
+            if platform.system() == "Windows":
+                bash_path = Helper.get_windows_bash()
+                print(f"Run Windows command: {bash_path} -c {script_path}")
+                command = [bash_path, script_path]
             # Execute the shell script using subprocess
             print(f"Running script: {script_path}")
             result = subprocess.run(
@@ -36,7 +46,8 @@ class Helper:
                 shell=False,               # Run without invoking the shell for added security
                 check=True,                # Raise an error if the script exits with a non-zero status
                 capture_output=True,       # Capture standard output and standard error
-                text=True                  # Decode the output as text (not bytes)
+                text=True,                 # Decode the output as text (not bytes)
+                env=Helper.get_env_vars()
             )
             # Print the script's standard output
             print(f"Script output:\n{result.stdout}")
@@ -49,30 +60,24 @@ class Helper:
             print(f"An unexpected error occurred: {e}")
 
     @staticmethod
-    def run_command(commands):
+    def get_command_output(command, is_print_cmd=False):
         try:
-            result = subprocess.run(
-                commands,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            print(f"Error running command: {e}")
-            return None
-
-    @staticmethod
-    def get_command_output(command):
-        try:
-            command = f"{Helper.get_kube_config_path()} {command}"
-            print(f"Run command: {command}")
+            if platform.system() == "Windows":
+                bash_path = Helper.get_windows_bash()
+                if is_print_cmd:
+                    print(f"Run Windows command: {bash_path} -c {command}")
+                # For Windows, use '-c' to run the command
+                command = [bash_path, "-c", command]
+            else:
+                if is_print_cmd:
+                    print(f"Run command: {command}")
             result = subprocess.run(
                 command,
                 shell=True,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                env=Helper.get_env_vars()
             )
             return result.stdout.strip()  # Return standard output
         except subprocess.CalledProcessError as e:
@@ -81,11 +86,13 @@ class Helper:
             return None
 
     @staticmethod
-    def get_kube_config_path():
+    def get_env_vars():
+        env_vars = os.environ.copy()
         tp_auto_kubeconfig = os.environ.get("TP_AUTO_KUBECONFIG")
         if tp_auto_kubeconfig:
-            return f"KUBECONFIG={tp_auto_kubeconfig}"
-        return ""
+            env_vars["KUBECONFIG"] = tp_auto_kubeconfig
+            print(f"Add env vars, KUBECONFIG={tp_auto_kubeconfig}")
+        return env_vars
 
     @staticmethod
     def get_elastic_password():

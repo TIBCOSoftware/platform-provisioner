@@ -6,6 +6,7 @@ from playwright.sync_api import sync_playwright
 from datetime import datetime
 from utils.color_logger import ColorLogger
 from utils.env import ENV
+from utils.helper import Helper
 from utils.report import ReportYaml
 
 class Util:
@@ -170,6 +171,14 @@ class Util:
         # ReportYaml.sort_yaml_order()
 
     @staticmethod
+    def print_cp_info():
+        str_num = 90
+        print("=" * str_num)
+        print(f"{'Control Plane information': ^{str_num}}")
+        print("platform-bootstrap: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-bootstrap | sed -n 's/.*platform-bootstrap-\([0-9.]*\).*/\1/p'"))
+        print("platform-base: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\([0-9.]*\).*/\1/p'"))
+
+    @staticmethod
     def print_env_info(is_print_auth=True, is_print_dp=True):
         str_num = 90
         col_space = 30
@@ -304,7 +313,7 @@ class Util:
     @staticmethod
     def refresh_until_success(page, retry_selector, waiting_selector, message="", max_retries=3):
         current_condition = retry_selector.is_visible()
-        # Note: check 3 times, because sometimes page can not be loaded in time
+        # Note: check 3 times, because sometimes page cannot be loaded in time
         # if current_condition is empty, reload page, and check again, only check 3 times, if still empty, exit for loop
         for i in range(max_retries):
             if current_condition:

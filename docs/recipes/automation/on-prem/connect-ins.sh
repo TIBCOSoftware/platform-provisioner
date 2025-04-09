@@ -10,26 +10,31 @@
 # Globals:
 #   None
 # Arguments:
-#   1 - 4: the choice of the task
+#   1 - 6: the choice of the task
 # Returns:
 #   None
 # Notes:
 #   This is the utility script to connect to the instance and forward the local port to the instance port
 # Samples:
-#   open in one terminal run: ./connect-ins.sh 1 to setup the ssh port forwarding
-#   open in one terminal run: ./connect-ins.sh 2 to setup the kubeconfig and start the instance port-forwarding
+#   open in one terminal run: ./connect-ins.sh 1 to set up the ssh port forwarding
+#   open in one terminal run: ./connect-ins.sh 2 to set up the kubeconfig and start the instance port-forwarding
 #######################################
 
 forward_port_to_instance() {
   echo "Forwarding local port to instance port"
   ssh-keygen -R "${INSTANCE_IP}"
-  ssh -o "StrictHostKeyChecking no" -A -L ${LOCAL_PORT}:0.0.0.0:${INS_PORT} -N -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
+  ssh -o "StrictHostKeyChecking no" -A -L "${LOCAL_PORT}":0.0.0.0:"${INS_PORT}" -N -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
   echo "Forward local port ${LOCAL_PORT} to instance port ${INS_PORT}"
 }
 
 ssh_instance() {
   echo "SSH instance"
   ssh -o "StrictHostKeyChecking no" -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
+}
+
+ssh_instance_add_key() {
+  echo "SSH instance and add key"
+  ssh -o "StrictHostKeyChecking no" -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}" "grep -qxF '${OTHER_SSH_KEY}' ${GCP_FILE_SSH_KEY} && echo '✅ Key already exists' || (echo '${OTHER_SSH_KEY}' >> ${GCP_FILE_SSH_KEY} && echo '🔐 Key added successfully')"
 }
 
 copy_instance_kubeconfig() {
@@ -78,12 +83,29 @@ prompt_for_instance_ip() {
   fi
 }
 
+prompt_for_ssh_key() {
+  if [ -z "${OTHER_SSH_KEY}" ]; then
+    echo "Asking someone to use command: '$0 0' to get their the SSH_KEY"
+    read -rp "Please enter someone's SSH_KEY: " OTHER_SSH_KEY
+    if [ -z "${OTHER_SSH_KEY}" ]; then
+      echo "Error: OTHER_SSH_KEY is required. Exiting."
+      exit 1
+    fi
+  fi
+}
+
 create_pem_key() {
   if [ ! -f "${KEY_PEM}" ]; then
     echo "Key file not found, generating a new key '${KEY_PEM}'"
     ssh-keygen -t ed25519 -a 100 -f "$KEY_PEM" -C "tibco@cloud.com" -N "" >/dev/null 2>&1
   fi
-  if [ "$1" == "print" ]; then
+  if [ "$1" == "print" ] && [ -f "$KEY_PEM.pub" ]; then
+    echo ""
+    echo "Use it for Remote instance file ${GCP_FILE_SSH_KEY}"
+    echo "SSH_KEY:"
+    cat "$KEY_PEM.pub"
+    echo ""
+    echo -e "Use it for Provisioner input: \033[0;31mpublic key base64\033[0m"
     base64 -i "$KEY_PEM.pub"
     exit 1
   fi
@@ -103,16 +125,19 @@ show_help() {
   echo "export LOCAL_PORT=8443"
   echo "export INS_PORT=6443"
   echo ""
-  echo "Usage: $0 [0|1|2|3|4|5]"
+  echo "Usage: $0 [0|1|2|3|4|5|6]"
   echo "0: Create/Print instance key"
   echo "1: Forward local port to instance port"
   echo "2: Copy kubeconfig, modify port, and start instance server"
   echo "3: Start Local server"
   echo "4: Copy instance automation report to local"
   echo "5: SSH login to instance"
+  echo "6: Add someone's SSH key to my instance"
 }
 
 function connect_ins() {
+  export GCP_FILE_SSH_KEY="/home/ubuntu/.ssh/authorized_keys"
+  export OTHER_SSH_KEY=""   # other person's SSH key
   export KEY_PEM="${KEY_PEM:-"./ins-key.pem"}"
   export INSTANCE_IP="${INSTANCE_IP:-""}"
   export LOCAL_PORT=${LOCAL_PORT:-8443}
@@ -154,7 +179,7 @@ function connect_ins() {
       forward_ingress_to_instance
       ;;
     3)
-      echo "Executing Task 3: Start Local server"
+      echo "Executing Task 3: Start Local server (Switch back to Local CP From Remote CP)"
 
       start_local_server
       ;;
@@ -173,6 +198,16 @@ function connect_ins() {
       prompt_for_instance_ip
 
       ssh_instance
+      ;;
+    6)
+      echo "Executing Task 6: Add someone's SSH key to my instance (Allow others to log into my instance)"
+      check_pem_key
+
+      prompt_for_instance_ip
+
+      prompt_for_ssh_key
+
+      ssh_instance_add_key
       ;;
     *)
       echo "Invalid option: $1"

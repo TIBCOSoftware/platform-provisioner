@@ -148,6 +148,7 @@ class PageObjectAuth:
             self.page.locator(".footer button", has_text="Ok").click()
             print("Clicked 'Ok' button")
             if self.page.locator(".provision-success__subtext", has_text="host_prefix has been used in another account").is_visible():
+                self.page.locator(".provision-success__actions button", has_text="Cancel").click()
                 Util.screenshot_page(self.page, "admin_provision_user.png")
                 self.logout_admin_user()
                 Util.exit_error(f"Host prefix: {host_prefix} has been used in another account, use another one or rest database.")
