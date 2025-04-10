@@ -11,6 +11,11 @@ on:
         description: 'The git branch name to checkout'
         required: false
         default: 'main'
+      dockerfilePath:
+        description: 'The Dockerfile path used for build. Content also set for this folder For automation build, use ./docs/recipes/automation/tp-setup/bootstrap'
+        required: true
+        default: './docker'
+        type: string
       dockerfileName:
         description: 'The Dockerfile name used for build. Dockerfile for production build.'
         required: true
@@ -75,7 +80,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           platforms: ${{ github.event.inputs.platform }}
-          file: ./docker/${{ github.event.inputs.dockerfileName }}
+          file: ${{ github.event.inputs.dockerfilePath }}/${{ github.event.inputs.dockerfileName }}
+          context: ${{ github.event.inputs.dockerfilePath }}
           push: true
           tags: ${{ env.TAGS }}
           labels: |
