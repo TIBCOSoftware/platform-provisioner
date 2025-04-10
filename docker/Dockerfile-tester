@@ -9,9 +9,9 @@
 
 # Ubuntu 24 and 25 has strict glibc which will effect compbility between curl and coredns (star CNAME)
 # Microsoft artifact is not multi-arch build. see: https://mcr.microsoft.com/en-us/artifact/mar/playwright/tags
-FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-noble-${TARGETARCH}
+#FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-noble-${TARGETARCH}
 # Ubuntu 22.04 playwright release
-#FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-jammy-${TARGETARCH}
+FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.51.0-jammy-${TARGETARCH}
 
 ARG TARGETOS TARGETARCH
 
