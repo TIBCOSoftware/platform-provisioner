@@ -16,11 +16,23 @@ class Util:
     _is_trace = False
 
     @staticmethod
+    def get_dns_ip():
+        awk_script = '/^Name:/ {getline; if ($1=="Address:") print $2}'
+        return Helper.get_command_output(f"nslookup *.{ENV.TP_AUTO_CP_DNS_DOMAIN} | awk '{awk_script}'", True)
+
+    @staticmethod
     def browser_launch(is_headless=ENV.IS_HEADLESS):
         if Util._browser is None:
+            dns_ip = Util.get_dns_ip()
+            args = []
+            if dns_ip:
+                args.append(f"--host-resolver-rules=MAP *.{ENV.TP_AUTO_CP_DNS_DOMAIN} {dns_ip}")
             Util._run_start_time = time.time()
             playwright = sync_playwright().start()
-            Util._browser = playwright.chromium.launch(headless=is_headless)
+            Util._browser = playwright.chromium.launch(
+                headless=is_headless,
+                args=args
+            )
             ColorLogger.success("Browser Launched Successfully.")
 
         videos_dir = os.path.join(
@@ -175,8 +187,8 @@ class Util:
         str_num = 90
         print("=" * str_num)
         print(f"{'Control Plane information': ^{str_num}}")
-        print("platform-bootstrap: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-bootstrap | sed -n 's/.*platform-bootstrap-\([0-9.]*\).*/\1/p'"))
-        print("platform-base: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\([0-9.]*\).*/\1/p'"))
+        print("platform-bootstrap: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-bootstrap | sed -n 's/.*platform-bootstrap-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'"))
+        print("platform-base: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'"))
 
     @staticmethod
     def print_env_info(is_print_auth=True, is_print_dp=True):

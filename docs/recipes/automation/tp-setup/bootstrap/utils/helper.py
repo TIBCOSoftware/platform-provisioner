@@ -49,6 +49,8 @@ class Helper:
                 text=True,                 # Decode the output as text (not bytes)
                 env=Helper.get_env_vars()
             )
+            if result.stderr:
+                print(f"Command stderr: {result.stderr.strip()}")
             # Print the script's standard output
             print(f"Script output:\n{result.stdout}")
         except subprocess.CalledProcessError as e:
@@ -79,6 +81,8 @@ class Helper:
                 check=True,
                 env=Helper.get_env_vars()
             )
+            if result.stderr:
+                print(f"Command stderr: {result.stderr.strip()}")
             return result.stdout.strip()  # Return standard output
         except subprocess.CalledProcessError as e:
             print(f"Failed command: {command}")
