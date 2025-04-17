@@ -1,4 +1,4 @@
-FROM ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.3.1-tester-on-prem-jammy
+FROM ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.3.2-tester-on-prem-jammy
 
 ENV TP_AUTO_SCRIPT_PY_ENV_FOLDER=/tmp/auto-py-env
 
