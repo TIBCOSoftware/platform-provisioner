@@ -17,4 +17,4 @@ EXPOSE 3120
 
 ENV PATH="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin:$PATH"
 
-CMD ["python", "-m", "waitress", "--host=127.0.0.1", "--port=3120", "server:app"]
+CMD ["python", "-m", "waitress", "--host=0.0.0.0", "--port=3120", "server:app"]
