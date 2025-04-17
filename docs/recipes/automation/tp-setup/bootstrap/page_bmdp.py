@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
@@ -27,14 +29,14 @@ if __name__ == "__main__":
             # po_dp.k8s_delete_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_dp.k8s_create_bmdp(ENV.TP_AUTO_K8S_BMDP_NAME)
 
-            if ENV.TP_AUTO_IS_EBABLE_RVDM:
+            if ENV.TP_AUTO_IS_ENABLE_RVDM:
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_dataplane_config()
                 po_bmdp_config.dp_config_bw5_rvdm(ENV.TP_AUTO_K8S_BMDP_BW5_RVDM)
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_products("BW5 Adapters") # "BW5 Adapters" for BW5, "BE" for be, "BW6" for BW6
                 po_bmdp_config.check_bmdp_app_status_by_app_name("BW5 Adapters", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, "mySleep")
-            if ENV.TP_AUTO_IS_EBABLE_EMSDM:
+            if ENV.TP_AUTO_IS_ENABLE_EMSDM:
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_dataplane_config()
                 po_bmdp_config.dp_config_bw5_emsdm(ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM)

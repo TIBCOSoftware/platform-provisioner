@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.env import ENV
 from utils.report import ReportYaml

@@ -22,7 +22,8 @@ class PageObjectAuth:
             password = ENV.CP_ADMIN_PASSWORD
 
         print("Check email and active user...")
-        Util.check_url_accessible(self.page, ENV.TP_AUTO_MAIL_URL, "REPORT_TP_AUTO_MAIL", "active_user_in_mail.png")
+        if not Util.check_page_url_accessible(self.page, ENV.TP_AUTO_MAIL_URL, "REPORT_TP_AUTO_MAIL"):
+            Util.exit_error(f"Unable to access mail page {ENV.TP_AUTO_MAIL_URL}", self.page, "active_user_in_mail.png")
 
         self.page.goto(ENV.TP_AUTO_MAIL_URL)
         print(f"Navigating to mail page {ENV.TP_AUTO_MAIL_URL}...")

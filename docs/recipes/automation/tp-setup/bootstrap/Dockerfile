@@ -1,4 +1,4 @@
-FROM ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.3.0-tester-on-prem-jammy
+FROM ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:v1.1.0-tester-on-prem
 
 ENV TP_AUTO_SCRIPT_PY_ENV_FOLDER=/tmp/auto-py-env
 
@@ -17,4 +17,4 @@ EXPOSE 3120
 
 ENV PATH="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin:$PATH"
 
-CMD ["python", "-m", "waitress", "--port=3120", "server:app"]
+CMD ["python", "-m", "waitress", "--host=127.0.0.1", "--port=3120", "server:app"]

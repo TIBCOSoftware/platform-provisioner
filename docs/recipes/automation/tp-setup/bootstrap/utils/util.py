@@ -1,7 +1,11 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 import os
 import sys
 import pytz
 import time
+import urllib.request
+from urllib.error import URLError, HTTPError
 from playwright.sync_api import sync_playwright
 from datetime import datetime
 from utils.color_logger import ColorLogger
@@ -10,6 +14,7 @@ from utils.helper import Helper
 from utils.report import ReportYaml
 
 class Util:
+    _page = None
     _browser = None
     _context = None
     _run_start_time = None
@@ -51,13 +56,17 @@ class Util:
             Util._is_trace = True
             ColorLogger.info("Start tracing with screenshots, snapshots, and sources.")
             Util._context.tracing.start(screenshots=True, snapshots=True, sources=True)
-        return Util._context.new_page()
+        Util._page = Util._context.new_page()
+        return Util._page
 
     @staticmethod
     def browser_close():
         if Util._context is not None:
             Util.stop_tracing()
             Util._context.close()
+            if Util._page and Util._page.video:
+                video_path = Util._page.video.path()
+                ColorLogger.info(f"Video file saved to: {video_path}")
 
         if Util._browser is not None:
             Util._browser.close()
@@ -199,13 +208,13 @@ class Util:
             print("-" * str_num)
             print(f"{'Login Credentials': ^{str_num}}")
             print("-" * str_num)
-            print(f"{'Mail URL:':<{col_space}}{ENV.TP_AUTO_MAIL_URL}")
+            print(f"{'Mail URL:':<{col_space}}{ENV.TP_AUTO_MAIL_URL} {'√' if Util.is_url_accessible(ENV.TP_AUTO_MAIL_URL) else 'X'}")
             print("-" * str_num)
-            print(f"{'CP Admin URL:':<{col_space}}{ENV.TP_AUTO_ADMIN_URL}")
+            print(f"{'CP Admin URL:':<{col_space}}{ENV.TP_AUTO_ADMIN_URL} {'√' if Util.is_url_accessible(ENV.TP_AUTO_ADMIN_URL) else 'X'}")
             print(f"{'Admin Email:':<{col_space}}{ENV.CP_ADMIN_EMAIL}")
             print(f"{'Admin Password:':<{col_space}}{ENV.CP_ADMIN_PASSWORD}")
             print("-" * str_num)
-            print(f"{'CP Login URL:':<{col_space}}{ENV.TP_AUTO_LOGIN_URL}")
+            print(f"{'CP Login URL:':<{col_space}}{ENV.TP_AUTO_LOGIN_URL} {'√' if Util.is_url_accessible(ENV.TP_AUTO_LOGIN_URL) else 'X'}")
             print(f"{'User Email:':<{col_space}}{ENV.DP_USER_EMAIL}")
             print(f"{'User Password:':<{col_space}}{ENV.DP_USER_PASSWORD}")
         if is_print_dp:
@@ -279,15 +288,28 @@ class Util:
         print("=" * str_num)
 
     @staticmethod
-    def check_url_accessible(page, url, env_key, screenshot_name):
+    def is_url_accessible(url, timeout=5):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response:
+                return response.status < 400
+        except (HTTPError, URLError) as e:
+            return False
+
+    @staticmethod
+    def check_page_url_accessible(page, url, env_key=None, screenshot_name=None):
+        is_accessible = False
         try:
             response = page.goto(url, timeout=5000)
             if response and response.status == 200:
+                is_accessible = True
                 print(f"URL {url} is accessible")
                 if env_key:
                     ReportYaml.set(f".ENV.{env_key}", True)
+            return is_accessible
         except Exception as e:
-            Util.exit_error(f"An error occurred while accessing {url}: {e}", page, screenshot_name)
+            if screenshot_name:
+                Util.warning_screenshot(f"An error occurred while accessing {url}: {e}", page, screenshot_name)
+            return is_accessible
 
     @staticmethod
     def check_dom_visibility(page, dom_selector, interval=10, max_wait=180, is_refresh=False):

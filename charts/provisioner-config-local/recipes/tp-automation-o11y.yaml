@@ -36,8 +36,9 @@ meta:
     GUI_TP_AUTO_ENABLE_EMS: false
     GUI_TP_AUTO_ENABLE_PULSAR: false
     GUI_TP_AUTO_ENABLE_BMDP: false
-    GUI_TP_AUTO_IS_EBABLE_RVDM: true
-    GUI_TP_AUTO_IS_EBABLE_EMSDM: true
+    GUI_TP_AUTO_IS_ENABLE_RVDM: true
+    GUI_TP_AUTO_IS_ENABLE_EMSDM: true
+    GUI_TP_AUTO_ENABLE_E2E_TEST: true
 
     # CP setup
     GUI_TP_AUTO_CP_INSTANCE_ID: "cp1"
@@ -128,8 +129,9 @@ meta:
     TP_AUTO_ENABLE_EMS: ${GUI_TP_AUTO_ENABLE_EMS:-true}
     TP_AUTO_ENABLE_PULSAR: ${GUI_TP_AUTO_ENABLE_PULSAR:-true}
     TP_AUTO_ENABLE_BMDP: ${GUI_TP_AUTO_ENABLE_BMDP:-false}
-    TP_AUTO_IS_EBABLE_RVDM: ${GUI_TP_AUTO_IS_EBABLE_RVDM:-true}
-    TP_AUTO_IS_EBABLE_EMSDM: ${GUI_TP_AUTO_IS_EBABLE_EMSDM:-true}
+    TP_AUTO_IS_ENABLE_RVDM: ${GUI_TP_AUTO_IS_ENABLE_RVDM:-true}
+    TP_AUTO_IS_ENABLE_EMSDM: ${GUI_TP_AUTO_IS_ENABLE_EMSDM:-true}
+    TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-true}
 
     # CP setup
     TP_AUTO_CP_INSTANCE_ID: ${GUI_TP_AUTO_CP_INSTANCE_ID:-"cp1"}
@@ -190,6 +192,9 @@ meta:
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
+
+    # e2e test cases
+    PYTHON_E2E_TEST_CASES: "e2e/**/*.py"
 tasks:
 - condition: ${TP_OVERWRITE_DNS} # this is used for overwrite DNS
   name: overwrite-dns
@@ -431,3 +436,18 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
+# Keep this task at the end of the pipeline, after run e2e test, the re-try process will exit
+- condition: ${TP_AUTO_ENABLE_E2E_TEST} # only run e2e test
+  name: run-e2e-test
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      pytest -n auto -v --tb=long --dist=loadfile --html=report/report.html --self-contained-html ${PYTHON_E2E_TEST_CASES}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit 0

@@ -11,7 +11,7 @@ groups:
 - title: "Cluster Ingress"
   index: 1
   description: |
-    Cluster Ingress configurations. 
+    Cluster Ingress configurations.
     * domain: `*.localhost.dataplanes.pro` point to `127.0.0.1`.
     * ingress service type: We can only have `ONE` main ingress uses service type `LoadBalancer` for on-prem setup.
 - title: "Cluster storage"
@@ -181,6 +181,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_INSTALL_POSTGRES"
   description: |
     Install Postgres database for TP Cluster
+- name: "Install Calico"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_CALICO_CNI"
+  description: |
+    Enable Calico CNI for TP Cluster. Set to `true` for network policy testing.
 - name: "Install Provisioner UI Ingress object"
   groupIndex: 10
   type: boolean
@@ -202,6 +209,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_PROVISIONER_UI_NAMESPACE"
   description: |
     Namespace for Provisioner UI. Default is `tekton-tasks`
+- name: "Install Automation UI"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTOMATION_INSTALL"
+  description: |
+    Install Automation UI for TP Cluster. Default is `false`
 - name: "Enable pipline debug logs"
   groupIndex: 10
   type: boolean

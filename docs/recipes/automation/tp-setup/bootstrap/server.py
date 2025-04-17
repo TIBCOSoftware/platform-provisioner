@@ -2,6 +2,7 @@ import subprocess
 import sys
 import os
 import re
+import time
 from flask import Flask, render_template, Response, request, jsonify
 from typing import Optional
 
@@ -117,6 +118,26 @@ def get_env():
     }
     return jsonify(env_dict)
 
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    file = request.files.get('file')
+    UPLOAD_FOLDER = 'upload'
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    if file:
+        original_filename = os.path.splitext(file.filename)[0]
+        ext = os.path.splitext(file.filename)[1]
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        safe_name = f"{original_filename}_{timestamp}{ext}"
+        save_path = os.path.join(UPLOAD_FOLDER, safe_name)
+        file.save(save_path)
+
+        return jsonify({
+            'message': 'Upload successful',
+            'filename': safe_name,
+            'filetype': 'BWCE' if ext == '.ear' else 'FLOGO'
+        })
+    else:
+        return jsonify({'message': 'No file uploaded'})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3120)

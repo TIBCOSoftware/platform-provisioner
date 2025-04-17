@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 import socket
 import os
 import pytz
@@ -10,7 +12,7 @@ from utils.helper import Helper
 class EnvConfig:
     IS_HEADLESS = Helper.is_headless()
 
-    # GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or ""        # GitHub token is not used for now
+    # GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or "" # GitHub token is not used for now
     RETRY_TIME = datetime.now(pytz.timezone("America/Chicago"))
     RETRY_TIME_FOLDER = RETRY_TIME.strftime("%Y%m%d-%H%M%S")
     DP_HOST_PREFIX = os.environ.get("DP_HOST_PREFIX") or "cp-sub1"
@@ -20,6 +22,7 @@ class EnvConfig:
     CP_ADMIN_PASSWORD = os.environ.get("CP_ADMIN_PASSWORD") or "Tibco@123"
 
     # automation setup
+    TP_AUTO_REMOTE_INSTANCE_IP = os.environ.get("TP_AUTO_REMOTE_INSTANCE_IP") or ""
     TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or "1.4"
     TP_AUTO_REPORT_PATH = os.environ.get("TP_AUTO_REPORT_PATH") or os.path.join(os.getcwd(), "report")
     TP_AUTO_REPORT_YAML_FILE = os.environ.get("TP_AUTO_REPORT_YAML_FILE") or "report.yaml"  # automation script will create this file
@@ -27,9 +30,9 @@ class EnvConfig:
     TP_AUTO_REPORT_TRACE = os.environ.get("TP_AUTO_REPORT_TRACE", "true").lower() == "true"
     TP_AUTO_IS_CREATE_DP = os.environ.get("TP_AUTO_IS_CREATE_DP", "false").lower() == "true"
     TP_AUTO_IS_CREATE_BMDP = os.environ.get("TP_AUTO_IS_CREATE_BMDP", "true").lower() == "true"
-    TP_AUTO_IS_EBABLE_RVDM = os.environ.get("TP_AUTO_IS_EBABLE_RVDM", "true").lower() == "true"
-    TP_AUTO_IS_EBABLE_EMSDM = os.environ.get("TP_AUTO_IS_EBABLE_EMSDM", "true").lower() == "true"
-    TP_AUTO_IS_EBABLE_EMS_SERVER = os.environ.get("TP_AUTO_IS_EBABLE_EMS_SERVER", "true").lower() == "true"
+    TP_AUTO_IS_ENABLE_RVDM = os.environ.get("TP_AUTO_IS_ENABLE_RVDM", "true").lower() == "true"
+    TP_AUTO_IS_ENABLE_EMSDM = os.environ.get("TP_AUTO_IS_ENABLE_EMSDM", "true").lower() == "true"
+    TP_AUTO_IS_ENABLE_EMS_SERVER = os.environ.get("TP_AUTO_IS_ENABLE_EMS_SERVER", "true").lower() == "true"
     TP_AUTO_IS_CONFIG_O11Y = os.environ.get("TP_AUTO_IS_CONFIG_O11Y", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_BWCE = os.environ.get("TP_AUTO_IS_PROVISION_BWCE", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_EMS = os.environ.get("TP_AUTO_IS_PROVISION_EMS", "false").lower() == "true"
@@ -100,14 +103,14 @@ class EnvConfig:
     # TP_AUTO_INGRESS_CONTROLLER_VALUES = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_VALUES") or ""
     TP_AUTO_STORAGE_CLASS = os.environ.get("TP_AUTO_STORAGE_CLASS") or Helper.get_storage_class()
     # Due to the fuzzy matching of the dp name by Playwright
-    # At most 0-9 dp are supported. If more dp are needed, the matching rule of dp selector is required
+    # At most 0-9 dp are supported, if more dp is needed, the matching rule of dp selector is required
     TP_AUTO_MAX_DATA_PLANE = 9
 
     # apps: bwce, flogo
-    BWCE_APP_FILE_NAME = "tt_1.0.0.ear"
-    BWCE_APP_NAME = "tt"
-    FLOGO_APP_FILE_NAME = "flogo.json"
-    # need to make sure the flogo app name is unique and lower case in above json file
+    BWCE_APP_FILE_NAME = os.environ.get("TP_AUTO_BWCE_APP_FILE_NAME") or "tt.ear"
+    BWCE_APP_NAME = BWCE_APP_FILE_NAME.removesuffix(".ear")
+    FLOGO_APP_FILE_NAME = os.environ.get("TP_AUTO_FLOGO_APP_FILE_NAME") or "flogo.json"
+    # need to make sure the flogo app name is unique and lower case in the above JSON file
     FLOGO_APP_NAME = Helper.get_app_name(FLOGO_APP_FILE_NAME)
 
     def pre_check(self):

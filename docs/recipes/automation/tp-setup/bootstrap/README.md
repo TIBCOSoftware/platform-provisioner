@@ -9,7 +9,7 @@ source .venv/bin/activate
 # source .venv/Scripts/activate
 pip install -r requirements.txt
 playwright install
-python -m waitress --port=3120 server:app
+python -m waitress --host=127.0.0.1 --port=3120 server:app
 open http://127.0.0.1:3120/
 ```
 
@@ -83,9 +83,14 @@ python page_dp.py
 export HEADLESS="false"
 python -u -m case.k8s_config_dp_o11y
 
+# "-n auto" will automatically select the number of concurrent tasks based on your CPU cores.
+# "--dist=loadfile" Distribute strategy, distribute by file
+pytest -n auto -v --tb=long --dist=loadfile --html=report/report.html --self-contained-html e2e/**/*.py
+pytest -v --tb=long --html=report/report.html --self-contained-html e2e/dataplane/configuration/o11y/test_test_connection_button.py
+pytest -v --tb=long --html=report/report.html --self-contained-html e2e/observability/test_observability_list.py
 
-pytest --html=report/report.html --self-contained-html  e2e/dataplane/configuration/o11y/test_test_connection_button.py
-pytest --html=report/report.html --self-contained-html  e2e/observability/test_observability_list.py
+# run last failed test cases only
+pytest --lf
 ```
 
 ## FAQ
