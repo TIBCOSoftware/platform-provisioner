@@ -1,4 +1,7 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from page_object.po_global import PageObjectGlobal
+from utils.e2e_util import E2EUtils
 
 class PageObjectO11y(PageObjectGlobal):
     def __init__(self, page):
@@ -16,12 +19,15 @@ class PageObjectO11y(PageObjectGlobal):
         self.page.locator(".p-dropdown-item .dp-item-label span", has_text=dp_name).click()
         print(f"Selected '{dp_name}' in 'Data Plane' dropdown")
 
-    def reset_layout(self):
+    # action menu: "Save Snapshot", "Revert to Snapshot", "Reset Layout"
+    def click_action_menu(self, action_item):
+        self.page.locator(".dashboard-actions-row button.test-reset-layout").wait_for(state="visible")
         self.page.locator(".dashboard-actions-row button.test-reset-layout").click()
-        print(f"Clicked 'Reset Layout' icon")
-        self.page.locator(".dashboard-actions-row .p-menuitem-link span", has_text="Reset Layout").wait_for(state="visible")
-        self.page.locator(".dashboard-actions-row .p-menuitem-link span", has_text="Reset Layout").click()
-        print(f"Clicked 'Reset Layout' Button")
+        print(f"Clicked '...' icon")
+        self.page.locator(".dashboard-actions-row .p-menuitem-link span", has_text=action_item).wait_for(state="visible")
+        self.page.locator(".dashboard-actions-row .p-menuitem-link span", has_text=action_item).click()
+        print(f"Clicked '{action_item}' Button")
+        self.page.wait_for_timeout(500)
 
     def click_add_widget_button(self):
         self.page.locator(".dashboard-actions-row button", has_text="Add Widget").click()
@@ -61,3 +67,41 @@ class PageObjectO11y(PageObjectGlobal):
         self.page.locator("card-catalog-modal").wait_for(state="detached")
         print(f"'Select card to add' dialog is hidden")
 
+    def click_widget_filter_button(self, widget_title):
+        widget_dom = self.page.locator('custom-metric-widget', has=self.page.locator('.highcharts-title', has_text=widget_title))
+        widget_dom.locator("custom-metrics-filter .widget-filter-button", has=self.page.locator(".ci-filter")).wait_for(state="visible")
+        widget_dom.locator("custom-metrics-filter .widget-filter-button", has=self.page.locator(".ci-filter")).click()
+        print(f"Clicked '{widget_title}' -> 'Filter' button")
+
+    def click_filter_dialog_button(self, label):
+        self.page.locator(".widget-filter-dialog-v2 button", has_text=label).click()
+        print(f"Clicked Custom Filter -> '{label}' button")
+
+    def click_filter_dialog_menu(self, label):
+        self.page.locator(".widget-filter-dialog-v2 .menu-item", has_text=label).click()
+        print(f"Clicked Custom Filter -> '{label}' menu")
+
+    def input_filter_dialog_card_name(self, current_card_name, new_card_name):
+        self.page.locator('.widget-filter-dialog-v2 .title-button').click()
+        self.page.locator('.widget-filter-dialog-v2 input.title-input').clear()
+        self.page.locator('.widget-filter-dialog-v2 input.title-input').fill(new_card_name)
+        print(f"Change Custom Filter -> Card Name From '{current_card_name}' to '{new_card_name}'")
+
+    def click_filter_dialog_chart_type(self, label):
+        self.page.locator('.widget-filter-dialog-v2 label.pl-text-toggle__label[for^="chart-type-"]', has_text=label).click()
+        print(f"Clicked Custom Filter -> Chart Type: '{label}'")
+
+    def assert_after_custom_metrics_apply_filter(self, expected_query_params: dict):
+        """
+        After click 'Apply' button in the filter dialog,
+        Wait and verify if the api url request contains the expected query parameters
+        :param expected_query_params: need to match query parameters (in dictionary form)
+        """
+        E2EUtils.assert_api_request_and_response(
+            self.page,
+            "/o11y/v2/metrics",
+            lambda: self.click_filter_dialog_button("Apply"),
+            'GET',
+            200,
+            expected_query_params
+        )

@@ -91,8 +91,8 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.page.wait_for_timeout(3000)
 
         plugins = [text.strip() for text in self.page.locator("#pkgsTbl-table-listPkg td:first-child").all_inner_texts()]
-        # Note: check 3 times, because sometimes BWCE Plugins can not be loaded in time
-        # if plugins is empty, reload page, and check again, only check 3 times, if still empty, exit for loop
+        # Note: check 3 times, because sometimes BWCE Plugins cannot be loaded in time
+        # if plugin is empty, reload page, and check again, only check 3 times, if still empty, exit for loop
         for i in range(3):
             if plugins:
                 break
@@ -286,7 +286,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 self.page.locator("#finished-btn-gotoDPDetails-finishDeployViewDeployBuildsBtn-1").click()
                 print("Clicked 'View Deployed App' button, go back to Data Plane detail page")
         else:
-            # if case goes here, it means the Deploy App dialog is not popup, CP version maybe is 1.3, it has not been tested
+            # if a case goes here, it means the Deploy App dialog is not popup, CP version maybe is 1.3, it has not been tested
             print("Dialog 'Deploy App Build' does not popup")
             Util.exit_error(f"BWCE app {app_name} dialog 'Deploy App Build' does not popup.", self.page, "bwce_app_deploy.png")
 
@@ -382,7 +382,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
 
         print("Waiting to see if app status is Running...")
         self.page.locator("#appDtls-appName-cont .status_label").wait_for(state="visible")
-        # when app status is Running, or the action button is 'Stop', it means app is already running
+        # when app status is Running, or the action button is 'Stop', it means the app is already running
         is_app_running = self.page.locator("#appDtls-appName-cont .status_label", has_text="Running").is_visible() or self.page.locator(".start_stop", has_text="Stop").is_visible()
         if is_app_running:
             ColorLogger.success(f"BWCE app '{app_name}' is already running.")

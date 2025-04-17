@@ -22,7 +22,8 @@ class PageObjectAuth:
             password = ENV.CP_ADMIN_PASSWORD
 
         print("Check email and active user...")
-        Util.check_url_accessible(self.page, ENV.TP_AUTO_MAIL_URL, "REPORT_TP_AUTO_MAIL", "active_user_in_mail.png")
+        if not Util.check_page_url_accessible(self.page, ENV.TP_AUTO_MAIL_URL, "REPORT_TP_AUTO_MAIL"):
+            Util.exit_error(f"Unable to access mail page {ENV.TP_AUTO_MAIL_URL}", self.page, "active_user_in_mail.png")
 
         self.page.goto(ENV.TP_AUTO_MAIL_URL)
         print(f"Navigating to mail page {ENV.TP_AUTO_MAIL_URL}...")
@@ -146,9 +147,13 @@ class PageObjectAuth:
             # step 3: Preview
             self.page.locator(".footer button", has_text="Ok").wait_for(state="visible")
             self.page.locator(".footer button", has_text="Ok").click()
+            self.page.wait_for_timeout(2000)
             print("Clicked 'Ok' button")
             if self.page.locator(".provision-success__subtext", has_text="host_prefix has been used in another account").is_visible():
+                print("Error: host_prefix has been used in another account")
+                self.page.locator(".provision-success__actions button", has_text="Cancel").wait_for(state="visible")
                 self.page.locator(".provision-success__actions button", has_text="Cancel").click()
+                print("Clicked 'Cancel' button")
                 Util.screenshot_page(self.page, "admin_provision_user.png")
                 self.logout_admin_user()
                 Util.exit_error(f"Host prefix: {host_prefix} has been used in another account, use another one or rest database.")

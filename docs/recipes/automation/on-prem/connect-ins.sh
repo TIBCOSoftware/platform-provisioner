@@ -1,8 +1,6 @@
 #!/bin/bash
-
 #
-# © 2025 Cloud Software Group, Inc.
-# All Rights Reserved. Confidential & Proprietary.
+# Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
 #
 
 #######################################
@@ -106,7 +104,8 @@ create_pem_key() {
     cat "$KEY_PEM.pub"
     echo ""
     echo -e "Use it for Provisioner input: \033[0;31mpublic key base64\033[0m"
-    base64 -i "$KEY_PEM.pub"
+    base64 -w 0 -i "$KEY_PEM.pub"
+    echo ""
     exit 1
   fi
 }
@@ -138,7 +137,7 @@ show_help() {
 function connect_ins() {
   export GCP_FILE_SSH_KEY="/home/ubuntu/.ssh/authorized_keys"
   export OTHER_SSH_KEY=""   # other person's SSH key
-  export KEY_PEM="${KEY_PEM:-"./ins-key.pem"}"
+  export KEY_PEM="${KEY_PEM:-"$(dirname "$0")/ins-key.pem"}"
   export INSTANCE_IP="${INSTANCE_IP:-""}"
   export LOCAL_PORT=${LOCAL_PORT:-8443}
   export INS_PORT=${INS_PORT:-6443}

@@ -43,6 +43,7 @@ meta:
     GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi"
     GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: true
     GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE: true
+    GUI_CP_CREATE_NETWORK_POLICIES: false
 
     # third party
     GUI_CP_EXT_NAMESPACE: "tibco-ext"
@@ -168,8 +169,8 @@ meta:
 
     # node
     CP_NODE_CIDR: ${GUI_TP_CLUSTER_NODE_CIDR:-"10.180.0.0/16"}
-    CP_POD_CIDR: ${GUI_TP_CLUSTER_POD_CIDR:-"10.180.0.0/16"}
-    CP_SERVICE_CIDR: ${GUI_TP_SERVICE_CIDR:-"10.96.0.0/12"}
+    CP_POD_CIDR: ${GUI_TP_CLUSTER_POD_CIDR:-"10.180.0.0/16"} # for k3s: 10.42.0.0/16 for kind 10.244.0.0/16
+    CP_SERVICE_CIDR: ${GUI_TP_SERVICE_CIDR:-"10.96.0.0/12"} # for k3s: 10.43.0.0/16 for kind 10.96.0.0/16
 
     # third party
     CP_EXT_NAMESPACE: ${GUI_CP_EXT_NAMESPACE:-"tibco-ext"}
@@ -636,7 +637,7 @@ helmCharts:
         touch log_values.yaml
         if [[ "${CP_LOG_ENABLE}" == "true" && -z "${CP_LOG_PASSWORD}" ]]; then
           # update es logging password
-          export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' | base64 --decode)
+          export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode)
           if [[ -n "${HOOK_CP_LOG_PASSWORD}" ]]; then
             yq eval '.global.external.logserver.password = env(HOOK_CP_LOG_PASSWORD)' log_values.yaml > log_values.tmp.yaml
           else

@@ -21,18 +21,31 @@ meta:
     GUI_TP_INSTALL_NGINX_INGRESS: true
     GUI_TP_INSTALL_TRAEFIK_INGRESS: false
     GUI_TP_INGRESS_SERVICE_TYPE: LoadBalancer
+
+    # storage
     GUI_TP_STORAGE_CLASS: "hostpath"
     GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ""
+
+    # third party
     GUI_TP_NFS_SERVER_PROVISIONER_SIZE: 50Gi
     GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: nfs
     GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME: nginx
     GUI_TP_PROVISIONER_UI_NAMESPACE: tekton-tasks
     GUI_TP_INSTALL_NFS_SERVER_PROVISIONER: false
+    GUI_TP_AUTOMATION_INSTALL: false
+    GUI_TP_AUTOMATION_NAMESPACE: automation
+
+    # CNI
+    GUI_TP_INSTALL_CALICO_CNI: false
+
+    # DB setup env
     GUI_TP_INSTALL_POSTGRES: true
     GUI_TP_DB_USER_NAME: postgres
     GUI_TP_DB_PASSWORD: postgres
     GUI_TP_DB_NAME: postgres
     GUI_TP_DB_TLS_ENABLED: false
+
+    # flow control
     GUI_TP_INSTALL_PROVISIONER_UI: false
     GUI_TP_INSTALL_CERT_MANAGER: true
     GUI_TP_INSTALL_METRICS_SERVER: true
@@ -41,8 +54,10 @@ meta:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
     PIPELINE_CHECK_DOCKER_STATUS: false
+
     # env
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+
     # domain
     TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
     TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"false"}
@@ -52,23 +67,33 @@ meta:
     TP_INGRESS_USE_HOSTPORT: false # true for kind
     TP_TLS_CERT: ${GUI_TP_TLS_CERT}
     TP_TLS_KEY: ${GUI_TP_TLS_KEY}
+
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard"} # hostpath for docker desktop, standard for minikube and kind, microk8s-hostpath for microk8s
     TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ${GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER:-""}
     TP_INSTALL_NFS_SERVER_PROVISIONER: ${GUI_TP_INSTALL_NFS_SERVER_PROVISIONER:-"false"}
     TP_NFS_SERVER_PROVISIONER_SIZE: ${GUI_TP_NFS_SERVER_PROVISIONER_SIZE:-"50Gi"}
     TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: ${GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME:-"nfs"}
+
     # third party
     TP_EXT_NAMESPACE: tibco-ext
     TP_INSTALL_PROVISIONER_UI: ${GUI_TP_INSTALL_PROVISIONER_UI:-"false"}
     TP_PROVISIONER_UI_NAMESPACE: ${GUI_TP_PROVISIONER_UI_NAMESPACE:-"tekton-tasks"}
     TP_PROVISIONER_UI_INGRESS_CLASSNAME: ${GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME:-"nginx"}
-    # CP DB setup env
+    TP_AUTOMATION_INSTALL: ${GUI_TP_AUTOMATION_INSTALL:-false}
+    TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
+
+    # CNI
+    TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
+    TP_NAMESPACE_CALICO: kube-system
+
+    # DB setup env
     TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-"true"}
     TP_DB_USER_NAME: ${GUI_TP_DB_USER_NAME:-"postgres"}
     TP_DB_PASSWORD: ${GUI_TP_DB_PASSWORD:-"postgres"}
     TP_DB_NAME: ${GUI_TP_DB_NAME:-"postgres"}
     TP_DB_TLS_ENABLED: ${GUI_TP_DB_TLS_ENABLED:-"false"}
+
     # flow control
     TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
     TP_INSTALL_METRICS_SERVER: ${GUI_TP_INSTALL_METRICS_SERVER:-true}
@@ -309,4 +334,94 @@ helmCharts:
                 pathType: ImplementationSpecific
   flags:
     createNamespace: true
+    timeout: 1h
+- name: generic-chart # TP automation UI
+  version: 1.4.0
+  condition: ${TP_AUTOMATION_INSTALL}
+  namespace: ${TP_AUTOMATION_NAMESPACE}
+  releaseName: automation
+  repo:
+    helm:
+      url: https://test-server.github.yyzd.me
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      deployment:
+        enabled: true
+        image:
+          repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
+          tag: 1.3.2-auto-on-prem-jammy
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 3120
+        others:
+          dnsPolicy: ClusterFirstWithHostNet
+          hostNetwork: true
+      service:
+        enabled: true
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 3120
+            servicePort: 3120
+      serviceAccount:
+        enabled: true
+        name: auto-sa
+      clusterRoleBinding:
+        enabled: true
+        name: auto-sa
+        roleRef:
+          name: "cluster-admin"
+      ingress:
+        enabled: true
+        spec:
+          ingressClassName: ${TP_PROVISIONER_UI_INGRESS_CLASSNAME}
+          rules:
+            - host: 'automation.${TP_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: automation-generic-chart
+                        port:
+                          number: 3120
+  flags:
+    createNamespace: true
+    timeout: 1h
+- condition: ${TP_INSTALL_CALICO_CNI}
+  name: tigera-operator
+  namespace: ${TP_NAMESPACE_CALICO:-"kube-system"}
+  version: "v3.29.3" # release: https://docs.tigera.io/calico/charts
+  repo:
+    helm:
+      url: https://docs.tigera.io/calico/charts
+  values:
+    content: |
+      # calico doc: https://docs.tigera.io/calico/
+      # release: https://docs.tigera.io/archive
+      # chart values: https://github.com/projectcalico/calico/blob/master/charts/tigera-operator/values.yaml
+      installation:
+        enabled: true # enable custom resource
+        # calicoNetwork:
+        #   ipPools:
+        #   - cidr: 192.168.0.0/16
+        # podCIDR in cluster. Generally, calico would get this from the cluster. kind and k3s are tested.
+        # Typha, CSI, apiServer are not needed in single node clusters. No way to disable typha at this moment.
+      apiServer:
+        enabled: false
+      kubeletVolumePluginPath: None # disable CSI
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: calico
+  flags:
+    wait: true
     timeout: 1h

@@ -1,0 +1,110 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+apiVersion: v1
+kind: generic-runner
+meta:
+  guiEnv:
+    note: "tp-automation-o11y"
+    GUI_PIPELINE_LOG_DEBUG: false
+
+    GUI_TP_CLUSTER_NAME: 'on-prem'
+    GUI_GITHUB_TOKEN: ""
+
+    # set this to connect to remote instance
+    GUI_TP_AUTO_REMOTE_INSTANCE: false
+    GUI_TP_AUTO_REMOTE_INSTANCE_IP: ""
+
+    # flow control
+    GUI_TP_PORT_FORWARD: true
+    GUI_TP_OVERWRITE_DNS: false
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_CHECK_DOCKER_STATUS: false
+    PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
+
+    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN:-""}
+    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+
+    # automation setup
+    TP_AUTO_SCRIPT_FOLDER: ${GUI_TP_AUTO_SCRIPT_FOLDER:-"/tmp/auto"}
+    TP_AUTO_USE_LOCAL_SCRIPT: ${GUI_TP_AUTO_USE_LOCAL_SCRIPT:-true}
+    TP_AUTO_SCRIPT_PY_ENV_FOLDER: ${GUI_TP_AUTO_SCRIPT_PY_ENV_FOLDER:-"/tmp/auto-py-env"}
+
+    # DP setup
+    TP_INGRESS_CONTROLLER_SERVICE_NAME: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME:-"ingress-nginx-controller"}
+    TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE:-"ingress-system"}
+    TP_INGRESS_CONTROLLER_SERVICE_PORT: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT:-"443:https"}
+
+    # remote instance setup
+    TP_AUTO_REMOTE_INSTANCE: ${GUI_TP_AUTO_REMOTE_INSTANCE:-false}
+    TP_AUTO_REMOTE_INSTANCE_IP: ${GUI_TP_AUTO_REMOTE_INSTANCE_IP:-""}
+
+    # flow control
+    TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
+    TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
+tasks:
+- condition: ${TP_OVERWRITE_DNS} # this is used for overwrite DNS
+  name: overwrite-dns
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      echo "nameserver 10.178.2.10" > /etc/resolv.conf
+- condition: ${TP_AUTO_REMOTE_INSTANCE}
+  name: setup-remote-instance
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      cd /tmp/on-prem
+      export INSTANCE_IP=${TP_AUTO_REMOTE_INSTANCE_IP}
+      export KEY_PEM=/tmp/keys/key.pem
+      echo "setup connection"
+      nohup ./connect-ins.sh 1 > /tmp/connect1.log 2>&1 &
+      nohup ./connect-ins.sh 2 > /tmp/connect2.log 2>&1&
+      sleep 10
+      cp ~/.kube/ins-${INSTANCE_IP}.yaml ~/.kube/config
+- condition: ${TP_PORT_FORWARD} # this is used for run pipeline locally
+  name: port-forward
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      cd /tmp
+      # need to output underneath errors to stdout
+      kubectl get svc -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" "${TP_INGRESS_CONTROLLER_SERVICE_NAME}" > /dev/null
+      if [ $? -ne 0 ]; then
+        echo "Service ${TP_INGRESS_CONTROLLER_SERVICE_NAME} not found in namespace ${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}"
+        exit 1
+      else
+        echo "Service ${TP_INGRESS_CONTROLLER_SERVICE_NAME} found in namespace ${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}"
+      fi
+      echo "starting port-forward..."
+      nohup setsid bash -c 'while true; do
+        kubectl port-forward -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" --address 0.0.0.0 service/"${TP_INGRESS_CONTROLLER_SERVICE_NAME}" "${TP_INGRESS_CONTROLLER_SERVICE_PORT}"
+        echo "kubectl port-forward crashed, restarting..."
+        sleep 5
+      done' &
+- condition: ${TP_AUTO_USE_LOCAL_SCRIPT}
+  name: setup-local-script
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python3 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      pip install -r requirements.txt
+      python -m waitress --port=3120 server:app

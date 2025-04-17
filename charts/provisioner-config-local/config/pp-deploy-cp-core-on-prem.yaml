@@ -193,6 +193,12 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_LOG_ENABLE"
   description: "Enable CP log"
+- name: "Enable CP network policies"
+  groupIndex: 5
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_CREATE_NETWORK_POLICIES"
+  description: "Enable CP network policies. Default is false."
 - name: "CP external env"
   groupIndex: 5
   type: string

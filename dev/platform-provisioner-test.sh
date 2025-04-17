@@ -49,6 +49,8 @@ set +x
 # Once we fully migrate to yq version 4; we can set this to yq as default value
 export PIPELINE_CMD_NAME_YQ="${PIPELINE_CMD_NAME_YQ:-yq4}"
 
+export PIPELINE_CONTAINER_RUN_NAME="${PIPELINE_CONTAINER_RUN_NAME:-"provisioner-pipeline-task"}"
+
 # pipeline image
 [[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"platform-provisioner:latest"}
 [[ -z "${PIPELINE_CHART_REPO}" ]] && export PIPELINE_CHART_REPO="tibcosoftware.github.io/platform-provisioner"
@@ -137,7 +139,7 @@ echo "Using platform provisioner docker image: ${PIPELINE_DOCKER_IMAGE}"
 
 # is used to export functions; so subshell can use it
 docker run "${PIPELINE_CONTAINER_TTY}" --rm \
-  --name provisioner-pipeline-task \
+  --name "${PIPELINE_CONTAINER_RUN_NAME}" \
   --net "${PIPELINE_CONTAINER_NETWORK}" \
   -e ACCOUNT \
   -e REGION \
@@ -191,7 +193,7 @@ fi
 if [[ "${PIPELINE_TRIGGER_RUN_SH}" == "true" ]]; then
   ./run.sh ${ACCOUNT} ${REGION} "${INPUT}"
   return_code=$?
-  if [[ ${return_code} == 1 && "${PIPELINE_FAIL_STAY_IN_CONTAINER}" == "true" ]]; then
+  if [[ ${return_code} -gt 0 && "${PIPELINE_FAIL_STAY_IN_CONTAINER}" == "true" ]]; then
     # Enter container for debugging when an error occurs
     bash
   else
