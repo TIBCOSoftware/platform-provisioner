@@ -371,6 +371,20 @@ entries:
   provisioner-config-local:
   - apiVersion: v2
     appVersion: 2.0.1
+    created: "2025-04-25T21:12:58.133942445Z"
+    description: Platform Provisioner local config
+    digest: 32bb6ebb9f02784020ad4e676889510d927794948058296eec7faeab24d02e87
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.5.33/provisioner-config-local-1.5.33.tgz
+    version: 1.5.33
+  - apiVersion: v2
+    appVersion: 2.0.1
     created: "2025-04-17T21:10:06.647181137Z"
     description: Platform Provisioner local config
     digest: 17bf7b081d138b39b78c1291d073a49fa5af82840a79c6ccc3bec482987ef643
@@ -971,4 +985,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
     version: 1.0.25
-generated: "2025-04-17T21:10:06.647824169Z"
+generated: "2025-04-25T21:12:58.134527383Z"
