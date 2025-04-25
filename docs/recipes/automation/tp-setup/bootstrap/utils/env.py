@@ -21,8 +21,15 @@ class EnvConfig:
     CP_ADMIN_EMAIL = os.environ.get("CP_ADMIN_EMAIL") or "cp-test@tibco.com"
     CP_ADMIN_PASSWORD = os.environ.get("CP_ADMIN_PASSWORD") or "Tibco@123"
 
+    # other setup
+    TP_AUTO_KUBECONFIG = os.environ.get("TP_AUTO_KUBECONFIG") or ""
+    TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS = os.environ.get("TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS") or ""
+    TP_CREATE_NETWORK_POLICIES = os.environ.get("TP_CREATE_NETWORK_POLICIES") or "false"
+    TP_CLUSTER_NODE_CIDR = os.environ.get("TP_CLUSTER_NODE_CIDR") or ""
+    TP_CLUSTER_POD_CIDR = os.environ.get("TP_CLUSTER_POD_CIDR") or ""
+    TP_CLUSTER_SERVICE_CIDR = os.environ.get("TP_CLUSTER_SERVICE_CIDR") or ""
+
     # automation setup
-    TP_AUTO_REMOTE_INSTANCE_IP = os.environ.get("TP_AUTO_REMOTE_INSTANCE_IP") or ""
     TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or "1.4"
     TP_AUTO_REPORT_PATH = os.environ.get("TP_AUTO_REPORT_PATH") or os.path.join(os.getcwd(), "report")
     TP_AUTO_REPORT_YAML_FILE = os.environ.get("TP_AUTO_REPORT_YAML_FILE") or "report.yaml"  # automation script will create this file
@@ -63,7 +70,7 @@ class EnvConfig:
 
     # CP_DNS_DOMAIN
     TP_AUTO_CP_INSTANCE_ID = os.environ.get("TP_AUTO_CP_INSTANCE_ID") or "cp1"
-    TP_AUTO_CP_DNS_DOMAIN = os.environ.get("TP_AUTO_CP_DNS_DOMAIN") or "localhost.dataplanes.pro"
+    TP_AUTO_CP_DNS_DOMAIN = os.environ.get("TP_AUTO_CP_DNS_DOMAIN") or Helper.get_cp_dns_domain() or "localhost.dataplanes.pro"
     TP_AUTO_CP_SERVICE_DNS_DOMAIN = os.environ.get("TP_AUTO_CP_SERVICE_DNS_DOMAIN") or f"{TP_AUTO_CP_INSTANCE_ID}-my.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE") or "bwce"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO") or "flogo"
@@ -108,10 +115,10 @@ class EnvConfig:
 
     # apps: bwce, flogo
     BWCE_APP_FILE_NAME = os.environ.get("TP_AUTO_BWCE_APP_FILE_NAME") or "tt.ear"
-    BWCE_APP_NAME = BWCE_APP_FILE_NAME.removesuffix(".ear")
+    BWCE_APP_NAME = os.environ.get("BWCE_APP_NAME") or BWCE_APP_FILE_NAME.removesuffix(".ear")
     FLOGO_APP_FILE_NAME = os.environ.get("TP_AUTO_FLOGO_APP_FILE_NAME") or "flogo.json"
     # need to make sure the flogo app name is unique and lower case in the above JSON file
-    FLOGO_APP_NAME = Helper.get_app_name(FLOGO_APP_FILE_NAME)
+    FLOGO_APP_NAME = os.environ.get("FLOGO_APP_NAME") or Helper.get_app_name(FLOGO_APP_FILE_NAME)
 
     def pre_check(self):
         current_time = self.RETRY_TIME.strftime("%Y-%m-%d %H:%M:%S")

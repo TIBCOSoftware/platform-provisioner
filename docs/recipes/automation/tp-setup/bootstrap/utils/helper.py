@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 import subprocess
 import os
 import sys
@@ -94,9 +96,13 @@ class Helper:
         env_vars = os.environ.copy()
         tp_auto_kubeconfig = os.environ.get("TP_AUTO_KUBECONFIG")
         if tp_auto_kubeconfig:
+            tp_auto_kubeconfig = os.path.expanduser(tp_auto_kubeconfig)
             env_vars["KUBECONFIG"] = tp_auto_kubeconfig
-            print(f"Add env vars, KUBECONFIG={tp_auto_kubeconfig}")
         return env_vars
+
+    @staticmethod
+    def get_cp_dns_domain():
+        return Helper.get_command_output("kubectl get ingress -A | awk '$2 == \"router\" {print $4; exit}' | sed -E 's/^\\*?\\.//' | cut -d. -f2-")
 
     @staticmethod
     def get_elastic_password():
@@ -105,6 +111,14 @@ class Helper:
     @staticmethod
     def get_cp_version():
         return Helper.get_command_output("helm ls -A | grep platform-base | awk '{print $9}' | awk -F 'platform-base-' '{print $2}' | cut -d'.' -f1,2")
+
+    @staticmethod
+    def get_cp_platform_bootstrap_version():
+        return Helper.get_command_output(r"helm list --all-namespaces | grep platform-bootstrap | sed -n 's/.*platform-bootstrap-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'")
+
+    @staticmethod
+    def get_cp_platform_base_version():
+        return Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'")
 
     @staticmethod
     def get_storage_class():

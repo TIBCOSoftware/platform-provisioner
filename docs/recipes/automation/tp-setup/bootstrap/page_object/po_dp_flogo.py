@@ -134,10 +134,13 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.locator("#qaPluginProvision").click()
         print("Clicked 'Provision' button")
         self.page.locator("flogo-plugins-provision-finish .complete").wait_for(state="visible")
-        ColorLogger.success("Provision Flogo & Connectors successful.")
-        ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
-        self.page.locator(".finish-buttons-container button", has_text="Go back to Data Plane details").click()
-        print("Clicked 'Go back to Data Plane details' button")
+        self.page.locator(".finish-buttons-container button", has_text="View Integration Capabilities details").click()
+        print("Clicked 'View Integration Capabilities detail' button")
+        if required_connectors.issubset(set(connectors)):
+            ColorLogger.success("Provision Flogo & Connectors successful.")
+            ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
+        self.page.locator("#capabilityHeader-lbl-dpname", has_text=dp_name).click()
+        print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
     
     def flogo_app_build_and_deploy(self, dp_name, app_file_name, app_name):
         capability = self.capability

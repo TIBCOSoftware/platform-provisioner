@@ -43,7 +43,9 @@ meta:
     GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi"
     GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: true
     GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE: true
-    GUI_CP_CREATE_NETWORK_POLICIES: false
+
+    # network policy
+    GUI_TP_CREATE_NETWORK_POLICIES: false
 
     # third party
     GUI_CP_EXT_NAMESPACE: "tibco-ext"
@@ -167,16 +169,16 @@ meta:
     CP_LOG_PASSWORD: ${GUI_CP_LOG_PASSWORD:-""} # optional logserver password
     CP_LOG_INDEX: ${GUI_CP_LOG_INDEX:-"tibco-cp-logs"} # optional logserver index, default is tibco-cp-logs
 
+    # network policies
+    TP_CREATE_NETWORK_POLICIES: ${GUI_TP_CREATE_NETWORK_POLICIES:-false}
+
     # node
-    CP_NODE_CIDR: ${GUI_TP_CLUSTER_NODE_CIDR:-"10.180.0.0/16"}
-    CP_POD_CIDR: ${GUI_TP_CLUSTER_POD_CIDR:-"10.180.0.0/16"} # for k3s: 10.42.0.0/16 for kind 10.244.0.0/16
-    CP_SERVICE_CIDR: ${GUI_TP_SERVICE_CIDR:-"10.96.0.0/12"} # for k3s: 10.43.0.0/16 for kind 10.96.0.0/16
+    TP_CLUSTER_NODE_CIDR: ${GUI_TP_CLUSTER_NODE_CIDR:-"10.180.0.0/16"}
+    TP_CLUSTER_POD_CIDR: ${GUI_TP_CLUSTER_POD_CIDR:-"10.180.0.0/16"} # for k3s: 10.42.0.0/16 for kind 10.244.0.0/16
+    TP_CLUSTER_SERVICE_CIDR: ${GUI_TP_CLUSTER_SERVICE_CIDR:-"10.96.0.0/12"} # for k3s: 10.43.0.0/16 for kind 10.96.0.0/16
 
     # third party
     CP_EXT_NAMESPACE: ${GUI_CP_EXT_NAMESPACE:-"tibco-ext"}
-
-    # network policies
-    CP_CREATE_NETWORK_POLICIES: ${GUI_CP_CREATE_NETWORK_POLICIES:-false}
 
     # CP DB setup env
     CP_DB_HOST: ${GUI_CP_DB_HOST:-"postgresql.tibco-ext.svc.cluster.local"} #
@@ -559,9 +561,9 @@ helmCharts:
       global:
         external:
           clusterInfo:
-            nodeCIDR: ${CP_NODE_CIDR}
-            podCIDR: ${CP_POD_CIDR}
-            serviceCIDR: ${CP_SERVICE_CIDR}
+            nodeCIDR: ${TP_CLUSTER_NODE_CIDR}
+            podCIDR: ${TP_CLUSTER_POD_CIDR}
+            serviceCIDR: ${TP_CLUSTER_SERVICE_CIDR}
           dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
           dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
           storage:
@@ -589,7 +591,7 @@ helmCharts:
             noProxy: "${CP_PROXY_NO_PROXY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          createNetworkPolicy: ${CP_CREATE_NETWORK_POLICIES}
+          createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
           enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
           useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
   cluster:

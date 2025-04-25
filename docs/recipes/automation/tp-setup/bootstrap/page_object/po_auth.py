@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.env import ENV
@@ -103,7 +105,7 @@ class PageObjectAuth:
 
     def logout_admin_user(self):
         ColorLogger.info(f"Loging out admin user...")
-        self.page.locator("#changeME-dropdown-label", has_text="Admin Test").click()
+        self.page.locator("#changeME-dropdown-label").click()
         self.page.locator(".pl-dropdown-menu .pl-dropdown-menu__link", has_text="Sign Out").click()
         self.page.locator(".pl-modal__container .pl-modal__footer button", has_text="Sign Out").click()
         print(f"Clicked Sign Out button, Admin user {ENV.CP_ADMIN_EMAIL} logout.")

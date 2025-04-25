@@ -12,6 +12,7 @@ from utils.color_logger import ColorLogger
 from utils.env import ENV
 from utils.helper import Helper
 from utils.report import ReportYaml
+from playwright.sync_api import ViewportSize
 
 class Util:
     _page = None
@@ -46,8 +47,8 @@ class Util:
         )
         print(f"Record video to {videos_dir}")
         Util._context = Util._browser.new_context(
-            viewport={"width": 2000, "height": 1080},
-            record_video_size={"width": 2000, "height": 1080},
+            viewport=ViewportSize(width=2000, height=1080),
+            record_video_size=ViewportSize(width=2000, height=1080),
             record_video_dir=videos_dir,
             ignore_https_errors=True,
             accept_downloads=True
@@ -196,8 +197,11 @@ class Util:
         str_num = 90
         print("=" * str_num)
         print(f"{'Control Plane information': ^{str_num}}")
-        print("platform-bootstrap: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-bootstrap | sed -n 's/.*platform-bootstrap-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'"))
-        print("platform-base: ", Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'"))
+        print("platform-bootstrap: ", Helper.get_cp_platform_bootstrap_version())
+        print("platform-base: ", Helper.get_cp_platform_base_version())
+
+        if ENV.TP_AUTO_KUBECONFIG:
+            print("KUBECONFIG: ", ENV.TP_AUTO_KUBECONFIG)
 
     @staticmethod
     def print_env_info(is_print_auth=True, is_print_dp=True):
@@ -292,7 +296,7 @@ class Util:
         try:
             with urllib.request.urlopen(url, timeout=timeout) as response:
                 return response.status < 400
-        except (HTTPError, URLError) as e:
+        except (HTTPError, URLError):
             return False
 
     @staticmethod

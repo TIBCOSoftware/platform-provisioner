@@ -19,6 +19,9 @@ class PageObjectO11y(PageObjectGlobal):
         self.page.locator(".p-dropdown-item .dp-item-label span", has_text=dp_name).click()
         print(f"Selected '{dp_name}' in 'Data Plane' dropdown")
 
+    def get_chart_card(self, card_name):
+        return self.page.locator(".widget-card", has=self.page.locator('.highcharts-title', has_text=card_name))
+
     # action menu: "Save Snapshot", "Revert to Snapshot", "Reset Layout"
     def click_action_menu(self, action_item):
         self.page.locator(".dashboard-actions-row button.test-reset-layout").wait_for(state="visible")
@@ -30,23 +33,29 @@ class PageObjectO11y(PageObjectGlobal):
         self.page.wait_for_timeout(500)
 
     def click_add_widget_button(self):
-        self.page.locator(".dashboard-actions-row button", has_text="Add Widget").click()
-        print(f"Clicked 'Add Widget' Button")
+        self.page.locator(".dashboard-actions-row button", has_text="Add Card").click()
+        print(f"Clicked 'Add Card' Button")
         self.page.locator("card-catalog-modal").wait_for(state="visible")
         print(f"'Select card to add' dialog is visible")
 
     def click_widget_dialog_left_menu(self, level1_menu, level2_menu = None):
         self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level1_menu).wait_for(state="visible")
         self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level1_menu).click()
-        print(f"Clicked 'Integration Application' -> '{level1_menu}' menu")
+        print(f"Clicked 'Left side bar' -> '{level1_menu}' menu")
 
         if level2_menu:
             self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level2_menu).wait_for(state="visible")
             self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level2_menu).click()
-            print(f"Clicked 'Integration Application' -> '{level1_menu}' -> '{level2_menu}' menu")
+            print(f"Clicked 'Left side bar' -> '{level1_menu}' -> '{level2_menu}' menu")
 
-    def click_widget_dialog_middle_menu(self, middle_menu):
-        self.page.locator(".widgets-menu-panel .widget-list-item div", has_text=middle_menu).click()
+    def click_widget_dialog_middle_menu(self, middle_menu, data_plane_type=None):
+        item_selector = f"li.widget-list-item:has-text('{middle_menu}')"
+        if data_plane_type:
+            item_selector = f".widgets-menu-panel li.widget-list-item-category:has-text('{data_plane_type}') ~ {item_selector}"
+
+        item = self.page.locator(item_selector).first
+        item.hover()
+        item.locator(".widget-list-btn-add").click()
         print(f"Clicked '{middle_menu}' menu")
 
     def select_chart_type_toggle_button(self, chart_type=""):
@@ -57,21 +66,18 @@ class PageObjectO11y(PageObjectGlobal):
         self.page.locator(".selected-widget-panel-btn-add").click()
         print(f"Clicked 'Add Card to Dashboard' button")
 
-    def add_widget(self, level1_menu, level2_menu, middle_menu, chart_type):
+    def add_widget(self, level1_menu, level2_menu, middle_menu, data_plane_type=None):
         self.click_add_widget_button()
         self.click_widget_dialog_left_menu(level1_menu, level2_menu)
-        self.click_widget_dialog_middle_menu(middle_menu)
-        if chart_type:
-            self.select_chart_type_toggle_button(chart_type)
-        self.click_add_card_to_dashboard_button()
+        self.click_widget_dialog_middle_menu(middle_menu, data_plane_type)
         self.page.locator("card-catalog-modal").wait_for(state="detached")
         print(f"'Select card to add' dialog is hidden")
 
-    def click_widget_filter_button(self, widget_title):
+    def click_widget_card_button(self, widget_title, icon_name):
         widget_dom = self.page.locator('custom-metric-widget', has=self.page.locator('.highcharts-title', has_text=widget_title))
-        widget_dom.locator("custom-metrics-filter .widget-filter-button", has=self.page.locator(".ci-filter")).wait_for(state="visible")
-        widget_dom.locator("custom-metrics-filter .widget-filter-button", has=self.page.locator(".ci-filter")).click()
-        print(f"Clicked '{widget_title}' -> 'Filter' button")
+        widget_dom.locator(f'custom-metrics-filter .widget-filter-button[title="{icon_name}"]').wait_for(state="visible")
+        widget_dom.locator(f'custom-metrics-filter .widget-filter-button[title="{icon_name}"]').click()
+        print(f"Clicked '{widget_title}' -> '{icon_name}' button")
 
     def click_filter_dialog_button(self, label):
         self.page.locator(".widget-filter-dialog-v2 button", has_text=label).click()

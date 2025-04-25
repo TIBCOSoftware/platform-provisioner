@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from page_object.po_global import PageObjectGlobal
 from utils.color_logger import ColorLogger
 from utils.util import Util
@@ -474,6 +476,22 @@ class PageObjectDataPlane(PageObjectGlobal):
         file_name = f"{dp_name}_{step}.sh"
         file_path = Util.download_file(download_info.value, file_name)
 
+        # add network_policies if ENV.TP_CREATE_NETWORK_POLICIES is true
+        if step_name == "3. Service Account creation":
+            if ENV.TP_CREATE_NETWORK_POLICIES == "true":
+                # add network_policies at the end of the file
+                network_policies = f" --set networkPolicy.create=true --set networkPolicy.nodeCidrIpBlock={ENV.TP_CLUSTER_NODE_CIDR} --set networkPolicy.podCidrIpBlock={ENV.TP_CLUSTER_POD_CIDR} --set networkPolicy.serviceCidrIpBlock={ENV.TP_CLUSTER_SERVICE_CIDR}"
+                with open(file_path, "a", encoding="utf-8") as f:
+                    f.write(network_policies)
+                    ColorLogger.info(f"Adding Network Policies: {network_policies} for {step_name} to {file_name}")
+
+            if ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS:
+                # add namespace to the file
+                other_settings = f" {ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS}"
+                with open(file_path, "a", encoding="utf-8") as f:
+                    f.write(other_settings)
+                    ColorLogger.info(f"Adding additional settings: {other_settings} for {step_name} to {file_name}")
+
         print(f"Run command for: {step_name}")
         Helper.run_shell_file(file_path)
         print(f"Command for step: {step_name} is executed, wait for 3 seconds.")
@@ -527,5 +545,3 @@ class PageObjectDataPlane(PageObjectGlobal):
                 ReportYaml.remove_capability_app(dp_name, capability, app_name)
         else:
             ColorLogger.warning(f"{capability} app '{app_name}' does not exist.")
-
-

@@ -1,14 +1,45 @@
+## Pre-requisites
+* Install pyenv and python >= 3.12.8 if you don't have it (Only need to run once)
+* For Windows: Install [Git Bash](https://git-scm.com/downloads)
+
+### 1. Install pyenv
+1. For Mac & Linux
+   ```shell
+   curl https://pyenv.run | bash
+   ```
+2. For Windows
+   ```shell
+   git clone https://github.com/pyenv-win/pyenv-win.git "$HOME/.pyenv"
+   # You can add these two lines to your ~/.bashrc or ~/.bash_profile, so that they take effect automatically every time you open Git Bash.
+   export PYENV="$HOME/.pyenv/pyenv-win"
+   export PATH="$PYENV/bin:$PYENV/shims:$PATH"
+   ```
+### 2. Install python 3.12.8
+```shell
+pyenv install 3.12.8
+pyenv global 3.12.8
+python --version
+```
+
 ## Run Control Plane Automation Task Server
+
+* Support for setting the KUBECONFIG path.
 
 ```shell
 cd docs/recipes/automation/tp-setup/bootstrap
 python -m venv .venv
-# For Mac
+
+# For Mac & Linux
 source .venv/bin/activate
+
 # For windows
 # source .venv/Scripts/activate
+
 pip install -r requirements.txt
 playwright install
+export TP_AUTO_TASK_FROM_LOCAL_SOURCE=true
+# Optional, if you want to use a different kubeconfig path, you can set it here
+export TP_AUTO_KUBECONFIG=~/.kube/tp-cluster.yaml
 python -m waitress --host=127.0.0.1 --port=3120 server:app
 open http://127.0.0.1:3120/
 ```
@@ -28,7 +59,7 @@ open http://127.0.0.1:3120/
 # export ADMIN_EMAIL="cp-test@tibco.com"
 # export ADMIN_PASSWORD="Tibco@123"
 
-#Optional, if user have been active, set it to false
+# Optional, if user has been active, set it to false
 # export TP_AUTO_ACTIVE_USER="false"
 
 # Optional, GITHUB_TOKEN is for private repo, no need to set it and use global repository by default
@@ -38,19 +69,12 @@ cd docs/recipes/automation/on-prem
 ./generate-recipe.sh 2 3 && ./run.sh 4
 ```
 
-## Test Python Automation script in Mac
+## Test Python Automation script
 
 ```shell
-
-# Install pyenv and python 3.12.8 if you don't have it(Only need to run once)
-brew update && brew install pyenv
-pyenv install 3.12.8
-pyenv global 3.12.8
-python --version
-
 cd docs/recipes/automation/tp-setup/bootstrap
 python -m venv .venv
-# For Mac
+# For Mac & Linux
 source .venv/bin/activate
 # For windows
 # source .venv/Scripts/activate
@@ -79,7 +103,7 @@ python page_dp.py
 ## Run Python Automation case/e2e individually
 
 ```shell
-# set HEADLESS to false will popup browser window, true will use headless mode.
+# set HEADLESS to false will pop up a browser window, true will use headless mode.
 export HEADLESS="false"
 python -u -m case.k8s_config_dp_o11y
 
@@ -87,7 +111,7 @@ python -u -m case.k8s_config_dp_o11y
 # "--dist=loadfile" Distribute strategy, distribute by file
 pytest -n auto -v --tb=long --dist=loadfile --html=report/report.html --self-contained-html e2e/**/*.py
 pytest -v --tb=long --html=report/report.html --self-contained-html e2e/dataplane/configuration/o11y/test_test_connection_button.py
-pytest -v --tb=long --html=report/report.html --self-contained-html e2e/observability/test_observability_list.py
+pytest -v --tb=long --html=report/report.html --self-contained-html e2e/observability/test_o11y_list.py
 
 # run last failed test cases only
 pytest --lf
@@ -100,3 +124,10 @@ pytest --lf
     # Undeploy o11y stack then Redeploy o11y stack 
     ./run.sh 7
     ```
+2. If you want to use a different **KUBECONFIG** path for the automation task UI
+   * Must run it from source code mode, then UI will share the same environment as your local settings.
+   * Follow the step: [Run Control Plane Automation Task Server](#Run-Control-Plane-Automation-Task-Server)
+
+3. Within customized **KUBECONFIG** path, if `Mail Server URL` can not be accessed.
+   * port forwarding the `maildev` pod to your local machine.
+   * put `http://localhost:YOUR_FORWARD_PORT` in the `Mail Server URL` field.

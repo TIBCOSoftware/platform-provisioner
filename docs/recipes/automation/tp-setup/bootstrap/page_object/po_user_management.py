@@ -66,7 +66,7 @@ class PageObjectUserManagement:
             ReportYaml.set(".ENV.REPORT_USER_PERMISSION", True)
             return
 
-        self.set_user_permission_for_bug()
+        # self.set_user_permission_for_bug()
 
         print("Start set user permission...")
         self.page.click("#nav-bar-menu-item-usrMgmt")
@@ -94,8 +94,8 @@ class PageObjectUserManagement:
 
         self.page.wait_for_timeout(1000)
         print(f"Assign Permissions for {ENV.DP_USER_EMAIL}")
-        # if it has 8 green icon, then exit this function
-        if self.page.locator(".policy-selector-container .green-check-icon").count() == 8:
+        # if it has 8 green icons, then exit this function
+        if self.page.locator(".policy-selector-container .green-check-icon").count() >= 8:
             ColorLogger.success(f"User {ENV.DP_USER_EMAIL} already has all permissions.")
             ReportYaml.set(".ENV.REPORT_USER_PERMISSION", True)
             return
