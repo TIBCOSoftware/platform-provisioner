@@ -1,8 +1,11 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 import subprocess
 import sys
 import os
 import re
 import time
+import shutil
 from flask import Flask, render_template, Response, request, jsonify
 from typing import Optional
 
@@ -14,19 +17,6 @@ process: Optional[subprocess.Popen] = None
 def home():
     """ Render the main HTML page """
     return render_template('index.html')
-
-@app.route('/get-kube-config')
-def get_kube_config():
-    kube_config_dir = os.path.expanduser("~/.kube")
-    kube_config_map = {}
-
-    if os.path.exists(kube_config_dir):
-        for f in os.listdir(kube_config_dir):
-            if f.startswith("ins-") and f.endswith(".yaml"):
-                ip_address = f[4:-5]  # get IP Address from filename
-                kube_config_map[ip_address] = os.path.join(kube_config_dir, f)
-
-    return jsonify(kube_config_map)
 
 @app.route('/stop-script')
 def stop_script():
@@ -54,8 +44,13 @@ def run_script():
     is_clean_report = request.args.get('IS_CLEAN_REPORT')
     if not auto_case:
         return "Error: Missing 'case' parameter", 400
+
+    report_folder = os.path.join(os.getcwd(), "report")
     if is_clean_report == "true":
-        report_folder = os.path.join(os.getcwd(), "report")
+        if os.path.exists(report_folder) and os.path.isdir(report_folder):
+            shutil.rmtree(report_folder)
+            print(f"Removed {report_folder}")
+    else:
         report_yaml_file = os.path.join(report_folder, "report.yaml")
         report_txt_file = os.path.join(report_folder, "report.txt")
         if os.path.exists(report_yaml_file):
@@ -67,6 +62,7 @@ def run_script():
 
     # Set request parameters as environment variables
     env_vars = os.environ.copy()
+    env_vars["PYTHONIOENCODING"] = "utf-8"
     for key, value in request.args.items():
         if key != "case":
             env_vars[key] = value
@@ -84,8 +80,6 @@ def run_script():
             [sys.executable, "-u", "-m", auto_case],  # `-u` ensures unbuffered output
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
             env=env_vars
         )
 
@@ -95,7 +89,8 @@ def run_script():
             yield '<pre>\n'
             for line in iter(lambda: process.stdout.readline() if process and process.poll() is None else None, None):
                 if line and line.strip():
-                    clean_line = ansi_escape.sub('', line)      # Remove ANSI escape codes, remove color codes
+                    decoded_line = line.decode("utf-8", errors="replace")
+                    clean_line = ansi_escape.sub('', decoded_line)      # Remove ANSI escape codes, remove color codes
                     yield clean_line.strip() + '\n'
             yield '</pre>\n'
 
@@ -111,12 +106,14 @@ def run_script():
 @app.route('/get_env')
 def get_env():
     from utils.env import ENV
+    env_vars = os.environ.copy()
     env_dict = {
         key: getattr(ENV, key)
         for key in dir(ENV)
         if not key.startswith("_") and not callable(getattr(ENV, key))
     }
-    return jsonify(env_dict)
+    merged = {**env_vars, **env_dict}
+    return jsonify(merged)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

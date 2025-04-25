@@ -119,10 +119,13 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.page.locator("#provisionPluginUpdt-footBtn-nextStep").click()
         print("Clicked 'Next' button")
         self.page.locator("#FinishedProvisionPlugin img[src*='success.svg']").wait_for(state="visible")
-        ColorLogger.success("Provision BWCE & Plug-ins successful.")
-        ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
-        self.page.locator("#btnNavigationToDPDetails", has_text="Go back to Data Plane details").click()
-        print("Clicked 'Go back to Data Plane details' button")
+        self.page.locator("#btnNavigationToIntegrationDetailsbtnRight", has_text="View Integration Capabilities details").click()
+        print("Clicked 'View Integration Capabilities detail' button")
+        if required_connectors.issubset(set(plugins)):
+            ColorLogger.success("Provision BWCE & Plug-ins successful.")
+            ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
+        self.page.locator("#capabilityHeader-lbl-dpname", has_text=dp_name).click()
+        print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
 
     def bwce_app_build_and_deploy(self, dp_name, app_file_name, app_name):
         capability = self.capability

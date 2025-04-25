@@ -197,7 +197,7 @@ options:
   groupIndex: 5
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_CREATE_NETWORK_POLICIES"
+  reference: "meta.guiEnv.GUI_TP_CREATE_NETWORK_POLICIES"
   description: "Enable CP network policies. Default is false."
 - name: "CP external env"
   groupIndex: 5
