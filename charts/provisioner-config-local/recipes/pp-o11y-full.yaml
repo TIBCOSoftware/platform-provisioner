@@ -141,6 +141,15 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns elastic-system
+        kubectl label namespace elastic-system networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace elastic-system networking.platform.tibco.com/non-cp-ns=enable
 - name: kube-prometheus-stack
   version: "${TP_KUBE_PROMETHEUS_STACK_VERSION}"
   condition: ${TP_DEPLOY_PROMETHEUS_STACK}
@@ -208,3 +217,12 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns prometheus-system
+        kubectl label namespace prometheus-system networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace prometheus-system networking.platform.tibco.com/non-cp-ns=enable

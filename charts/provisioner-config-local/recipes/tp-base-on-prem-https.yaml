@@ -24,14 +24,21 @@ meta:
 
     # storage
     GUI_TP_STORAGE_CLASS: "hostpath"
-    GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ""
 
-    # third party
+    # nfs internal server
+    GUI_TP_INSTALL_NFS_SERVER_PROVISIONER: false
+    GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ""
     GUI_TP_NFS_SERVER_PROVISIONER_SIZE: 50Gi
     GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: nfs
+
+    # nfs external server
+    GUI_TP_INSTALL_NFS_SUBDIR_EXTERNAL_PROVISIONER: false
+    GUI_TP_STORAGE_NFS_SERVER_ADDRESS: ""
+    GUI_TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS: nfs-client
+
+    # third party
     GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME: nginx
     GUI_TP_PROVISIONER_UI_NAMESPACE: tekton-tasks
-    GUI_TP_INSTALL_NFS_SERVER_PROVISIONER: false
     GUI_TP_AUTOMATION_INSTALL: false
     GUI_TP_AUTOMATION_NAMESPACE: automation
 
@@ -70,10 +77,18 @@ meta:
 
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard"} # hostpath for docker desktop, standard for minikube and kind, microk8s-hostpath for microk8s
+
+    # nfs server, this is used for nfs server provisioner. (NFS server is installed in the same cluster)
     TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ${GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER:-""}
     TP_INSTALL_NFS_SERVER_PROVISIONER: ${GUI_TP_INSTALL_NFS_SERVER_PROVISIONER:-"false"}
     TP_NFS_SERVER_PROVISIONER_SIZE: ${GUI_TP_NFS_SERVER_PROVISIONER_SIZE:-"50Gi"}
     TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: ${GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME:-"nfs"}
+
+    # nfs subdir external provisioner. This is used for external storage provisioner. (NFS server is installed in the external server)
+    TP_INSTALL_NFS_SUBDIR_EXTERNAL_PROVISIONER: ${GUI_TP_INSTALL_NFS_SUBDIR_EXTERNAL_PROVISIONER:-"false"}
+    TP_STORAGE_NFS_SERVER_ADDRESS: ${GUI_TP_STORAGE_NFS_SERVER_ADDRESS:-""}
+    TP_STORAGE_NFS_SERVER_PATH: ${GUI_TP_STORAGE_NFS_SERVER_PATH:-"/mnt/nfs_share"}
+    TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS: ${GUI_TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS:-"nfs-client"}
 
     # third party
     TP_EXT_NAMESPACE: tibco-ext
@@ -85,7 +100,7 @@ meta:
 
     # CNI
     TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
-    TP_NAMESPACE_CALICO: kube-system
+    TP_NAMESPACE_CALICO: ${GUI_TP_NAMESPACE_CALICO:-"kube-system"}
 
     # DB setup env
     TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-"true"}
@@ -184,6 +199,7 @@ helmCharts:
         kubectl create ns ${TP_INGRESS_NAMESPACE}
         # add label for tibtunnel to connect to the ingress controller
         kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
         kubectl apply -f - <<EOF
         apiVersion: v1
         kind: Secret
@@ -247,6 +263,7 @@ helmCharts:
         kubectl create ns ${TP_INGRESS_NAMESPACE}
         # add label for tibtunnel to connect to the ingress controller
         kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
         kubectl apply -f - <<EOF
         apiVersion: v1
         kind: Secret
@@ -281,6 +298,29 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
+- condition: ${TP_INSTALL_NFS_SUBDIR_EXTERNAL_PROVISIONER}
+  name: nfs-subdir-external-provisioner
+  namespace: nfs-system
+  releaseName: nfs-subdir-external-provisioner
+  version: "4.0.18" # release: https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner/releases
+  repo:
+    helm:
+      url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+  values:
+    keepPrevious: true
+    content: |
+      nfs:
+        server: ${TP_STORAGE_NFS_SERVER_ADDRESS}
+        path: ${TP_STORAGE_NFS_SERVER_PATH}
+      storageClass:
+        name: "${TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS}"
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    createNamespace: true
+    wait: true
+    timeout: 1h
 - name: postgresql
   version: 15.5.38 # 15.5.38 use postgresql 16.4.0, 11.9.13 use postgresql 14.5.0 release: https://artifacthub.io/packages/helm/bitnami/postgresql
   namespace: ${TP_EXT_NAMESPACE}
@@ -314,6 +354,15 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_EXT_NAMESPACE}
+        kubectl label namespace ${TP_EXT_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_EXT_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
 - name: platform-provisioner-ui
   version: ^1.0.0
   namespace: ${TP_PROVISIONER_UI_NAMESPACE}
@@ -402,7 +451,8 @@ helmCharts:
     timeout: 1h
 - condition: ${TP_INSTALL_CALICO_CNI}
   name: tigera-operator
-  namespace: ${TP_NAMESPACE_CALICO:-"kube-system"}
+  namespace: ${TP_NAMESPACE_CALICO}
+  releaseName: calico
   version: "v3.29.3" # release: https://docs.tigera.io/calico/charts
   repo:
     helm:
@@ -425,7 +475,6 @@ helmCharts:
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
-  releaseName: calico
   flags:
     wait: true
     timeout: 1h

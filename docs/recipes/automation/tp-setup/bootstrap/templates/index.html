@@ -7,14 +7,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control Plane Automation Task</title>
+  <title>One-Click Setup of the Control Plane</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.1/mini-default.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/themes/prism-tomorrow.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/components/prism-core.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/plugins/autoloader/prism-autoloader.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
   <style>
-    .container h1 { display: flex; justify-content: space-between; font-size: 1.2rem; }
+    .container h1 { display: flex; justify-content: space-between; align-items: center; font-size: 1.2rem; }
+    .container .release_version { font-size: 0.8rem; color: #888; }
     .container .row .row { align-items: center; }
     .container .row .row label {
       height: 42px;
@@ -24,7 +25,7 @@
     }
     .container .row .row label span {
       margin-left: 10px;
-      font-size: 12px;
+      font-size: 0.8rem;
       color: #888;
     }
     .container .row .row label.flex-column {
@@ -54,8 +55,9 @@
 <body>
 <div class="container">
   <h1>
-    <span>Control Plane Automation Task</span>
-    <span id="TP_AUTO_REMOTE_INSTANCE_IP"></span>
+    <span>One-Click Setup of the Control Plane</span>
+    <a href="https://github.com/TIBCOSoftware/platform-provisioner/tree/main/docs/recipes/automation/tp-setup/bootstrap" target="_blank"
+       title="View supported features" class="release_version" id="TP_AUTOMATION_TASK_RELEASE_VERSION"></a>
   </h1>
   <!-- Loading spinner begin -->
   <input type="checkbox" class="modal" checked="checked">
@@ -112,6 +114,10 @@
             <div class="col-sm-3"><label for="TP_AUTO_K8S_DP_NAME">DataPlane Name</label></div>
             <div class="col-sm-9"><input type="text" id="TP_AUTO_K8S_DP_NAME"></div>
           </div>
+          <div class="row TP_AUTO_K8S_BMDP_NAME">
+            <div class="col-sm-3"><label for="TP_AUTO_K8S_BMDP_NAME" title="If it doesn't exist, even if it is set, it won't be configured">DataPlane Name<span>(Control Plane)</span></label></div>
+            <div class="col-sm-9"><input type="text" id="TP_AUTO_K8S_BMDP_NAME"></div>
+          </div>
         </div>
         <div class="col-sm-6">
           <div class="row TP_AUTO_KUBECONFIG">
@@ -143,6 +149,7 @@
                 <option>--Select Case--</option>
                 <option value="page_env">Show Current Environment (Login CP/Elastic Credentials)</option>
                 <option value="page_auth">Create new subscription with User Email</option>
+                <option value="page_o11y">Config o11y widget</option>
                 <optgroup label="DataPlane">
                   <option value="case.create_global_config">Config Global O11y</option>
                   <option value="case.k8s_create_dp">Create K8s DataPlane (Include run helm command)</option>
@@ -218,7 +225,7 @@
       </div>
     </fieldset>
   </form>
-  <pre class="logs language-log"><code id="output"></code></pre>
+  <pre class="logs language-log" id="log-console"><code id="output"></code></pre>
 </div>
 
 <script>
@@ -245,8 +252,7 @@
           // for input elements
           if (tagName === "INPUT" && element.type === "text") {
             element.value = data[key];
-          }
-          if (tagName === "SPAN") {
+          } else {
             element.textContent = data[key];
           }
         }
@@ -310,7 +316,7 @@
 
   async function runScript() {
     const outputElement = document.getElementById("output");
-    const preElement = outputElement.parentElement;
+    const preElement = document.getElementById("log-console");
     outputElement.innerHTML = "Running script...\n";
 
     const runButton = document.getElementById("runBtn");
@@ -324,6 +330,7 @@
       case: document.getElementById("autoCase").value,
       HEADLESS: !document.getElementById("HEADLESS").checked,
       FORCE_RUN_AUTOMATION: document.getElementById("FORCE_RUN_AUTOMATION").checked,
+      IS_CLEAN_REPORT: document.getElementById("IS_CLEAN_REPORT").checked,
 
       TP_AUTO_LOGIN_URL: document.getElementById("TP_AUTO_LOGIN_URL").value,
       DP_HOST_PREFIX: document.getElementById("DP_HOST_PREFIX").value,
@@ -331,6 +338,7 @@
       DP_USER_PASSWORD: document.getElementById("DP_USER_PASSWORD").value,
       TP_AUTO_MAIL_URL: document.getElementById("TP_AUTO_MAIL_URL").value,
       TP_AUTO_K8S_DP_NAME: document.getElementById("TP_AUTO_K8S_DP_NAME").value,
+      TP_AUTO_K8S_BMDP_NAME: document.getElementById("TP_AUTO_K8S_BMDP_NAME").value,
       TP_AUTO_KUBECONFIG: document.getElementById("TP_AUTO_KUBECONFIG").value,
       TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG: document.getElementById("TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG").checked,
       TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS: document.getElementById("TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS").value,
@@ -374,8 +382,7 @@
       .catch(error => console.error('Error:', error));
   }
   function stopScript() {
-    const outputElement = document.getElementById("output");
-    const preElement = outputElement.parentElement;
+    const preElement = document.getElementById("log-console");
 
     fetch('/stop-script')
       .then(response => response.json())
@@ -417,6 +424,12 @@
           toggleField(fieldsSelector, true);
           toggleField(['.TP_AUTO_LOGIN_URL', '.TP_AUTO_K8S_DP_NAME'], false);
           break;
+        case "page_o11y":
+          fieldsSelector = [
+            ".TP_AUTO_K8S_BMDP_NAME",
+          ];
+          toggleField(fieldsSelector, true);
+          break;
         case "case.create_global_config":
           toggleField([".TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG"], true);
           toggleField(['.TP_AUTO_K8S_DP_NAME'], false);
@@ -454,6 +467,7 @@
       ".CP_ADMIN_PASSWORD",
       ".DP_HOST_PREFIX",
       ".TP_AUTO_MAIL_URL",
+      ".TP_AUTO_K8S_BMDP_NAME",
       ".TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG",
       ".TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS",
       ".BWCE_APP_NAME",

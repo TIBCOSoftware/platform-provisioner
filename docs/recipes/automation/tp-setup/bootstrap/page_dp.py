@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
@@ -105,6 +107,10 @@ if __name__ == "__main__":
                 po_dp_tibcohub.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
                 po_dp_tibcohub.tibcohub_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
+
+        po_dp.goto_left_navbar_dataplane()
+        po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+        Util.screenshot_page(page, f"success-{ENV.TP_AUTO_K8S_DP_NAME}.png")
         po_auth.logout()
     except Exception as e:
         current_filename = Path(__file__).stem

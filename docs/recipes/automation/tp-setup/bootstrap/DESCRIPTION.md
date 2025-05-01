@@ -15,12 +15,12 @@ This automated script streamlines the entire post-installation configuration pro
     * Automatically Provision DataPlane capability, such as BWCE, EMS, FLOGO, PULSAR, and TIBCOSUB.
 
 4.  Create and Config Flogo/BWCE Application:
-    * Deploys the Flogo connector, uploads and creates a Flogo application.
-    * Provision BWCE & Plug-ins, uploads and creates a BWCE application.
-    * Configures endpoint visibility, starts the application, and triggers the endpoint API to verify Traces for both Flogo/BWCE app.
+    * Deploys the Flogo connector, uploads, and creates a Flogo application.
+    * Provision BWCE & Plug-ins, uploads, and create a BWCE application.
+    * Configures endpoint visibility, starts the application, and triggers the endpoint API to verify Traces for both Flogo/BWCE apps.
 
 5.  Comprehensive Multi-Version Support:
-    * Compatible with CP 1.3, 1.4, and 1.5 environments, supporting a variety of installation and configuration combinations.
+    * Compatible with CP 1.3, 1.4, and 1.5+ environments, supporting a variety of installation and configuration combinations.
 
 6.  Efficient Troubleshooting and Monitoring:
     * Outputs logs for each step and captures screenshots on errors for quick issue identification.
