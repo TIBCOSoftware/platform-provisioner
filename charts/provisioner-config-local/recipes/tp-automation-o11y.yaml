@@ -38,7 +38,8 @@ meta:
     GUI_TP_AUTO_ENABLE_BMDP: false
     GUI_TP_AUTO_IS_ENABLE_RVDM: true
     GUI_TP_AUTO_IS_ENABLE_EMSDM: true
-    GUI_TP_AUTO_ENABLE_E2E_TEST: true
+    GUI_TP_AUTO_ENABLE_O11Y_WIDGET: true
+    GUI_TP_AUTO_ENABLE_E2E_TEST: false
 
     # CP setup
     GUI_TP_AUTO_CP_INSTANCE_ID: "cp1"
@@ -95,6 +96,10 @@ meta:
     GUI_TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME: "admin"
     GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ""
 
+    # TP activation server
+    GUI_ACTIVATION_SERVER_CONFIG: true
+    GUI_ACTIVATION_SERVER_IP: ""
+
     # flow control
     GUI_TP_PORT_FORWARD: true
     GUI_TP_OVERWRITE_DNS: false
@@ -134,6 +139,7 @@ meta:
     TP_AUTO_ENABLE_BMDP: ${GUI_TP_AUTO_ENABLE_BMDP:-false}
     TP_AUTO_IS_ENABLE_RVDM: ${GUI_TP_AUTO_IS_ENABLE_RVDM:-true}
     TP_AUTO_IS_ENABLE_EMSDM: ${GUI_TP_AUTO_IS_ENABLE_EMSDM:-true}
+    TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-true}
     TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-true}
 
     # CP setup
@@ -196,10 +202,15 @@ meta:
     TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME:-"admin"}
     TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD:-""}
 
+    # TP activation server
+    ACTIVATION_SERVER_CONFIG: ${GUI_ACTIVATION_SERVER_CONFIG:-true}
+    ACTIVATION_SERVER_IP: ${GUI_ACTIVATION_SERVER_IP:-""}
+
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
     PYTHON_FILE_ENTRY_POINT: page_dp.py
     PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
+    PYTHON_FILE_ENTRY_POINT_O11Y: page_o11y.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
@@ -328,6 +339,32 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
+- condition: ${ACTIVATION_SERVER_CONFIG}
+  name: "activation-server-config"
+  script:
+    content: |
+      # this is a long running activation server. 
+      if kubectl get ns "${TP_AUTO_K8S_DP_NAMESPACE}" >/dev/null 2>&1; then
+        kubectl apply -n ${TP_AUTO_K8S_DP_NAMESPACE} -f - <<EOF
+      kind: Service
+      apiVersion: v1
+      metadata:
+        name: tib-activate
+      spec:
+        clusterIP: None
+       
+      ---
+      kind: Endpoints
+      apiVersion: v1
+      metadata:
+        name: tib-activate
+      subsets:
+        - addresses:
+            - ip: "${ACTIVATION_SERVER_IP}"
+          ports:
+            - port: 7070
+      EOF
+      fi
 - condition: ${TP_AUTO_ENABLE_FLOGO} # only deploy flogo
   name: deploy-flogo
   clusters:
@@ -433,6 +470,46 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
+- condition: ${ACTIVATION_SERVER_CONFIG}
+  name: "activation-server-config"
+  script:
+    content: |
+      # this is a long running activation server. 
+      if kubectl get ns "${TP_AUTO_K8S_BMDP_NAMESPACE}" >/dev/null 2>&1; then
+        kubectl apply -n ${TP_AUTO_K8S_BMDP_NAMESPACE} -f - <<EOF
+      kind: Service
+      apiVersion: v1
+      metadata:
+        name: tib-activate
+      spec:
+        clusterIP: None
+       
+      ---
+      kind: Endpoints
+      apiVersion: v1
+      metadata:
+        name: tib-activate
+      subsets:
+        - addresses:
+            - ip: "${ACTIVATION_SERVER_IP}"
+          ports:
+            - port: 7070
+      EOF
+      fi
+- condition: ${TP_AUTO_ENABLE_O11Y_WIDGET} # only initialize Observability widget
+  name: add-card-to-o11y
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      python ${PYTHON_FILE_ENTRY_POINT_O11Y}
+      _result=$?
+      echo "python return code: ${_result}"
+      exit 0
 - condition: true
   name: print-report
   clusters:
@@ -448,6 +525,7 @@ tasks:
       echo "python return code: ${_result}"
       exit ${_result}
 # Keep this task at the end of the pipeline, after run e2e test, the re-try process will exit
+# e2e test case has been disabled by default, to enable it need to set meta.guiEnv.GUI_TP_AUTO_ENABLE_E2E_TEST=true
 - condition: ${TP_AUTO_ENABLE_E2E_TEST} # only run e2e test
   name: run-e2e-test
   clusters:

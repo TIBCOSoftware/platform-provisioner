@@ -69,6 +69,13 @@ copy_instance_report() {
   echo "Copy instance automation report to local"
 }
 
+copy_file_to_instance() {
+  set -x
+  scp -o StrictHostKeyChecking=no -i "${KEY_PEM}" "$1" ubuntu@"${INSTANCE_IP}":/home/ubuntu/tp/
+  set +x
+  echo "Copy file to instance"
+}
+
 # Function: Prompt user for INSTANCE_IP if not defined
 prompt_for_instance_ip() {
   if [ -z "${INSTANCE_IP}" ]; then
@@ -132,6 +139,7 @@ show_help() {
   echo "4: Copy instance automation report to local"
   echo "5: SSH login to instance"
   echo "6: Add someone's SSH key to my instance"
+  echo "7: Copy file to instance"
 }
 
 function connect_ins() {
@@ -207,6 +215,14 @@ function connect_ins() {
       prompt_for_ssh_key
 
       ssh_instance_add_key
+      ;;
+    7)
+      echo "Executing Task 7: Copy file to instance"
+      check_pem_key
+
+      prompt_for_instance_ip
+
+      copy_file_to_instance "$2"
       ;;
     *)
       echo "Invalid option: $1"

@@ -156,7 +156,7 @@ class PageObjectAuth:
                 self.page.locator(".provision-success__actions button", has_text="Cancel").wait_for(state="visible")
                 self.page.locator(".provision-success__actions button", has_text="Cancel").click()
                 print("Clicked 'Cancel' button")
-                Util.screenshot_page(self.page, "admin_provision_user.png")
+                Util.screenshot_page(self.page, "admin-provision-user.png")
                 self.logout_admin_user()
                 Util.exit_error(f"Host prefix: {host_prefix} has been used in another account, use another one or rest database.")
             ColorLogger.success(f"Provision user {email} successful.")

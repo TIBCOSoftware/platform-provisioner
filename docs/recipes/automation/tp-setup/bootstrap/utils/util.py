@@ -107,7 +107,7 @@ class Util:
         if not os.path.exists(screenshot_dir):
             os.makedirs(screenshot_dir, exist_ok=True)
         file_path = os.path.join(screenshot_dir, filename)
-        page.screenshot(path=file_path, full_page=True)
+        page.screenshot(path=file_path, full_page=True, animations="disabled")
         print(f"Screenshot saved to {file_path}")
 
     @staticmethod
@@ -239,6 +239,7 @@ class Util:
 
             dataplane_fields = [
                 ("o11yConfig", "DataPlane O11y Configured", "true"),
+                ("o11yWidget", "Observability Widget", "true"),
                 ("storage", "DataPlane storage", ENV.TP_AUTO_STORAGE_CLASS),
                 (ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE),
                 (ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO),

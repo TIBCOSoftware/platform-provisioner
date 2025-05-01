@@ -4,6 +4,7 @@ from utils.util import Util
 from utils.color_logger import ColorLogger
 from utils.e2e_util import E2EUtils
 from playwright.sync_api import expect
+from datetime import datetime, timedelta
 import pytest
 
 def test_widget_action_buttons_visibility(setup_refresh_o11y):
@@ -33,7 +34,7 @@ def test_widget_action_buttons_functionality(setup_refresh_o11y):
     expect(page.locator('shared-item-chart .highcharts-title', has_text=card_name)).to_be_visible()
     ColorLogger.success(f"Refresh page, expected the added widget is still visible")
 
-    po_o11y.click_action_menu("Reset Layout")
+    po_o11y.click_action_menu("Reset Layout", True)
     expect(page.locator('shared-item-chart .highcharts-title', has_text=card_name)).not_to_be_visible()
     ColorLogger.success(f"Clicked 'Reset Layout' button, expected the added widget is not visible")
 
@@ -41,7 +42,7 @@ def test_widget_action_buttons_functionality(setup_refresh_o11y):
     expect(page.locator("p-confirmdialog .p-confirm-dialog-message").nth(0)).to_be_visible()
     ColorLogger.success(f"Clicked 'Revert to Snapshot' button, expected the confirmation dialog is visible")
 
-    page.locator("p-confirmdialog button.p-confirm-dialog-accept").click()
+    page.locator("p-confirmdialog button", has_text="Yes").click()
     expect(page.locator('shared-item-chart .highcharts-title', has_text=card_name)).to_be_visible()
     ColorLogger.success(f"Clicked 'Yes' button, expected to revert to the last snapshot")
 
@@ -63,11 +64,14 @@ def test_custom_metrics_filter(add_custom_card):
     expect(po_o11y.get_chart_card(card_name).locator("custom-metrics-filter-aggr-info .tooltip-content", has_text=f"avg({card_name})")).to_be_visible()
     ColorLogger.success(f"Expect the 'i' icon is visible, mouseover to see the tooltip successfully")
 
-    expect(po_o11y.get_chart_card(card_name).locator(".widget-filter-label", has_text="Last 24 hours")).to_be_visible()
-    ColorLogger.success(f"Expect to see the default time range is 'Last 24 hours'")
+    now = datetime.now()
+    one_hour_ago = now - timedelta(hours=1)
+    time_hour_ago = one_hour_ago.strftime("Since %b %d %Y %H:%M")
+    expect(po_o11y.get_chart_card(card_name).locator(".widget-filter-label", has_text=time_hour_ago)).to_be_visible()
+    ColorLogger.success(f"Expect to see the default time range is '{time_hour_ago}'")
 
-    # expect(po_o11y.get_chart_card(card_name).locator(".widget-dp-workload-type", has_text="Kubernetes")).to_be_visible()
-    # ColorLogger.success(f"Expect to see the 'Kubernetes' tag is visible")
+    expect(po_o11y.get_chart_card(card_name).locator(".widget-dp-workload-type", has_text="Kubernetes")).to_be_visible()
+    ColorLogger.success(f"Expect to see the 'Kubernetes' tag is visible")
 
     expect(po_o11y.get_chart_card(card_name).locator(".widget-card-bottom-app-types .ci-flogo")).to_be_visible()
     ColorLogger.success(f"Expect to see the Flogo icon is visible")
@@ -130,14 +134,13 @@ widget_test_data = [
     ("Integration General", None, "Application Instances", "Kubernetes", "shared-pie-chart .highcharts-title", "Application Instances"),
     ("Integration General", None, "Application Request Counts", "Kubernetes", "shared-pie-chart .highcharts-title", "Application Request Counts"),
 
-    ("Flogo", "Engine", "CPU Utilization/Limit Percentage", None, "shared-line-chart .highcharts-title", "CPU Utilization/Limit Percentage"),
-    ("Flogo", "Engine", "CPU Utilization/Limit Percentage", None, "shared-line-chart .highcharts-title", "CPU Utilization/Limit Percentage"),
-    ("Flogo", "Flow", "Total Flow Executions", None, "shared-line-chart .highcharts-title", "Total Flow Executions"),
-    ("Flogo", "Activity", "Total Activity Executions", None, "shared-line-chart .highcharts-title", "Total Activity Executions"),
-
     ("BWCE", "Engine", "Active Thread Count", None, "shared-line-chart .highcharts-title", "Active Thread Count"),
     ("BWCE", "Process", "Process Max Elapsed Time", None, "shared-line-chart .highcharts-title", "Process Max Elapsed Time"),
     ("BWCE", "Activity", "Activity Max Elapsed Time", None, "shared-line-chart .highcharts-title", "Activity Max Elapsed Time"),
+
+    ("Flogo", "Engine", "CPU Utilization/Limit Percentage", None, "shared-line-chart .highcharts-title", "CPU Utilization/Limit Percentage"),
+    ("Flogo", "Flow", "Total Flow Executions", None, "shared-line-chart .highcharts-title", "Total Flow Executions"),
+    ("Flogo", "Activity", "Total Activity Executions", None, "shared-line-chart .highcharts-title", "Total Activity Executions"),
 ]
 @pytest.mark.parametrize(
     "level1_menu, level2_menu, middle_menu, data_plane_type, selector, expected_text",

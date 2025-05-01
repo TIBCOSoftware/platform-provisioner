@@ -112,6 +112,13 @@ def get_env():
         for key in dir(ENV)
         if not key.startswith("_") and not callable(getattr(ENV, key))
     }
+    # if version.txt exist, get content of version.txt
+    version_file = os.path.join(os.getcwd(), "version.txt")
+    if os.path.exists(version_file):
+        with open(version_file, "r") as f:
+            version = f.read().strip()
+        env_dict["TP_AUTOMATION_TASK_RELEASE_VERSION"] = version
+
     merged = {**env_vars, **env_dict}
     return jsonify(merged)
 

@@ -61,7 +61,7 @@ def setup_refresh_o11y(logged_in_page):
 
         if is_reset_layout:
             Util.refresh_page(page)
-            po_o11y.click_action_menu("Reset Layout")
+            po_o11y.click_action_menu("Reset Layout", True)
         return page, po_o11y
     return _setup_refresh_o11y
 
