@@ -97,7 +97,7 @@ meta:
     GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ""
 
     # TP activation server
-    GUI_ACTIVATION_SERVER_CONFIG: true
+    GUI_ACTIVATION_SERVER_CONFIG: false
     GUI_ACTIVATION_SERVER_IP: ""
 
     # flow control
@@ -344,7 +344,7 @@ tasks:
   script:
     content: |
       # this is a long running activation server. 
-      if kubectl get ns "${TP_AUTO_K8S_DP_NAMESPACE}" >/dev/null 2>&1; then
+      if kubectl get ns "${TP_AUTO_K8S_DP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${ACTIVATION_SERVER_IP}" ]; then
         kubectl apply -n ${TP_AUTO_K8S_DP_NAMESPACE} -f - <<EOF
       kind: Service
       apiVersion: v1
@@ -475,7 +475,7 @@ tasks:
   script:
     content: |
       # this is a long running activation server. 
-      if kubectl get ns "${TP_AUTO_K8S_BMDP_NAMESPACE}" >/dev/null 2>&1; then
+      if kubectl get ns "${TP_AUTO_K8S_BMDP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${ACTIVATION_SERVER_IP}" ]; then
         kubectl apply -n ${TP_AUTO_K8S_BMDP_NAMESPACE} -f - <<EOF
       kind: Service
       apiVersion: v1

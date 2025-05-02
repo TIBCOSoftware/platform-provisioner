@@ -40,6 +40,10 @@ meta:
     GUI_TP_AUTOMATION_INSTALL: false
     GUI_TP_AUTOMATION_NAMESPACE: automation
 
+    # third party tools version
+    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.11.5
+    GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 34.4.1
+
     # CNI
     GUI_TP_INSTALL_CALICO_CNI: false
 
@@ -92,6 +96,10 @@ meta:
     TP_PROVISIONER_UI_INGRESS_CLASSNAME: ${GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME:-"nginx"}
     TP_AUTOMATION_INSTALL: ${GUI_TP_AUTOMATION_INSTALL:-false}
     TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
+
+    # third party tools version
+    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.11.5"} # release: https://github.com/kubernetes/ingress-nginx/releases
+    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"34.4.1"} # release: https://github.com/traefik/traefik-helm-chart/releases
 
     # CNI
     TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
@@ -158,7 +166,7 @@ helmCharts:
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 4.11.5 # release: https://github.com/kubernetes/ingress-nginx/releases can not upgrade to 4.12.0 PCP-10252
+  version: ${TP_THIRD_PARTY_VERSION_INGRESS_NGINX} # release: https://github.com/kubernetes/ingress-nginx/releases
   repo:
     helm:
       url: https://kubernetes.github.io/ingress-nginx
@@ -168,7 +176,6 @@ helmCharts:
       # ingress-nginx doc: https://docs.nginx.com/nginx-ingress-controller/
       # ingress-nginx chart values: https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
       controller:
-        allowSnippetAnnotations: true # https://github.com/kubernetes/ingress-nginx/pull/10393
         hostPort:
           enabled: ${TP_INGRESS_USE_HOSTPORT} # true for kind
         service:
@@ -196,7 +203,7 @@ helmCharts:
 - condition: ${TP_INSTALL_TRAEFIK_INGRESS}
   name: traefik
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: "34.4.1" # release: https://github.com/traefik/traefik-helm-chart/releases
+  version: ${TP_THIRD_PARTY_VERSION_TRAEFIK} # release: https://github.com/traefik/traefik-helm-chart/releases
   repo:
     helm:
       url: https://traefik.github.io/charts
