@@ -109,7 +109,6 @@ helmCharts:
       # ingress-nginx doc: https://docs.nginx.com/nginx-ingress-controller/
       # ingress-nginx chart values: https://github.com/kubernetes/ingress-nginx/blob/main/charts/ingress-nginx/values.yaml
       controller:
-        allowSnippetAnnotations: true # https://github.com/kubernetes/ingress-nginx/pull/10393
         hostPort:
           enabled: ${TP_INGRESS_USE_HOSTPORT} # true for kind
         service:
