@@ -41,7 +41,7 @@ meta:
     GUI_TP_AUTOMATION_NAMESPACE: automation
 
     # third party tools version
-    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.11.5
+    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.12.2
     GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 34.4.1
 
     # CNI
@@ -98,7 +98,7 @@ meta:
     TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
 
     # third party tools version
-    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.11.5"} # release: https://github.com/kubernetes/ingress-nginx/releases
+    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.12.2"} # release: https://github.com/kubernetes/ingress-nginx/releases
     TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"34.4.1"} # release: https://github.com/traefik/traefik-helm-chart/releases
 
     # CNI
@@ -367,7 +367,7 @@ helmCharts:
         enabled: true
         image:
           repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.3.3-auto-on-prem-jammy
+          tag: 1.3.4-auto-on-prem-jammy
         ports:
           http:
             enabled: true

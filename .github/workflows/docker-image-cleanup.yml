@@ -25,6 +25,6 @@ jobs:
                 }
             }
         env:
-          OWNER: tibco # or orgs/<org name>
+          OWNER: tibcosoftware # or orgs/<org name>
           PACKAGE_NAME: platform-provisioner%2Fplatform-provisioner
           PER_PAGE: 100

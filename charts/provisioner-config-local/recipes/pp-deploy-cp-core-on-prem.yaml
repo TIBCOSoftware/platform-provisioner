@@ -31,8 +31,8 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.5.1005
-    GUI_CP_PLATFORM_BASE_VERSION: 1.5.1048
+    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.6.0
+    GUI_CP_PLATFORM_BASE_VERSION: 1.6.0
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -219,8 +219,8 @@ meta:
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.5.1005} # use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.5.1048} # use ^1.0.0 for latest
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.6.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.6.0} # use ^1.0.0 for latest
 
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}

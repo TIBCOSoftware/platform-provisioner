@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.helper import Helper
@@ -30,7 +32,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         # For 1.4 version
         add_new_resource_button = self.page.locator(".add-dp-observability-btn", has_text="Add new resource")
         if self.page.locator(".o11y-no-config .o11y-config-buttons").is_visible():
-            if dp_name == ENV.TP_AUTO_K8S_DP_NAME_GLOBAL:
+            if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
                 # For 1.5 Global data plane
                 add_new_resource_button = self.page.locator(".o11y-no-config .o11y-config-buttons .add-global-o11y-icon")
             else:
@@ -38,7 +40,15 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
                 add_new_resource_button = self.page.locator(".o11y-no-config .o11y-config-buttons .add-dp-o11y-icon").nth(0)
     
         return add_new_resource_button
-    
+
+    def o11y_config_switch_to_global(self, dp_name):
+        ColorLogger.info(f"Switch dataplane {dp_name} configuration to Global...")
+        self.goto_left_navbar_dataplane()
+        self.goto_dataplane(dp_name)
+        self.goto_dataplane_config()
+        self.goto_dataplane_config_sub_menu("Observability")
+        self.switch_to_global_config(dp_name)
+
     def o11y_config_dataplane_resource(self, dp_name):
         if ReportYaml.get_dataplane_info(dp_name, "o11yConfig") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, o11yConfig is already created in DataPlane '{dp_name}'.")
@@ -51,7 +61,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         dp_title = dp_name
         o11y_config_page_selector = ".data-plane-observability-content"         # for dp level
         # dp_name is 'Global', it means global data plane
-        if dp_name == ENV.TP_AUTO_K8S_DP_NAME_GLOBAL:
+        if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
             self.goto_left_navbar_dataplane()
             self.page.locator(".global-configuration button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")

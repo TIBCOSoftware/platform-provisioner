@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
@@ -17,7 +19,7 @@ if __name__ == "__main__":
 
         po_dp_config = PageObjectDataPlaneConfiguration(page)
         # config global dataplane
-        po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME_GLOBAL)
+        po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_DP_NAME_GLOBAL)
 
         po_auth.logout()
     except Exception as e:

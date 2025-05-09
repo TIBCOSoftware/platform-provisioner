@@ -23,6 +23,9 @@ if __name__ == "__main__":
         po_user_management = PageObjectUserManagement(page)
         po_user_management.set_user_permission()
 
+        # config global dataplane
+        po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_DP_NAME_GLOBAL)
+
         if ENV.TP_AUTO_IS_CREATE_BMDP:
             # for create dataplane and config dataplane resources
             po_dp.goto_left_navbar_dataplane()
@@ -46,6 +49,7 @@ if __name__ == "__main__":
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_bmdp_config.goto_dataplane_config()
             po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_BMDP_NAME)
+            po_bmdp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_BMDP_NAME)
 
         po_dp.goto_left_navbar_dataplane()
         po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
