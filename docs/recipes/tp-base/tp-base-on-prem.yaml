@@ -99,7 +99,7 @@ helmCharts:
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 4.11.5 # release: https://github.com/kubernetes/ingress-nginx/releases
+  version: 4.12.2 # release: https://github.com/kubernetes/ingress-nginx/releases
   repo:
     helm:
       url: https://kubernetes.github.io/ingress-nginx

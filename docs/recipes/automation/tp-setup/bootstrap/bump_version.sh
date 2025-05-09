@@ -36,22 +36,25 @@ patch=$(echo "$current_version" | awk -F. '{print $3}')
 # Increment patch version
 new_patch=$((patch + 1))
 new_version="${prefix}.${new_patch}"
+# use current time for new_ui_version
+new_ui_version="$(date '+%m/%d/%Y %H:%M')"
+#new_ui_version="$(git log -1 --pretty=format:"%h" .)"
 
 echo "Current version: $current_version"
 echo "New version: $new_version"
 
 # Update Chart.yaml safely
-# Use temp file for compatibility across Linux, macOS, Git Bash
-tmpfile=$(mktemp)
+# Use a temp file for compatibility across Linux, macOS, Git Bash
+tmp_file=$(mktemp)
 awk -v new_version="$new_version" '
   /^version:/ {$0 = "version: \"" new_version "\""}
   {print}
-' "$CHART_FILE" > "$tmpfile" && mv "$tmpfile" "$CHART_FILE"
+' "$CHART_FILE" > "$tmp_file" && mv "$tmp_file" "$CHART_FILE"
 
 # Update version.txt
 mkdir -p "$(dirname "$VERSION_FILE")"
-echo "$new_version" > "$VERSION_FILE"
+echo "$new_ui_version" > "$VERSION_FILE"
 
 echo "✅ Successfully updated:"
 echo "- $CHART_FILE with version: $new_version"
-echo "- $VERSION_FILE with version: $new_version"
+echo "- $VERSION_FILE with version: $new_ui_version"

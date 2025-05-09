@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.helper import Helper
@@ -144,7 +146,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         # For 1.4 version
         add_new_resource_button = self.page.locator(".add-dp-observability-btn", has_text="Add new resource")
         if self.page.locator(".o11y-no-config .o11y-config-buttons").is_visible():
-            if dp_name == ENV.TP_AUTO_K8S_DP_NAME_GLOBAL:
+            if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
                 # For 1.5 Global data plane
                 add_new_resource_button = self.page.locator(".o11y-no-config .o11y-config-buttons .add-global-o11y-icon")
             else:
@@ -152,6 +154,13 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
                 add_new_resource_button = self.page.locator(".o11y-no-config .o11y-config-buttons .add-dp-o11y-icon").nth(0)
 
         return add_new_resource_button
+
+    def o11y_config_switch_to_global(self, dp_name):
+        self.goto_left_navbar_dataplane()
+        self.goto_dataplane(dp_name)
+        self.goto_dataplane_config()
+        self.goto_dataplane_config_sub_menu("Observability")
+        self.switch_to_global_config(dp_name)
 
     def o11y_config_dataplane_resource(self, dp_name):
         if ReportYaml.get_dataplane_info(dp_name, "o11yConfig") == "true":
@@ -163,10 +172,26 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             ColorLogger.warning("TP_AUTO_IS_CONFIG_O11Y is false, skip config Observability Resource.")
             return
         dp_title = dp_name
+        o11y_config_page_selector = ".data-plane-observability-content"         # for dp level
+        # dp_name is 'Global', it means global data plane
+        if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
+            self.goto_left_navbar_dataplane()
+            self.page.locator(".global-configuration button", has_text="Global configuration").click()
+            print("Clicked 'Global configuration' button")
+            o11y_selector = ".pl-leftnav-layout .pl-leftnav-menu__link"         # for 1.4 version
+            if Util.check_dom_visibility(self.page, self.page.locator(".pl-leftnav-layout .pl-tooltip__trigger", has_text="Observability"), 3, 6):
+                o11y_selector = ".pl-leftnav-layout .pl-tooltip__trigger"       # for 1.5+ version
+            self.page.locator(o11y_selector, has_text="Observability").wait_for(state="visible")
+            self.page.locator(o11y_selector, has_text="Observability").click()
+            print("Clicked Global configuration -> 'Observability' left side menu")
+            o11y_config_page_selector = ".global-configuration-details"         # for global level
+            ReportYaml.set_dataplane(dp_name)
+        else:
+            self.goto_dataplane_config_sub_menu("Observability")
+
         print("Waiting for Observability config is loaded")
-        if self.page.locator(".data-plane-description.pl-tooltip__trigger", has_text="Observability").is_visible():
-            self.page.locator(".data-plane-description.pl-tooltip__trigger", has_text="Observability").click()
-            print("Clicked 'Observability' resourses")
+        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 10):
+            Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", self.page, "o11y_config_dataplane_resource.png")
 
         print("Checking if 'Add new resource' button is exist...")
         self.page.wait_for_timeout(2000)

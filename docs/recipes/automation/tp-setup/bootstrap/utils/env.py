@@ -48,7 +48,7 @@ class EnvConfig:
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
 
     # k8s data plane
-    TP_AUTO_K8S_DP_NAME_GLOBAL = "Global"
+    TP_AUTO_DP_NAME_GLOBAL = "Global"
     TP_AUTO_K8S_DP_NAME = os.environ.get("TP_AUTO_K8S_DP_NAME") or "k8s-auto-dp1"
     TP_AUTO_K8S_DP_NAMESPACE = os.environ.get("TP_AUTO_K8S_DP_NAMESPACE") or f"{TP_AUTO_K8S_DP_NAME}ns"
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_DP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_DP_NAME}sa"

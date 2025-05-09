@@ -61,19 +61,19 @@ forward_ingress_to_instance() {
   echo "instance Server started"
 }
 
-copy_instance_report() {
-  set -x
-  mkdir -p "./ins-report/"
-  scp -r -o StrictHostKeyChecking=no -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}":/home/ubuntu/tp/report ./ins-report/"${INSTANCE_IP}"
-  set +x
-  echo "Copy instance automation report to local"
-}
-
 copy_file_to_instance() {
   set -x
   scp -o StrictHostKeyChecking=no -i "${KEY_PEM}" "$1" ubuntu@"${INSTANCE_IP}":/home/ubuntu/tp/
   set +x
   echo "Copy file to instance"
+}
+
+download_tp_folder() {
+  set -x
+  mkdir -p "./ins-report/"
+  scp -r -o StrictHostKeyChecking=no -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}":/home/ubuntu/tp/ ./ins-report/"${INSTANCE_IP}"
+  set +x
+  echo "Copy instance automation report to local"
 }
 
 # Function: Prompt user for INSTANCE_IP if not defined
@@ -136,7 +136,7 @@ show_help() {
   echo "1: Forward local port to instance port"
   echo "2: Copy kubeconfig, modify port, and start instance server"
   echo "3: Start Local server"
-  echo "4: Copy instance automation report to local"
+  echo "4: Download from instance tp folder"
   echo "5: SSH login to instance"
   echo "6: Add someone's SSH key to my instance"
   echo "7: Copy file to instance"
@@ -191,12 +191,12 @@ function connect_ins() {
       start_local_server
       ;;
     4)
-      echo "Executing Task 4: Copy instance automation report to local"
+      echo "Executing Task 8: Download from instance folder"
       check_pem_key
 
       prompt_for_instance_ip
 
-      copy_instance_report
+      download_tp_folder
       ;;
     5)
       echo "Executing Task 5: SSH login to instance"
@@ -217,7 +217,7 @@ function connect_ins() {
       ssh_instance_add_key
       ;;
     7)
-      echo "Executing Task 7: Copy file to instance"
+      echo "Executing Task 7: Copy local file to instance"
       check_pem_key
 
       prompt_for_instance_ip
