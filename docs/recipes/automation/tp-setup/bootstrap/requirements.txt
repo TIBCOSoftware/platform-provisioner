@@ -5,5 +5,5 @@ pytest-xdist==3.6.1
 pytest-rerunfailures==15.0
 colorama==0.4.6
 pytz==2025.1
-flask==3.1.0
+flask==3.1.1
 waitress==3.0.2
