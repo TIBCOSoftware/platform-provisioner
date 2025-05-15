@@ -126,6 +126,7 @@ meta:
     CP_INSTALL_PLATFORM_BASE: ${GUI_CP_INSTALL_PLATFORM_BASE:-true}
     CP_INSTALL_TIBCOHUB_CONTRIB: ${GUI_CP_INSTALL_TIBCOHUB_CONTRIB:-true}
     CP_INSTALL_MSG_CONTRIB: ${GUI_CP_INSTALL_MSG_CONTRIB:-true}
+    CP_INSTALL_MSG_RECIPES: ${GUI_CP_INSTALL_MSG_RECIPES:-true}
     CP_INSTALL_HAWK: ${GUI_CP_INSTALL_HAWK:-true}
     CP_INSTALL_RECIPES: ${GUI_CP_INSTALL_RECIPES:-true}
     CP_INSTALL_INTEGRATION: ${GUI_CP_INSTALL_INTEGRATION:-true}
@@ -602,6 +603,8 @@ helmCharts:
         enabled: ${CP_INSTALL_TIBCOHUB_CONTRIB}
       tp-cp-msg-contrib:
         enabled: ${CP_INSTALL_MSG_CONTRIB}
+      tp-cp-msg-recipes:
+        enabled: ${CP_INSTALL_MSG_RECIPES}
       tp-cp-hawk:
         enabled: ${CP_INSTALL_HAWK}
         tp-cp-hawk-infra-prometheus:

@@ -52,12 +52,13 @@ tasks:
             vcluster) vcluster version 2>&1 ;;
             helm) helm version --short 2>&1 ;;
             kubectl) kubectl version --client 2>&1 ;;
+            oc) oc version --client=true 2>&1 ;;
           *) echo "Unknown command" ;;
           esac
         }
         
         # Define an array of binaries to check
-        binaries="aws az gcloud eksctl docker-credential-ecr-login cue yq vcluster helm kubectl"
+        binaries="aws az gcloud eksctl docker-credential-ecr-login cue yq vcluster helm kubectl oc"
         
         # Print the table header
         printf "%-30s %-20s\n" "Binary" "Version"

@@ -156,6 +156,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         return add_new_resource_button
 
     def o11y_config_switch_to_global(self, dp_name):
+        ColorLogger.info(f"Switch dataplane {dp_name} configuration to Global...")
         self.goto_left_navbar_dataplane()
         self.goto_dataplane(dp_name)
         self.goto_dataplane_config()
