@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.helper import Helper
@@ -101,9 +103,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.wait_for_timeout(3000)
     
         connectors = [text.strip() for text in self.page.locator(".capability-connectors-container td:first-child").all_inner_texts()]
-        # Note: check 3 times, because sometimes Flogo connectors can not be loaded in time
-        # if connectors is empty, reload page, and check again, only check 3 times, if still empty, exit for loop
-        for i in range(3):
+        # Note: check 2 times, because sometimes Flogo connectors cannot be loaded in time
+        # if connectors is empty, reload page, and check again, only check 2 times, if still empty, exit for loop
+        for i in range(2):
             if connectors:
                 break
             Util.refresh_page(self.page)
@@ -139,7 +141,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         if required_connectors.issubset(set(connectors)):
             ColorLogger.success("Provision Flogo & Connectors successful.")
             ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
-        self.page.locator("#capabilityHeader-lbl-dpname", has_text=dp_name).click()
+        self.page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
         print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
     
     def flogo_app_build_and_deploy(self, dp_name, app_file_name, app_name):
@@ -179,6 +181,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
     
         if is_app_build_created:
             ColorLogger.success(f"Flogo app build {app_name} is already created.")
+            ReportYaml.set_capability(dp_name, capability)
             ReportYaml.set_capability_info(dp_name, capability, "appBuild", True)
             return
     

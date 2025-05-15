@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024 TIBCO Software Inc.
+# Copyright (c) 2024-2025 TIBCO Software Inc.
 # All Rights Reserved. Confidential & Proprietary.
 #
 
@@ -10,7 +10,7 @@
 
 FROM python:3.11-alpine3.19 AS builder-aws
 ARG AWS_CLI_VERSION
-ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.24.2"}
+ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.24.21"}
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -37,7 +37,7 @@ RUN apk add --no-cache \
 
 FROM python:3.11-alpine3.19 AS builder-azure
 ARG AZURE_CLI_VERSION
-ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.69.0"}
+ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.72.0"}
 WORKDIR /azure
 RUN apk add --no-cache --update python3 py3-pip && \
     apk add --no-cache --update --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make && \
@@ -59,7 +59,7 @@ LABEL org.opencontainers.image.vendor="Cloud Software Group"
 ARG TARGETOS TARGETARCH
 
 # base packages
-RUN apk add --no-cache --upgrade coreutils util-linux gettext bash curl wget envsubst jq \
+RUN apk add --no-cache --upgrade coreutils util-linux gettext bash gcompat curl wget envsubst jq \
         openssl openssh git python3 yq kubectl helm postgresql-client docker-cli && rm -rf /var/cache/apk/*
 
 # COPY AWSCLI V2 to BASE_IMAGE
@@ -159,5 +159,16 @@ RUN CMD_NAME=kubectl && \
     curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
     chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
     ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl
+
+# OpenShift CLI
+ARG OC_VERSION
+ENV OC_VERSION=${OC_VERSION:-"4.18.13"}
+RUN if [ "${TARGETARCH}" == "arm64" ]; then \
+        curl --silent --location "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-$(uname -s | awk '{print tolower($0)}')-${TARGETARCH}-${OC_VERSION}.tar.gz" | tar xz -C /tmp; \
+    else \
+        curl --silent --location "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-$(uname -s | awk '{print tolower($0)}')-${OC_VERSION}.tar.gz" | tar xz -C /tmp; \
+    fi && \
+    chmod +x /tmp/oc && mv -f /tmp/oc /usr/local/bin/oc && \
+    oc version --client=true
 
 CMD ["/bin/bash"]

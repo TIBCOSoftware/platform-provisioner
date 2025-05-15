@@ -289,7 +289,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").click()
         print("Clicked 'Resources' left side menu")
         print(f"Resource Name: {resource_name}")
-        self.page.wait_for_timeout(2000)
+        self.page.wait_for_timeout(5000)
         if self.page.locator("#storage-resource-table tr td:first-child", has_text=resource_name).is_visible():
             ColorLogger.success(f"Storage '{resource_name}' is already created.")
             ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, "storage", True)
@@ -318,6 +318,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").wait_for(state="visible")
         self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").click()
         print("Clicked 'Resources' left side menu")
+        self.page.wait_for_timeout(5000)
         self.page.locator("#toggle-ingress-expansion svg use").wait_for(state="visible")
         expected_icon = 'pl-icon-caret-right'
         if expected_icon in (self.page.query_selector("#toggle-ingress-expansion svg use") or {}).get_attribute("xlink:href"):

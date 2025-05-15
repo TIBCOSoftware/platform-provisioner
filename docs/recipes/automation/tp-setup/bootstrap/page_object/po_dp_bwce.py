@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.helper import Helper
@@ -91,9 +93,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.page.wait_for_timeout(3000)
 
         plugins = [text.strip() for text in self.page.locator("#pkgsTbl-table-listPkg td:first-child").all_inner_texts()]
-        # Note: check 3 times, because sometimes BWCE Plugins cannot be loaded in time
-        # if plugin is empty, reload page, and check again, only check 3 times, if still empty, exit for loop
-        for i in range(3):
+        # Note: check 2 times, because sometimes BWCE Plugins cannot be loaded in time
+        # if plugin is empty, reload page, and check again, only check 2 times, if still empty, exit for loop
+        for i in range(2):
             if plugins:
                 break
             Util.refresh_page(self.page)
@@ -153,6 +155,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
 
         if is_app_build_created:
             ColorLogger.success(f"BWCE app build {app_name} is already created.")
+            ReportYaml.set_capability(dp_name, capability)
             ReportYaml.set_capability_info(dp_name, capability, "appBuild", True)
             return
 

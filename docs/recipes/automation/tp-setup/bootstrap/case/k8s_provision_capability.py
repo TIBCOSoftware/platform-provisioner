@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
@@ -33,6 +35,7 @@ if __name__ == "__main__":
             po_dp_bwce.goto_left_navbar_dataplane()
             po_dp_bwce.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_bwce.bwce_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+            po_dp_bwce.bwce_provision_connector(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_NAME)
 
         # for provision EMS capability
         if ENV.TP_AUTO_IS_PROVISION_EMS:
@@ -53,6 +56,7 @@ if __name__ == "__main__":
             po_dp_flogo.goto_left_navbar_dataplane()
             po_dp_flogo.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_flogo.flogo_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+            po_dp_flogo.flogo_provision_connector(ENV.TP_AUTO_K8S_DP_NAME, ENV.FLOGO_APP_NAME)
 
         # for provision Pulsar capability
         if ENV.TP_AUTO_IS_PROVISION_PULSAR:
