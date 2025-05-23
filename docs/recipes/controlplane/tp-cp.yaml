@@ -55,6 +55,7 @@ meta:
     CP_STORAGE_CLASS: ${GUI_CP_STORAGE_CLASS:-"standard"} # standard, gp2, hostpath, efs-sc
     CP_STORAGE_PV_NAME: "${GUI_CP_STORAGE_PV_NAME}" # control-plane-pv the name of PV for kind, works with CP_STORAGE_CREATE_PV flag
     CP_STORAGE_PV_SIZE: "${GUI_CP_STORAGE_PV_SIZE:-10Gi}"
+    CP_STORAGE_PVC_NAME: "${GUI_CP_STORAGE_PVC_NAME:-""}" # added in 1.7.0
 
     # CP logging
     CP_LOG_ENABLE: ${GUI_CP_LOG_ENABLE:-false}
@@ -528,6 +529,12 @@ helmCharts:
         if [[ "${CP_STORAGE_PV_NAME}" != "" ]]; then
           yq eval '.global.external.storage.volumeName = env(CP_STORAGE_PV_NAME)' volume_values.yaml > volume_values.yaml
           echo "Volume values:"
+          cat volume_values.yaml
+        fi
+        
+        if [[ "${CP_STORAGE_PVC_NAME}" != "" ]]; then
+          yq eval '.global.external.storage.pvcName = env(CP_STORAGE_PVC_NAME)' volume_values.yaml > volume_values.yaml
+          echo "PVC values:"
           cat volume_values.yaml
         fi
 

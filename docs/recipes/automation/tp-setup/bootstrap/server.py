@@ -6,13 +6,17 @@ import os
 import re
 import time
 import shutil
+import uuid
+from flask_cors import CORS
 from flask import Flask, render_template, Response, request, jsonify
-from typing import Optional
+from typing import Dict
 
 app = Flask(__name__, template_folder="templates")
+HEADER_ONE_CLICK_JOB_ID = "one_click_job_id"
+CORS(app, expose_headers=[HEADER_ONE_CLICK_JOB_ID])
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-process: Optional[subprocess.Popen] = None
+running_processes: Dict[str, subprocess.Popen] = {}
 @app.route('/')
 def home():
     """ Render the main HTML page """
@@ -21,18 +25,17 @@ def home():
 @app.route('/stop-script')
 def stop_script():
     """ Stop the currently running script """
-    global process
-
-    if process is not None:  # Ensure the process is assigned
-        if process.poll() is None:  # Ensure the process is running
-            print(f"[INFO] Stopping process (PID: {process.pid})...")
-            process.terminate()  # Try to terminate gracefully
-            try:
-                process.wait(timeout=2)  # Wait up to 2 seconds
-            except subprocess.TimeoutExpired:
-                process.kill()  # Force kill if termination fails
-            process = None  # Reset the process after stopping
-            return jsonify({"status": "stopped", "message": "Process terminated successfully"})
+    job_id = request.args.get("jobId")
+    process = running_processes.get(job_id)
+    if process and process.poll() is None:  # Ensure the process is assigned
+        print(f"[INFO] Stopping process (PID: {process.pid})...")
+        process.terminate()  # Try to terminate gracefully
+        try:
+            process.wait(timeout=2)  # Wait up to 2 seconds
+        except subprocess.TimeoutExpired:
+            process.kill()  # Force kill if termination fails
+        running_processes.pop(job_id, None)
+        return jsonify({"status": "stopped", "message": "Process terminated successfully"})
 
     return jsonify({"status": "no_process", "message": "No process running"})
 
@@ -72,8 +75,8 @@ def run_script():
         if key in request.args:
             print(f"{key} = {value}")
 
+    job_id = str(uuid.uuid4())
     def generate():
-        global process
         # Start the script using unbuffered output
         print(f'{sys.executable}, "-u", "-m", {auto_case}')
         process = subprocess.Popen(
@@ -82,6 +85,7 @@ def run_script():
             stderr=subprocess.STDOUT,
             env=env_vars
         )
+        running_processes[job_id] = process
 
         # Stream output line by line
         try:
@@ -94,14 +98,19 @@ def run_script():
                     yield clean_line.strip() + '\n'
             yield '</pre>\n'
 
-            if process:
-                process.stdout.close()
-                process.wait()
-
         except Exception as e:
             print(f"[ERROR] Exception in generate(): {e}")
 
-    return Response(generate(), content_type='text/html; charset=utf-8')
+        finally:
+            if process:
+                process.stdout.close()
+                process.wait()
+            running_processes.pop(job_id, None)
+
+    headers = {
+        HEADER_ONE_CLICK_JOB_ID: job_id
+    }
+    return Response(generate(), headers=headers, content_type='text/html; charset=utf-8')
 
 @app.route('/get_env')
 def get_env():

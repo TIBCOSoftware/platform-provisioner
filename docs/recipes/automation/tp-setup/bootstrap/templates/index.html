@@ -130,8 +130,8 @@
           </div>
 
           <div class="row">
-            <div class="col-sm-3"><label for="HEADLESS" title="Will run test case in the popup browser">Run in Browser</label></div>
-            <div class="col-sm-3"><input type="checkbox" id="HEADLESS"></div>
+            <div class="col-sm-3 HEADLESS"><label for="HEADLESS" title="Will run test case in the popup browser">Run in Browser</label></div>
+            <div class="col-sm-3 HEADLESS"><input type="checkbox" id="HEADLESS"></div>
             <div class="col-sm-3"><label for="FORCE_RUN_AUTOMATION" title="Will pre-set required steps if it is selected(Not include create dataplane.)">Force Run Automation</label></div>
             <div class="col-sm-3"><input type="checkbox" id="FORCE_RUN_AUTOMATION"></div>
           </div>
@@ -358,6 +358,7 @@
     const params = new URLSearchParams({ ...handleSpecialCase(additionalParams) });
     fetch(`/run-script?${params.toString()}`)
       .then(response => {
+        window.currentJobId = response.headers.get("one_click_job_id");
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         function readStream() {
@@ -384,7 +385,7 @@
   function stopScript() {
     const preElement = document.getElementById("log-console");
 
-    fetch('/stop-script')
+    fetch('/stop-script' + (window.currentJobId ? `?jobId=${window.currentJobId}` : ""))
       .then(response => response.json())
       .then(data => {
         document.getElementById("output").innerHTML += `\n[INFO] ${data.message}\n`;
@@ -452,6 +453,21 @@
           break;
       }
     });
+
+    $('#DP_HOST_PREFIX').on('input', function () {
+      const value = $(this).val();
+      if (value) {
+        $('#TP_AUTO_LOGIN_URL').val(replaceSubdomain(ENV.TP_AUTO_LOGIN_URL, value));
+        $('#DP_USER_EMAIL').val(replaceEmailPrefix(ENV.DP_USER_EMAIL, value));
+      }
+    });
+  }
+
+  function replaceSubdomain(url, newSubdomain) {
+    return url.replace(/\/\/[^./]+/, `//${newSubdomain}`);
+  }
+  function replaceEmailPrefix(email, newPrefix) {
+    return email.replace(/^[^@]+/, newPrefix);
   }
 
   function toggleField(fieldsSelector, isVisible) {
@@ -474,9 +490,9 @@
       ".FLOGO_APP_NAME",
       ".app_file"
     ];
-    // if TP_AUTO_TASK_FROM_LOCAL_SOURCE is not true, hide .TP_AUTO_KUBECONFIG, .IS_CLEAN_REPORT
+    // if TP_AUTO_TASK_FROM_LOCAL_SOURCE is not true, hide .TP_AUTO_KUBECONFIG, .IS_CLEAN_REPORT, .HEADLESS
     if (ENV?.["TP_AUTO_TASK_FROM_LOCAL_SOURCE"] !== "true") {
-      fieldsSelector.push(".TP_AUTO_KUBECONFIG", ".IS_CLEAN_REPORT");
+      fieldsSelector.push(".TP_AUTO_KUBECONFIG", ".IS_CLEAN_REPORT", ".HEADLESS");
     }
     toggleField(fieldsSelector, false);
   }

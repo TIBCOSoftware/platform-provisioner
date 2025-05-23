@@ -163,9 +163,9 @@ function main() {
   # don't print recipe
   export PIPELINE_RECIPE_PRINT=${PIPELINE_RECIPE_PRINT:-false}
   # runner image
-  export PIPELINE_DOCKER_IMAGE_RUNNER=${PIPELINE_DOCKER_IMAGE_RUNNER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:v1.1.0-on-prem"}
+  export PIPELINE_DOCKER_IMAGE_RUNNER=${PIPELINE_DOCKER_IMAGE_RUNNER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.1.0-on-prem"}
   # tester image
-  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:v1.1.0-tester-on-prem"}
+  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.3.1-tester-on-prem-jammy"}
 
   if [[ -f 05-tp-auto-deploy-dp.yaml ]]; then
     _IS_LOCAL_AUTOMATION=$(yq eval '.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT' 05-tp-auto-deploy-dp.yaml)
