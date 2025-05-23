@@ -480,7 +480,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         if step_name == "3. Service Account creation":
             if ENV.TP_CREATE_NETWORK_POLICIES == "true":
                 # add network_policies at the end of the file
-                network_policies = f" --set networkPolicy.create=true --set networkPolicy.nodeCidrIpBlock={ENV.TP_CLUSTER_NODE_CIDR} --set networkPolicy.podCidrIpBlock={ENV.TP_CLUSTER_POD_CIDR} --set networkPolicy.serviceCidrIpBlock={ENV.TP_CLUSTER_SERVICE_CIDR}"
+                network_policies = f" --set networkPolicy.create=true --set networkPolicy.createDeprecatedPolicies=true --set networkPolicy.createInternetScopePolicies=true --set networkPolicy.nodeCidrIpBlock={ENV.TP_CLUSTER_NODE_CIDR} --set networkPolicy.podCidrIpBlock={ENV.TP_CLUSTER_POD_CIDR} --set networkPolicy.serviceCidrIpBlock={ENV.TP_CLUSTER_SERVICE_CIDR}"
                 with open(file_path, "a", encoding="utf-8") as f:
                     f.write(network_policies)
                     ColorLogger.info(f"Adding Network Policies: {network_policies} for {step_name} to {file_name}")
@@ -547,11 +547,11 @@ class PageObjectDataPlane(PageObjectGlobal):
             ColorLogger.warning(f"{capability} app '{app_name}' does not exist.")
 
     def switch_to_global_config(self, dp_name):
-        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 30):
+        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 30, True):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
             return
 
-        if Util.check_dom_visibility(self.page, self.page.locator(".use-global-resource .o11y-btn"), 5, 30) and self.page.locator(".use-global-resource .o11y-btn").is_enabled():
+        if Util.check_dom_visibility(self.page, self.page.locator(".use-global-resource .o11y-btn"), 5, 30, True) and self.page.locator(".use-global-resource .o11y-btn").is_enabled():
             ColorLogger.info(f"Data Plane '{dp_name}' does not have configuration, Use Global Resource")
             self.page.locator(".use-global-resource .o11y-btn").click()
             print("Clicked 'Use Global Resource' button")
@@ -560,7 +560,7 @@ class PageObjectDataPlane(PageObjectGlobal):
             self.page.locator("#confirm-button", has_text="Link").click()
             print("Clicked 'Link' button in confirmation dialog")
 
-        elif Util.check_dom_visibility(self.page, self.page.locator(".switch-to-global"), 5, 30) and self.page.locator(".switch-to-global").is_enabled():
+        elif Util.check_dom_visibility(self.page, self.page.locator(".switch-to-global"), 10, 30, True) and self.page.locator(".switch-to-global").is_enabled():
             ColorLogger.info(f"Switching current Data Plane '{dp_name}' configuration to Global Observability Resource")
             self.page.locator(".switch-to-global").click()
             print("Clicked 'Switch to Global' button")
@@ -570,7 +570,7 @@ class PageObjectDataPlane(PageObjectGlobal):
             print("Clicked 'Yes' button in confirmation dialog")
 
 
-        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 30):
+        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 30, True):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
         else:
             ColorLogger.warning(f"Linked {dp_name} to Global Observability Resource failed.")

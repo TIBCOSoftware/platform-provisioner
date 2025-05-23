@@ -72,13 +72,14 @@ class PageObjectAuth:
         ColorLogger.info("Login as admin user...")
         self.page.goto(ENV.TP_AUTO_ADMIN_URL)
         print(f"Navigating to admin page {ENV.TP_AUTO_ADMIN_URL}...")
+        admin_login_btn_text = "Sign in with Default IdP"
 
-        print("Wait for 'Sign in with Default IdP' button is visible and clickable...")
+        print(f"Wait for '{admin_login_btn_text}' button is visible and clickable...")
         if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 3, 10, True):
             ColorLogger.warning(f"Unable to load Admin login page {ENV.TP_AUTO_ADMIN_URL}")
             return False
-        Util.click_button_until_enabled(self.page, self.page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP"))
-        print(f"Admin User {ENV.DP_USER_EMAIL} Clicked 'Sign in with Default IdP' button")
+        Util.click_button_until_enabled(self.page, self.page.locator("#ta-sign-in-button"))
+        print(f"Admin User {ENV.DP_USER_EMAIL} Clicked '{admin_login_btn_text}' button")
 
         print("Admin User logging in...")
         self.page.locator("#user-email").wait_for(state="visible")
@@ -94,9 +95,9 @@ class PageObjectAuth:
         # Note: if the "Sign in with Default IdP" button is still visible, click it again
         # It is a bug when admin login path is "/admin/login"
         # If login path is "/admin", it will not show the "Sign in with Default IdP" button again
-        if self.page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP").is_visible():
-            print("Click 'Sign in with Default IdP' button again...")
-            self.page.locator("#ta-sign-in-button", has_text="Sign in with Default IdP").click()
+        if self.page.locator("#ta-sign-in-button").is_visible():
+            print(f"Click '{admin_login_btn_text}' button again...")
+            self.page.locator("#ta-sign-in-button").click()
 
         print(f"Waiting for admin {ENV.CP_ADMIN_EMAIL} welcome page.")
         self.page.locator(".pcp-page-title", has_text="Welcome").wait_for(state="visible")
@@ -210,7 +211,7 @@ class PageObjectAuth:
             ColorLogger.warning(f"Unable to load login page {ENV.TP_AUTO_LOGIN_URL}")
             return False
 
-        print("Login page loaded, Wait for 'Sign in with Default IdP' button is visible and clickable...")
+        print("Login page loaded, Wait for 'Sign in with ...' button is visible and clickable...")
         Util.click_button_until_enabled(self.page, self.page.locator("#ta-sign-in-button"))
         print(f"User {ENV.DP_USER_EMAIL} Clicked 'Sign in with ...' button")
 

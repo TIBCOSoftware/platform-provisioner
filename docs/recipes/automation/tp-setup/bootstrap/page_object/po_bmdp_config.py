@@ -209,6 +209,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
 
         print("Waiting for O11y config o11y page is loaded")
         self.page.locator(".configuration").wait_for(state="visible")
+        self.page.wait_for_timeout(2000)
         print("O11y config o11y page is loaded")
 
         # Step 1: Configure Log Server
@@ -286,7 +287,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         ColorLogger.info("O11y start to add or select item...")
         name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
         print(f"Check if name: '{name_input}' is exist in {tab_sub_name} configurations")
-        if not self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)).is_visible():
+        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 10):
             self.page.locator(add_button_selector).click()
             print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
             self.o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)

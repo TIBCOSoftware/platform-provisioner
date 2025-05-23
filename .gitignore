@@ -30,3 +30,18 @@ Temporary Items
 # Chart dependencies
 **/charts/*.tgz
 
+/docs/recipes/automation/1.3/
+/docs/recipes/automation/1.4/
+/docs/recipes/automation/gcp/
+/docs/recipes/automation/on-prem/gcp
+/docs/recipes/automation/on-prem/gcp.pub
+/docs/recipes/automation/cp-installation/
+/docs/recipes/automation/faq/
+/docs/recipes/automation/bak/
+/.idea/
+/docs/recipes/automation/tp-setup/bootstrap/report/
+*.pyc
+docs/recipes/automation/on-prem/ins-key.pem
+/docs/recipes/automation/on-prem/ins-key.pem.pub
+/docs/recipes/automation/tp-setup/bootstrap/e2e/**/report/
+/docs/recipes/automation/tp-setup/bootstrap/.venv/

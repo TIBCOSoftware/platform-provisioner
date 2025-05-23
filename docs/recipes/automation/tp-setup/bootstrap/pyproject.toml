@@ -1,0 +1,20 @@
+[project]
+name = "bootstrap"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "colorama==0.4.6",
+    "flask==3.1.0",
+    "flask-cors==5.0.1",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.9.0",
+    "playwright==1.49.0",
+    "pytest==8.3.5",
+    "pytest-html==4.1.1",
+    "pytest-rerunfailures==15.0",
+    "pytest-xdist==3.6.1",
+    "pytz==2025.1",
+    "waitress==3.0.2",
+]

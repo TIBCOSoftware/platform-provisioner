@@ -336,6 +336,13 @@ options:
   required: true
   description: |
     The size of the PV. Example: 10Gi.
+- name: "CP storage PVC name"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_STORAGE_PVC_NAME"
+  description: |
+    Pre-create PVC name
 
 # groupIndex: 8 CP DB
 - name: "CP DB host"

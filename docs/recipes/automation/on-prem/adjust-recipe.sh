@@ -153,28 +153,7 @@ function adjust_recipes() {
         echo "Adjusting kubernetes config for minikube..."
 
         echo "adjust kubeconfig for minikube..."
-        _kube_config="${HOME}/.kube/config"
-        # minikube kubectl -- config view --flatten > $_kube_config
-        original_server=$(yq '.clusters[] | select(.name == "minikube") | .cluster.server' $_kube_config)
-        # ca_cert=$(yq '.clusters[] | select(.name == "minikube") | .cluster."certificate-authority"' $_kube_config)
-        client_cert=$(yq '.users[] | select(.name == "minikube") | .user."client-certificate"' $_kube_config)
-        client_key=$(yq '.users[] | select(.name == "minikube") | .user."client-key"' $_kube_config)
-
-        if [[ "$(uname)" == "Darwin" ]]; then
-            # macOS ip address
-            local_ip=$(ipconfig getifaddr en0)
-        else
-            # Linux ip address
-            local_ip=$(hostname -I | awk '{print $1}')
-        fi
-        server=$(echo "$original_server" | sed "s/127\.0\.0\.1/$local_ip/")
-        _generated_config_name="minikube-gen"
-        # minikube certificate is valid for 10.96.0.1, 127.0.0.1, 10.0.0.1, 192.168.49.2, not 0.0.0.0
-        # kubectl config set-cluster ${_generated_config_name} --server=$server --certificate-authority=$ca_cert --embed-certs=true
-        kubectl config set-cluster ${_generated_config_name} --server=$server --insecure-skip-tls-verify=true
-        kubectl config set-credentials ${_generated_config_name} --client-certificate=$client_cert --client-key=$client_key --embed-certs=true
-        kubectl config set-context ${_generated_config_name} --cluster=${_generated_config_name} --user=${_generated_config_name}
-        kubectl config use-context ${_generated_config_name}
+        echo "please make sure you have installed minikube and start it with --embed-certs"
 
         _recipe_file_name="01-tp-on-prem.yaml"
         export TP_STORAGE_CLASS="standard"
