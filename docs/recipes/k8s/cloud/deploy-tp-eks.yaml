@@ -75,7 +75,7 @@ meta:
     TP_HTTP_INGRESS_BACKEND_SERVICE: ${TP_INGRESS_RELEASE_NAME}-$( ( [[  "$TP_INGRESS_CLASS" == "nginx" ]] && echo "ingress-nginx-controller" ) || ( [[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "kong-proxy" ) )
     TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
     TP_INSTALL_EXTERNAL_DNS: ${GUI_TP_INSTALL_EXTERNAL_DNS:-true}
-    TP_INSTALL_METRICS_SERVER: ${GUI_TP_INSTALL_METRICS_SERVER:-true}
+    TP_INSTALL_METRICS_SERVER: ${GUI_TP_INSTALL_METRICS_SERVER:-false} # eksctl start install metrics-server on 0.201.0
     TP_INSTALL_O11Y: ${GUI_TP_INSTALL_O11Y:-false}
     TP_SKIP_GENERATE_CLUSTER_ISSUER: false
   tools:

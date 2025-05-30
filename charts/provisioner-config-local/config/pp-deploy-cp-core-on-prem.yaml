@@ -423,13 +423,20 @@ options:
   description: "Delete the DB on uninstall"
 
 # groupIndex: 9 CP email
+- name: "CP mail from and replyTo email"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_FROM_REPLY_TO_EMAIL"
+  description: |
+    CP from and replyTo email.
 - name: "CP mail server type"
   groupIndex: 9
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_TYPE"
   description: |
-    The mail server protocol type. The default value is smtp. Choice: smtp, ses, sendgrid
+    The mail server protocol type. The default value is smtp. Choice: smtp, ses, sendgrid, graph
 - name: "CP mail server SES ARN"
   groupIndex: 9
   type: string
@@ -469,6 +476,20 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_PASSWORD"
   description: ""
+- name: "CP mail server graph client secret name"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME"
+  description: |
+    The secret name for the Graph client details. The default value is graph-client-details
+- name: "CP mail server graph skip sent folder"
+  groupIndex: 9
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER"
+  description: |
+    The Graph skip sent folder. The default value is false.
 
 # groupIndex: 10 Flow control
 - name: "Validate Cluster Resource"

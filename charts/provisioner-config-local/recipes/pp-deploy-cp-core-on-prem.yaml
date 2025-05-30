@@ -31,13 +31,14 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.6.0
-    GUI_CP_PLATFORM_BASE_VERSION: 1.6.0
+    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.7.0
+    GUI_CP_PLATFORM_BASE_VERSION: 1.7.0
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
     GUI_CP_NAMESPACE: "cp1-ns"
     GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
+    GUI_CP_FROM_REPLY_TO_EMAIL: ""
     GUI_CP_EXTERNAL_ENVIRONMENT: "production"
     GUI_CP_RESOURCES_REQUEST_CPU: "50m"
     GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi"
@@ -58,6 +59,12 @@ meta:
     GUI_CP_BOOTSTRAP_INGRESS_ROUTER: true
     GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY: true
     GUI_TP_GENERATE_CERTIFICATES: false
+    GUI_TP_TLS_SECRET_NAME_ROUTER: ""
+    GUI_TP_TLS_CERT_ROUTER: ""
+    GUI_TP_TLS_KEY_ROUTER: ""
+    GUI_TP_TLS_SECRET_NAME_HYBRID_PROXY: ""
+    GUI_TP_TLS_CERT_HYBRID_PROXY: ""
+    GUI_TP_TLS_KEY_HYBRID_PROXY: ""
     GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "easy-to-remember"
 
     # storage
@@ -75,13 +82,15 @@ meta:
     GUI_CP_LOG_INDEX: "tibco-cp-logs" # optional logserver index, default is tibco-cp-logs
 
     # email
-    GUI_CP_MAIL_SERVER_TYPE: "smtp" # smtp, ses, sendgrid
+    GUI_CP_MAIL_SERVER_TYPE: "smtp" # smtp, ses, sendgrid, graph
     GUI_CP_MAIL_SERVER_SES_ARN: ""
     GUI_CP_MAIL_SERVER_SENDGRID_API_KEY: ""
     GUI_CP_MAIL_SERVER_ADDRESS: ""
     GUI_CP_MAIL_SERVER_PORT_NUMBER: "1025"
     GUI_CP_MAIL_SERVER_USERNAME: ""
     GUI_CP_MAIL_SERVER_PASSWORD: ""
+    GUI_CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME: ""
+    GUI_CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER: ""
 
     # DB the default value is for postgres pod
     GUI_CP_DB_HOST: "postgresql.tibco-ext.svc.cluster.local"
@@ -162,7 +171,7 @@ meta:
     CP_STORAGE_CLASS: ${GUI_CP_STORAGE_CLASS:-"standard"} # standard, gp2, hostpath, efs-sc
     CP_STORAGE_PV_NAME: "${GUI_CP_STORAGE_PV_NAME}" # control-plane-pv the name of PV for kind, works with CP_STORAGE_CREATE_PV flag
     CP_STORAGE_PV_SIZE: "${GUI_CP_STORAGE_PV_SIZE:-10Gi}"
-    CP_STORAGE_PVC_NAME: ${GUI_CP_STORAGE_PVC_NAME} # added in 1.7.0
+    CP_STORAGE_PVC_NAME: ${GUI_CP_STORAGE_PVC_NAME:-""} # added in 1.7.0
 
     # CP logging
     CP_LOG_ENABLE: ${GUI_CP_LOG_ENABLE:-false}
@@ -204,6 +213,8 @@ meta:
     CP_MAIL_SERVER_PORT_NUMBER: ${GUI_CP_MAIL_SERVER_PORT_NUMBER:-"1025"}
     CP_MAIL_SERVER_USERNAME: ${GUI_CP_MAIL_SERVER_USERNAME:-""}
     CP_MAIL_SERVER_PASSWORD: ${GUI_CP_MAIL_SERVER_PASSWORD:-""}
+    CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME: ${GUI_CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME:-""} # the secret name for graph client details
+    CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER: ${GUI_CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER:-false}
 
     # CP SSO
     CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: ${GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD:-"easy-to-remember"}
@@ -219,10 +230,16 @@ meta:
     TP_GENERATE_CERTIFICATES: ${GUI_TP_GENERATE_CERTIFICATES:-true} # if true, will create cluster issuer and certificate for tp-certificate using cert-manager. For local use set to false
     TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
+    TP_TLS_SECRET_NAME_ROUTER: ${GUI_TP_TLS_SECRET_NAME_ROUTER:-""} # the secret name for router ingress
+    TP_TLS_CERT_ROUTER: ${GUI_TP_TLS_CERT_ROUTER:-""} # the tls.crt for router ingress
+    TP_TLS_KEY_ROUTER: ${GUI_TP_TLS_KEY_ROUTER:-""} # the tls.key for router ingress
+    TP_TLS_SECRET_NAME_HYBRID_PROXY: ${GUI_TP_TLS_SECRET_NAME_HYBRID_PROXY:-""} # the secret name for hybrid-proxy ingress
+    TP_TLS_CERT_HYBRID_PROXY: ${GUI_TP_TLS_CERT_HYBRID_PROXY:-""} # the tls.crt for hybrid-proxy ingress
+    TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.6.0} # use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.6.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.7.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.7.0} # use ^1.0.0 for latest
 
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}
@@ -303,7 +320,6 @@ preTasks:
 
       # service account
       kubectl create -n ${CP_NAMESPACE} serviceaccount ${CP_INSTANCE_ID}-sa
-      kubectl create clusterrolebinding ${CP_INSTANCE_ID}-sa --clusterrole=cluster-admin --serviceaccount=${CP_NAMESPACE}:${CP_INSTANCE_ID}-sa
       
       # DB password
       kubectl apply -f - <<EOF
@@ -334,7 +350,37 @@ preTasks:
         tls.key: ${TP_TLS_KEY}
       EOF
       fi
-      
+
+      # create TP TLS secret for router if provided
+      if [[ -n "${TP_TLS_CERT_ROUTER}" ]]; then
+        kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: ${TP_TLS_SECRET_NAME_ROUTER}
+        namespace: ${CP_NAMESPACE}
+      type: Opaque
+      data:
+        tls.crt: ${TP_TLS_CERT_ROUTER}
+        tls.key: ${TP_TLS_KEY_ROUTER}
+      EOF
+      fi
+
+      # create TP TLS secret for hybrid proxy if provided
+      if [[ -n "${TP_TLS_CERT_HYBRID_PROXY}" ]]; then
+        kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: ${TP_TLS_SECRET_NAME_HYBRID_PROXY}
+        namespace: ${CP_NAMESPACE}
+      type: Opaque
+      data:
+        tls.crt: ${TP_TLS_CERT_HYBRID_PROXY}
+        tls.key: ${TP_TLS_KEY_HYBRID_PROXY}
+      EOF
+      fi
+
       # add label to ext namespace
       kubectl apply -f - <<EOF
       apiVersion: v1
@@ -386,7 +432,7 @@ helmCharts:
             - '*.${CP_SERVICE_DNS_DOMAIN}'
             - '*.${CP_TUNNEL_DNS_DOMAIN}'
   flags:
-    createNamespace: true
+    createNamespace: ${CP_CREATE_NAMESPACE}
     timeout: 1h
 - name: generic-chart # CP pv object helm chart
   version: 1.1.0
@@ -417,7 +463,7 @@ helmCharts:
           volumeMode: Filesystem
           storageClassName: ${CP_STORAGE_CLASS}
   flags:
-    createNamespace: true
+    createNamespace: ${CP_CREATE_NAMESPACE}
     timeout: 1h
 - name: generic-chart # maildev helm chart
   version: 1.1.0
@@ -605,8 +651,8 @@ helmCharts:
   flags:
     wait: true
     timeout: 1h
-    createNamespace: true
-    extra: "--values tls_values.yaml --values volume_values.yaml --values log_values.yaml"
+    createNamespace: ${CP_CREATE_NAMESPACE}
+    extra: "--values tls_values.yaml --values tls_router_values.yaml --values tls_hybrid_proxy_values.yaml --values volume_values.yaml --values log_values.yaml"
   hooks:
     preDeploy:
       ignoreErrors: false
@@ -630,6 +676,34 @@ helmCharts:
           
           echo "TLS values:"
           cat tls_values.yaml
+        fi
+
+        touch tls_router_values.yaml
+        if [[ -n "${TP_TLS_SECRET_NAME_ROUTER}" ]]; then
+          export _star_service_dns="'*.${CP_SERVICE_DNS_DOMAIN}'"
+          export _tp_router_certificate_name="${TP_TLS_SECRET_NAME_ROUTER}"
+          yq eval '
+            (.tp-cp-bootstrap.router-operator.ingress.tls[0].secretName = env(_tp_router_certificate_name)) |
+            (.tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
+            (.tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] style="single")
+            ' tls_router_values.yaml > tls_router_values.yaml
+          
+          echo "TLS Router values:"
+          cat tls_router_values.yaml
+        fi
+
+        touch tls_hybrid_proxy_values.yaml
+        if [[ -n "${TP_TLS_SECRET_NAME_HYBRID_PROXY}" ]]; then
+          export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
+          export _tp_hybrid_proxy_certificate_name="${TP_TLS_SECRET_NAME_HYBRID_PROXY}"
+          yq eval '
+            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].secretName = env(_tp_hybrid_proxy_certificate_name)) |
+            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
+            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
+            ' tls_hybrid_proxy_values.yaml > tls_hybrid_proxy_values.yaml
+          
+          echo "TLS Hybrid Proxy values:"
+          cat tls_hybrid_proxy_values.yaml
         fi
 
         touch volume_values.yaml
@@ -705,6 +779,9 @@ helmCharts:
               port: "${CP_MAIL_SERVER_PORT_NUMBER}"
               username: "${CP_MAIL_SERVER_USERNAME}"
               password: "${CP_MAIL_SERVER_PASSWORD}"
+            graph:
+              clientDetailsSecretName: ${CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME}
+              skipSentFolder: ${CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER}
           fromAndReplyToEmailAddress: "${CP_FROM_REPLY_TO_EMAIL}"
           admin:
             email: ${CP_ADMIN_EMAIL}
@@ -957,4 +1034,4 @@ helmCharts:
   flags:
     wait: true
     timeout: 1h
-    createNamespace: true
+    createNamespace: ${CP_CREATE_NAMESPACE}

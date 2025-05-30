@@ -177,14 +177,21 @@ async def run_automation_task(case: str, params: Optional[Dict[str, Any]] = None
     logger.info(f"API URL: {flask_url}")
     
     try:
-        # Use urllib to make the HTTP request
-        with urllib.request.urlopen(flask_url) as response:
-            # Read response data
-            output = ""
-            for line in response:
-                decoded_line = line.decode('utf-8')
-                output += decoded_line
-                logger.info(f"Output line: {decoded_line.strip()}")
+        # Create request with timeout
+        req = urllib.request.Request(flask_url)
+        
+        # Use urllib to make the HTTP request with timeout
+        with urllib.request.urlopen(req, timeout=1800) as response:  # 30 minutes timeout
+            # Read all response data at once instead of line by line
+            response_data = response.read()
+            output = response_data.decode('utf-8')
+            
+            # Log the complete output
+            logger.info(f"Automation task completed. Output length: {len(output)} characters")
+            if len(output) > 1000:
+                logger.info(f"Output preview: {output[:500]}...{output[-500:]}")
+            else:
+                logger.info(f"Complete output: {output}")
             
             return output
     except urllib.error.URLError as e:
@@ -539,10 +546,21 @@ async def create_k8s_dataplane(
     logger.info(f"Creating K8s DataPlane with parameters: {params}")
     
     try:
-        return await run_automation_task("case.k8s_create_dp", params)
+        logger.info("Starting DataPlane creation automation...")
+        result = await run_automation_task("case.k8s_create_dp", params)
+        logger.info("DataPlane creation automation completed successfully")
+        return result
     except Exception as e:
         logger.error(f"Failed to run through API, trying direct module execution: {str(e)}")
-        return await execute_module("case.k8s_create_dp", params)
+        try:
+            logger.info("Attempting direct module execution...")
+            result = await execute_module("case.k8s_create_dp", params)
+            logger.info("Direct module execution completed successfully")
+            return result
+        except Exception as module_error:
+            error_msg = f"Both API call and direct module execution failed. API error: {str(e)}, Module error: {str(module_error)}"
+            logger.error(error_msg)
+            return error_msg
 
 @mcp.tool()
 async def config_dataplane_o11y(use_system_config: bool = False, dp_name: str = "") -> str:
