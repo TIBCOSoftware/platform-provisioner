@@ -480,7 +480,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         if step_name == "3. Service Account creation":
             if ENV.TP_CREATE_NETWORK_POLICIES == "true":
                 # add network_policies at the end of the file
-                network_policies = f" --set networkPolicy.create=true --set networkPolicy.createDeprecatedPolicies=true --set networkPolicy.createInternetScopePolicies=true --set networkPolicy.nodeCidrIpBlock={ENV.TP_CLUSTER_NODE_CIDR} --set networkPolicy.podCidrIpBlock={ENV.TP_CLUSTER_POD_CIDR} --set networkPolicy.serviceCidrIpBlock={ENV.TP_CLUSTER_SERVICE_CIDR}"
+                network_policies = f" --set networkPolicy.create=true --set networkPolicy.createDeprecatedPolicies=true --set networkPolicy.createInternetScopePolicies=true --set networkPolicy.createClusterScopePolicies=true --set networkPolicy.createDeprecatedPolicies=false  --set networkPolicy.nodeCidrIpBlock={ENV.TP_CLUSTER_NODE_CIDR} --set networkPolicy.podCidrIpBlock={ENV.TP_CLUSTER_POD_CIDR} --set networkPolicy.serviceCidrIpBlock={ENV.TP_CLUSTER_SERVICE_CIDR}"
                 with open(file_path, "a", encoding="utf-8") as f:
                     f.write(network_policies)
                     ColorLogger.info(f"Adding Network Policies: {network_policies} for {step_name} to {file_name}")

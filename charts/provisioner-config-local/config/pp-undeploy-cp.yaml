@@ -35,5 +35,5 @@ recipe: |
           helm del -n ${NS} \
             platform-base \
             platform-bootstrap \
-            --ignore-not-found --no-hooks && \
+            --ignore-not-found && \
           kubectl delete namespace ${NS}
