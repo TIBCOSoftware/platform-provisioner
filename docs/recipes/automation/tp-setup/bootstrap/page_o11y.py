@@ -47,7 +47,6 @@ if __name__ == "__main__":
                     # level1_menu, level2_menu, middle_menu, data_plane_type
                     ("Integration General", None, "Application CPU Utilization", "Control Tower"),
                     ("Integration General", None, "Application Memory Usage", "Control Tower"),
-                    ("Integration General", None, "Application Instances", "Control Tower"),
                     ("Integration General", None, "Application Request Counts", "Control Tower"),
 
                     ("BW5", "Engine", "CPU Percent", None),
