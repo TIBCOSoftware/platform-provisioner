@@ -85,8 +85,8 @@ class TibcopCliHandler:
             return ""
 
         ColorLogger.info(f"Dataplane '{dp_name}' does not exist. Starting registration...")
-        dp_namespace = dp_namespace or ENV.TIBCOP_CLI_DP_NAMESPACE
-        dp_service_account_name = dp_service_account_name or ENV.TIBCOP_CLI_DP_SERVICE_ACCOUNT
+        dp_namespace = dp_namespace or f"{dp_name}ns"
+        dp_service_account_name = dp_service_account_name or f"{dp_name}sa"
         command = (
             f'{self.TIBCOP_CLI_PATH} tplatform:register-k8s-dataplane --onlyPrintScripts '
             f'--name="{dp_name}" '

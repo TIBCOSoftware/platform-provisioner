@@ -1,4 +1,4 @@
-## [06/09/2025 22:09]
+## [06/11/2025 13:59]
 ### Added
 - Add CLI tab for One-Click Setup CP UI (Only need to provide CP URL and Token)
 - One-Click Setup CP UI supports for listing/creating/deleting Dataplane via CLI

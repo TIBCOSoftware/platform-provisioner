@@ -53,9 +53,9 @@ class EnvConfig:
     TP_AUTO_K8S_DP_NAME = os.environ.get("TP_AUTO_K8S_DP_NAME") or "k8s-auto-dp1"
     TP_AUTO_K8S_DP_NAMESPACE = os.environ.get("TP_AUTO_K8S_DP_NAMESPACE") or f"{TP_AUTO_K8S_DP_NAME}ns"
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_DP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_DP_NAME}sa"
-    TIBCOP_CLI_DP_NAME = "k8s-cli-dp1"
-    TIBCOP_CLI_DP_NAMESPACE = f"{TIBCOP_CLI_DP_NAME}ns"
-    TIBCOP_CLI_DP_SERVICE_ACCOUNT = f"{TIBCOP_CLI_DP_NAME}sa"
+    TIBCOP_CLI_DP_NAME = os.environ.get("TIBCOP_CLI_DP_NAME") or "k8s-cli-dp1"
+    TIBCOP_CLI_DP_NAMESPACE = os.environ.get("TIBCOP_CLI_DP_NAMESPACE") or f"{TIBCOP_CLI_DP_NAME}ns"
+    TIBCOP_CLI_DP_SERVICE_ACCOUNT = os.environ.get("TIBCOP_CLI_DP_SERVICE_ACCOUNT") or f"{TIBCOP_CLI_DP_NAME}sa"
 
     # BMDP
     TP_AUTO_K8S_BMDP_NAME = os.environ.get("TP_AUTO_K8S_BMDP_NAME") or "k8s-auto-bmdp1"
