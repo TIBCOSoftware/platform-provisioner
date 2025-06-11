@@ -194,11 +194,11 @@ recipe: |
               enabled: true
               className: nginx
               annotations:
-                nginx.ingress.kubernetes.io/rewrite-target: /$1
+                nginx.ingress.kubernetes.io/rewrite-target: /
               hosts:
                 - host: kyverno-ui.${TP_DNS_DOMAIN}
                   paths:
-                    - path: '/(.*)'
+                    - path: /
                       pathType: Prefix
           kyvernoPlugin:
             enabled: true

@@ -1,3 +1,14 @@
+## [06/09/2025 22:09]
+### Added
+- Add CLI tab for One-Click Setup CP UI (Only need to provide CP URL and Token)
+- One-Click Setup CP UI supports for listing/creating/deleting Dataplane via CLI
+
+## [06/03/2025 14:01]
+
+### Fixed
+- Reduce the pre-configured o11y widget by one, and configure a maximum of only 15
+- When the "Add widget button" is disabled, the addition will no longer continue
+
 ## [05/16/2025 22:45]
 
 ### Fixed

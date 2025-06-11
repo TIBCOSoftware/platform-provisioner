@@ -96,6 +96,9 @@ class PageObjectO11y(PageObjectGlobal):
         print(f"Clicked 'Add to Dashboard' button")
 
     def add_widget(self, level1_menu, level2_menu, middle_menu, data_plane_type=None):
+        if self.get_add_card_button().is_disabled():
+            ColorLogger.warning("Add Card button is disabled, cannot add widget")
+            return
         self.click_add_widget_button()
         self.click_widget_dialog_left_menu(level1_menu, level2_menu)
         self.click_widget_dialog_middle_menu(middle_menu, data_plane_type)

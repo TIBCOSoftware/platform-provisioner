@@ -3,13 +3,16 @@
 import subprocess
 import sys
 import os
-import re
 import time
 import shutil
 import uuid
 from flask_cors import CORS
-from flask import Flask, render_template, Response, request, jsonify
+from flask import Flask, render_template, Response, request, jsonify, stream_with_context
 from typing import Dict
+
+from utils.streaming_runner import StreamingRunner
+from utils.tibcop_cli import TibcopCliHandler
+from utils.util import Util
 
 app = Flask(__name__, template_folder="templates")
 HEADER_ONE_CLICK_JOB_ID = "one_click_job_id"
@@ -17,6 +20,30 @@ CORS(app, expose_headers=[HEADER_ONE_CLICK_JOB_ID])
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 running_processes: Dict[str, subprocess.Popen] = {}
+
+def set_env_vars_from_request(request_args, include_system_env=True):
+    # Set request parameters as environment variables
+    if include_system_env:
+        env_vars = os.environ.copy()
+    else:
+        env_vars = {}
+
+    env_vars["PYTHONIOENCODING"] = "utf-8"
+    for key, value in request_args.items():
+        if key != "case":
+            env_vars[key] = value
+
+    env_vars_to_print = {}
+    for key in request_args:
+        if key in os.environ:
+            env_vars_to_print[key] = os.environ[key]
+
+    if env_vars_to_print:
+        print("Environment Variables Set:")
+        for key, value in env_vars_to_print.items():
+            print(f"{key} = {value}")
+    return env_vars
+
 @app.route('/')
 def home():
     """ Render the main HTML page """
@@ -39,8 +66,8 @@ def stop_script():
 
     return jsonify({"status": "no_process", "message": "No process running"})
 
-@app.route('/run-script')
-def run_script():
+@app.route('/run-gui-script')
+def run_gui_script():
     """ Execute a Python script and stream real-time output """
     # case is from query parameter
     auto_case = request.args.get('case')
@@ -64,16 +91,7 @@ def run_script():
             print(f"Removed {report_txt_file}")
 
     # Set request parameters as environment variables
-    env_vars = os.environ.copy()
-    env_vars["PYTHONIOENCODING"] = "utf-8"
-    for key, value in request.args.items():
-        if key != "case":
-            env_vars[key] = value
-
-    print("Environment Variables Set:")
-    for key, value in os.environ.items():
-        if key in request.args:
-            print(f"{key} = {value}")
+    env_vars = set_env_vars_from_request(request.args)
 
     job_id = str(uuid.uuid4())
     def generate():
@@ -89,13 +107,10 @@ def run_script():
 
         # Stream output line by line
         try:
-            ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
             yield '<pre>\n'
             for line in iter(lambda: process.stdout.readline() if process and process.poll() is None else None, None):
                 if line and line.strip():
-                    decoded_line = line.decode("utf-8", errors="replace")
-                    clean_line = ansi_escape.sub('', decoded_line)      # Remove ANSI escape codes, remove color codes
-                    yield clean_line.strip() + '\n'
+                    yield Util.clean_ansi_escape(line) + '\n'
             yield '</pre>\n'
 
         except Exception as e:
@@ -111,6 +126,41 @@ def run_script():
         HEADER_ONE_CLICK_JOB_ID: job_id
     }
     return Response(generate(), headers=headers, content_type='text/html; charset=utf-8')
+
+@app.route('/run-cli-script')
+def run_cli_script():
+    auto_case = request.args.get('case')
+    dp_name = request.args.get('TIBCOP_CLI_DP_NAME')
+    other_args = request.args.get('TIBCOP_CLI_OTHER_ARGS')
+    if not auto_case:
+        return "Missing 'case' parameter", 400
+
+    env_vars = set_env_vars_from_request(request.args, False)
+    cli_handler = TibcopCliHandler(env_vars)
+
+    case_function_map = {
+        "tplatform:list-dataplanes": lambda: cli_handler.tplatform_list_dataplane(other_args=other_args),
+        "tplatform:register-k8s-dataplane": lambda: cli_handler.tplatform_register_k8s_dataplane(dp_name, other_args=other_args),
+        "tplatform:unregister-dataplane": lambda: cli_handler.tplatform_unregister_dataplane(dp_name, other_args=other_args),
+    }
+    case_func = case_function_map.get(auto_case)
+
+    if case_func:
+        runner = StreamingRunner()
+        runner.start_thread(case_func)
+
+        # Use runner.q as queue，generate stream:
+        @stream_with_context
+        def generate():
+            while True:
+                line = runner.q.get()
+                if line is None:
+                    break
+                yield Util.clean_ansi_escape(line, False) + '\n'
+
+        return Response(generate(), content_type='text/html; charset=utf-8')
+    else:
+        return f"{auto_case} not found", 404
 
 @app.route('/get_env')
 def get_env():

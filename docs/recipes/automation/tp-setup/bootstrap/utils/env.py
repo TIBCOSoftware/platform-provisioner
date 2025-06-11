@@ -40,6 +40,7 @@ class EnvConfig:
     TP_AUTO_IS_ENABLE_RVDM = os.environ.get("TP_AUTO_IS_ENABLE_RVDM", "true").lower() == "true"
     TP_AUTO_IS_ENABLE_EMSDM = os.environ.get("TP_AUTO_IS_ENABLE_EMSDM", "true").lower() == "true"
     TP_AUTO_IS_ENABLE_EMS_SERVER = os.environ.get("TP_AUTO_IS_ENABLE_EMS_SERVER", "true").lower() == "true"
+    TP_AUTO_IS_ENABLE_BW6DM = os.environ.get("TP_AUTO_IS_ENABLE_BW6DM", "true").lower() == "true"
     TP_AUTO_IS_CONFIG_O11Y = os.environ.get("TP_AUTO_IS_CONFIG_O11Y", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_BWCE = os.environ.get("TP_AUTO_IS_PROVISION_BWCE", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_EMS = os.environ.get("TP_AUTO_IS_PROVISION_EMS", "false").lower() == "true"
@@ -52,6 +53,9 @@ class EnvConfig:
     TP_AUTO_K8S_DP_NAME = os.environ.get("TP_AUTO_K8S_DP_NAME") or "k8s-auto-dp1"
     TP_AUTO_K8S_DP_NAMESPACE = os.environ.get("TP_AUTO_K8S_DP_NAMESPACE") or f"{TP_AUTO_K8S_DP_NAME}ns"
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_DP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_DP_NAME}sa"
+    TIBCOP_CLI_DP_NAME = "k8s-cli-dp1"
+    TIBCOP_CLI_DP_NAMESPACE = f"{TIBCOP_CLI_DP_NAME}ns"
+    TIBCOP_CLI_DP_SERVICE_ACCOUNT = f"{TIBCOP_CLI_DP_NAME}sa"
 
     # BMDP
     TP_AUTO_K8S_BMDP_NAME = os.environ.get("TP_AUTO_K8S_BMDP_NAME") or "k8s-auto-bmdp1"
@@ -66,7 +70,8 @@ class EnvConfig:
     TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMS_URL") or "tcp://ems.bw5dm.svc.cluster.local:7222"
     TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME") or "admin"
     TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD") or ""
-
+    TP_AUTO_K8S_BMDP_BW6DM = os.environ.get("TP_AUTO_K8S_BMDP_BW6DM") or "bw6110"
+    TP_AUTO_K8S_BMDP_BW6DM_URL = os.environ.get("TP_AUTO_K8S_BMDP_BW6DM_URL") or "http://bw6dm.bw5dm.svc:9091/bwta"
 
     # CP_DNS_DOMAIN
     TP_AUTO_CP_INSTANCE_ID = os.environ.get("TP_AUTO_CP_INSTANCE_ID") or "cp1"

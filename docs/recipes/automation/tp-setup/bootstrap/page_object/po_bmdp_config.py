@@ -8,7 +8,7 @@ from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
 
 class PageObjectBMDPConfiguration(PageObjectDataPlane):
-    capability = "BW5"
+
     def __init__(self, page):
         super().__init__(page)
 
@@ -36,7 +36,6 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             Util.exit_error(f"{product_name} Card is not visible.", self.page, "goto_Products.png")
 
     def dp_config_bw5_rvdm(self, domain_name):
-
         ColorLogger.info("Config BW5 RV domain...")
         if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 10, True):
             # add domain
@@ -61,10 +60,9 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
                 ColorLogger.success(domain_banner)
             else:
                 Util.warning_screenshot(f"May faild to regiter RV domain due to: {domain_banner}", self.page, "dp_config_bw5_rvdm.png")
-        self.check_bw5_domain_status(domain_name)
+        self.check_domain_status(domain_name, "BW5")
 
     def dp_config_bw5_emsdm(self, domain_name):
-
         ColorLogger.info("Config BW5 EMS domain...")
         if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 10, True):
             # add domain
@@ -91,18 +89,18 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
                 Util.warning_screenshot(f"May faild to regiter RV domain due to: {domain_banner}", self.page, "dp_config_bw5_emsdm.png")
         else:
             ColorLogger.info(f"Domain '{domain_name}' is already added.")
-        self.check_bw5_domain_status(domain_name)
+        self.check_domain_status(domain_name, "BW5")
 
-    def check_bw5_domain_status(self, domain_name, max_retries=180):
+    def check_domain_status(self, domain_name, capability, max_retries=180):
         ColorLogger.info(f"Checking domain status for '{domain_name}'")
         domain_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=domain_name))
         if domain_row.is_visible():
             if Util.check_dom_visibility(self.page, domain_row.locator("td.pl-table__cell img[src*='/connected.svg']"), 10, max_retries):
                 ColorLogger.success(f"Domain '{domain_name}' is connected.")
-                ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, self.capability)
-                ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, self.capability, domain_name, "Connected")
+                ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, capability)
+                ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, capability, domain_name, "Connected")
                 return
-            Util.exit_error(f"Domain '{domain_name}' status is disconnected.", self.page, "check_bw5_domain_status.png")
+            Util.exit_error(f"Domain '{domain_name}' status is disconnected.", self.page, "check_domain_status.png")
         else:
             Util.exit_error(f"Domain '{domain_name}' is not found.", self.page, "check_domain_status.png")
 
@@ -110,37 +108,84 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
     def check_bmdp_app_status_by_app_name(self, product_name, domain_name, app_name):
         ColorLogger.info(f"Checking {product_name} application - {app_name} status in '{domain_name}'")
         self.page.wait_for_timeout(1000)
-        app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=domain_name))
-        if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
-            app_row.locator('td.pl-table__cell .text', has_text=app_name).click()
-            print(f"'{app_name}' is deployed and checking service instance status.")
-            ReportYaml.set_capability_app(ENV.TP_AUTO_K8S_BMDP_NAME, self.capability, f"{domain_name}.{app_name}")
-        else:
-            Util.exit_error(f"'{app_name}' is not deployed successfully or cannot be discovered by CT in domain '{domain_name}'.", self.page, "check_bmdp_app_status_by_app_name.png")
-        service_instance_row = self.page.locator("tr.pl-table__row")
-        if Util.check_dom_visibility(self.page, service_instance_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
-            ColorLogger.success(f"'{app_name}' in domain '{domain_name}' instance is running.")
-            ReportYaml.set_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, self.capability, f"{domain_name}.{app_name}", "Status", "Running")
-        else:
-            Util.exit_error(f"'{app_name}' in domain '{domain_name}' instance is not running.", self.page, "check_bmdp_app_status_by_app_name.png")
-
-        print("Clicked 'ElasticSearch' left side menu")
-        self.page.wait_for_timeout(500)
-        if Util.check_dom_visibility(self.page, self.page.locator(".pl-button.pl-button--primary", has_text="Add ElasticSearch"), 1, 3):
-            self.page.locator(".pl-button.pl-button--primary", has_text="Add ElasticSearch").click()
-            print("Clicked 'Add ElasticSearch' button")
-            self.page.fill("#esUrl-input", ENV.TP_AUTO_ELASTIC_URL)
-            self.page.fill("#esUser-input", ENV.TP_AUTO_ELASTIC_USER)
-            self.page.fill("#esPassword-input", ENV.TP_AUTO_ELASTIC_PASSWORD)
-            print(f"Filled ElasticSearch URL: {ENV.TP_AUTO_ELASTIC_URL}, User: {ENV.TP_AUTO_ELASTIC_USER}, Password: {ENV.TP_AUTO_ELASTIC_PASSWORD}")
-            self.page.locator(".pl-button.pl-button--primary", has_text="Add").click()
-            self.page.wait_for_timeout(5000)
-            if self.page.locator(".pl-notification__message", has_text="successfully").is_visible():
-                ColorLogger.success("ElasticSearch is added successfully.")
+        # check bw5 application status
+        if product_name == "BW5 Adapters":
+            app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=domain_name))
+            if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
+                app_row.locator('td.pl-table__cell .text', has_text=app_name).click()
+                print(f"'{app_name}' is deployed and checking service instance status.")
+                ReportYaml.set_capability_app(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}")
             else:
-                Util.warning_screenshot("May faild to add ElasticSearch.", self.page, "o11y_prepare_es.png")
+                Util.exit_error(f"'{app_name}' is not deployed successfully or cannot be discovered by CT in domain '{domain_name}'.", self.page, "check_bmdp_app_status_by_app_name.png")
+            service_instance_row = self.page.locator("tr.pl-table__row")
+            if Util.check_dom_visibility(self.page, service_instance_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
+                ColorLogger.success(f"'{app_name}' in domain '{domain_name}' instance is running.")
+                ReportYaml.set_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}", "Status", "Running")
+            else:
+                Util.exit_error(f"'{app_name}' in domain '{domain_name}' instance is not running.", self.page, "check_bmdp_app_status_by_app_name.png")
+        # check bw6 application status
+        if product_name == "BW6":
+            if Util.check_dom_visibility(self.page, self.page.locator(".pl-card--standard"), 2, 10):
+                self.page.locator(".pl-card--standard").click()
+                print(f"'{domain_name}' is deployed and checking application instance status.")
+            else:
+                Util.exit_error(f"'{domain_name}' is not deployed successfully or cannot be discovered by CT.", self.page, "check_bmdp_bw6_app_status.png")
+
+            self.page.locator(f".pl-card__body-content img[src*='/machines.svg']").click()
+            self.check_bw6_app_status(domain_name, "Machines", "bw6-node")
+            self.check_bw6_app_status(domain_name, "AppSpaces", "test_as")
+            self.check_bw6_app_status(domain_name, "AppNodes", "test_an")
+            self.check_bw6_app_status(domain_name, "Applications", "mySleep.application")
+
+
+    def check_bw6_app_status(self, domain_name, app_type, app_name):
+        ColorLogger.info(f"Checking BW6 application - {app_type} status")
+        # hover over the app type icon to click it
+        self.page.locator(f".bw6-icons .pl-tooltip__trigger", has=self.page.locator(f"img[alt='{app_type}']")).hover()
+        self.page.wait_for_timeout(500)
+        self.page.locator(f".bw6-icons .pl-tooltip__trigger", has=self.page.locator(f"img[alt='{app_type}']")).click()
+        app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=app_name))
+        if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/running.svg']"), 2, 5):
+            ColorLogger.success(f"'{app_type}':'{app_name}' in domain '{domain_name}' is running.")
+            ReportYaml.set_capability_app(ENV.TP_AUTO_K8S_BMDP_NAME, "BW6", f"{app_name}")
+            ReportYaml.set_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW6", f"{app_name}", "Status", "Running")
         else:
-            ColorLogger.info("ElasticSearch is already added.")
+            Util.exit_error(f"'{app_name}' in domain '{domain_name}' instance is not running.", self.page, "check_bw6_app_status_by_app_name.png")
+
+    def dp_config_bw6(self, agent_name):
+        ColorLogger.info("Config BW6 domain...")
+        # switch to BW6 Agents config page
+        self.goto_dataplane_config_sub_menu("Agents")
+        if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{agent_name}')"), 3, 10, True):
+            # add domain
+            self.page.locator("#add-proxy").wait_for(state="visible")
+            self.page.locator("#add-proxy").click()
+            print("Clicked 'Add Agent' button, to configure BW6 domain")
+            self.page.fill("#agentName-text-input", ENV.TP_AUTO_K8S_BMDP_BW6DM)
+            print(f"Filled Agent Name: {ENV.TP_AUTO_K8S_BMDP_BW6DM}")
+
+            # add bw6 agent url
+            self.page.fill("#agentUrl-text-input", ENV.TP_AUTO_K8S_BMDP_BW6DM_URL)
+            print(f"Filled BW6Agent URL: {ENV.TP_AUTO_K8S_BMDP_BW6DM_URL}")
+            # test connection and register bw6 agent
+            if Util.check_dom_visibility(self.page, self.page.locator(".pl-button.pl-button--mini.pl-button--secondary"), 2, 10):
+                self.page.locator(".pl-button.pl-button--mini.pl-button--secondary").click()
+                print("Clicked 'Test Connection' button")
+                if Util.check_dom_visibility(self.page, self.page.locator(".test-connection-success"), 2, 10):
+                    ColorLogger.success("BW6Agent connection is successful.")
+                    self.page.locator(".pcp-mr4").click()
+                    print("Clicked 'Register' button")
+            else:
+                Util.exit_error(f"'{agent_name}' is not deployed successfully or cannot be discovered by CT", self.page, "test_connection_bw6agent.png")
+            self.page.wait_for_timeout(5000)
+            agent_banner = self.page.locator(".pl-notification__message").inner_text()
+            if self.page.locator(".pl-notification__message", has_text="successfully").is_visible():
+                ColorLogger.success(agent_banner)
+            else:
+                Util.warning_screenshot(f"May failed to register RV domain due to: {agent_banner}", self.page, "dp_config_bw6dm.png")
+        else:
+            ColorLogger.info(f"Domain '{agent_name}' is already registered.")
+        self.check_domain_status(agent_name, "BW6")
 
     def o11y_get_new_resource(self, dp_name):
         # For 1.4 version

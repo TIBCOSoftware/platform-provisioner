@@ -21,8 +21,7 @@ pyenv global 3.12.8
 python --version
 ```
 
-## One-Click Configuration - Supported Features
-
+## One-Click Setup CP GUI - Supported Features
 
 | Category                                    | Supported Features                                                                                                                                                                                                                                                                                                |
 |:--------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -30,12 +29,20 @@ python --version
 | **Create a New Subscription**               | ✅ Provision a new subscription using the User Email by an Admin<br>✅ Activate the user via the `maildev` server<br>✅ Set the user's password and complete the login process                                                                                                                                       |
 | **Configure Observability Widget**          | ✅ Automatically add widget cards for Kubernetes or Control Tower                                                                                                                                                                                                                                                  |
 | **Configure Global Observability**          | ✅ Automatically create global Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces                                                                                                                                                                                            |
-| **Create K8S DataPlane**                    | ✅ Run `create dp` command                                                                                                                                                                                                                                                                                         |
+| **Create K8S DataPlane**                    | ✅ Create the specified DataPlane<br>✅ Run `create dp` command                                                                                                                                                                                                                                                     |
 | **Configure DataPlane Observability**       | ✅ Automatically create DataPlane-level Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces                                                                                                                                                                                   |
 | **Delete DataPlane**                        | ✅ Delete the specified DataPlane<br>✅ Run `delete dp` command                                                                                                                                                                                                                                                     |
 | **Provision Capabilities**                  | ✅ Provision BWCE / EMS / Flogo / Pulsar / TibcoHub                                                                                                                                                                                                                                                                |
 | **Create and Start Applications**           | ✅ Create a Flogo or BWCE application with a default file<br>✅ Upload a specified Flogo or BWCE app file<br>✅ Set up application environment variables<br>✅ Configure app endpoint visibility to public<br>✅ Start the application<br>✅ Test application via Swagger API                                           |
 | **Delete Applications**                     | ✅ Delete the specified application by name                                                                                                                                                                                                                                                                        |
+## One-Click Setup CP CLI - Supported Features
+
+| Category                    | Supported Features                                            |
+|:----------------------------|:--------------------------------------------------------------|
+| **List Current DataPlanes** | ✅ Show Current dataplane information(name, id, status)        |
+| **Create K8S DataPlane**    | ✅ Create the specified DataPlane<br>✅ Run `create dp` command |
+| **Delete DataPlane**        | ✅ Delete the specified DataPlane<br>✅ Run `delete dp` command |
+
 
 ## One-Click Setup of the Control Plane
 ### 1. Run from Source Code

@@ -1,7 +1,10 @@
 #  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
 
+import json
 import os
 import sys
+import re
+
 import pytz
 import time
 import urllib.request
@@ -365,3 +368,20 @@ class Util:
             current_condition = retry_selector.is_visible()
 
         return current_condition
+
+    @staticmethod
+    def parse_json_result(result_str):
+        try:
+            return json.loads(result_str)
+        except json.JSONDecodeError:
+            print("Error: Invalid JSON output.")
+            print(result_str)
+            return None
+
+    @staticmethod
+    def clean_ansi_escape(line, is_bytes=True):
+        ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+        if is_bytes:
+            line = line.decode("utf-8", errors="replace")
+        line = ansi_escape.sub('', line)
+        return line.strip()

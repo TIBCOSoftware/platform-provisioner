@@ -38,6 +38,7 @@ meta:
     GUI_TP_AUTO_ENABLE_BMDP: false
     GUI_TP_AUTO_IS_ENABLE_RVDM: true
     GUI_TP_AUTO_IS_ENABLE_EMSDM: true
+    GUI_TP_AUTO_IS_ENABLE_BW6DM: true
     GUI_TP_AUTO_ENABLE_O11Y_WIDGET: true
     GUI_TP_AUTO_ENABLE_E2E_TEST: false
 
@@ -139,6 +140,7 @@ meta:
     TP_AUTO_ENABLE_BMDP: ${GUI_TP_AUTO_ENABLE_BMDP:-false}
     TP_AUTO_IS_ENABLE_RVDM: ${GUI_TP_AUTO_IS_ENABLE_RVDM:-true}
     TP_AUTO_IS_ENABLE_EMSDM: ${GUI_TP_AUTO_IS_ENABLE_EMSDM:-true}
+    TP_AUTO_IS_ENABLE_BW6DM: ${GUI_TP_AUTO_IS_ENABLE_BW6DM:-true}
     TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-true}
     TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-true}
 
@@ -201,6 +203,8 @@ meta:
     TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL:-"tcp://ems.bw5dm.svc.cluster.local:7222"}
     TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME:-"admin"}
     TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ${GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD:-""}
+    TP_AUTO_K8S_BMDP_BW6DM: ${GUI_TP_AUTO_K8S_BMDP_BW6DM:-"bw6110"}
+    TP_AUTO_K8S_BMDP_BW6DM_URL: ${GUI_TP_AUTO_K8S_BMDP_BW6DM_URL:-"http://bw6dm.bw5dm.svc:9091/bwta"}
 
     # TP activation server
     ACTIVATION_SERVER_CONFIG: ${GUI_ACTIVATION_SERVER_CONFIG:-true}
@@ -343,7 +347,7 @@ tasks:
   name: "activation-server-config"
   script:
     content: |
-      # this is a long running activation server. 
+      # this is a long running activation server.
       if kubectl get ns "${TP_AUTO_K8S_DP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${ACTIVATION_SERVER_IP}" ]; then
         kubectl apply -n ${TP_AUTO_K8S_DP_NAMESPACE} -f - <<EOF
       kind: Service
@@ -352,7 +356,7 @@ tasks:
         name: tib-activate
       spec:
         clusterIP: None
-       
+
       ---
       kind: Endpoints
       apiVersion: v1
@@ -474,7 +478,7 @@ tasks:
   name: "activation-server-config"
   script:
     content: |
-      # this is a long running activation server. 
+      # this is a long running activation server.
       if kubectl get ns "${TP_AUTO_K8S_BMDP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${ACTIVATION_SERVER_IP}" ]; then
         kubectl apply -n ${TP_AUTO_K8S_BMDP_NAMESPACE} -f - <<EOF
       kind: Service
@@ -483,7 +487,7 @@ tasks:
         name: tib-activate
       spec:
         clusterIP: None
-       
+
       ---
       kind: Endpoints
       apiVersion: v1

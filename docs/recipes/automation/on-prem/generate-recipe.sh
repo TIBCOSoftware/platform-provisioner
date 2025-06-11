@@ -135,7 +135,7 @@ update_05-tp-auto-deploy-dp() {
 
     # Check if the environment variable is set
     if [[ -n "${!env_var}" ]]; then
-      echo "Updating recipe: ${recipe_file}, ${field}=${!env_var}"
+      # echo "Updating recipe: ${recipe_file}, ${field}=${!env_var}"
       yq eval ".meta.guiEnv.${field} = env(${env_var})" -i "${recipe_file}"
     fi
   done

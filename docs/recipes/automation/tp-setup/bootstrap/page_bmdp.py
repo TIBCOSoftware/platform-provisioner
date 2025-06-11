@@ -46,13 +46,20 @@ if __name__ == "__main__":
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_products("BW5 Adapters")
                 po_bmdp_config.check_bmdp_app_status_by_app_name("BW5 Adapters", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, "mySleep")
+            if ENV.TP_AUTO_IS_ENABLE_BW6DM:
+                po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
+                po_bmdp_config.goto_dataplane_config()
+                po_bmdp_config.dp_config_bw6(ENV.TP_AUTO_K8S_BMDP_BW6DM)
+                po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
+                po_bmdp_config.goto_products("BW6")
+                po_bmdp_config.check_bmdp_app_status_by_app_name("BW6", ENV.TP_AUTO_K8S_BMDP_BW6DM, "mySleep.application")
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_bmdp_config.goto_dataplane_config()
             po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_bmdp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_BMDP_NAME)
 
         po_dp.goto_left_navbar_dataplane()
-        po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+        po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
         Util.screenshot_page(page, f"success-{ENV.TP_AUTO_K8S_BMDP_NAME}.png")
         po_auth.logout()
     except Exception as e:
