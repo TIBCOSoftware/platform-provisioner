@@ -8,9 +8,9 @@
 # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-source-install.html#source-getting-started-install-workflows-alpine
 # release notes: https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst
 
-FROM python:3.11-alpine3.19 AS builder-aws
+FROM python:3.12.11-alpine3.22 AS builder-aws
 ARG AWS_CLI_VERSION
-ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.24.21"}
+ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.27.31"}
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -32,12 +32,11 @@ RUN apk add --no-cache \
 # install Azure CLI
 # https://github.com/Azure/azure-cli/issues/19591
 # https://github.com/Azure/azure-cli/releases
-# Azure CLI 2.63.0 (released in August 2024) is the last version supported on the Alpine docker image.
 # https://learn.microsoft.com/en-us/cli/azure/run-azure-cli-docker?view=azure-cli-latest
 
-FROM python:3.11-alpine3.19 AS builder-azure
+FROM python:3.12.11-alpine3.22 AS builder-azure
 ARG AZURE_CLI_VERSION
-ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.72.0"}
+ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.74.0"}
 WORKDIR /azure
 RUN apk add --no-cache --update python3 py3-pip && \
     apk add --no-cache --update --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make && \
@@ -47,7 +46,7 @@ RUN apk add --no-cache --update python3 py3-pip && \
 
 #---------------------------------------------------------------------------------------------
 # actual run time docker image
-FROM alpine:3.19
+FROM alpine:3.22
 
 LABEL maintainer="cloud@tibco.com"
 # labels see: https://github.com/opencontainers/image-spec/blob/56fb7838abe52ee259e37ece4b314c08bd45997f/annotations.md#annotations
@@ -69,7 +68,7 @@ RUN ln -s /opt/aws-cli/bin/aws /usr/local/bin/aws && \
 
 # eksctl https://github.com/eksctl-io/eksctl/releases
 ARG EKSCTL_VERSION
-ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.203.0"}
+ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.210.0"}
 RUN CMD_NAME=eksctl && \
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/${EKSCTL_VERSION}/${CMD_NAME}_$(uname -s)_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${EKSCTL_VERSION} && \
@@ -93,7 +92,7 @@ RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /u
 
 # Azure CLI Bicep https://github.com/Azure/bicep/releases
 ARG AZURE_CLI_BICEP_VERSION
-ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.33.93"}
+ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.36.1"}
 RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
     az --version && \
     az bicep install --version ${AZURE_CLI_BICEP_VERSION} && \
@@ -118,7 +117,7 @@ RUN ARCH=`cat /tmp/arch` && \
 
 # cue for yaml validation https://github.com/cue-lang/cue/releases
 ARG CUE_VERSION
-ENV CUE_VERSION=${CUE_VERSION:-"v0.12.0"}
+ENV CUE_VERSION=${CUE_VERSION:-"v0.13.1"}
 RUN CMD_NAME=cue && \
     curl --silent --location "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/${CMD_NAME}_${CUE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${CUE_VERSION} && \
@@ -131,13 +130,13 @@ RUN ln -sf /usr/bin/yq /usr/local/bin/yq4
 # The following are for recipe meta.tools compatibility
 # yq 4 utility https://github.com/mikefarah/yq/releases
 ARG YQ_VERSION_440
-ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.1"}
+ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.4"}
 RUN CMD_NAME=yq && \
     curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
     chmod +x /usr/local/bin/${CMD_NAME}-4.40
 
 # vcluster for vcluster https://github.com/loft-sh/vcluster/releases
-ARG VCLUSTER_VERSION=v0.22.4
+ARG VCLUSTER_VERSION=v0.25.1
 RUN export CMD_NAME=vcluster && \
     curl --silent --location -o /tmp/${CMD_NAME} "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/${CMD_NAME}-${TARGETOS}-${TARGETARCH}" && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} && \
@@ -154,15 +153,22 @@ RUN CMD_NAME=helm && \
 
 # kubectl https://kubernetes.io/releases/
 ARG KUBECTL_VERSION_132
-ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.1"}
+ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.5"}
 RUN CMD_NAME=kubectl && \
     curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
     chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
     ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl
 
+# kubectl https://kubernetes.io/releases/
+ARG KUBECTL_VERSION_133
+ENV KUBECTL_VERSION_133=${KUBECTL_VERSION_133:-"v1.33.1"}
+RUN CMD_NAME=kubectl && \
+    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_133}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
+    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.33
+
 # OpenShift CLI
 ARG OC_VERSION
-ENV OC_VERSION=${OC_VERSION:-"4.18.13"}
+ENV OC_VERSION=${OC_VERSION:-"4.18.17"}
 RUN if [ "${TARGETARCH}" == "arm64" ]; then \
         curl --silent --location "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-$(uname -s | awk '{print tolower($0)}')-${TARGETARCH}-${OC_VERSION}.tar.gz" | tar xz -C /tmp; \
     else \

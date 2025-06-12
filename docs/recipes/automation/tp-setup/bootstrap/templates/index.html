@@ -206,12 +206,12 @@
           <div class="col-sm-6">
             <div class="row TIBCOP_CLI_CPURL">
               <div class="col-sm-3"><label for="TIBCOP_CLI_CPURL">CP URL</label></div>
-              <div class="col-sm-9"><input type="text" id="TIBCOP_CLI_CPURL" /></div>
+              <div class="col-sm-9"><input type="text" id="TIBCOP_CLI_CPURL" title="Do not include the trailing slash" /></div>
             </div>
 
             <div class="row TIBCOP_CLI_OAUTH_TOKEN">
               <div class="col-sm-3"><label for="TIBCOP_CLI_OAUTH_TOKEN">CLI Token</label></div>
-              <div class="col-sm-9"><input type="text" id="TIBCOP_CLI_OAUTH_TOKEN" /></div>
+              <div class="col-sm-9"><input type="text" id="TIBCOP_CLI_OAUTH_TOKEN" title="Get it from 'CP' -> 'Settings' -> 'OAuth Token'"/></div>
             </div>
 
             <div class="row TIBCOP_CLI_DP_NAME">
@@ -251,7 +251,7 @@
           <div class="col-sm-6">
             <div class="row">
               <div class="col-sm-3">
-                <label for="SAVE_CLI_SETTING">
+                <label for="SAVE_CLI_SETTING" title="Uncheck, then check again to save settings.">
                   <input type="checkbox" id="SAVE_CLI_SETTING" onclick="saveCliSetting(this)">Save Setting
                 </label>
               </div>

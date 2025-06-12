@@ -385,7 +385,7 @@ helmCharts:
             servicePort: 8091
         others:
           dnsPolicy: ClusterFirstWithHostNet
-          hostNetwork: true
+          # hostNetwork: true
       service:
         enabled: true
         ports:

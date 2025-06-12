@@ -1,3 +1,8 @@
+## [06/12/2025 11:57]
+### Added
+- Add tooltips for CP URL and CLI Token input field in One-Click Setup CP UI
+- Remove everything after the domain in the CP URL input field
+
 ## [06/11/2025 13:59]
 ### Added
 - Add CLI tab for One-Click Setup CP UI (Only need to provide CP URL and Token)

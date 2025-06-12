@@ -260,6 +260,17 @@ function handleFieldsAction() {
       $('#DP_USER_EMAIL').val(replaceEmailPrefix(ENV.DP_USER_EMAIL, value));
     }
   });
+
+  $('#TIBCOP_CLI_CPURL').on('change', function () {
+    const value = $(this).val();
+    if (value) {
+      // Remove everything after the domain in the URL
+      const match = value.match(/^(https?:\/\/[^\/]+)/);
+      if (match) {
+        $(this).val(match[1]);
+      }
+    }
+  });
 }
 
 function initInputValue(data) {
