@@ -27,7 +27,7 @@ class Helper:
         return bash_path
 
     @staticmethod
-    def run_shell_file(script_path):
+    def run_shell_file(script_path, custom_env_dict=None):
         # Check if the script file exists
         if not os.path.exists(script_path):
             raise FileNotFoundError(f"Script file not found: {script_path}")
@@ -43,18 +43,23 @@ class Helper:
                 command = [bash_path, script_path]
             # Execute the shell script using subprocess
             print(f"Running script: {script_path}")
+            env_vars = {
+                **Helper.get_env_vars(),
+                **(custom_env_dict or {})
+            }
             result = subprocess.run(
                 command,             # Path to the script
                 shell=False,               # Run without invoking the shell for added security
                 check=True,                # Raise an error if the script exits with a non-zero status
                 capture_output=True,       # Capture standard output and standard error
                 text=True,                 # Decode the output as text (not bytes)
-                env=Helper.get_env_vars()
+                env=env_vars
             )
             if result.stderr:
                 print(f"Command stderr: {result.stderr.strip()}")
             # Print the script's standard output
             print(f"Script output:\n{result.stdout}")
+            return result.stdout
         except subprocess.CalledProcessError as e:
             # Handle errors during script execution
             print(f"Error while executing script: {e}")
@@ -62,6 +67,7 @@ class Helper:
         except Exception as e:
             # Handle any unexpected exceptions
             print(f"An unexpected error occurred: {e}")
+        return ""
 
     @staticmethod
     def get_command_output(command, is_print_cmd=False):

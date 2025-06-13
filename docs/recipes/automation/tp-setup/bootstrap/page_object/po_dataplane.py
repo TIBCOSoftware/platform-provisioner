@@ -547,11 +547,22 @@ class PageObjectDataPlane(PageObjectGlobal):
             ColorLogger.warning(f"{capability} app '{app_name}' does not exist.")
 
     def switch_to_global_config(self, dp_name):
-        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 30, True):
+        ColorLogger.info(f"Switch to Global Observability Resource")
+        print("PreCheck if Data Plane is already linked to Global Observability Resource...")
+        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 10, 10, True):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
             return
 
-        if Util.check_dom_visibility(self.page, self.page.locator(".use-global-resource .o11y-btn"), 5, 30, True) and self.page.locator(".use-global-resource .o11y-btn").is_enabled():
+        print("Check if 'Switch to Global' or 'Use Global Resource' button is visible...")
+        if Util.check_dom_visibility(self.page, self.page.locator(".switch-to-global"), 10, 10, True) and self.page.locator(".switch-to-global").is_enabled():
+            ColorLogger.info(f"Switching current Data Plane '{dp_name}' configuration to Global Observability Resource")
+            self.page.locator(".switch-to-global").click()
+            print("Clicked 'Switch to Global' button")
+            self.page.locator(".confirmation .pl-modal__heading", has_text="Switch to Global Observability Resource?").wait_for(state="visible")
+            print("Confirmation dialog is visible")
+            self.page.locator("#confirm-button", has_text="Yes").click()
+            print("Clicked 'Yes' button in confirmation dialog")
+        elif Util.check_dom_visibility(self.page, self.page.locator(".use-global-resource .o11y-btn"), 10, 10, True) and self.page.locator(".use-global-resource .o11y-btn").is_enabled():
             ColorLogger.info(f"Data Plane '{dp_name}' does not have configuration, Use Global Resource")
             self.page.locator(".use-global-resource .o11y-btn").click()
             print("Clicked 'Use Global Resource' button")
@@ -560,17 +571,8 @@ class PageObjectDataPlane(PageObjectGlobal):
             self.page.locator("#confirm-button", has_text="Link").click()
             print("Clicked 'Link' button in confirmation dialog")
 
-        elif Util.check_dom_visibility(self.page, self.page.locator(".switch-to-global"), 10, 30, True) and self.page.locator(".switch-to-global").is_enabled():
-            ColorLogger.info(f"Switching current Data Plane '{dp_name}' configuration to Global Observability Resource")
-            self.page.locator(".switch-to-global").click()
-            print("Clicked 'Switch to Global' button")
-            self.page.locator(".confirmation .pl-modal__heading", has_text="Switch to Global Observability Resource?").wait_for(state="visible")
-            print("Confirmation dialog is visible")
-            self.page.locator("#confirm-button", has_text="Yes").click()
-            print("Clicked 'Yes' button in confirmation dialog")
-
-
-        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 30, True):
+        print("Double Check if Data Plane is already linked to Global Observability Resource...")
+        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 10, 10, True):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
         else:
             ColorLogger.warning(f"Linked {dp_name} to Global Observability Resource failed.")

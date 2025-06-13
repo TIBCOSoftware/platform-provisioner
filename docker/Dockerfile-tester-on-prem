@@ -59,3 +59,10 @@ RUN CMD_NAME=kubectl && \
     curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
     chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
     ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl
+
+ARG TIBCOP_VERSION
+ENV TIBCOP_VERSION=${TIBCOP_VERSION:-"0.9.0"}
+RUN CMD_NAME=tibcop && \
+    curl -sSLo ${CMD_NAME}.tar.gz "https://github.com/TIBCOSoftware/platform-provisioner/releases/download/tibcop-cli-0.9.0/tibcop-cli-${TIBCOP_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" && \
+    mkdir -p /usr/local/bin/${CMD_NAME}-${TIBCOP_VERSION} && tar -xzf ${CMD_NAME}.tar.gz -C /usr/local/bin/${CMD_NAME}-${TIBCOP_VERSION} && rm -rf ${CMD_NAME}.tar.gz && \
+    ln -sfn /usr/local/bin/${CMD_NAME}-${TIBCOP_VERSION}/${CMD_NAME}/bin/${CMD_NAME} /usr/local/bin/${CMD_NAME}

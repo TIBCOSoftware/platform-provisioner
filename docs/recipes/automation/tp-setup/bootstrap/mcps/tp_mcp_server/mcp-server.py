@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-#  Copyright © 2025. Cloud Software Group, Inc.
-#  This file is subject to the license terms contained
-#  in the license file that is distributed with this file.
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
 
 from mcp.server.fastmcp import FastMCP
 import os
@@ -171,7 +169,7 @@ async def run_automation_task(case: str, params: Optional[Dict[str, Any]] = None
     query_params = urllib.parse.urlencode(request_params)
     
     # Local flask server URL (using port 3120 as seen in server.py)
-    flask_url = f"https://automation.localhost.dataplanes.pro/run-script?{query_params}"
+    flask_url = f"https://automation.localhost.dataplanes.pro/run-gui-script?{query_params}"
     
     logger.info(f"Running automation task: {case}")
     logger.info(f"API URL: {flask_url}")

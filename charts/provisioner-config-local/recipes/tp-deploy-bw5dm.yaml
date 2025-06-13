@@ -23,6 +23,7 @@ meta:
     GUI_TP_DEPLOY_EMS_SERVER: true
     GUI_TP_DEPLOY_EMSDM: true
     GUI_TP_DEPLOY_HAWKCONSOLE: true
+    GUI_TP_DEPLOY_BW6DM: true
     GUI_PIPELINE_LOG_DEBUG: false
   globalEnvVariable:
     REPLACE_RECIPE: true
@@ -47,6 +48,7 @@ meta:
     TP_DEPLOY_EMS_SERVER: ${GUI_TP_DEPLOY_EMS_SERVER:-true}
     TP_DEPLOY_EMSDM: ${GUI_TP_DEPLOY_EMSDM:-true}
     TP_DEPLOY_HAWKCONSOLE: ${GUI_TP_DEPLOY_HAWKCONSOLE:-true}
+    TP_DEPLOY_BW6DM: ${GUI_TP_DEPLOY_BW6DM:-true}
   tools:
     yq: "4.40"
 helmCharts:
@@ -87,9 +89,10 @@ helmCharts:
             env:
               - name: OTEL_TRACES_ENDPOINT
                 value: "${TP_OTEL_TRACES_ENDPOINT}"
-
         hawkconsole:
           enabled: ${TP_DEPLOY_HAWKCONSOLE}
+        bw6dm:
+          enabled: ${TP_DEPLOY_BW6DM}
     cluster:
       names:
         - ${TP_CLUSTER_NAME}
