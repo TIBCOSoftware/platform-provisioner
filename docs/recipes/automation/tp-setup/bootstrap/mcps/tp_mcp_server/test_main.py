@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
+"""Test script for TIBCO Platform MCP Server main module."""
+
+import sys
+import os
+import logging
+
+# Add the current directory to Python path for local imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("tp-mcp-test")
+
+def test_imports():
+    """Test that all required modules can be imported."""
+    try:
+        logger.info("Testing module imports...")
+        
+        # Test config import
+        from config import MCP_TRANSPORT, MCP_SERVER_HOST, MCP_SERVER_PORT
+        logger.info("✓ Config imported successfully")
+        logger.info("  Transport: %s", MCP_TRANSPORT)
+        logger.info("  Host: %s", MCP_SERVER_HOST)
+        logger.info("  Port: %s", MCP_SERVER_PORT)
+        
+        # Test server lifecycle import
+        from server_lifecycle import is_server_initialized
+        logger.info("✓ Server lifecycle imported successfully")
+        
+        # Test mcp_server import
+        from mcp_server import mcp
+        logger.info("✓ MCP server imported successfully")
+        
+        # Test main module import
+        from __main__ import main
+        logger.info("✓ Main module imported successfully")
+        
+        logger.info("All imports successful!")
+        return True
+        
+    except ImportError as e:
+        logger.error("Import failed: %s", str(e))
+        return False
+    except Exception as e:
+        logger.error("Unexpected error during import: %s", str(e))
+        return False
+
+def test_server_status():
+    """Test server status functionality."""
+    try:
+        from server_lifecycle import get_server_status
+        status = get_server_status()
+        logger.info("✓ Server status retrieved: %s", status)
+        return True
+    except Exception as e:
+        logger.error("Server status test failed: %s", str(e))
+        return False
+
+if __name__ == "__main__":
+    logger.info("Starting TIBCO Platform MCP Server tests...")
+    
+    success = True
+    
+    # Test imports
+    if not test_imports():
+        success = False
+    
+    # Test server status
+    if not test_server_status():
+        success = False
+    
+    if success:
+        logger.info("All tests passed! 🎉")
+        logger.info("You can now run the server with: python -m tp_mcp_server")
+        sys.exit(0)
+    else:
+        logger.error("Some tests failed! ❌")
+        sys.exit(1)

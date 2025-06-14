@@ -503,8 +503,8 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             new_page.wait_for_load_state()
     
             print(f"Waiting for Swagger title '{app_name}' to be displayed.")
-            if Util.check_dom_visibility(new_page, new_page.locator("#swagger-editor h2.title", has_text=app_name), 5, 15, True):
-                new_page.locator("#swagger-editor h2.title", has_text=app_name).wait_for(state="visible")
+            if Util.check_dom_visibility(new_page, new_page.locator("h2.title", has_text=app_name), 5, 15, True):
+                new_page.locator("h2.title", has_text=app_name).wait_for(state="visible")
                 print(f"The Swagger title '{app_name}' is displayed.")
     
                 new_page.locator("#operations-default-get_flogo .opblock-summary-control").click()

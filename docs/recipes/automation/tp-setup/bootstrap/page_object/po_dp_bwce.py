@@ -332,7 +332,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 print("Clicked 'Set Endpoint Visibility' menu item")
                 self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").wait_for(state="visible")
                 print("Dialog 'Set Endpoint Visibility' popup")
-                if self.page.locator(".pl-modal__container strong", has_text="Update Endpoint visibility").is_visible():
+                if self.page.locator(".pl-modal__container strong").is_visible():
                     if self.page.locator(".pl-table__cell label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE).is_visible():
                         self.page.locator(".pl-table__cell label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE).click()
                         print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE}' from Resource Name column")
@@ -432,8 +432,8 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             new_page.wait_for_load_state()
 
             print(f"Waiting for Swagger title '{app_name}' to be displayed.")
-            if Util.check_dom_visibility(new_page, new_page.locator("#swagger-ui h2.title", has_text=app_name), 5, 15, True):
-                new_page.locator("#swagger-ui h2.title", has_text=app_name).wait_for(state="visible")
+            if Util.check_dom_visibility(new_page, new_page.locator("h2.title", has_text=app_name), 5, 15, True):
+                new_page.locator("h2.title", has_text=app_name).wait_for(state="visible")
                 print(f"The Swagger title '{app_name}' is displayed.")
 
                 new_page.locator("#operations-Resource-post-resource .opblock-summary-control").click()

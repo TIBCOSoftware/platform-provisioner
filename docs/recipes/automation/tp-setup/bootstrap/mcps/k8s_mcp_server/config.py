@@ -11,6 +11,8 @@ Environment variables:
 - K8S_MCP_TIMEOUT: Custom timeout in seconds (default: 300)
 - K8S_MCP_MAX_OUTPUT: Maximum output size in characters (default: 100000)
 - K8S_MCP_TRANSPORT: Transport protocol to use ("stdio" or "sse" or "streamable-http", default: "stdio")
+- K8S_MCP_HOST: Host to bind the server to (default: "127.0.0.1")
+- K8S_MCP_PORT: Port to bind the server to (default: 8091)
 - K8S_CONTEXT: Kubernetes context to use (default: current context)
 - K8S_NAMESPACE: Kubernetes namespace to use (default: "default")
 - K8S_MCP_SECURITY_MODE: Security mode for command validation ("strict", "permissive", default: "strict")
@@ -26,6 +28,18 @@ MAX_OUTPUT_SIZE = int(os.environ.get("K8S_MCP_MAX_OUTPUT", "100000"))
 
 # Server settings
 MCP_TRANSPORT = os.environ.get("K8S_MCP_TRANSPORT", "stdio")  # Transport protocol: stdio or sse or streamable-http
+MCP_HOST = os.environ.get("K8S_MCP_HOST", "0.0.0.0")  # Host to bind the server to
+MCP_PORT = int(os.environ.get("K8S_MCP_PORT", "8091"))  # Port to bind the server to
+MCP_INITIALIZATION_TIMEOUT = int(os.environ.get("K8S_MCP_INIT_TIMEOUT", "30"))  # Server initialization timeout
+MCP_STARTUP_DELAY = float(os.environ.get("K8S_MCP_STARTUP_DELAY", "2.0"))  # Additional startup delay for streamable-http
+
+# Additional server settings for HTTP transport
+MCP_DEBUG = os.environ.get("K8S_MCP_DEBUG", "false").lower() == "true"  # Enable debug logging
+MCP_CORS_ORIGINS = os.environ.get("K8S_MCP_CORS_ORIGINS", "*")  # CORS origins
+MCP_LOG_REQUESTS = os.environ.get("K8S_MCP_LOG_REQUESTS", "true").lower() == "true"  # Log HTTP requests
+
+# Authentication settings
+MCP_HTTP_BEARER_TOKEN = os.environ.get("K8S_MCP_HTTP_BEARER_TOKEN", "")  # Bearer token for HTTP authentication
 
 # Kubernetes specific settings
 K8S_CONTEXT = os.environ.get("K8S_CONTEXT", "")  # Empty means use current context
@@ -51,6 +65,10 @@ SUPPORTED_CLI_TOOLS = {
     },
     "argocd": {
         "check_cmd": "argocd version --client",
+        "help_flag": "--help",
+    },
+    "tibcop": {
+        "check_cmd": "tibcop --version",
         "help_flag": "--help",
     },
 }

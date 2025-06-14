@@ -1,3 +1,8 @@
+## [06/13/2025 16:39]
+### Fixed
+- Fix the issue that the endpoint visibility cannot be set correctly when setting the endpoint visibility of the bw app
+- Fix the issue that the dom xpath is incorrect when judging whether the swagger UI title is displayed
+
 ## [06/12/2025 11:57]
 ### Added
 - Add tooltips for CP URL and CLI Token input field in One-Click Setup CP UI

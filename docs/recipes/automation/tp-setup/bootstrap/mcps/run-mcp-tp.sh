@@ -7,4 +7,13 @@
 #
 
 set -e
-/tmp/auto-py-env/bin/fastmcp run -t streamable-http /app/mcps/tp_mcp_server/mcp-server.py
+
+# Run TIBCO Platform MCP Server using the main module
+# Set default environment variables for TIBCO Platform MCP
+export TP_MCP_TRANSPORT=${TP_MCP_TRANSPORT:-"streamable-http"}
+export TP_MCP_SERVER_HOST=${TP_MCP_SERVER_HOST:-"0.0.0.0"}
+export TP_MCP_SERVER_PORT=${TP_MCP_SERVER_PORT:-"8090"}
+export TP_MCP_HTTP_BEARER_TOKEN=${TP_MCP_HTTP_BEARER_TOKEN:-""}
+export TP_MCP_DEBUG=${TP_MCP_DEBUG:-"false"}
+
+cd /app/mcps && /tmp/auto-py-env/bin/python -m tp_mcp_server
