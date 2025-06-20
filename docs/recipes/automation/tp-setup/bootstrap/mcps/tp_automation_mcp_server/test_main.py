@@ -78,7 +78,7 @@ if __name__ == "__main__":
     
     if success:
         logger.info("All tests passed! 🎉")
-        logger.info("You can now run the server with: python -m tp_mcp_server")
+        logger.info("You can now run the server with: python -m tp_automation_mcp_server")
         sys.exit(0)
     else:
         logger.error("Some tests failed! ❌")

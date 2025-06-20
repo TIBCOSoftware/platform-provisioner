@@ -17,6 +17,8 @@ Environment variables:
 - K8S_NAMESPACE: Kubernetes namespace to use (default: "default")
 - K8S_MCP_SECURITY_MODE: Security mode for command validation ("strict", "permissive", default: "strict")
 - K8S_MCP_SECURITY_CONFIG: Path to YAML config file for security rules (default: None)
+- TIBCOP_CLI_CPURL: TIBCO Control Plane URL for tibcop authentication (required for tibcop commands)
+- TIBCOP_CLI_OAUTH_TOKEN: OAuth authentication token for tibcop (required for tibcop commands)
 """
 
 import os
@@ -44,6 +46,10 @@ MCP_HTTP_BEARER_TOKEN = os.environ.get("K8S_MCP_HTTP_BEARER_TOKEN", "")  # Beare
 # Kubernetes specific settings
 K8S_CONTEXT = os.environ.get("K8S_CONTEXT", "")  # Empty means use current context
 K8S_NAMESPACE = os.environ.get("K8S_NAMESPACE", "default")
+
+# TIBCO Platform CLI settings
+TIBCOP_CLI_CPURL = os.environ.get("TIBCOP_CLI_CPURL", "")  # TIBCO Control Plane URL
+TIBCOP_CLI_OAUTH_TOKEN = os.environ.get("TIBCOP_CLI_OAUTH_TOKEN", "")  # OAuth authentication token
 
 # Security settings
 SECURITY_MODE = os.environ.get("K8S_MCP_SECURITY_MODE", "strict")  # strict or permissive
@@ -82,14 +88,36 @@ Supported CLI tools:
 - istioctl: Command-line tool for Istio service mesh
 - helm: Kubernetes package manager
 - argocd: GitOps continuous delivery tool for Kubernetes
+- tibcop: TIBCO Platform CLI tool
 
 Available tools:
-- Use describe_kubectl, describe_helm, describe_istioctl, or describe_argocd to get documentation for CLI tools
-- Use execute_kubectl, execute_helm, execute_istioctl, or execute_argocd to run commands
+- Use describe_kubectl, describe_helm, describe_istioctl, describe_argocd, or describe_tibcop to get documentation for CLI tools
+- Use execute_kubectl, execute_helm, execute_istioctl, execute_argocd, or execute_tibcop to run commands
 
 Command execution supports Unix pipes (|) to filter or transform output:
   Example: kubectl get pods -o json | jq '.items[].metadata.name'
   Example: helm list | grep mysql
+
+TIBCO Platform CLI (tibcop) Usage:
+IMPORTANT: tibcop is designed for non-interactive use and must be configured with environment variables.
+Always use --json flag for machine-readable output and --onlyPrintScripts for script generation.
+
+Required environment variables for tibcop:
+  TIBCOP_CLI_CPURL: Control Plane URL (e.g., https://api.your-tibco-platform.com)
+  TIBCOP_CLI_OAUTH_TOKEN: OAuth authentication token
+
+Before running tibcop commands, ensure these environment variables are exported:
+  export TIBCOP_CLI_CPURL="https://api.your-tibco-platform.com"
+  export TIBCOP_CLI_OAUTH_TOKEN="your-oauth-token-here"
+
+The system will automatically use these environment variables when executing tibcop commands.
+If these variables are not set, tibcop commands will fail with authentication errors.
+
+Common tibcop patterns:
+  - List dataplanes: tibcop tplatform:list-dataplanes --json
+  - Register dataplane: tibcop tplatform:register-k8s-dataplane --onlyPrintScripts --name=dp-name
+  - Provision capability: tibcop tplatform:provision-capability --dataplane-name=dp-name --capability=FLOGO
+  - Create resources: tibcop tplatform:create-storage-resource-instance --dataplane-name=dp-name
 
 Use the built-in prompt templates for common Kubernetes tasks:
   - k8s_resource_status: Check status of Kubernetes resources

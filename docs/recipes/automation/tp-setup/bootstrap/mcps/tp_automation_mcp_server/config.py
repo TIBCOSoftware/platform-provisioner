@@ -19,11 +19,11 @@ def get_project_root():
     
     # Check if we're in a container environment
     if '/app/mcps' in script_dir:
-        # Container environment: /app/mcps/tp_mcp_server -> /app
+        # Container environment: /app/mcps/tp_automation_mcp_server -> /app
         return '/app'
     else:
         # Development environment: navigate up to platform-provisioner root
-        # From tp_mcp_server directory, go up 7 levels to reach platform-provisioner root
+        # From tp_automation_mcp_server directory, go up 7 levels to reach platform-provisioner root
         return os.path.abspath(os.path.join(script_dir, '../../../../../../..'))
 
 def get_automation_path():

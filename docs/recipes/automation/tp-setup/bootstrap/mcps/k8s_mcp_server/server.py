@@ -5,7 +5,7 @@
 """Main server implementation for K8s MCP Server.
 
 This module defines the MCP server instance and tool functions for Kubernetes CLI interaction,
-providing a standardized interface for kubectl, istioctl, helm, and argocd command execution
+providing a standardized interface for kubectl, istioctl, helm, argocd, and tibcop command execution
 and documentation.
 """
 
@@ -305,7 +305,7 @@ async def _execute_tool_command(tool: str, command: str, timeout: int | None, ct
     """Internal implementation for executing tool commands.
 
     Args:
-        tool: The CLI tool name (kubectl, istioctl, helm, argocd)
+        tool: The CLI tool name (kubectl, istioctl, helm, argocd, tibcop)
         command: The command to execute
         timeout: Optional timeout in seconds
         ctx: Optional MCP context for request tracking
@@ -559,6 +559,52 @@ async def describe_argocd(
         return CommandHelpResult(help_text=f"Error retrieving ArgoCD help: {str(e)}", status="error", error={"message": str(e), "code": "INTERNAL_ERROR"})
 
 
+@mcp.tool()
+@require_initialization
+async def describe_tibcop(
+    command: str | None = Field(description="Specific TIBCO Platform CLI command to get help for", default=None),
+    ctx: Context | None = None,
+) -> CommandHelpResult:
+    """Get documentation and help text for TIBCO Platform CLI commands.
+
+    IMPORTANT: tibcop is designed for non-interactive use. For automation:
+    - Set TIBCOP_CLI_CPURL and TIBCOP_CLI_OAUTH_TOKEN environment variables
+    - Use --json flag for machine-readable output
+    - Use --onlyPrintScripts flag for script generation
+    - Avoid interactive commands like 'login', 'init', 'add-profile'
+
+    Args:
+        command: Specific command or subcommand to get help for (e.g., 'tplatform', 'thub')
+        ctx: Optional MCP context for request tracking
+
+    Returns:
+        CommandHelpResult containing the help text
+    """
+    logger.info("Getting TIBCO Platform CLI documentation for command: %s", command or 'None')
+
+    # Check if tibcop is installed
+    cli_status = get_cli_status()
+    if not cli_status.get("tibcop", False):
+        message = "tibcop is not installed or not in PATH"
+        if ctx:
+            await ctx.error(message)
+        return CommandHelpResult(help_text=message, status="error")
+
+    try:
+        if ctx:
+            await ctx.info(f"Fetching TIBCO Platform CLI help for {command or 'general usage'}")
+
+        result = await get_command_help("tibcop", command)
+        if ctx and result.status == "error":
+            await ctx.error(f"Error retrieving TIBCO Platform CLI help: {result.help_text}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in describe_tibcop: {e}")
+        if ctx:
+            await ctx.error(f"Unexpected error retrieving TIBCO Platform CLI help: {str(e)}")
+        return CommandHelpResult(help_text=f"Error retrieving TIBCO Platform CLI help: {str(e)}", status="error", error={"message": str(e), "code": "INTERNAL_ERROR"})
+
+
 # Tool-specific command execution functions
 @mcp.tool(
     description="Execute kubectl commands with support for Unix pipes.",
@@ -699,3 +745,52 @@ async def execute_argocd(
         CommandResult containing output and status with structured error information
     """
     return await _execute_tool_command("argocd", command, timeout, ctx)
+
+
+@mcp.tool(
+    description="Execute TIBCO Platform CLI commands with support for Unix pipes.",
+)
+@require_initialization
+async def execute_tibcop(
+    command: str = Field(description="Complete TIBCO Platform CLI command to execute (including any pipes and flags)"),
+    timeout: int | None = Field(description="Maximum execution time in seconds (default: 300)", default=None),
+    ctx: Context | None = None,
+) -> CommandResult:
+    """Execute TIBCO Platform CLI commands with support for Unix pipes.
+
+    Executes tibcop commands with proper validation, error handling, and resource limits.
+    Supports piping output to standard Unix utilities for filtering and transformation.
+
+    IMPORTANT: tibcop is designed for non-interactive use with environment variables.
+    
+    Required environment variables:
+    - TIBCOP_CLI_CPURL: Control Plane URL
+    - TIBCOP_CLI_OAUTH_TOKEN: OAuth authentication token
+    
+    Recommended practices:
+    - Always use --json flag for machine-readable output
+    - Use --onlyPrintScripts for script generation without execution
+    - Set specific environment variables for dataplane operations
+
+    Security considerations:
+    - Commands are validated against security policies
+    - Authentication tokens and credentials are handled securely
+    - Interactive commands are restricted
+
+    Examples:
+        tibcop --help
+        tibcop list-profiles
+        tibcop tplatform:list-dataplanes --json
+        tibcop tplatform:register-k8s-dataplane --onlyPrintScripts --name=dp-name
+        tibcop tplatform:provision-capability --dataplane-name=dp-name --capability=FLOGO
+        tibcop tplatform:list-resource-instances --dataplane-name=dp-name --json | jq '.[]'
+
+    Args:
+        command: Complete TIBCO Platform CLI command to execute (can include Unix pipes)
+        timeout: Optional timeout in seconds
+        ctx: Optional MCP context for request tracking
+
+    Returns:
+        CommandResult containing output and status with structured error information
+    """
+    return await _execute_tool_command("tibcop", command, timeout, ctx)

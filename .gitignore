@@ -30,6 +30,9 @@ Temporary Items
 # Chart dependencies
 **/charts/*.tgz
 
+/.venv/
+/.vscode/
+/.history/
 /docs/recipes/automation/1.3/
 /docs/recipes/automation/1.4/
 /docs/recipes/automation/gcp/

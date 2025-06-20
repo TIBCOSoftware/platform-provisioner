@@ -58,6 +58,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             if is_eula_loaded:
                 self.page.locator(".eula-container input").click()
                 print("Clicked Flogo 'EUA' checkbox")
+                self.page.wait_for_timeout(500)
                 self.page.locator("#qaProvisionFlogo").click()
                 print("Clicked 'Flogo Provision Capability' button, waiting for Flogo Capability Provision Request Completed")
                 # TODO: success message may not pop up, need to handle this case

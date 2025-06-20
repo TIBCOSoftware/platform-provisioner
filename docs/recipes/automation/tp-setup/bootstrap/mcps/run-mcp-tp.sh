@@ -16,4 +16,4 @@ export TP_MCP_SERVER_PORT=${TP_MCP_SERVER_PORT:-"8090"}
 export TP_MCP_HTTP_BEARER_TOKEN=${TP_MCP_HTTP_BEARER_TOKEN:-""}
 export TP_MCP_DEBUG=${TP_MCP_DEBUG:-"false"}
 
-cd /app/mcps && /tmp/auto-py-env/bin/python -m tp_mcp_server
+cd /app/mcps && /tmp/auto-py-env/bin/python -m tp_automation_mcp_server

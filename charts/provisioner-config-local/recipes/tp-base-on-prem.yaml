@@ -367,7 +367,7 @@ helmCharts:
         enabled: true
         image:
           repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.4.1-auto-on-prem-jammy
+          tag: 1.4.2-auto-on-prem-jammy
         ports:
           http:
             enabled: true
@@ -383,6 +383,19 @@ helmCharts:
             protocol: TCP
             containerPort: 8091
             servicePort: 8091
+        env:
+        - name: K8S_MCP_TRANSPORT
+          value: "sse" # "streamable-http" or "sse"
+        - name: K8S_MCP_HTTP_BEARER_TOKEN
+          value: ""
+        - name: K8S_MCP_DEBUG
+          value: "false"
+        - name: TP_MCP_TRANSPORT
+          value: "sse" # "streamable-http" or "sse"
+        - name: TP_MCP_HTTP_BEARER_TOKEN
+          value: ""
+        - name: TP_MCP_DEBUG
+          value: "false"
         others:
           dnsPolicy: ClusterFirstWithHostNet
           # hostNetwork: true
@@ -434,7 +447,7 @@ helmCharts:
   version: 1.4.0
   condition: ${TP_AUTOMATION_INSTALL}
   namespace: ${TP_AUTOMATION_NAMESPACE}
-  releaseName: mcp-infra-tp
+  releaseName: mcp-infra-tp-automation
   repo:
     helm:
       url: https://test-server.github.yyzd.me
@@ -449,7 +462,7 @@ helmCharts:
         spec:
           ingressClassName: ${TP_PROVISIONER_UI_INGRESS_CLASSNAME}
           rules:
-            - host: 'mcp-infra-tp.${TP_DNS_DOMAIN}'
+            - host: 'mcp-infra-tp-automation.${TP_DNS_DOMAIN}'
               http:
                 paths:
                   - path: /

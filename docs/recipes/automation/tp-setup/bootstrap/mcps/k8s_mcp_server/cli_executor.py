@@ -12,6 +12,7 @@ validation, context/namespace injection, and resource limitations.
 
 import asyncio
 import logging
+import os
 import shlex
 import time
 from asyncio.subprocess import PIPE
@@ -22,6 +23,8 @@ from .config import (
     K8S_NAMESPACE,
     MAX_OUTPUT_SIZE,
     SUPPORTED_CLI_TOOLS,
+    TIBCOP_CLI_CPURL,
+    TIBCOP_CLI_OAUTH_TOKEN,
 )
 from .errors import (
     AuthenticationError,
@@ -44,7 +47,7 @@ async def check_cli_installed(cli_tool: str) -> bool:
     """Check if a Kubernetes CLI tool is installed and accessible.
 
     Args:
-        cli_tool: Name of the CLI tool to check (kubectl, istioctl, helm, argocd)
+        cli_tool: Name of the CLI tool to check (kubectl, istioctl, helm, argocd, tibcop)
 
     Returns:
         True if the CLI tool is installed, False otherwise
@@ -169,6 +172,9 @@ async def execute_command(command: str, timeout: int | None = None) -> CommandRe
     logger.debug("Executing %s command: %s", "piped" if is_piped else "direct", actual_command)
     start_time = time.time()
 
+    # Prepare environment variables for the command
+    command_env = prepare_command_environment(actual_command or "")
+
     try:
         if is_piped:
             # Execute piped commands by using shell with proper pipe handling
@@ -184,6 +190,7 @@ async def execute_command(command: str, timeout: int | None = None) -> CommandRe
                 full_piped_command,
                 stdout=PIPE,
                 stderr=PIPE,
+                env=command_env,
             )
         else:
             # Use safer create_subprocess_exec for non-piped commands
@@ -192,6 +199,7 @@ async def execute_command(command: str, timeout: int | None = None) -> CommandRe
                 *cmd_args,
                 stdout=PIPE,
                 stderr=PIPE,
+                env=command_env,
             )
 
         # Wait for the process to complete with timeout
@@ -487,3 +495,39 @@ async def get_command_help(cli_tool: str, command: str | None = None) -> Command
             status="error",
             error={"message": f"Error retrieving help: {str(e)}", "code": "INTERNAL_ERROR"},
         )
+
+
+def prepare_command_environment(command: str) -> dict:
+    """Prepare environment variables for command execution.
+    
+    For tibcop commands, ensures TIBCOP_CLI_CPURL and TIBCOP_CLI_OAUTH_TOKEN 
+    environment variables are available.
+    
+    Args:
+        command: The command to be executed
+        
+    Returns:
+        Dictionary of environment variables to be passed to the subprocess
+    """
+    # Start with current environment
+    env = os.environ.copy()
+    
+    # Add specific environment variables for tibcop commands
+    if command.strip().startswith('tibcop'):
+        if TIBCOP_CLI_CPURL:
+            env['TIBCOP_CLI_CPURL'] = TIBCOP_CLI_CPURL
+        if TIBCOP_CLI_OAUTH_TOKEN:
+            env['TIBCOP_CLI_OAUTH_TOKEN'] = TIBCOP_CLI_OAUTH_TOKEN
+            
+        # Log environment variable status for debugging
+        if TIBCOP_CLI_CPURL:
+            logger.debug("TIBCOP_CLI_CPURL environment variable is set")
+        else:
+            logger.warning("TIBCOP_CLI_CPURL environment variable is not set - tibcop commands may fail")
+            
+        if TIBCOP_CLI_OAUTH_TOKEN:
+            logger.debug("TIBCOP_CLI_OAUTH_TOKEN environment variable is set")
+        else:
+            logger.warning("TIBCOP_CLI_OAUTH_TOKEN environment variable is not set - tibcop commands may fail")
+    
+    return env

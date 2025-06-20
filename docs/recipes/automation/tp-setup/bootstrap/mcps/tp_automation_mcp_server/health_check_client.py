@@ -60,7 +60,7 @@ def main():
     else:
         logger.error("💥 Health check failed!")
         logger.error("Please check if the server is running:")
-        logger.error("  python -m tp_mcp_server")
+        logger.error("  python -m tp_automation_mcp_server")
         sys.exit(1)
 
 if __name__ == "__main__":

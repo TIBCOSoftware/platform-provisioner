@@ -1,3 +1,8 @@
+## [06/16/2025 23:41]
+### Fixed
+- Fix the issue that the Set Endpoint visibility dialog cannot be found when setting Endpoint visibility for bwce
+- Fix the issue that clicking the provision button does not respond when provisioning flogo/bwce
+
 ## [06/13/2025 16:39]
 ### Fixed
 - Fix the issue that the endpoint visibility cannot be set correctly when setting the endpoint visibility of the bw app

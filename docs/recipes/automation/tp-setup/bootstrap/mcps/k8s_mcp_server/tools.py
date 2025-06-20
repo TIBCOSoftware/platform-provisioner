@@ -81,6 +81,7 @@ ALLOWED_K8S_TOOLS = [
     "istioctl",
     "helm",
     "argocd",
+    "tibcop",
 ]
 
 

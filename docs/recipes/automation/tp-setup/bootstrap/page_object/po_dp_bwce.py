@@ -53,6 +53,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             print("Clicked BWCE 'Next' button, finished step 1")
             self.page.locator(".resource-agree label").click()
             print("Clicked BWCE 'EUA' checkbox")
+            self.page.wait_for_timeout(500)
             self.page.locator("#btnNextCapabilityProvision", has_text="BWCE Provision Capability").click()
             print("Clicked 'BWCE Provision Capability' button, waiting for BWCE Capability Provision Request Completed")
             if Util.check_dom_visibility(self.page, self.page.locator(".resource-success .title", has_text="Capability Provision Request Completed"), 5, 120):
@@ -332,7 +333,8 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 print("Clicked 'Set Endpoint Visibility' menu item")
                 self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").wait_for(state="visible")
                 print("Dialog 'Set Endpoint Visibility' popup")
-                if self.page.locator(".pl-modal__container strong").is_visible():
+                texts = self.page.locator(".pl-modal__container strong").all_inner_texts()
+                if any(t in ["Set Endpoint visibility", "Update Endpoint visibility"] for t in texts):
                     if self.page.locator(".pl-table__cell label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE).is_visible():
                         self.page.locator(".pl-table__cell label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE).click()
                         print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE}' from Resource Name column")
