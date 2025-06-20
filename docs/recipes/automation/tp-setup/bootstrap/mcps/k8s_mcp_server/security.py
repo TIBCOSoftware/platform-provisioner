@@ -56,6 +56,16 @@ DEFAULT_DANGEROUS_COMMANDS: dict[str, list[str]] = {
         "argocd repo rm",
         "argocd app set",  # Could modify application settings
     ],
+    "tibcop": [
+        "tibcop remove-profile",  # Could remove important profiles
+        "tibcop clean-all",  # Could remove all configurations
+        "tibcop rp",  # Alias for remove-profile
+        "tibcop login",  # Interactive authentication
+        "tibcop init",  # Interactive initialization
+        "tibcop initialize",  # Interactive initialization
+        "tibcop add-profile",  # Could be interactive
+        "tibcop ap",  # Alias for add-profile
+    ],
 }
 
 # Default dictionary of safe patterns that override the dangerous commands
@@ -91,6 +101,24 @@ DEFAULT_SAFE_PATTERNS: dict[str, list[str]] = {
         "argocd cluster rm --help",
         "argocd repo rm --help",
         "argocd app set --help",
+    ],
+    "tibcop": [
+        "tibcop remove-profile --help",
+        "tibcop clean-all --help",
+        "tibcop rp --help",
+        "tibcop --help",
+        "tibcop list-profiles",
+        "tibcop lp",
+        "tibcop tplatform --help",
+        "tibcop thub --help",
+        "tibcop tplatform:list-dataplanes --json",
+        "tibcop tplatform:register-k8s-dataplane --onlyPrintScripts",
+        "tibcop tplatform:unregister-dataplane --onlyPrintScripts",
+        "tibcop tplatform:provision-capability",
+        "tibcop tplatform:create-storage-resource-instance",
+        "tibcop tplatform:create-ingress-resource-instance",
+        "tibcop tplatform:list-resource-instances --json",
+        "tibcop --version",
     ],
 }
 

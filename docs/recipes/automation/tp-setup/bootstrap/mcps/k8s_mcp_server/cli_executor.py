@@ -12,6 +12,7 @@ validation, context/namespace injection, and resource limitations.
 
 import asyncio
 import logging
+import os
 import shlex
 import time
 from asyncio.subprocess import PIPE
@@ -22,6 +23,8 @@ from .config import (
     K8S_NAMESPACE,
     MAX_OUTPUT_SIZE,
     SUPPORTED_CLI_TOOLS,
+    TIBCOP_CLI_CPURL,
+    TIBCOP_CLI_OAUTH_TOKEN,
 )
 from .errors import (
     AuthenticationError,
@@ -44,7 +47,7 @@ async def check_cli_installed(cli_tool: str) -> bool:
     """Check if a Kubernetes CLI tool is installed and accessible.
 
     Args:
-        cli_tool: Name of the CLI tool to check (kubectl, istioctl, helm, argocd)
+        cli_tool: Name of the CLI tool to check (kubectl, istioctl, helm, argocd, tibcop)
 
     Returns:
         True if the CLI tool is installed, False otherwise
@@ -130,14 +133,32 @@ async def execute_command(command: str, timeout: int | None = None) -> CommandRe
 
     # Handle piped commands
     is_piped = is_pipe_command(command)
+    full_piped_command = None  # Initialize to None
+    
     if is_piped:
         commands = split_pipe_command(command)
-        first_command = inject_context_namespace(commands[0])
-
-        # We'll execute the commands separately and handle piping ourselves
-        command_list = [first_command]
-        if len(commands) > 1:
-            command_list.extend(commands[1:])
+        logger.debug("Split pipe command into %d parts: %s", len(commands), commands)
+        
+        if not commands:
+            raise CommandExecutionError("Failed to split piped command", {"command": command})
+        
+        # Process each command in the pipe, applying context/namespace injection where needed
+        processed_commands = []
+        for i, cmd in enumerate(commands):
+            if not cmd.strip():
+                logger.warning("Empty command found in pipe at position %d", i)
+                continue
+            # Apply context/namespace injection to each kubectl/istioctl command in the pipe
+            processed_cmd = inject_context_namespace(cmd.strip())
+            processed_commands.append(processed_cmd)
+            logger.debug("Processed command %d: %s -> %s", i, cmd.strip(), processed_cmd)
+        
+        if not processed_commands:
+            raise CommandExecutionError("No valid commands found in pipe", {"command": command})
+        
+        # Reconstruct the full command with pipes for shell execution
+        full_piped_command = " | ".join(processed_commands)
+        logger.debug("Reconstructed piped command: %s", full_piped_command)
     else:
         # Handle context and namespace for non-piped commands
         command = inject_context_namespace(command)
@@ -146,43 +167,31 @@ async def execute_command(command: str, timeout: int | None = None) -> CommandRe
     if timeout is None:
         timeout = DEFAULT_TIMEOUT
 
-    logger.debug(f"Executing {'piped ' if is_piped else ''}command: {command}")
+    # Log the command that will actually be executed
+    actual_command = full_piped_command if is_piped else command
+    logger.debug("Executing %s command: %s", "piped" if is_piped else "direct", actual_command)
     start_time = time.time()
+
+    # Prepare environment variables for the command
+    command_env = prepare_command_environment(actual_command or "")
 
     try:
         if is_piped:
-            # Execute piped commands securely by chaining them
-            processes = []
-
-            # Split commands for secure execution
-            for i, cmd in enumerate(command_list):
-                cmd_args = shlex.split(cmd)
-
-                if i == 0:  # First command
-                    # First process writes to a pipe
-                    first_process = await asyncio.create_subprocess_exec(
-                        *cmd_args,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=PIPE,
-                    )
-                    processes.append(first_process)
-                    prev_stdout = first_process.stdout
-
-                else:  # Middle or last commands
-                    # Read from previous process's stdout, write to pipe (except last command)
-                    next_process = await asyncio.create_subprocess_exec(
-                        *cmd_args,
-                        stdin=prev_stdout,
-                        stdout=PIPE if i < len(command_list) - 1 else PIPE,
-                        stderr=PIPE,
-                    )
-                    processes.append(next_process)
-                    if i < len(command_list) - 1:
-                        prev_stdout = next_process.stdout
-
-            # We only need to communicate with the last process to get the final output
-            last_process = processes[-1]
-            process = last_process
+            # Execute piped commands by using shell with proper pipe handling
+            # This is safer than trying to manually chain asyncio processes
+            # which can cause StreamReader fileno() issues
+            
+            # Ensure we have a command to execute
+            if full_piped_command is None:
+                raise CommandExecutionError("Failed to construct piped command", {"command": command})
+            
+            # Use shell=True for pipe commands to let the shell handle piping
+            process = await asyncio.create_subprocess_shell(
+                full_piped_command,
+                stdout=PIPE,
+                stderr=PIPE,
+                env=command_env,
+            )
         else:
             # Use safer create_subprocess_exec for non-piped commands
             cmd_args = shlex.split(command)
@@ -190,6 +199,7 @@ async def execute_command(command: str, timeout: int | None = None) -> CommandRe
                 *cmd_args,
                 stdout=PIPE,
                 stderr=PIPE,
+                env=command_env,
             )
 
         # Wait for the process to complete with timeout
@@ -485,3 +495,39 @@ async def get_command_help(cli_tool: str, command: str | None = None) -> Command
             status="error",
             error={"message": f"Error retrieving help: {str(e)}", "code": "INTERNAL_ERROR"},
         )
+
+
+def prepare_command_environment(command: str) -> dict:
+    """Prepare environment variables for command execution.
+    
+    For tibcop commands, ensures TIBCOP_CLI_CPURL and TIBCOP_CLI_OAUTH_TOKEN 
+    environment variables are available.
+    
+    Args:
+        command: The command to be executed
+        
+    Returns:
+        Dictionary of environment variables to be passed to the subprocess
+    """
+    # Start with current environment
+    env = os.environ.copy()
+    
+    # Add specific environment variables for tibcop commands
+    if command.strip().startswith('tibcop'):
+        if TIBCOP_CLI_CPURL:
+            env['TIBCOP_CLI_CPURL'] = TIBCOP_CLI_CPURL
+        if TIBCOP_CLI_OAUTH_TOKEN:
+            env['TIBCOP_CLI_OAUTH_TOKEN'] = TIBCOP_CLI_OAUTH_TOKEN
+            
+        # Log environment variable status for debugging
+        if TIBCOP_CLI_CPURL:
+            logger.debug("TIBCOP_CLI_CPURL environment variable is set")
+        else:
+            logger.warning("TIBCOP_CLI_CPURL environment variable is not set - tibcop commands may fail")
+            
+        if TIBCOP_CLI_OAUTH_TOKEN:
+            logger.debug("TIBCOP_CLI_OAUTH_TOKEN environment variable is set")
+        else:
+            logger.warning("TIBCOP_CLI_OAUTH_TOKEN environment variable is not set - tibcop commands may fail")
+    
+    return env

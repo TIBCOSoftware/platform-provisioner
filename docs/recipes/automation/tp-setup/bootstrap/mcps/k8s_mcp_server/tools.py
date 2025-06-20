@@ -81,6 +81,7 @@ ALLOWED_K8S_TOOLS = [
     "istioctl",
     "helm",
     "argocd",
+    "tibcop",
 ]
 
 
@@ -185,8 +186,8 @@ def split_pipe_command(pipe_command: str) -> list[str]:
     Returns:
         List of individual command strings
     """
-    if not pipe_command:
-        return [""]  # Return a list with an empty string for empty input
+    if not pipe_command or not pipe_command.strip():
+        return []  # Return empty list for empty/whitespace-only input
 
     commands = []
     current_command = ""

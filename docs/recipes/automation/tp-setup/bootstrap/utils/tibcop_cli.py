@@ -40,6 +40,23 @@ class TibcopCliHandler:
             **(self.CUSTOM_ENV or {}),
             **(custom_env_dict or {}),
         }
+        
+        # Ensure TIBCO Platform CLI environment variables are set for tibcop commands
+        if command.strip().startswith('tibcop'):
+            # Get TIBCO CLI environment variables from system environment
+            tibco_cpurl = os.environ.get("TIBCOP_CLI_CPURL")
+            tibco_token = os.environ.get("TIBCOP_CLI_OAUTH_TOKEN")
+            
+            if tibco_cpurl:
+                env_vars["TIBCOP_CLI_CPURL"] = tibco_cpurl
+            else:
+                print("WARNING: TIBCOP_CLI_CPURL environment variable is not set")
+                
+            if tibco_token:
+                env_vars["TIBCOP_CLI_OAUTH_TOKEN"] = tibco_token
+            else:
+                print("WARNING: TIBCOP_CLI_OAUTH_TOKEN environment variable is not set")
+        
         print(f"Running script:")
         print(command)
         result = subprocess.run(command, shell=True,capture_output=True, text=True, env=env_vars)
