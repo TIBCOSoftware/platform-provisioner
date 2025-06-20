@@ -31,7 +31,7 @@ export TP_MCP_HTTP_BEARER_TOKEN="your-secret-token"
 export TP_MCP_DEBUG="true"
 
 # Start server
-python -m tp_mcp_server
+python -m tp_automation_mcp_server
 ```
 
 ## Modified Files

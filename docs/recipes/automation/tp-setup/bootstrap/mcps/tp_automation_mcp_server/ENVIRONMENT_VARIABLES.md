@@ -32,7 +32,7 @@ Bearer Token can be used for server authentication:
 export TP_MCP_HTTP_BEARER_TOKEN="your-secret-bearer-token"
 
 # Start server
-python -m tp_mcp_server
+python -m tp_automation_mcp_server
 ```
 
 Server startup will display:
@@ -92,5 +92,5 @@ export TP_MCP_HTTP_BEARER_TOKEN="my-secure-token"
 export TP_MCP_DEBUG="false"
 
 # Start server
-python -m tp_mcp_server
+python -m tp_automation_mcp_server
 ```

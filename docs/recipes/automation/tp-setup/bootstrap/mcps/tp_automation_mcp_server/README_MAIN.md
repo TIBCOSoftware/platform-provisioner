@@ -20,7 +20,7 @@ The server is structured as a Python package with the following components:
 ```bash
 # From the mcps directory
 cd /path/to/mcps
-python -m tp_mcp_server
+python -m tp_automation_mcp_server
 ```
 
 ### Using the Shell Script

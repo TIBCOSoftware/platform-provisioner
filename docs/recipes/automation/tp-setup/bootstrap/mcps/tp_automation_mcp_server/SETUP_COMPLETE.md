@@ -12,7 +12,7 @@ I've successfully created a main module setup for the TIBCO Platform MCP Server,
 - **`health_check_client.py`** - Health check client script
 
 ### Modified Files:
-- **`run-mcp-tp.sh`** - Updated to use `python -m tp_mcp_server`
+- **`run-mcp-tp.sh`** - Updated to use `python -m tp_automation_mcp_server`
 - **All `*_tools.py` files** - Fixed relative imports 
 - **`mcp_server.py`** - Fixed relative imports
 - **`automation_executor.py`** - Fixed relative imports
@@ -23,7 +23,7 @@ I've successfully created a main module setup for the TIBCO Platform MCP Server,
 ### 1. Start the Server (Recommended Method)
 ```bash
 cd /path/to/mcps
-python -m tp_mcp_server
+python -m tp_automation_mcp_server
 ```
 
 ### 2. Using the Shell Script
