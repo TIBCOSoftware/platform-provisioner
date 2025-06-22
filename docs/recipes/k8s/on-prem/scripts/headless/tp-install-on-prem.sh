@@ -112,6 +112,13 @@ function check-yq() {
 
     exit 1
   fi
+
+  # Check yq version, which should be 4.x
+  yq_version=$(yq --version | awk '{print $4}' | cut -c 2)
+  if [ "$yq_version" != "4" ]; then
+    echo "Error: yq version 4 is required. Please check your yq version."
+    exit 1
+  fi
 }
 
 function main() {
