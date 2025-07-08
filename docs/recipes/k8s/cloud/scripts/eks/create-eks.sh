@@ -14,6 +14,7 @@
 #   TP_CLUSTER_VPC_CIDR: The VPC CIDR
 #   TP_CLUSTER_INSTANCE_TYPE: The instance type
 #   TP_CLUSTER_DESIRED_CAPACITY: The desired capacity
+#   TP_ADDON_METRICS_SERVER_ENABLE: Enable metrics server
 #   TP_CLUSTER_ENABLE_NETWORK_POLICY: Use AWS CNI for network policy
 # Arguments:
 #   None
@@ -29,6 +30,7 @@ export TP_CLUSTER_NAME=${TP_CLUSTER_NAME:-"tp-cluster"}
 export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.31"}
 export TP_CLUSTER_REGION=${TP_CLUSTER_REGION:-"us-west-2"}
 export TP_CLUSTER_VPC_CIDR=${TP_CLUSTER_VPC_CIDR:-"10.180.0.0/16"}
+export TP_ADDON_METRICS_SERVER_ENABLE=${TP_ADDON_METRICS_SERVER_ENABLE:-"false"}
 export TP_CLUSTER_INSTANCE_TYPE=${TP_CLUSTER_INSTANCE_TYPE:-"m5a.xlarge"}
 export TP_CLUSTER_DESIRED_CAPACITY=${TP_CLUSTER_DESIRED_CAPACITY:-"2"}
 export TP_CLUSTER_ENABLE_NETWORK_POLICY=${TP_CLUSTER_ENABLE_NETWORK_POLICY:-"true"}
@@ -88,6 +90,8 @@ vpc:
     publicAccess: true
   publicAccessCIDRs:
     - 0.0.0.0/0
+addonsConfig:
+  disableDefaultAddons: true
 addons:
   - name: vpc-cni # no version is specified so it deploys the default version
     attachPolicyARNs:
@@ -117,6 +121,16 @@ addons:
     wellKnownPolicies:      # add IAM and service account
       efsCSIController: true
 EOF
+
+if [ "${TP_ADDON_METRICS_SERVER_ENABLE}" == "true" ]; then
+  yq e '.addons += {"name": "metrics-server", "version": "latest", "resolveConflicts": "preserve"}' -i eksctl-config.yaml
+  [ "${_no_echo_messages}" == "1" ] || { echo "Addon for Metrics Server is enabled in the recipe"; }
+else
+  [ "${_no_echo_messages}" == "1" ] || { echo "Addon for Metrics Server is not enabled in the recipe. Please install metrics server separately using k8s / helm"; }
+fi
+
+[ "${_no_echo_messages}" == "1" ] || { echo "Generating eksctl-config.yaml"; }
+cat eksctl-config.yaml
 
 echo "create cluster ${TP_CLUSTER_NAME} with eksctl-config.yaml"
 cat eksctl-config.yaml
