@@ -542,24 +542,30 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION"
   description: ""
-- name: "Install integration BWCE"
+- name: "Install integration BW"
   groupIndex: 10
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE"
-  description: ""
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW"
+  description: "New values for 1.8.0 and later"
 - name: "Install integration BWCE utilities"
   groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES"
   description: "This will create 3 jobs to install BWCE utilities. Each will download 1.5GB of data"
+- name: "Install integration BWCE"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE"
+  description: "Values for before 1.8.0; will be removed"
 - name: "Install integration BW5"
   groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5"
-  description: ""
+  description: "Values for before 1.8.0; will be removed"
 - name: "Install integration Flogo"
   groupIndex: 10
   type: boolean

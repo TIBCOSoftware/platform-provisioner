@@ -119,6 +119,7 @@ meta:
     GUI_CP_INSTALL_HAWK: true
     GUI_CP_INSTALL_RECIPES: true
     GUI_CP_INSTALL_INTEGRATION: true
+    GUI_CP_INSTALL_INTEGRATION_BW: true
     GUI_CP_INSTALL_INTEGRATION_BWCE: true
     GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES: true
     GUI_CP_INSTALL_INTEGRATION_BW5: true
@@ -255,9 +256,10 @@ meta:
     CP_INSTALL_HAWK: ${GUI_CP_INSTALL_HAWK:-true}
     CP_INSTALL_RECIPES: ${GUI_CP_INSTALL_RECIPES:-true}
     CP_INSTALL_INTEGRATION: ${GUI_CP_INSTALL_INTEGRATION:-true}
-    CP_INSTALL_INTEGRATION_BWCE: ${GUI_CP_INSTALL_INTEGRATION_BWCE:-true}
+    CP_INSTALL_INTEGRATION_BW: ${GUI_CP_INSTALL_INTEGRATION_BW:-true} # Env added after 1.8.0
+    CP_INSTALL_INTEGRATION_BWCE: ${GUI_CP_INSTALL_INTEGRATION_BWCE:-true} # Env for before 1.8.0
     CP_INSTALL_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES:-true}
-    CP_INSTALL_INTEGRATION_BW5: ${GUI_CP_INSTALL_INTEGRATION_BW5:-true}
+    CP_INSTALL_INTEGRATION_BW5: ${GUI_CP_INSTALL_INTEGRATION_BW5:-true} # Env for before 1.8.0
     CP_INSTALL_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_INTEGRATION_FLOGO:-true}
     CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES:-true}
   tools:
@@ -818,6 +820,17 @@ helmCharts:
               limits:
                 cpu: 200m
                 memory: 200Mi
+        tp-cp-integration-bw:
+          enabled: ${CP_INSTALL_INTEGRATION_BW}
+          bw-webserver:
+            bwwebserver:
+              resources:
+                requests:
+                  cpu: ${CP_RESOURCES_REQUEST_CPU}
+                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
+                limits:
+                  cpu: 200m
+                  memory: 200Mi
         tp-cp-integration-bwce:
           enabled: ${CP_INSTALL_INTEGRATION_BWCE}
           bw-webserver:
