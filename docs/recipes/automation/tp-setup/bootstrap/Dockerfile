@@ -25,6 +25,6 @@ RUN python3.11 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER} && \
 
 ENV PATH="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin:$PATH"
 
-EXPOSE 3120 8090 8091
+EXPOSE 3120 8090
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
