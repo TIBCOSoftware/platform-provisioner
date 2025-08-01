@@ -38,7 +38,7 @@ fi
 
 # Accept the integer input from the user
 recipe_template='
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
@@ -63,7 +63,8 @@ ${pipeline_recipe}
       value: "${region}"
   pipelineRef:
     name: "${pipeline_name}"
-  serviceAccountName: ${pipeline_service_account_name}
+  taskRunTemplate:
+    serviceAccountName: ${pipeline_service_account_name}
   timeouts:
     finally: 5m0s
     pipeline: 2h0m0s
