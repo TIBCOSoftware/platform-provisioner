@@ -31,8 +31,8 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.8.0
-    GUI_CP_PLATFORM_BASE_VERSION: 1.8.0
+    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.9.0
+    GUI_CP_PLATFORM_BASE_VERSION: 1.9.0
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -202,6 +202,8 @@ meta:
     CP_DB_SSL_MODE: ${GUI_CP_DB_SSL_MODE:-"disable"} # verify-full, disable
     CP_DB_SSL_ROOT_CERT: ${GUI_CP_DB_SSL_ROOT_CERT:-""}
     CP_DB_DELETE_ON_UNINSTALL: ${GUI_CP_DB_DELETE_ON_UNINSTALL:-"false"}
+    CP_ENCRYPTION_SECRET_NAME: ${GUI_CP_ENCRYPTION_SECRET_NAME:-"cporch-encryption-secret"}
+    CP_ENCRYPTION_SECRET_KEY: ${GUI_CP_ENCRYPTION_SECRET_KEY:-"CP_ENCRYPTION_SECRET"}
     CP_DB_SSL_ROOT_CERT_SECRET_NAME: ${GUI_CP_DB_SSL_ROOT_CERT_SECRET_NAME:-"db-ssl-root-cert"}
     CP_DB_SSL_ROOT_CERT_FILENAME: ${GUI_CP_DB_SSL_ROOT_CERT_FILENAME:-"db_ssl_root.cert"}
 
@@ -239,8 +241,8 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.8.0} # use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.8.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.9.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.9.0} # use ^1.0.0 for latest
 
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}
@@ -545,70 +547,69 @@ helmCharts:
   values:
     keepPrevious: false
     content: |
-      tp-cp-bootstrap:
-        compute-services:
-          enabled: true
-          resources:
-            requests:
-              cpu: ${CP_RESOURCES_REQUEST_CPU}
-              memory: ${CP_RESOURCES_REQUEST_MEMORY}
-            limits:
-              cpu: 1250m
-              memory: 1000Mi
-        hybrid-proxy:
-          enabled: true
-          resources:
-            requests:
-              cpu: ${CP_RESOURCES_REQUEST_CPU}
-              memory: ${CP_RESOURCES_REQUEST_MEMORY}
-            limits:
-              cpu: 1250m
-              memory: 1000Mi
-          ingress:
-            enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY}
-            annotations:
-              external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
-              nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-            ingressClassName: ${CP_INGRESS_CLASSNAME}
-            hosts:
-              - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
-                paths:
-                  - path: /
-                    pathType: Prefix
-                    port: 105
-        router-operator:
-          enabled: true
-          resources:
-            requests:
-              cpu: ${CP_RESOURCES_REQUEST_CPU}
-              memory: ${CP_RESOURCES_REQUEST_MEMORY}
-            limits:
-              cpu: 3000m
-              memory: 1000Mi
-          ingress:
-            enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER}
-            annotations:
-              external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
-              nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
-              nginx.ingress.kubernetes.io/proxy-body-size: 200m # set to 200m to allow large file upload PCP-7954
-            ingressClassName: ${CP_INGRESS_CLASSNAME}
-            hosts:
-              - host: '*.${CP_SERVICE_DNS_DOMAIN}'
-                paths:
-                  - path: /
-                    pathType: Prefix
-                    port: 100
-        resource-set-operator:
-          enabled: true
-          resources:
-            requests:
-              cpu: ${CP_RESOURCES_REQUEST_CPU}
-              memory: ${CP_RESOURCES_REQUEST_MEMORY}
-            limits:
-              cpu: 1000m
-              memory: 1000Mi
-        otel-collector:
-          enabled: ${CP_LOG_ENABLE}
+      compute-services:
+        enabled: true
+        resources:
+          requests:
+            cpu: ${CP_RESOURCES_REQUEST_CPU}
+            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+          limits:
+            cpu: 1250m
+            memory: 1000Mi
+      hybrid-proxy:
+        enabled: true
+        resources:
+          requests:
+            cpu: ${CP_RESOURCES_REQUEST_CPU}
+            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+          limits:
+            cpu: 1250m
+            memory: 1000Mi
+        ingress:
+          enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY}
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          hosts:
+            - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
+              paths:
+                - path: /
+                  pathType: Prefix
+                  port: 105
+      router-operator:
+        enabled: true
+        resources:
+          requests:
+            cpu: ${CP_RESOURCES_REQUEST_CPU}
+            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+          limits:
+            cpu: 3000m
+            memory: 1000Mi
+        ingress:
+          enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER}
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
+            nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+            nginx.ingress.kubernetes.io/proxy-body-size: 200m # set to 200m to allow large file upload PCP-7954
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          hosts:
+            - host: '*.${CP_SERVICE_DNS_DOMAIN}'
+              paths:
+                - path: /
+                  pathType: Prefix
+                  port: 100
+      resource-set-operator:
+        enabled: true
+        resources:
+          requests:
+            cpu: ${CP_RESOURCES_REQUEST_CPU}
+            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+      otel-collector:
+        enabled: ${CP_LOG_ENABLE}
       global:
         external:
           clusterInfo:
@@ -668,12 +669,12 @@ helmCharts:
           export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
           export _tp_generate_certificate_name="${TP_GENERATE_CERTIFICATE_NAME}"
           yq eval '
-            (.tp-cp-bootstrap.router-operator.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
-            (.tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
-            (.tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] style="single") |
-            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
-            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
-            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
+            (.router-operator.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
+            (.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
+            (.router-operator.ingress.tls[0].hosts[0] style="single") |
+            (.hybrid-proxy.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
             ' tls_values.yaml > tls_values.yaml
           
           echo "TLS values:"
@@ -685,9 +686,9 @@ helmCharts:
           export _star_service_dns="'*.${CP_SERVICE_DNS_DOMAIN}'"
           export _tp_router_certificate_name="${TP_TLS_SECRET_NAME_ROUTER}"
           yq eval '
-            (.tp-cp-bootstrap.router-operator.ingress.tls[0].secretName = env(_tp_router_certificate_name)) |
-            (.tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
-            (.tp-cp-bootstrap.router-operator.ingress.tls[0].hosts[0] style="single")
+            (.router-operator.ingress.tls[0].secretName = env(_tp_router_certificate_name)) |
+            (.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
+            (.router-operator.ingress.tls[0].hosts[0] style="single")
             ' tls_router_values.yaml > tls_router_values.yaml
           
           echo "TLS Router values:"
@@ -699,9 +700,9 @@ helmCharts:
           export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
           export _tp_hybrid_proxy_certificate_name="${TP_TLS_SECRET_NAME_HYBRID_PROXY}"
           yq eval '
-            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].secretName = env(_tp_hybrid_proxy_certificate_name)) |
-            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
-            (.tp-cp-bootstrap.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
+            (.hybrid-proxy.ingress.tls[0].secretName = env(_tp_hybrid_proxy_certificate_name)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
             ' tls_hybrid_proxy_values.yaml > tls_hybrid_proxy_values.yaml
           
           echo "TLS Hybrid Proxy values:"
@@ -730,11 +731,28 @@ helmCharts:
           else
             echo "Log server password not found, please set it in the recipe"
             echo "disable otel-collector"
-            yq eval '.tp-cp-bootstrap.otel-collector.enabled = false' log_values.yaml > log_values.tmp.yaml
+            yq eval '.otel-collector.enabled = false' log_values.yaml > log_values.tmp.yaml
           fi
           mv log_values.tmp.yaml log_values.yaml
           echo "Log values:"
           cat log_values.yaml
+        fi
+        TSC_SESSION_KEY=$(kubectl get tibcoclusterenv ops.tsc.session.key -n $CP_NAMESPACE -o jsonpath='{.spec.value}')
+        DOMAIN_SESSION_KEY=$(kubectl get tibcoclusterenv ops.domain.session.key -n $CP_NAMESPACE -o jsonpath='{.spec.value}')
+        if [[ -n "${TSC_SESSION_KEY}" && -n "${DOMAIN_SESSION_KEY}" ]]; then
+          if kubectl get secret -n $CP_NAMESPACE session-keys --ignore-not-found | grep -q session-keys; then
+            echo "session-keys secret already exists, not creating a new one"
+          else
+            echo "Found session keys in tibcoclusterenv, creating session-keys secret using existing tibcoclusterenv values"
+            kubectl create secret -n $CP_NAMESPACE generic session-keys --from-literal=TSC_SESSION_KEY=$TSC_SESSION_KEY --from-literal=DOMAIN_SESSION_KEY=$DOMAIN_SESSION_KEY
+          fi
+        else
+          if kubectl get secret -n $CP_NAMESPACE session-keys --ignore-not-found | grep -q session-keys; then
+            echo "session-keys secret already exists, not creating a new one"
+          else
+            echo "session-keys secret not found, creating a new one using random values"
+            kubectl create secret -n $CP_NAMESPACE generic session-keys --from-literal=TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32) --from-literal=DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+          fi
         fi
 - name: platform-base
   version: ${CP_PLATFORM_BASE_VERSION}
@@ -749,6 +767,23 @@ helmCharts:
     content: |
       global:
         tibco:
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
           db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
           helm:
@@ -760,6 +795,13 @@ helmCharts:
           deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
           enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
         external:
+          cpEncryptionSecretName: "${CP_ENCRYPTION_SECRET_NAME}"
+          cpEncryptionSecretKey: "${CP_ENCRYPTION_SECRET_KEY}"
+          clusterInfo:
+            nodeCIDR: ${TP_CLUSTER_NODE_CIDR}
+            podCIDR: ${TP_CLUSTER_POD_CIDR}
+            serviceCIDR: ${TP_CLUSTER_SERVICE_CIDR}
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
           environment: ${CP_EXTERNAL_ENVIRONMENT}
           helmRepo: ${CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
@@ -1048,3 +1090,17 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: ${CP_CREATE_NAMESPACE}
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        if kubectl get secret -n $CP_NAMESPACE $CP_ENCRYPTION_SECRET_NAME --ignore-not-found | grep -q $CP_ENCRYPTION_SECRET_NAME; then
+          echo "$CP_ENCRYPTION_SECRET_NAME secret already exists, not creating a new one"
+          echo "Annotating the secret with helm.sh/resource-policy=keep so that it doesn't get deleted by helm upgrade"
+          kubectl annotate secret $CP_ENCRYPTION_SECRET_NAME helm.sh/resource-policy=keep --overwrite -n $CP_NAMESPACE
+        else
+          echo "CP_ENCRYPTION_SECRET_NAME secret not found, Creating a new secret with random value"
+          kubectl create secret -n $CP_NAMESPACE generic $CP_ENCRYPTION_SECRET_NAME --from-literal=$CP_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c44)
+        fi
