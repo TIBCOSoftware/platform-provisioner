@@ -34,7 +34,7 @@ spec:
       secret:
         secretName: common-dependency-secret-github
   sidecars:
-    - image: docker:20.10.17-dind
+    - image: docker:28-dind
       name: docker
       securityContext:
         privileged: true
