@@ -144,6 +144,20 @@ entries:
   generic-runner:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2025-08-08T23:42:09.913072533Z"
+    description: generic-runner
+    digest: 4219caf6ff6d307852af9121001e1c4796fabc7243421b7ce5b01c724865d39e
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: generic-runner
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/generic-runner-1.0.8/generic-runner-1.0.8.tgz
+    version: 1.0.8
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2025-01-17T17:42:20.949158909Z"
     description: generic-runner
     digest: 0dd2137a4f8c7029c5cf88c4a7e3b760d3b2aab514a8d636454e7f6e0fef7de3
@@ -1153,4 +1167,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
     version: 1.0.25
-generated: "2025-08-01T18:16:53.18240014Z"
+generated: "2025-08-08T23:42:09.913258332Z"
