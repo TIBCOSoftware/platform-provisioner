@@ -167,9 +167,37 @@ check_yq() {
   fi
 }
 
+# Check if Helm is installed
+check_helm() {
+  if ! command -v helm &> /dev/null; then
+    echo "Error: Helm is not installed. Please install Helm before running this script."
+    echo "Installation instructions:"
+
+    case "$OSTYPE" in
+      darwin*)
+        echo "  - macOS: brew install helm"
+        ;;
+      linux*)
+        echo "  - Linux: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
+        ;;
+      msys*|cygwin*|win32*)
+        echo "  - Windows: Install Scoop first (https://scoop.sh), then run:"
+        echo "      scoop install helm"
+        echo "  - Or use Chocolatey: choco install kubernetes-helm"
+        ;;
+      *)
+        echo "  - Unsupported OS. Please refer to the official documentation: https://helm.sh/docs/intro/install/"
+        ;;
+    esac
+
+    exit 1
+  fi
+}
+
 # main function
 function main() {
   check_yq
+  check_helm
   select_recipe_source "$@"
 }
 
