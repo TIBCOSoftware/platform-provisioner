@@ -20,7 +20,7 @@ itsdangerous==2.2.0
 jinja2==3.1.6
 markdown-it-py==3.0.0
 markupsafe==3.0.2
-mcp==1.9.4
+mcp==1.10.0
 mdurl==0.1.2
 openapi-pydantic==0.5.1
 packaging==25.0
