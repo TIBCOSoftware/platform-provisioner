@@ -62,9 +62,14 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         o11y_config_page_selector = ".data-plane-observability-content"         # for dp level
         # dp_name is 'Global', it means global data plane
         if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
+            ReportYaml.set_dataplane(dp_name)
             self.goto_left_navbar_dataplane()
             self.page.locator(".global-configuration button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")
+
+            # This is new for 1.9+ version, to set global activation url
+            self.dp_config_activation(dp_name)
+
             o11y_selector = ".pl-leftnav-layout .pl-leftnav-menu__link"         # for 1.4 version
             if Util.check_dom_visibility(self.page, self.page.locator(".pl-leftnav-layout .pl-tooltip__trigger", has_text="Observability"), 3, 6):
                 o11y_selector = ".pl-leftnav-layout .pl-tooltip__trigger"       # for 1.5+ version
@@ -72,10 +77,12 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator(o11y_selector, has_text="Observability").click()
             print("Clicked Global configuration -> 'Observability' left side menu")
             o11y_config_page_selector = ".global-configuration-details"         # for global level
-            ReportYaml.set_dataplane(dp_name)
         else:
+            # This is new for 1.9+ version, link to global activation url
+            self.dp_config_activation(dp_name, True)
+
             self.goto_dataplane_config_sub_menu("Observability")
-    
+
         print("Waiting for Observability config is loaded")
         if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 10):
             Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", self.page, "o11y_config_dataplane_resource.png")
@@ -226,7 +233,6 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)).locator("label").click()
         print(f"Selected '{name_input}' in {tab_name} configurations")
     
-    # when dp_name is empty, it means global data plane
     def o11y_new_resource_fill_form(self, menu_name, tab_name, tab_sub_name, name_input, dp_name):
         ColorLogger.info("O11y start to fill new resource form...")
         dp_title = dp_name
@@ -381,3 +387,48 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             if Util.check_dom_visibility(self.page, self.page.locator("#ingress-resource-table tr td:first-child", has_text=resource_name), 3, 6):
                 ColorLogger.success(f"Add Ingress Controller '{resource_name}' successfully.")
                 ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, resource_name, True)
+
+    def dp_config_activation(self, dp_name, use_global = False):
+        activation_url = ENV.TP_ACTIVATION_URL
+        if not activation_url:
+            ColorLogger.warning("TP_ACTIVATION_URL is not set, skip config Activation url.")
+            return
+
+        activation_menu_item = self.page.locator(".menu-item-list .menu-item-text", has_text="Activation")
+        if not Util.check_dom_visibility(self.page, activation_menu_item, 3, 6):
+            ColorLogger.warning("Activation menu item is not visible, skip config Activation url.")
+            return
+
+        ColorLogger.info(f"Config {dp_name} Data Plane Activation Url: {activation_url}")
+        activation_menu_item.click()
+        print("Clicked 'Activation' left side menu")
+        if Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
+            ColorLogger.success(f"Activation URL '{activation_url}' is already exist for Data Plane '{dp_name}'.")
+            return
+
+        if use_global:
+            print("Waiting for 'Use Global Activation URL' button is visible...")
+            self.page.locator("#use-global-activation-on-dp").wait_for(state="visible")
+            self.page.locator("#use-global-activation-on-dp").click()
+            print("Clicked 'Use Global Activation URL' button")
+
+            print("Waiting for 'Use Global Activation URL' modal dialog is visible...")
+            self.page.locator("confirmation-modal .pl-modal__heading", has_text="Use Global Activation URL").wait_for(state="visible")
+            self.page.locator("#confirm-button", has_text="Link").click()
+            print("Clicked 'Link' button in 'Use Global Activation URL' modal dialog")
+        else:
+            print("Waiting for 'Add Global Activation URL' button is visible...")
+            self.page.locator("#add-global-activation-server").wait_for(state="visible")
+            self.page.locator("#add-global-activation-server").click()
+            print("Clicked 'Add Global Activation URL' button")
+
+            print("Waiting for 'Add New Activation URL' modal dialog is visible...")
+            self.page.locator("activation-url-modal .pl-modal__heading", has_text="Add New Activation URL").wait_for(state="visible")
+            self.page.fill("activation-url-modal #activation-url-text-input", activation_url)
+            self.page.locator("activation-url-modal #add-activation-url-btn").click()
+            print(f"Filled Activation URL: {activation_url} and clicked 'Add' button")
+
+        if Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
+            ColorLogger.success(f"Add Activation URL '{activation_url}' successfully.")
+        else:
+            ColorLogger.warning(f"Add Activation URL '{activation_url}' failed.")

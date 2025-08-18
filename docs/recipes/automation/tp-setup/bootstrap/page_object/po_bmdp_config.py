@@ -27,7 +27,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
 
     def goto_products(self, product_name):
         ColorLogger.info("Going to Products page...")
-        # "BW5 Adapters" for BW5, "BE" for be, "BW6" for BW6
+        # "BW5" for BW5, "BE" for be, "BW6" for BW6
         print(f"Checking if {product_name} Card is Available.")
         if Util.check_dom_visibility(self.page, self.page.locator(f".product-card:not(.disabled-card):has-text('{product_name}')"), 10, 120, True):
             self.page.locator(f".product-card:not(.disabled-card):has-text('{product_name}')").click()
@@ -109,7 +109,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         ColorLogger.info(f"Checking {product_name} application - {app_name} status in '{domain_name}'")
         self.page.wait_for_timeout(1000)
         # check bw5 application status
-        if product_name == "BW5 Adapters":
+        if product_name == "BW5":
             app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=domain_name))
             if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
                 app_row.locator('td.pl-table__cell .text', has_text=app_name).click()

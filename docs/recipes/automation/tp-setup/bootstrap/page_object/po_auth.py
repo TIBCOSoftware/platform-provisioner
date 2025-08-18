@@ -32,6 +32,12 @@ class PageObjectAuth:
         Util.refresh_page(self.page)
 
         email_selector = self.page.locator(".email-list .email-item-link", has_text=email_title).nth(0)
+        if not email_selector.is_visible():
+            print(f"No email '{email_title}' for active Admin user.")
+            self.reactive_admin()
+            print(f"Reactive Admin user '{ENV.CP_ADMIN_EMAIL}' after reset password.")
+            return
+
         email_selector.wait_for(state="visible")
         print(f"Page {ENV.TP_AUTO_MAIL_URL} has been loaded...")
         if not email_selector.locator(".title-subline", has_text=email).is_visible():
@@ -64,9 +70,81 @@ class PageObjectAuth:
             new_page.locator("#ta-sign-in-button").click()
             ColorLogger.success(f"User {email} has been active in new window completed.")
         else:
-            Util.exit_error(f"Can not active Email for {email}", new_page, "active_user_in_mail_3.png")
+            if new_page.locator("#ta-sign-in-button").is_visible():
+                ColorLogger.info("=== This is the new step to active admin in mail from CP 1.10.0. ===")
+                new_page.locator("#ta-sign-in-button").click()
+                print("Clicked 'Sign in with Default IdP'.")
+                # Temporary password for admin user from email
+                temp_admin_password = "admin"
+                new_page.fill("#user-email", ENV.CP_ADMIN_EMAIL)
+                new_page.fill("#user-password", temp_admin_password)
+                new_page.locator("#user-login-btn").click()
+                print(f"Filled Admin User Email: {ENV.CP_ADMIN_EMAIL}, Password: {temp_admin_password}, then clicked 'Sign in' button")
+                self.reset_admin_password(new_page)
+                ColorLogger.info("=== This is the new step to active admin in mail from CP 1.10.0. ===")
+            else:
+                Util.exit_error(f"Can not active Email for {email}", new_page, "active_user_in_mail_3.png")
 
         new_page.close()
+
+    def reset_admin_password(self, new_page):
+        ColorLogger.info("Reset admin password in new page...")
+        self.page.wait_for_timeout(1000)
+        if Util.check_dom_visibility(new_page, new_page.locator(".title", has_text="Reset Password"), 3, 6):
+            new_page.fill("#passwordInput", ENV.CP_ADMIN_PASSWORD)
+            new_page.fill("#confirmPasswordInput", ENV.CP_ADMIN_PASSWORD)
+            new_page.locator("#ta-sign-in-button", has_text="Reset Password").click()
+            print(f"Changed to new password: {ENV.CP_ADMIN_PASSWORD} and clicked 'Reset Password' button.")
+        else:
+            Util.exit_error("Reset Password page is not visible.", new_page, "active_user_in_mail_3.png")
+
+    def reactive_admin(self):
+        ColorLogger.info("No email for active Admin user, start to reactive Admin.")
+        self.page.goto(ENV.TP_AUTO_ADMIN_URL)
+        print(f"Navigating to admin page {ENV.TP_AUTO_ADMIN_URL}...")
+        admin_login_btn_text = "Sign in with Default IdP"
+        Util.click_button_until_enabled(self.page, self.page.locator("#ta-sign-in-button", has_text=admin_login_btn_text))
+        print(f"Clicked '{admin_login_btn_text}' button")
+        self.page.wait_for_timeout(1000)
+        Util.click_button_until_enabled(self.page, self.page.locator(".forgot-password"))
+        print(f"Clicked 'Forgot password?' link button")
+        self.page.wait_for_timeout(2000)
+        self.page.locator(".reset-link-title", has_text="Forgot your password?").wait_for(state="visible")
+        self.page.fill("#emailNameInput", ENV.CP_ADMIN_EMAIL)
+        request_reset_link_btn_text = "Request Reset Link"
+        Util.click_button_until_enabled(self.page, self.page.locator("#ta-sign-in-button", has_text=request_reset_link_btn_text))
+        print(f"Fill '{ENV.CP_ADMIN_EMAIL}', then clicked '{request_reset_link_btn_text}' button")
+        reset_error_description = "An email with subject TIBCO Platform password reset was already sent."
+        if Util.check_dom_visibility(self.page, self.page.locator(".pl-notification__message", has_text=reset_error_description), 2, 6):
+            ColorLogger.warning(f"Admin user {ENV.CP_ADMIN_EMAIL} reset password failed, {reset_error_description}")
+
+        elif Util.check_dom_visibility(self.page, self.page.locator(".email-sent-title", has_text="Reset Password Email Sent"), 2, 4):
+            ColorLogger.success(f"Reset Password Email Sent, check mail.")
+
+        self.page.goto(ENV.TP_AUTO_MAIL_URL)
+        print(f"Navigating to mail page {ENV.TP_AUTO_MAIL_URL}...")
+
+        reset_password_email_title = "TIBCO Platform password reset"
+        reset_password_email_selector = self.page.locator(".email-list .email-item-link", has_text=reset_password_email_title).nth(0)
+        if reset_password_email_selector.is_visible():
+            reset_password_email_selector.click()
+            self.page.wait_for_timeout(1000)
+
+            iframe = self.page.frame_locator(".main-container iframe.preview-iframe").nth(0)
+            iframe.locator("a.btn-activate", has_text="Reset password").wait_for(state="visible")
+
+            with self.page.context.expect_page() as new_page_info:
+                iframe.locator("a.btn-activate", has_text="Reset password").click()
+                print(f"Clicked 'Reset password' button from email title '{reset_password_email_title}'.")
+
+            new_page = new_page_info.value
+            self.reset_admin_password(new_page)
+            new_page.close()
+        else:
+            Util.exit_error("Other error occurred while reactive admin user, please check manually.", self.page, "reactive_admin.png")
+
+        self.page.goto(ENV.TP_AUTO_ADMIN_URL)
+        print(f"Finish reactive admin user, navigating to admin page {ENV.TP_AUTO_ADMIN_URL}...")
 
     def login_admin_user(self):
         ColorLogger.info("Login as admin user...")
@@ -100,9 +178,14 @@ class PageObjectAuth:
             self.page.locator("#ta-sign-in-button").click()
 
         print(f"Waiting for admin {ENV.CP_ADMIN_EMAIL} welcome page.")
+        if not Util.check_dom_visibility(self.page, self.page.locator(".pcp-page-title", has_text="Welcome"), 3, 6):
+            ColorLogger.warning(f"Admin user {ENV.CP_ADMIN_EMAIL}, {ENV.CP_ADMIN_PASSWORD} login failed, did not see welcome page.")
+            return False
+
         self.page.locator(".pcp-page-title", has_text="Welcome").wait_for(state="visible")
         ColorLogger.success(f"Admin user {ENV.CP_ADMIN_EMAIL} login successful.")
         ReportYaml.set(".ENV.REPORT_TP_AUTO_ADMIN", True)
+        return True
 
     def logout_admin_user(self):
         ColorLogger.info(f"Loging out admin user...")
@@ -159,16 +242,17 @@ class PageObjectAuth:
                 print("Clicked 'Cancel' button")
                 Util.screenshot_page(self.page, "admin-provision-user.png")
                 self.logout_admin_user()
-                Util.exit_error(f"Host prefix: {host_prefix} has been used in another account, use another one or rest database.")
+                Util.warning_screenshot(f"Host prefix: {host_prefix} has been used in another account, use another one or rest database.")
+                return
             ColorLogger.success(f"Provision user {email} successful.")
 
         self.logout_admin_user()
         ColorLogger.success(f"Admin user {ENV.CP_ADMIN_EMAIL} logout successful.")
 
     def is_host_prefix_exist(self, host_prefix):
-        ColorLogger.info(f"Checking if {host_prefix} is exist...")
+        ColorLogger.info(f"Checking if host_prefix: {host_prefix} is exist...")
         try:
-            if self.login() is False:
+            if not self.login():
                 return False
 
             print("Wait to see Welcome page...")
@@ -188,7 +272,7 @@ class PageObjectAuth:
     def is_admin_user_exist(self):
         ColorLogger.info(f"Checking if admin user {ENV.CP_ADMIN_EMAIL} is exist...")
         try:
-            if self.login_admin_user() is False:
+            if not self.login_admin_user():
                 return False
 
             print("Wait to see Admin Welcome page...")
@@ -233,6 +317,7 @@ class PageObjectAuth:
             self.page.wait_for_timeout(1000)
         else:
             ColorLogger.warning(f"Login may successful, but user profile is not visible.")
+        return True
 
     def login_check(self):
         ColorLogger.info(f"Checking if user {ENV.DP_USER_EMAIL} is login...")

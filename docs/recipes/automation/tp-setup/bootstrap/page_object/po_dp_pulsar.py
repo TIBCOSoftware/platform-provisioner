@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.env import ENV
@@ -29,6 +31,10 @@ class PageObjectDataPlanePulsar(PageObjectDataPlane):
             self.page.locator('button', has_text="Provision a capability").click()
             print("Clicked 'Provision a capability' button")
             self.page.wait_for_timeout(2000)
+            if not Util.check_dom_visibility(self.page, self.page.locator('#PULSAR-capability-select-button'), 5, 5):
+                ColorLogger.warning("'Pulsar capability' has been removed from the capability list from CP version 1.10.x")
+                Util.warning_screenshot("Pulsar capability 'Start' button is not visible.", self.page, "pulsar_provision_capability-1.png")
+                return
             Util.click_button_until_enabled(self.page, self.page.locator('#PULSAR-capability-select-button'))
             print("Clicked 'Provision TIBCO® Messaging Quasar - Powered by Apache Pulsar™' -> 'Start' button")
 
@@ -84,8 +90,8 @@ class PageObjectDataPlanePulsar(PageObjectDataPlane):
         print("Reload Data Plane page, and check if Pulsar capability is provisioned...")
         Util.refresh_page(self.page)
         print("Waiting for Pulsar capability is in capability list...")
-        self.page.locator(".data-plane-container").wait_for(state="visible")
-        if self.is_capability_provisioned(capability, capability_name):
+        is_dataplane_container_available = Util.check_dom_visibility(self.page, self.page.locator(".data-plane-container"), 5, 20, True)
+        if is_dataplane_container_available and self.is_capability_provisioned(capability, capability_name):
             ColorLogger.success(f"Pulsar capability {capability_name} is in capability list")
         else:
             Util.warning_screenshot(f"Pulsar capability {capability_name} is not in capability list", self.page, "pulsar_provision_capability-2.png")

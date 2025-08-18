@@ -22,7 +22,8 @@ forward_port_to_instance() {
   echo "Forwarding local port: ${LOCAL_PORT} to instance port: ${INS_PORT}"
   echo "You can now use connect-ins.sh 2 to copy kubeconfig and start port-forwarding"
   ssh-keygen -R "${INSTANCE_IP}"
-  ssh -o "StrictHostKeyChecking no" -A -L 0.0.0.0:"${LOCAL_PORT}":0.0.0.0:"${INS_PORT}" -N -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
+  ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+   -o ExitOnForwardFailure=yes -A -L 0.0.0.0:"${LOCAL_PORT}":0.0.0.0:"${INS_PORT}" -N -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
   echo "Forward local port ${LOCAL_PORT} to instance port ${INS_PORT}"
 }
 

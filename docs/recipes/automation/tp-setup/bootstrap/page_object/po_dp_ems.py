@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.env import ENV
@@ -29,6 +31,9 @@ class PageObjectDataPlaneEMS(PageObjectDataPlane):
             self.page.locator('button', has_text="Provision a capability").click()
             print("Clicked 'Provision a capability' button")
             self.page.wait_for_timeout(2000)
+            if not Util.check_dom_visibility(self.page, self.page.locator('#EMS-capability-select-button'), 5, 5):
+                Util.warning_screenshot("EMS capability 'Start' button is not visible.", self.page, "ems_provision_capability-1.png")
+                return
             Util.click_button_until_enabled(self.page, self.page.locator('#EMS-capability-select-button'))
             print("Clicked 'Provision TIBCO Enterprise Message Service™' -> 'Start' button")
 
@@ -78,8 +83,8 @@ class PageObjectDataPlaneEMS(PageObjectDataPlane):
         print("Reload Data Plane page, and check if EMS capability is provisioned...")
         Util.refresh_page(self.page)
         print("Waiting for EMS capability is in capability list...")
-        self.page.locator(".data-plane-container").wait_for(state="visible")
-        if self.is_capability_provisioned(capability, capability_name):
+        is_dataplane_container_available = Util.check_dom_visibility(self.page, self.page.locator(".data-plane-container"), 5, 20, True)
+        if is_dataplane_container_available and self.is_capability_provisioned(capability, capability_name):
             ColorLogger.success(f"EMS capability {capability_name} is in capability list")
             ReportYaml.set_capability(dp_name, capability)
         else:

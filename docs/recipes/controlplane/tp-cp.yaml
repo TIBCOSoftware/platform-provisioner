@@ -702,6 +702,7 @@ helmCharts:
             podCIDR: ${TP_CLUSTER_POD_CIDR}
             serviceCIDR: ${TP_CLUSTER_SERVICE_CIDR}
           dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+          dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
           environment: ${CP_EXTERNAL_ENVIRONMENT}
           helmRepo: ${CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
@@ -734,6 +735,15 @@ helmCharts:
             customerID: "myCustomerID"
           enableLogging: false
           IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
+      tp-cp-infra:
+        enabled: true
+        resources:
+          requests:
+            cpu: ${CP_RESOURCES_REQUEST_CPU}
+            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+          limits:
+            cpu: 1250m
+            memory: 1000Mi
       tp-cp-tibcohub-contrib:
         enabled: ${CP_INSTALL_TIBCOHUB_CONTRIB}
       tp-cp-msg-contrib:

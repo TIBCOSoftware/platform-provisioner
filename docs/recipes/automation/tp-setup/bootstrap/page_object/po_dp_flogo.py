@@ -76,8 +76,8 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         print("Reload Data Plane page, and check if Flogo capability is provisioned...")
         Util.refresh_page(self.page)
         print("Waiting for Flogo capability is in capability list...")
-        self.page.locator(".data-plane-container").wait_for(state="visible")
-        if self.is_capability_provisioned(capability):
+        is_dataplane_container_available = Util.check_dom_visibility(self.page, self.page.locator(".data-plane-container"), 5, 20, True)
+        if is_dataplane_container_available and self.is_capability_provisioned(capability):
             ColorLogger.success("Flogo capability is in capability list")
             ReportYaml.set_capability(dp_name, capability)
         else:
@@ -411,9 +411,23 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 self.page.locator(".pl-dropdown-menu__action", has_text="Set Endpoint Visibility").wait_for(state="visible")
                 self.page.locator(".pl-dropdown-menu__action", has_text="Set Endpoint Visibility").click()
                 print("Clicked 'Set Endpoint Visibility' menu item")
-                self.page.locator(".pl-modal__footer-right button", has_text="Cancel").wait_for(state="visible")
-                print("Dialog 'Set Endpoint Visibility' popup")
-                if self.page.locator(".modal-header", has_text="Update Endpoint visibility to Public").is_visible():
+                if Util.check_dom_visibility(self.page, self.page.locator(".modal-header", has_text="Set Endpoint Visibility"), 2, 4):
+                    print("Dialog 'Set Endpoint Visibility' popup")
+                    if self.page.locator(".pl-table__row label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).is_visible():
+                        self.page.locator(".pl-table__row label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).click()
+                        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' from Resource Name column")
+                        self.page.locator(".pl-table__row label", has_text="Public").click()
+                        print("Select 'Public' Visibility")
+                        self.page.locator(".pl-modal__footer button", has_text="Save Changes").click()
+                        print("Clicked 'Save Changes' button")
+                        if Util.wait_for_success_message(self.page, 5) and self.page.locator(".endpoints-container td.action-button button", has_text="Public URL").is_visible():
+                            ColorLogger.success(f"Flogo app '{app_name}' has set Endpoint Visibility to Public.")
+                            ReportYaml.set_capability_app_info(dp_name, capability, app_name, "endpointPublic", True)
+                    else:
+                        self.page.locator(".pl-modal__footer button", has_text="Cancel").click()
+                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' is not available.", self.page, "flogo_app_config-endpoint.png")
+                elif Util.check_dom_visibility(self.page, self.page.locator(".modal-header", has_text="Update Endpoint visibility to Public"), 2, 4):
+                    print("Dialog 'Update Endpoint visibility to Public' popup")
                     if self.page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).is_visible():
                         self.page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).click()
                         print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' from Resource Name column")
@@ -423,6 +437,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                             ColorLogger.success(f"Flogo app '{app_name}' has set Endpoint Visibility to Public.")
                             ReportYaml.set_capability_app_info(dp_name, capability, app_name, "endpointPublic", True)
                     else:
+                        self.page.locator(".pl-modal__footer-right button", has_text="Cancel").click()
                         Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' is not available.", self.page, "flogo_app_config-endpoint.png")
     
         if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "enableTrace") == "true":

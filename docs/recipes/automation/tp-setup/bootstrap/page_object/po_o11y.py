@@ -32,7 +32,7 @@ class PageObjectO11y(PageObjectGlobal):
     def is_data_plane_in_list(self, dp_name):
         self.page.locator(".widget-list-header p-dropdown").click()
         is_available = self.page.locator(".p-dropdown-item .dp-item:not(.dp-item-disabled)", has_text=dp_name).count() > 0
-        print(f"Clicked 'Data Plane' dropdown '{dp_name}' is is_available: {is_available}")
+        print(f"Check 'Data Plane' dropdown '{dp_name}' is is_available: {is_available}")
         if is_available:
             self.page.locator(".p-dropdown-item .dp-item-label span", has_text=dp_name).click()
             print(f"Selected '{dp_name}' in 'Data Plane' dropdown")
