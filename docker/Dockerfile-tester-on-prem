@@ -11,7 +11,7 @@
 # Microsoft artifact is not multi-arch build. see: https://mcr.microsoft.com/en-us/artifact/mar/playwright/tags
 #FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-noble-${TARGETARCH}
 # Ubuntu 22.04 playwright release
-FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.49.1-jammy-${TARGETARCH}
+FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.54.0-jammy-${TARGETARCH}
 
 ARG TARGETOS TARGETARCH
 
@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y \
 
 # cue for yaml validation https://github.com/cue-lang/cue/releases
 ARG CUE_VERSION
-ENV CUE_VERSION=${CUE_VERSION:-"v0.12.0"}
+ENV CUE_VERSION=${CUE_VERSION:-"v0.14.1"}
 RUN CMD_NAME=cue && \
     curl --silent --location "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/${CMD_NAME}_${CUE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${CUE_VERSION} && \
@@ -32,7 +32,7 @@ RUN CMD_NAME=cue && \
 
 # yq 4 utility https://github.com/mikefarah/yq/releases
 ARG YQ_VERSION_440
-ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.1"}
+ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.47.1"}
 RUN CMD_NAME=yq && \
     curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
     chmod +x /usr/local/bin/${CMD_NAME}-4.40 && \
@@ -43,26 +43,17 @@ RUN ln -sf /usr/local/bin/yq /usr/local/bin/yq4
 
 # helm https://github.com/helm/helm/releases
 # ubuntu bug must add -k for curl or use wget: https://bugs.launchpad.net/ubuntu/+source/curl/+bug/2073448
-ARG HELM_VERSION_317
-ENV HELM_VERSION_317=${HELM_VERSION_317:-"v3.17.1"}
+ARG HELM_VERSION_318
+ENV HELM_VERSION_318=${HELM_VERSION_318:-"v3.18.5"}
 RUN CMD_NAME=helm && \
-    curl -k --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
-#    wget -q "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" -O /tmp/helm.tar.gz && \
-#    tar xz -f /tmp/helm.tar.gz -C /tmp && \
-    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.17 && \
-    ln -sf /usr/local/bin/${CMD_NAME}-3.17 /usr/local/bin/helm
+    curl -k --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_318}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.18 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-3.18 /usr/local/bin/helm
 
 # kubectl https://kubernetes.io/releases/
-ARG KUBECTL_VERSION_132
-ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.1"}
+ARG KUBECTL_VERSION_133
+ENV KUBECTL_VERSION_133=${KUBECTL_VERSION_133:-"v1.33.4"}
 RUN CMD_NAME=kubectl && \
-    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
-    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
-    ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl
-
-ARG TIBCOP_VERSION
-ENV TIBCOP_VERSION=${TIBCOP_VERSION:-"0.9.0"}
-RUN CMD_NAME=tibcop && \
-    curl -sSLo ${CMD_NAME}.tar.gz "https://github.com/TIBCOSoftware/platform-provisioner/releases/download/tibcop-cli-0.9.0/tibcop-cli-${TIBCOP_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz" && \
-    mkdir -p /usr/local/bin/${CMD_NAME}-${TIBCOP_VERSION} && tar -xzf ${CMD_NAME}.tar.gz -C /usr/local/bin/${CMD_NAME}-${TIBCOP_VERSION} && rm -rf ${CMD_NAME}.tar.gz && \
-    ln -sfn /usr/local/bin/${CMD_NAME}-${TIBCOP_VERSION}/${CMD_NAME}/bin/${CMD_NAME} /usr/local/bin/${CMD_NAME}
+    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_133}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
+    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.33 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-1.33 /usr/local/bin/kubectl

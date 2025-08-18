@@ -43,6 +43,21 @@ cd docker
 ```
 This will build the Docker image called `<your Docker registry repo>/platform-provisioner:latest` and push to remote Docker registry.
 
+To validate the Docker image, you can run the following command:
+
+```bash
+export PIPELINE_INPUT_RECIPE="../docs/recipes/tests/test-container-binaries.yaml"
+export PIPELINE_DOCKER_IMAGE="platform-provisioner:latest"
+../dev/platform-provisioner.sh
+```
+
+To build other docker images, you can set the `DOCKER_IMAGE` environment variable to the desired image name. For example, to build the `platform-provisioner:on-prem` image, run the following command:
+
+```bash
+export DOCKERFILE="Dockerfile-on-prem"
+export IMAGE_TAG="on-prem"
+./build.sh
+```
 </details>
 
 > [!Note]
