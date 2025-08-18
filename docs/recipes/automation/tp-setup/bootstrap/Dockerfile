@@ -5,14 +5,13 @@ ENV TP_AUTO_SCRIPT_PY_ENV_FOLDER=/tmp/auto-py-env
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
-RUN set -e; \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common gnupg ca-certificates tzdata && \
     ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
     dpkg-reconfigure --frontend noninteractive tzdata && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
-    apt-get install -y --no-install-recommends python3.13 python3.13-venv python3.13-dev && \
+    apt-get install -y --no-install-recommends python3.13 python3.13-venv python3.13-dev supervisor && \
     python3.13 -m ensurepip --upgrade && \
     python3.13 -m pip install --upgrade pip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
