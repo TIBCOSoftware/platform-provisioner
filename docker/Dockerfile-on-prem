@@ -25,13 +25,13 @@ RUN ln -sf /usr/bin/yq /usr/local/bin/yq4
 # The following are for recipe meta.tools compatibility
 # yq 4 utility https://github.com/mikefarah/yq/releases
 ARG YQ_VERSION_440
-ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.1"}
+ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.47.1"}
 RUN CMD_NAME=yq && \
     curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
     chmod +x /usr/local/bin/${CMD_NAME}-4.40
 
 # vcluster for vcluster https://github.com/loft-sh/vcluster/releases
-ARG VCLUSTER_VERSION=v0.22.4
+ARG VCLUSTER_VERSION=v0.27.0
 RUN export CMD_NAME=vcluster && \
     curl --silent --location -o /tmp/${CMD_NAME} "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/${CMD_NAME}-${TARGETOS}-${TARGETARCH}" && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} && \
@@ -39,19 +39,19 @@ RUN export CMD_NAME=vcluster && \
     ${CMD_NAME} version
 
 # helm https://github.com/helm/helm/releases
-ARG HELM_VERSION_317
-ENV HELM_VERSION_317=${HELM_VERSION_317:-"v3.17.0"}
+ARG HELM_VERSION_318
+ENV HELM_VERSION_318=${HELM_VERSION_318:-"v3.18.5"}
 RUN CMD_NAME=helm && \
-    curl --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_317}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
-    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.17 && \
-    ln -sf /usr/local/bin/${CMD_NAME}-3.17 /usr/local/bin/helm
+    curl -k --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_318}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.18 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-3.18 /usr/local/bin/helm
 
 # kubectl https://kubernetes.io/releases/
-ARG KUBECTL_VERSION_132
-ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.1"}
+ARG KUBECTL_VERSION_133
+ENV KUBECTL_VERSION_133=${KUBECTL_VERSION_133:-"v1.33.4"}
 RUN CMD_NAME=kubectl && \
-    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_132}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
-    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.32 && \
-    ln -sf /usr/local/bin/${CMD_NAME}-1.32 /usr/local/bin/kubectl
+    curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_133}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
+    chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.33 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-1.33 /usr/local/bin/kubectl
 
 CMD ["/bin/bash"]

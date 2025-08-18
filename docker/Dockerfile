@@ -10,7 +10,7 @@
 
 FROM python:3.12.11-alpine3.22 AS builder-aws
 ARG AWS_CLI_VERSION
-ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.27.31"}
+ENV AWS_CLI_VERSION=${AWS_CLI_VERSION:-"2.28.11"}
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -36,7 +36,7 @@ RUN apk add --no-cache \
 
 FROM python:3.12.11-alpine3.22 AS builder-azure
 ARG AZURE_CLI_VERSION
-ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.74.0"}
+ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.76.0"}
 WORKDIR /azure
 RUN apk add --no-cache --update python3 py3-pip && \
     apk add --no-cache --update --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make && \
@@ -68,7 +68,7 @@ RUN ln -s /opt/aws-cli/bin/aws /usr/local/bin/aws && \
 
 # eksctl https://github.com/eksctl-io/eksctl/releases
 ARG EKSCTL_VERSION
-ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.210.0"}
+ENV EKSCTL_VERSION=${EKSCTL_VERSION:-"v0.212.0"}
 RUN CMD_NAME=eksctl && \
     curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/${EKSCTL_VERSION}/${CMD_NAME}_$(uname -s)_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${EKSCTL_VERSION} && \
@@ -92,7 +92,7 @@ RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /u
 
 # Azure CLI Bicep https://github.com/Azure/bicep/releases
 ARG AZURE_CLI_BICEP_VERSION
-ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.36.1"}
+ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.37.4"}
 RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
     az --version && \
     az bicep install --version ${AZURE_CLI_BICEP_VERSION} && \
@@ -101,7 +101,7 @@ RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
 
 # gcloud cli https://cloud.google.com/sdk/docs/release-notes
 ARG CLOUD_SDK_VERSION
-ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"510.0.0"}
+ENV CLOUD_SDK_VERSION=${CLOUD_SDK_VERSION:-"534.0.0"}
 ENV PATH=/google-cloud-sdk/bin:$PATH
 RUN if [ `uname -m` = 'x86_64' ]; then echo -n "x86_64" > /tmp/arch; else echo -n "arm" > /tmp/arch; fi;
 RUN ARCH=`cat /tmp/arch` && \
@@ -117,7 +117,7 @@ RUN ARCH=`cat /tmp/arch` && \
 
 # cue for yaml validation https://github.com/cue-lang/cue/releases
 ARG CUE_VERSION
-ENV CUE_VERSION=${CUE_VERSION:-"v0.13.1"}
+ENV CUE_VERSION=${CUE_VERSION:-"v0.14.1"}
 RUN CMD_NAME=cue && \
     curl --silent --location "https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/${CMD_NAME}_${CUE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${CUE_VERSION} && \
@@ -130,13 +130,13 @@ RUN ln -sf /usr/bin/yq /usr/local/bin/yq4
 # The following are for recipe meta.tools compatibility
 # yq 4 utility https://github.com/mikefarah/yq/releases
 ARG YQ_VERSION_440
-ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.45.4"}
+ENV YQ_VERSION_440=${YQ_VERSION_440:-"v4.47.1"}
 RUN CMD_NAME=yq && \
     curl -sSLo /usr/local/bin/${CMD_NAME}-4.40 "https://github.com/mikefarah/${CMD_NAME}/releases/download/${YQ_VERSION_440}/${CMD_NAME}_${TARGETOS}_${TARGETARCH}" && \
     chmod +x /usr/local/bin/${CMD_NAME}-4.40
 
 # vcluster for vcluster https://github.com/loft-sh/vcluster/releases
-ARG VCLUSTER_VERSION=v0.25.1
+ARG VCLUSTER_VERSION=v0.27.0
 RUN export CMD_NAME=vcluster && \
     curl --silent --location -o /tmp/${CMD_NAME} "https://github.com/loft-sh/vcluster/releases/download/${VCLUSTER_VERSION}/${CMD_NAME}-${TARGETOS}-${TARGETARCH}" && \
     chmod +x /tmp/${CMD_NAME} && mv /tmp/${CMD_NAME} /usr/local/bin/${CMD_NAME}-${VCLUSTER_VERSION} && \
@@ -151,6 +151,14 @@ RUN CMD_NAME=helm && \
     chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.17 && \
     ln -sf /usr/local/bin/${CMD_NAME}-3.17 /usr/local/bin/helm
 
+# helm https://github.com/helm/helm/releases
+ARG HELM_VERSION_318
+ENV HELM_VERSION_318=${HELM_VERSION_318:-"v3.18.5"}
+RUN CMD_NAME=helm && \
+    curl -k --silent --location "https://get.helm.sh/${CMD_NAME}-${HELM_VERSION_318}-${TARGETOS}-${TARGETARCH}.tar.gz" | tar xz -C /tmp && \
+    chmod +x /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} && mv -f /tmp/${TARGETOS}-${TARGETARCH}/${CMD_NAME} /usr/local/bin/${CMD_NAME}-3.18 && \
+    ln -sf /usr/local/bin/${CMD_NAME}-3.18 /usr/local/bin/helm
+
 # kubectl https://kubernetes.io/releases/
 ARG KUBECTL_VERSION_132
 ENV KUBECTL_VERSION_132=${KUBECTL_VERSION_132:-"v1.32.5"}
@@ -161,7 +169,7 @@ RUN CMD_NAME=kubectl && \
 
 # kubectl https://kubernetes.io/releases/
 ARG KUBECTL_VERSION_133
-ENV KUBECTL_VERSION_133=${KUBECTL_VERSION_133:-"v1.33.1"}
+ENV KUBECTL_VERSION_133=${KUBECTL_VERSION_133:-"v1.33.4"}
 RUN CMD_NAME=kubectl && \
     curl -sLO https://dl.k8s.io/release/${KUBECTL_VERSION_133}/bin/${TARGETOS}/${TARGETARCH}/${CMD_NAME} && \
     chmod +x ./${CMD_NAME} && mv -f ./${CMD_NAME} /usr/local/bin/${CMD_NAME}-1.33
