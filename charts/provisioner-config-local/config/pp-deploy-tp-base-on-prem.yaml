@@ -8,8 +8,26 @@ pipelineName: "Deploy TIBCO Platform On-Prem Stack"
 description: |
   This pipeline will deploy supporting tools for TP Cluster on-prem without certificate.
 groups:
-- title: "Cluster Ingress"
+- title: "Chart Repository"
   index: 1
+  description: |
+    ## TIBCO Platform CP and DP chart repositories.
+    
+    * The pipeline will provide github token inside container. You don't need to set this. 
+    
+    ---
+- title: "Container Registry"
+  index: 2
+  description: |
+    ## Container Registry config
+    * TIBCO Platform use jFrog to distribute the docker images. 
+    * We need to set the username and password to access the images.
+    * `csgprdusw2reposaas.jfrog.io` for master node. Master node has dev images. 
+    * `csgprduswrepoedge.jfrog.io` (US) `csgprdeuwrepoedge.jfrog.io` (EU) for edge node. Edge node has prod images only.
+
+    ---
+- title: "Cluster Ingress"
+  index: 6
   description: |
     Cluster Ingress configurations.
     * domain: `*.localhost.dataplanes.pro` point to `127.0.0.1`.
@@ -35,16 +53,66 @@ groups:
     * Postgres database is optional if you only want to create a DP Cluster.
     * Install provisioner UI ingress for the on-prem setup. You can then access provisioner UI at [https://provisioner.localhost.dataplanes.pro](https://provisioner.localhost.dataplanes.pro)
 options:
-# groupIndex: 1 Cluster Ingress Configuration
-- name: "TP ingress DNS domain"
+# groupIndex: 1 Chart Repository
+- name: "TP Chart repository"
   groupIndex: 1
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CHART_REPO"
+  description: "The TIBCO Platform chart repository. (optional)"
+- name: "TP Chart repository user name"
+  groupIndex: 1
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CHART_REPO_USER_NAME"
+  description: "The TIBCO Platform chart repository user name. (optional)"
+- name: "Chart repository token"
+  groupIndex: 1
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
+  description: "TIBCO TP internal GitHub token (optional)"
+
+# groupIndex: 2 Container Registry
+- name: "Container Registry"
+  groupIndex: 2
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_URL"
+  description: |
+    The container registry. csgprdusw2reposaas.jfrog.io for master node. csgprduswrepoedge.jfrog.io for edge node. Master node has dev images. Edge node has prod images.
+- name: "Container Registry Repository"
+  groupIndex: 2
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_REPOSITORY"
+  description: |
+    The container registry repository. tibco-platform-docker-prod for production. tibco-platform-docker-dev for development
+- name: "Container Registry Username"
+  groupIndex: 2
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_USER"
+  description: |
+    The container registry username
+- name: "Container Registry Password"
+  groupIndex: 2
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_PASSWORD"
+  description: |
+    The container registry password
+
+# groupIndex: 6 Cluster Ingress Configuration
+- name: "TP ingress DNS domain"
+  groupIndex: 6
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_DNS_DOMAIN"
   description: |
     The TP Cluster DNS domain. localhost.dataplanes.pro is designed for local use
 - name: "TP ingress service type"
-  groupIndex: 1
+  groupIndex: 6
   labels:
     - "ClusterIP"
     - "LoadBalancer"
@@ -61,12 +129,12 @@ options:
   description: |
     We suggest to use "LoadBalancer" for Docker Desktop. Use "ClusterIP" and use kubectl port-forward for other local cluster.
 - name: "Install Nginx Ingress"
-  groupIndex: 1
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_NGINX_INGRESS"
 - name: "Install Traefik Ingress"
-  groupIndex: 1
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_TRAEFIK_INGRESS"

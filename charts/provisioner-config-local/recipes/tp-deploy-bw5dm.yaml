@@ -11,12 +11,23 @@ meta:
 
     # env
     GUI_TP_CLUSTER_NAME: "on-prem"
+    GUI_TP_ACTIVATION_SERVER_IP: ""
+    GUI_TP_ACTIVATION_SERVER_PORT: "7070"
+    GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
+    GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
 
     # BW5DM
     GUI_BW5_CHART_VERSION: "^1.1.0"
     GUI_TP_BWDM_NAMESPACE: "bw5dm"
     GUI_TP_BWDM_RELEASE_NAME: "bw5dm"
     GUI_TP_OTEL_TRACES_ENDPOINT: "http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"
+
+    # image tag
+    GUI_TP_BMDP_IMAGE_TAG_BW5EMSDM: ""
+    GUI_TP_BMDP_IMAGE_TAG_BW5RVDM: ""
+    GUI_TP_BMDP_IMAGE_TAG_HAWKCONSOLE: ""
+    GUI_TP_BMDP_IMAGE_TAG_BW6DM: ""
+    GUI_TP_BMDP_IMAGE_TAG_EMS: ""
 
     # flow control
     GUI_TP_DEPLOY_RVDM: true
@@ -42,6 +53,19 @@ meta:
     TP_BWDM_NAMESPACE: ${GUI_TP_BWDM_NAMESPACE:-bw5dm}
     TP_BWDM_RELEASE_NAME: ${GUI_TP_BWDM_RELEASE_NAME:-bw5dm}
     TP_OTEL_TRACES_ENDPOINT: ${GUI_TP_OTEL_TRACES_ENDPOINT:-"http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"}
+
+    # activation server
+    TP_ACTIVATION_SERVER_IP: ${GUI_TP_ACTIVATION_SERVER_IP:-""}
+    TP_ACTIVATION_SERVER_PORT: ${GUI_TP_ACTIVATION_SERVER_PORT:-"7070"}
+    TP_ACTIVATION_SERVER_CERT_HOSTNAME: ${GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME:-""}
+    TP_ACTIVATION_SERVER_FINGER_PRINT: ${GUI_TP_ACTIVATION_SERVER_FINGER_PRINT:-""}
+
+    # image tag
+    TP_BMDP_IMAGE_TAG_BW5EMSDM: ${GUI_TP_BMDP_IMAGE_TAG_BW5EMSDM:-"emsdm-5.13.0-v12"}
+    TP_BMDP_IMAGE_TAG_BW5RVDM: ${GUI_TP_BMDP_IMAGE_TAG_BW5RVDM:-"rvdm-5.13.0-v13"}
+    TP_BMDP_IMAGE_TAG_BW6DM: ${GUI_TP_BMDP_IMAGE_TAG_BW6DM:-"bw-6.11.0"}
+    TP_BMDP_IMAGE_TAG_EMS: ${GUI_TP_BMDP_IMAGE_TAG_EMS:-"ems-10.4.0"}
+    TP_BMDP_IMAGE_TAG_HAWKCONSOLE: ${GUI_TP_BMDP_IMAGE_TAG_HAWKCONSOLE:-"hawkconsole-6.3.1"}
 
     # flow control
     TP_DEPLOY_RVDM: ${GUI_TP_DEPLOY_RVDM:-true}
@@ -70,12 +94,26 @@ helmCharts:
           enabled: true
         ems-server:
           enabled: ${TP_DEPLOY_EMS_SERVER}
+          deployment:
+            image:
+              tag: "${TP_BMDP_IMAGE_TAG_EMS}"
+            env:
+              - name: TIBEMS_LICENSE
+                value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
         bw5emsdm:
           enabled: ${TP_DEPLOY_EMSDM}
           deployment:
+            image:
+              tag: "${TP_BMDP_IMAGE_TAG_BW5EMSDM}"
             env:
               - name: OTEL_TRACES_ENDPOINT
                 value: "${TP_OTEL_TRACES_ENDPOINT}"
+              - name: LICENSE_URL
+                value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
+              - name: ACTIVATION_SERVER_IP
+                value: "${TP_ACTIVATION_SERVER_IP}"
+              - name: ACTIVATION_SERVER_HOSTNAME
+                value: "${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
               # Use the ems-server above by default, if you want to use a different one, set info below
               # - name: EMS_URL
               #   value: "tcp://newemsserver:7222"
@@ -86,13 +124,27 @@ helmCharts:
         bw5rvdm:
           enabled: ${TP_DEPLOY_RVDM}
           deployment:
+            image:
+              tag: "${TP_BMDP_IMAGE_TAG_BW5RVDM}"
             env:
               - name: OTEL_TRACES_ENDPOINT
                 value: "${TP_OTEL_TRACES_ENDPOINT}"
+              - name: LICENSE_URL
+                value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
+              - name: ACTIVATION_SERVER_IP
+                value: "${TP_ACTIVATION_SERVER_IP}"
+              - name: ACTIVATION_SERVER_HOSTNAME
+                value: "${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
         hawkconsole:
           enabled: ${TP_DEPLOY_HAWKCONSOLE}
+          deployment:
+            image:
+              tag: "${TP_BMDP_IMAGE_TAG_HAWKCONSOLE}"
         bw6dm:
           enabled: ${TP_DEPLOY_BW6DM}
+          deployment:
+            image:
+              tag: "${TP_BMDP_IMAGE_TAG_BW6DM}"
     cluster:
       names:
         - ${TP_CLUSTER_NAME}

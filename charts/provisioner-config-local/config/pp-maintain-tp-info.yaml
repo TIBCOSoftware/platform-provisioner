@@ -44,3 +44,6 @@ recipe: |
   
           echo "### Get Grafana ingress if exists"
           kubectl get ingress -n prometheus-system kube-prometheus-stack-grafana 2>/dev/null | awk 'NR==2 { print $3 }'
+
+          echo "### Get Grafana admin password if exists"
+          kubectl get secret -n prometheus-system kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode; echo

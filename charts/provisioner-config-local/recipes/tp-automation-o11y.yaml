@@ -78,7 +78,7 @@ meta:
     GUI_TP_AUTO_ELASTIC_URL: ""
     GUI_TP_AUTO_ELASTIC_USER: ""
     GUI_TP_AUTO_ELASTIC_PASSWORD: ""
-    GUI_TP_AUTO_PROMETHEUS_URL: ""
+    GUI_TP_AUTO_PROMETHEUS_URL: "http://kube-prometheus-stack-prometheus.prometheus-system.svc.cluster.local:9090"
     GUI_TP_AUTO_PROMETHEUS_USER: ""
     GUI_TP_AUTO_PROMETHEUS_PASSWORD: ""
 
@@ -98,8 +98,11 @@ meta:
     GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ""
 
     # TP activation server
-    GUI_ACTIVATION_SERVER_CONFIG: false
-    GUI_ACTIVATION_SERVER_IP: ""
+    GUI_TP_ACTIVATION_SERVER_CONFIG: false
+    GUI_TP_ACTIVATION_SERVER_IP: ""
+    GUI_TP_ACTIVATION_SERVER_PORT: "7070"
+    GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
+    GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
 
     # flow control
     GUI_TP_PORT_FORWARD: true
@@ -207,8 +210,11 @@ meta:
     TP_AUTO_K8S_BMDP_BW6DM_URL: ${GUI_TP_AUTO_K8S_BMDP_BW6DM_URL:-"http://bw6dm.bw5dm.svc:9091/bwta"}
 
     # TP activation server
-    ACTIVATION_SERVER_CONFIG: ${GUI_ACTIVATION_SERVER_CONFIG:-true}
-    ACTIVATION_SERVER_IP: ${GUI_ACTIVATION_SERVER_IP:-""}
+    TP_ACTIVATION_SERVER_CONFIG: ${GUI_TP_ACTIVATION_SERVER_CONFIG:-true}
+    TP_ACTIVATION_SERVER_IP: ${GUI_TP_ACTIVATION_SERVER_IP:-""}
+    TP_ACTIVATION_SERVER_PORT: ${GUI_TP_ACTIVATION_SERVER_PORT:-"7070"}
+    TP_ACTIVATION_SERVER_CERT_HOSTNAME: ${GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME:-""}
+    TP_ACTIVATION_SERVER_FINGER_PRINT: ${GUI_TP_ACTIVATION_SERVER_FINGER_PRINT:-""}
 
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
@@ -285,6 +291,45 @@ tasks:
       python3 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       pip install -r requirements.txt
+- condition: ${TP_ACTIVATION_SERVER_CONFIG}
+  name: "activation-server-dns-config"
+  script:
+    content: |
+      add_static_dns_record_to_coredns() {
+        local namespace="kube-system"
+        local configmap_name="coredns"
+        local new_record="${TP_ACTIVATION_SERVER_IP} ${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
+      
+        echo "🔍 Reading current NodeHosts from ConfigMap '$configmap_name' in namespace '$namespace'..."
+        local current_hosts
+        current_hosts=$(kubectl get configmap "$configmap_name" -n "$namespace" -o jsonpath='{.data.NodeHosts}')
+      
+        if echo "$current_hosts" | grep -Fxq "$new_record"; then
+          echo "✅ Record already exists: $new_record"
+          return 0
+        fi
+      
+        echo "➕ Appending new record: $new_record"
+        local updated_hosts="${current_hosts}"$'\n'"${new_record}"
+      
+        echo "📦 Patching ConfigMap..."
+        kubectl patch configmap "$configmap_name" -n "$namespace" --type merge \
+          --patch "$(cat <<EOF
+      data:
+        NodeHosts: |
+      $(echo "$updated_hosts" | sed 's/^/    /')
+      EOF
+      )"
+      
+        echo "✅ Record added successfully."
+      
+        echo "🔄 Restarting CoreDNS to apply changes..."
+        kubectl -n "$namespace" rollout restart deployment coredns
+      
+        echo "🎉 Done."
+      }
+      
+      add_static_dns_record_to_coredns
 - condition: ${TP_AUTO_ACTIVE_USER} # only create admin and subscription
   name: active-user
   clusters:
@@ -343,12 +388,12 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${ACTIVATION_SERVER_CONFIG}
+- condition: ${TP_ACTIVATION_SERVER_CONFIG}
   name: "activation-server-config"
   script:
     content: |
       # this is a long running activation server.
-      if kubectl get ns "${TP_AUTO_K8S_DP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${ACTIVATION_SERVER_IP}" ]; then
+      if kubectl get ns "${TP_AUTO_K8S_DP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${TP_ACTIVATION_SERVER_IP}" ]; then
         kubectl apply -n ${TP_AUTO_K8S_DP_NAMESPACE} -f - <<EOF
       kind: Service
       apiVersion: v1
@@ -364,7 +409,7 @@ tasks:
         name: tib-activate
       subsets:
         - addresses:
-            - ip: "${ACTIVATION_SERVER_IP}"
+            - ip: "${TP_ACTIVATION_SERVER_IP}"
           ports:
             - port: 7070
       EOF
@@ -414,7 +459,7 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${TP_AUTO_ENABLE_EMS} # only deploy bwce
+- condition: ${TP_AUTO_ENABLE_EMS} # only deploy EMS
   name: deploy-ems
   clusters:
     - name: ${TP_CLUSTER_NAME}
@@ -429,7 +474,7 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${TP_AUTO_ENABLE_PULSAR} # only deploy bwce
+- condition: ${TP_AUTO_ENABLE_PULSAR} # only deploy pulsar
   name: deploy-pulsar
   clusters:
     - name: ${TP_CLUSTER_NAME}
@@ -474,7 +519,7 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${ACTIVATION_SERVER_CONFIG}
+- condition: ${TP_ACTIVATION_SERVER_CONFIG}
   name: "activation-server-config"
   script:
     content: |

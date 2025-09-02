@@ -34,6 +34,9 @@ meta:
     GUI_TP_KUBE_PROMETHEUS_STACK_VERSION: "69.3.3"
     GUI_TP_KUBE_PROMETHEUS_STACK_ENABLE_GRAFANA: false
 
+    # grafana
+    GUI_TP_GRAFANA_ADMIN_PASSWORD: ""
+
     # flow control
     GUI_TP_DEPLOY_ECK: true
     GUI_TP_DEPLOY_PROMETHEUS_STACK: true
@@ -73,6 +76,9 @@ meta:
     # prometheus
     TP_KUBE_PROMETHEUS_STACK_VERSION: "${GUI_TP_KUBE_PROMETHEUS_STACK_VERSION}" # https://github.com/prometheus-community/helm-charts/releases?q=kube-prometheus-stack&expanded=true
     TP_KUBE_PROMETHEUS_STACK_ENABLE_GRAFANA: ${GUI_TP_KUBE_PROMETHEUS_STACK_ENABLE_GRAFANA:-false}
+
+    # grafana
+    TP_GRAFANA_ADMIN_PASSWORD: "${GUI_TP_GRAFANA_ADMIN_PASSWORD:-$(openssl rand -base64 16)}" # set grafana admin password
 
     # flow control
     TP_DEPLOY_ECK: ${GUI_TP_DEPLOY_ECK:-true}
@@ -170,6 +176,7 @@ helmCharts:
           ingressClassName: ${TP_INGRESS_CLASS}
           hosts:
           - grafana.${TP_DOMAIN}
+        adminPassword: ${TP_GRAFANA_ADMIN_PASSWORD}
       prometheus-node-exporter:
         hostRootFsMount: 
           enabled: false
@@ -205,11 +212,6 @@ helmCharts:
               target_label: __metrics_path__
               regex: (.+)
               replacement: /$1
-        ingress:
-          enabled: true
-          ingressClassName: ${TP_INGRESS_CLASS}
-          hosts:
-          - prometheus-internal.${TP_DOMAIN}
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -226,3 +228,5 @@ helmCharts:
         kubectl create ns prometheus-system
         kubectl label namespace prometheus-system networking.platform.tibco.com/non-dp-ns=enable
         kubectl label namespace prometheus-system networking.platform.tibco.com/non-cp-ns=enable
+        GRAFANA_ADMIN_PASSWORD=$(kubectl get secret -n prometheus-system kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode)
+        echo "Grafana admin password: $GRAFANA_ADMIN_PASSWORD"
