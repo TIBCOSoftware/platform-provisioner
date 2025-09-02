@@ -17,8 +17,22 @@ meta:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
     PIPELINE_CHECK_DOCKER_STATUS: false
+
+    # github
+    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
+    TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
+    TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME:-"cp-test"}
+    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
+
+    # container registry
+    TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL:-"csgprduswrepoedge.jfrog.io"}
+    TP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_TP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
+    TP_CONTAINER_REGISTRY_USER: ${GUI_TP_CONTAINER_REGISTRY_USER}
+    TP_CONTAINER_REGISTRY_PASSWORD: ${GUI_TP_CONTAINER_REGISTRY_PASSWORD}
+
     # env
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+
     # domain
     TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
     TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"false"}
@@ -28,32 +42,52 @@ meta:
     TP_INGRESS_USE_HOSTPORT: false # true for kind
     TP_TLS_CERT: ${GUI_TP_TLS_CERT}
     TP_TLS_KEY: ${GUI_TP_TLS_KEY}
+
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard"} # hostpath for docker desktop, standard for minikube and kind, microk8s-hostpath for microk8s
+
+    # nfs server, this is used for nfs server provisioner. (NFS server is installed in the same cluster)
     TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER: ${GUI_TP_STORAGE_CLASS_FOR_NFS_SERVER_PROVISIONER:-""}
     TP_INSTALL_NFS_SERVER_PROVISIONER: ${GUI_TP_INSTALL_NFS_SERVER_PROVISIONER:-"false"}
     TP_NFS_SERVER_PROVISIONER_SIZE: ${GUI_TP_NFS_SERVER_PROVISIONER_SIZE:-"50Gi"}
     TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME: ${GUI_TP_NFS_SERVER_PROVISIONER_STORAGE_CLASS_NAME:-"nfs"}
+
+    # nfs subdir external provisioner. This is used for external storage provisioner. (NFS server is installed in the external server)
+    TP_INSTALL_NFS_SUBDIR_EXTERNAL_PROVISIONER: ${GUI_TP_INSTALL_NFS_SUBDIR_EXTERNAL_PROVISIONER:-"false"}
+    TP_STORAGE_NFS_SERVER_ADDRESS: ${GUI_TP_STORAGE_NFS_SERVER_ADDRESS:-""}
+    TP_STORAGE_NFS_SERVER_PATH: ${GUI_TP_STORAGE_NFS_SERVER_PATH:-"/mnt/nfs_share"}
+    TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS: ${GUI_TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS:-"nfs-client"}
+
     # third party
     TP_EXT_NAMESPACE: tibco-ext
     TP_INSTALL_PROVISIONER_UI: ${GUI_TP_INSTALL_PROVISIONER_UI:-"false"}
     TP_PROVISIONER_UI_NAMESPACE: ${GUI_TP_PROVISIONER_UI_NAMESPACE:-"tekton-tasks"}
     TP_PROVISIONER_UI_INGRESS_CLASSNAME: ${GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME:-"nginx"}
-    # CP DB setup env
+    TP_AUTOMATION_INSTALL: ${GUI_TP_AUTOMATION_INSTALL:-false}
+    TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
+
+    # third party tools version
+    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.12.2"} # release: https://github.com/kubernetes/ingress-nginx/releases
+    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"34.4.1"} # release: https://github.com/traefik/traefik-helm-chart/releases
+
+    # CNI
+    TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
+    TP_NAMESPACE_CALICO: ${GUI_TP_NAMESPACE_CALICO:-"kube-system"}
+
+    # DB setup env
     TP_INSTALL_POSTGRES: ${GUI_TP_INSTALL_POSTGRES:-"true"}
     TP_DB_USER_NAME: ${GUI_TP_DB_USER_NAME:-"postgres"}
     TP_DB_PASSWORD: ${GUI_TP_DB_PASSWORD:-"postgres"}
     TP_DB_NAME: ${GUI_TP_DB_NAME:-"postgres"}
     TP_DB_TLS_ENABLED: ${GUI_TP_DB_TLS_ENABLED:-"false"}
+
     # flow control
     TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
     TP_INSTALL_METRICS_SERVER: ${GUI_TP_INSTALL_METRICS_SERVER:-true}
-  tools:
-    yq: "4.40"
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager
-  version: v1.16.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.17.1 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -101,7 +135,7 @@ helmCharts:
 - condition: ${TP_INSTALL_NGINX_INGRESS}
   name: ingress-nginx
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: 4.12.2 # release: https://github.com/kubernetes/ingress-nginx/releases
+  version: ${TP_THIRD_PARTY_VERSION_INGRESS_NGINX} # release: https://github.com/kubernetes/ingress-nginx/releases
   repo:
     helm:
       url: https://kubernetes.github.io/ingress-nginx
@@ -134,6 +168,9 @@ helmCharts:
       skip: false
       content: |
         kubectl create ns ${TP_INGRESS_NAMESPACE}
+        # add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
         kubectl apply -f - <<EOF
         apiVersion: v1
         kind: Secret
@@ -148,7 +185,7 @@ helmCharts:
 - condition: ${TP_INSTALL_TRAEFIK_INGRESS}
   name: traefik
   namespace: ${TP_INGRESS_NAMESPACE}
-  version: "34.4.1" # release: https://github.com/traefik/traefik-helm-chart/releases
+  version: ${TP_THIRD_PARTY_VERSION_TRAEFIK} # release: https://github.com/traefik/traefik-helm-chart/releases
   repo:
     helm:
       url: https://traefik.github.io/charts
@@ -195,6 +232,9 @@ helmCharts:
       skip: false
       content: |
         kubectl create ns ${TP_INGRESS_NAMESPACE}
+        # add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
         kubectl apply -f - <<EOF
         apiVersion: v1
         kind: Secret
@@ -229,33 +269,87 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
-- name: postgresql
-  version: 15.5.38 # 15.5.38 use postgresql 16.4.0, 11.9.13 use postgresql 14.5.0 release: https://artifacthub.io/packages/helm/bitnami/postgresql
+- condition: ${TP_INSTALL_NFS_SUBDIR_EXTERNAL_PROVISIONER}
+  name: nfs-subdir-external-provisioner
+  namespace: nfs-system
+  releaseName: nfs-subdir-external-provisioner
+  version: "4.0.18" # release: https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner/releases
+  repo:
+    helm:
+      url: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+  values:
+    keepPrevious: true
+    content: |
+      nfs:
+        server: ${TP_STORAGE_NFS_SERVER_ADDRESS}
+        path: ${TP_STORAGE_NFS_SERVER_PATH}
+      storageClass:
+        name: "${TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS}"
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    createNamespace: true
+    wait: true
+    timeout: 1h
+- name: on-premises-third-party
+  version: ^1.0.0
   namespace: ${TP_EXT_NAMESPACE}
   releaseName: postgresql
   condition: ${TP_INSTALL_POSTGRES}
   repo:
     helm:
-      url: https://charts.bitnami.com/bitnami
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
   values:
     keepPrevious: true
     content: |
-      auth:
-        postgresPassword: ${TP_DB_PASSWORD}
-        username: ${TP_DB_USER_NAME}
-        password: ${TP_DB_PASSWORD}
-        database: "${TP_DB_NAME}"
       global:
+        tibco:
+          containerRegistry:
+            url: "${TP_CONTAINER_REGISTRY_URL}"
+            username: "${TP_CONTAINER_REGISTRY_USER}"
+            password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+            repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
         storageClass: ${TP_STORAGE_CLASS}
-      tls:
-        enabled: ${TP_DB_TLS_ENABLED}
-        autoGenerated: true
+      postgresql:
+        enabled: true
+        auth:
+          postgresPassword: ${TP_DB_PASSWORD}
+          username: ${TP_DB_USER_NAME}
+          password: ${TP_DB_PASSWORD}
+          database: "${TP_DB_NAME}"
+        image:
+          registry: "${TP_CONTAINER_REGISTRY_URL}"
+          repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
+          tag: 16.4.0-debian-12-r14
+          pullSecrets:
+          - tibco-container-registry-credentials
+        primary:
+          # resourcesPreset: "nano" # nano micro small
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+        tls:
+          enabled: ${TP_DB_TLS_ENABLED}
+          autoGenerated: true
   flags:
     createNamespace: true
     timeout: 1h
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_EXT_NAMESPACE}
+        kubectl label namespace ${TP_EXT_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_EXT_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
 - name: platform-provisioner-ui
   version: ^1.0.0
   namespace: ${TP_PROVISIONER_UI_NAMESPACE}
@@ -280,4 +374,121 @@ helmCharts:
                 pathType: ImplementationSpecific
   flags:
     createNamespace: true
+    timeout: 1h
+- name: generic-chart # TP automation UI
+  version: 1.4.0
+  condition: ${TP_AUTOMATION_INSTALL}
+  namespace: ${TP_AUTOMATION_NAMESPACE}
+  releaseName: automation
+  repo:
+    helm:
+      url: https://test-server.github.yyzd.me
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      deployment:
+        enabled: true
+        image:
+          repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
+          tag: 1.6.0-auto-on-prem-jammy
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 3120
+          mcp-tp:
+            enabled: true
+            protocol: TCP
+            containerPort: 8090
+            servicePort: 8090
+        env:
+        - name: TP_MCP_TRANSPORT
+          value: "streamable-http" # "streamable-http" or "sse"
+        - name: TP_MCP_HTTP_BEARER_TOKEN
+          value: ""
+        - name: TP_MCP_DEBUG
+          value: "false"
+        others:
+          dnsPolicy: ClusterFirstWithHostNet
+          # hostNetwork: true
+      service:
+        enabled: true
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 3120
+            servicePort: 3120
+          mcp-tp:
+            enabled: true
+            protocol: TCP
+            containerPort: 8090
+            servicePort: 8090
+      serviceAccount:
+        enabled: true
+        name: auto-sa
+      clusterRoleBinding:
+        enabled: true
+        name: auto-sa
+        roleRef:
+          name: "cluster-admin"
+      ingress:
+        enabled: true
+        spec:
+          ingressClassName: ${TP_PROVISIONER_UI_INGRESS_CLASSNAME}
+          rules:
+            - host: 'automation.${TP_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: automation-generic-chart
+                        port:
+                          number: 3120
+            - host: 'mcp-infra-tp-automation.${TP_DNS_DOMAIN}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: automation-generic-chart
+                        port:
+                          number: 8090
+  flags:
+    createNamespace: true
+    timeout: 1h
+- condition: ${TP_INSTALL_CALICO_CNI}
+  name: tigera-operator
+  namespace: ${TP_NAMESPACE_CALICO}
+  releaseName: calico
+  version: "v3.29.3" # release: https://docs.tigera.io/calico/charts
+  repo:
+    helm:
+      url: https://docs.tigera.io/calico/charts
+  values:
+    content: |
+      # calico doc: https://docs.tigera.io/calico/
+      # release: https://docs.tigera.io/archive
+      # chart values: https://github.com/projectcalico/calico/blob/master/charts/tigera-operator/values.yaml
+      installation:
+        enabled: true # enable custom resource
+        # calicoNetwork:
+        #   ipPools:
+        #   - cidr: 192.168.0.0/16
+        # podCIDR in cluster. Generally, calico would get this from the cluster. kind and k3s are tested.
+        # Typha, CSI, apiServer are not needed in single node clusters. No way to disable typha at this moment.
+      apiServer:
+        enabled: false
+      kubeletVolumePluginPath: None # disable CSI
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    wait: true
     timeout: 1h

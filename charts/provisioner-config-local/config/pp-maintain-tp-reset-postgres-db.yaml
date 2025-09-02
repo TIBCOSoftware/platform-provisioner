@@ -2,6 +2,45 @@ pipelineName: "Reset Postgres DB"
 description: |
   This pipeline will delete the old Postgres DB and create a new one. So that we can reset CP without delete the TP cluster.
 options:
+- name: "TP Chart repository"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CHART_REPO"
+  description: "The TIBCO Platform chart repository. (optional)"
+- name: "TP Chart repository user name"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CHART_REPO_USER_NAME"
+  description: "The TIBCO Platform chart repository user name. (optional)"
+- name: "Chart repository token"
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
+  description: "TIBCO TP internal GitHub token (optional)"
+- name: "Container Registry"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_URL"
+  description: |
+    The container registry. csgprdusw2reposaas.jfrog.io for master node. csgprduswrepoedge.jfrog.io for edge node. Master node has dev images. Edge node has prod images.
+- name: "Container Registry Repository"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_REPOSITORY"
+  description: |
+    The container registry repository. tibco-platform-docker-prod for production. tibco-platform-docker-dev for development
+- name: "Container Registry Username"
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_USER"
+  description: |
+    The container registry username
+- name: "Container Registry Password"
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_PASSWORD"
+  description: |
+    The container registry password
 - name: "TP cluster storage class name"
   type: string
   guiType: input
@@ -16,35 +55,72 @@ recipe: |
     guiEnv:
       note: "reset-postgres-db"
       GUI_PIPELINE_LOG_DEBUG: false
+      GUI_GITHUB_TOKEN: ""
+      GUI_TP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
+      GUI_TP_CHART_REPO_USER_NAME: ""
+      GUI_TP_CHART_REPO_TOKEN: ""
+      GUI_TP_CONTAINER_REGISTRY_URL: "csgprduswrepoedge.jfrog.io"
+      GUI_TP_CONTAINER_REGISTRY_REPOSITORY: "tibco-platform-docker-prod"
+      GUI_TP_CONTAINER_REGISTRY_USER: ""
+      GUI_TP_CONTAINER_REGISTRY_PASSWORD: ""
       GUI_TP_CLUSTER_STORAGE_CLASS_NAME: "standard"
     globalEnvVariable:
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
       PIPELINE_CHECK_DOCKER_STATUS: false
       TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+      TP_CHART_REPO: ${GUI_TP_CHART_REPO}
+      TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
+      TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
+      TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL}
+      TP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_TP_CONTAINER_REGISTRY_REPOSITORY}
+      TP_CONTAINER_REGISTRY_USER: ${GUI_TP_CONTAINER_REGISTRY_USER}
+      TP_CONTAINER_REGISTRY_PASSWORD: ${GUI_TP_CONTAINER_REGISTRY_PASSWORD}
       TP_CLUSTER_STORAGE_CLASS_NAME: ${GUI_TP_CLUSTER_STORAGE_CLASS_NAME:-standard}
   helmCharts:
-    - name: postgresql # chart name
-      version: 11.9.13 # 14.3.3 use postgresql 16.2.0, 11.9.13 use postgresql 14.5.0
+    - name: on-premises-third-party
+      version: ^1.0.0
       namespace: tibco-ext # namespace to install the chart
       releaseName: postgresql
-      condition: true # possible values: true, false
+      condition: true
       repo:
         helm:
-          url: https://charts.bitnami.com/bitnami
+          url: ${TP_CHART_REPO}
+          username: "${TP_CHART_REPO_USER_NAME}"
+          password: "${TP_CHART_REPO_TOKEN}"
       cluster:
         names:
           - ${TP_CLUSTER_NAME}
       values:
         keepPrevious: true
         content: |
-          auth:
-            postgresPassword: postgres
-            username: postgres
-            password: postgres
-            database: "postgres"
           global:
+            tibco:
+              containerRegistry:
+                url: "${TP_CONTAINER_REGISTRY_URL}"
+                username: "${TP_CONTAINER_REGISTRY_USER}"
+                password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+                repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
             storageClass: ${TP_CLUSTER_STORAGE_CLASS_NAME}
+          postgresql:
+            enabled: true
+            auth:
+              postgresPassword: postgres
+              username: postgres
+              password: postgres
+              database: "postgres"
+            image:
+              registry: "${TP_CONTAINER_REGISTRY_URL}"
+              repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
+              tag: 16.4.0-debian-12-r14
+              pullSecrets:
+              - tibco-container-registry-credentials
+            primary:
+              # resourcesPreset: "nano" # nano micro small
+              resources:
+                requests:
+                  cpu: 250m
+                  memory: 256Mi
       flags:
         createNamespace: true
         timeout: 1h
@@ -54,7 +130,8 @@ recipe: |
           base64Encoded: false
           skip: false
           content: |
-            helm del -n tibco-ext postgresql && \
+            helm uninstall -n tibco-ext postgresql && \
             kubectl delete pvc -n tibco-ext --all
             echo "sleep for 60 seconds to let PV and PVC to be deleted."
-            sleep 60  
+            sleep 60
+            kubectl get pvc -n tibco-ext -l app.kubernetes.io/name=postgresql -o name | xargs -I{} kubectl patch {} -n tibco-ext -p '{"metadata":{"finalizers":null}}' --type=merge 2> /dev/null

@@ -156,6 +156,7 @@ class PageObjectDataPlane(PageObjectGlobal):
             self.page.wait_for_timeout(3000)
             if self.page.locator(f"#app-list-table tr.{capability.upper()}", has=self.page.locator("td.app-name", has_text=app_name)).locator("td", has_text="Running").is_visible():
                 ColorLogger.success(f"{capability} app '{app_name}' is already running.")
+                ReportYaml.set_capability_app_info(dp_name, capability, app_name, "status", "Running")
                 return True
             else:
                 print(f"{capability} app '{app_name}' has not been running.")

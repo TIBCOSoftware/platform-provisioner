@@ -30,9 +30,9 @@ meta:
     GUI_CP_PROXY_HTTPS_PROXY: ""
     GUI_CP_PROXY_NO_PROXY: ""
 
-    # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.9.0
-    GUI_CP_PLATFORM_BASE_VERSION: 1.9.0
+    # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
+    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.10.0
+    GUI_CP_PLATFORM_BASE_VERSION: 1.10.0
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -120,9 +120,8 @@ meta:
     GUI_CP_INSTALL_RECIPES: true
     GUI_CP_INSTALL_INTEGRATION: true
     GUI_CP_INSTALL_INTEGRATION_BW: true
-    GUI_CP_INSTALL_INTEGRATION_BWCE: true
     GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES: true
-    GUI_CP_INSTALL_INTEGRATION_BW5: true
+    GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES: true
     GUI_CP_INSTALL_INTEGRATION_FLOGO: true
     GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: true
   globalEnvVariable:
@@ -240,9 +239,9 @@ meta:
     TP_TLS_CERT_HYBRID_PROXY: ${GUI_TP_TLS_CERT_HYBRID_PROXY:-""} # the tls.crt for hybrid-proxy ingress
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
-    # CP version see: https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.9.0} # use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.9.0} # use ^1.0.0 for latest
+    # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.10.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.10.0} # use ^1.0.0 for latest
 
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}
@@ -259,9 +258,8 @@ meta:
     CP_INSTALL_RECIPES: ${GUI_CP_INSTALL_RECIPES:-true}
     CP_INSTALL_INTEGRATION: ${GUI_CP_INSTALL_INTEGRATION:-true}
     CP_INSTALL_INTEGRATION_BW: ${GUI_CP_INSTALL_INTEGRATION_BW:-true} # Env added after 1.8.0
-    CP_INSTALL_INTEGRATION_BWCE: ${GUI_CP_INSTALL_INTEGRATION_BWCE:-true} # Env for before 1.8.0
     CP_INSTALL_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES:-true}
-    CP_INSTALL_INTEGRATION_BW5: ${GUI_CP_INSTALL_INTEGRATION_BW5:-true} # Env for before 1.8.0
+    CP_INSTALL_INTEGRATION_BW5CE_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES:-true} # Env for before 1.8.0
     CP_INSTALL_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_INTEGRATION_FLOGO:-true}
     CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES:-true}
   tools:
@@ -547,15 +545,6 @@ helmCharts:
   values:
     keepPrevious: false
     content: |
-      compute-services:
-        enabled: true
-        resources:
-          requests:
-            cpu: ${CP_RESOURCES_REQUEST_CPU}
-            memory: ${CP_RESOURCES_REQUEST_MEMORY}
-          limits:
-            cpu: 1250m
-            memory: 1000Mi
       hybrid-proxy:
         enabled: true
         resources:
@@ -754,6 +743,19 @@ helmCharts:
             kubectl create secret -n $CP_NAMESPACE generic session-keys --from-literal=TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32) --from-literal=DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
           fi
         fi
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        echo ""
+        echo "=== Images deployed by platform-bootstrap chart version ${CP_PLATFORM_BOOTSTRAP_VERSION} ==="
+        printf "%-40s %-20s\n" "Image" "Version"
+        printf "%-40s %-20s\n" "-----" "-------"
+        kubectl get pods -n "${CP_NAMESPACE}" -o jsonpath='{range .items[*]}{range .spec.initContainers[*]}{.image}{"\n"}{end}{range .spec.containers[*]}{.image}{"\n"}{end}{end}' \
+        | awk -F'/' '{print $NF}' \
+        | awk -F':' '{img=$1; ver=$2?$2:"latest"; printf "%-40s %-20s\n", img, ver}' \
+        | sort -u
 - name: platform-base
   version: ${CP_PLATFORM_BASE_VERSION}
   condition: ${CP_INSTALL_PLATFORM_BASE}
@@ -802,6 +804,7 @@ helmCharts:
             podCIDR: ${TP_CLUSTER_POD_CIDR}
             serviceCIDR: ${TP_CLUSTER_SERVICE_CIDR}
           dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+          dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
           environment: ${CP_EXTERNAL_ENVIRONMENT}
           helmRepo: ${CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
@@ -834,6 +837,15 @@ helmCharts:
             customerID: "myCustomerID"
           enableLogging: false
           IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
+      tp-cp-infra:
+        enabled: true
+        resources:
+          requests:
+            cpu: ${CP_RESOURCES_REQUEST_CPU}
+            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+          limits:
+            cpu: 1250m
+            memory: 1000Mi
       tp-cp-tibcohub-contrib:
         enabled: ${CP_INSTALL_TIBCOHUB_CONTRIB}
       tp-cp-msg-contrib:
@@ -873,28 +885,10 @@ helmCharts:
                 limits:
                   cpu: 200m
                   memory: 200Mi
-        tp-cp-integration-bwce:
-          enabled: ${CP_INSTALL_INTEGRATION_BWCE}
-          bw-webserver:
-            bwwebserver:
-              resources:
-                requests:
-                  cpu: ${CP_RESOURCES_REQUEST_CPU}
-                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
-                limits:
-                  cpu: 200m
-                  memory: 200Mi
-        tp-cp-integration-bw5:
-          enabled: ${CP_INSTALL_INTEGRATION_BW5}
-          bw5-webserver:
-            bw5webserver:
-              resources:
-                requests:
-                  cpu: ${CP_RESOURCES_REQUEST_CPU}
-                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
-                limits:
-                  cpu: 200m
-                  memory: 200Mi
+        tp-cp-bwce-utilities:
+          enabled: ${CP_INSTALL_INTEGRATION_BWCE_UTILITIES}
+        tp-cp-bw5ce-utilities:
+          enabled: ${CP_INSTALL_INTEGRATION_BW5CE_UTILITIES}
         tp-cp-integration-flogo:
           enabled: ${CP_INSTALL_INTEGRATION_FLOGO}
           flogo-webserver:
@@ -906,17 +900,6 @@ helmCharts:
                 limits:
                   cpu: 200m
                   memory: 200Mi
-        tp-cp-bwce-utilities:
-          enabled: ${CP_INSTALL_INTEGRATION_BWCE_UTILITIES}
-          bwce-utilities:
-            studio:
-              resources:
-                requests:
-                  cpu: ${CP_RESOURCES_REQUEST_CPU}
-                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
-                limits:
-                  cpu: "1"
-                  memory: 2048Mi
         tp-cp-flogo-utilities:
           enabled: ${CP_INSTALL_INTEGRATION_FLOGO_UTILITIES}
       tp-cp-core:
@@ -1104,3 +1087,16 @@ helmCharts:
           echo "CP_ENCRYPTION_SECRET_NAME secret not found, Creating a new secret with random value"
           kubectl create secret -n $CP_NAMESPACE generic $CP_ENCRYPTION_SECRET_NAME --from-literal=$CP_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c44)
         fi
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        echo ""
+        echo "=== Images deployed by platform-base chart version ${CP_PLATFORM_BASE_VERSION} ==="
+        printf "%-40s %-20s\n" "Image" "Version"
+        printf "%-40s %-20s\n" "-----" "-------"
+        kubectl get pods -n "${CP_NAMESPACE}" -o jsonpath='{range .items[*]}{range .spec.initContainers[*]}{.image}{"\n"}{end}{range .spec.containers[*]}{.image}{"\n"}{end}{end}' \
+        | awk -F'/' '{print $NF}' \
+        | awk -F':' '{img=$1; ver=$2?$2:"latest"; printf "%-40s %-20s\n", img, ver}' \
+        | sort -u

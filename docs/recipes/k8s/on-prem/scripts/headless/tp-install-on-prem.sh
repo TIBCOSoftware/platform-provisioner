@@ -35,9 +35,9 @@ function customize-tp() {
   yq eval -i '(.meta.guiEnv.GUI_TP_DNS_DOMAIN = env(TP_TOP_DOMAIN))' "$_recipe_file_name"
   # Enable BWCE by default for headless
   export TP_AUTO_ENABLE_BWCE=${TP_AUTO_ENABLE_BWCE:-"true"}
-  yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE = env(TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
+  yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW = env(TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
   yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES = env(TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
-  yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5 = env(TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
+  yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES = env(TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
 
   # Update the platform version
   if [[ -n "$TP_PLATFORM_BOOTSTRAP_VERSION" ]]; then

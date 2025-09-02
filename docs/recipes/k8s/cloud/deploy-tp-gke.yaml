@@ -19,6 +19,11 @@ meta:
     TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
     TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
     PLATFORM_PROVISIONER_REPO: ${GUI_PLATFORM_PROVISIONER_REPO:-github.com/TIBCOSoftware/platform-provisioner}
+    # container registry
+    TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL:-"csgprduswrepoedge.jfrog.io"}
+    TP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_TP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
+    TP_CONTAINER_REGISTRY_USER: ${GUI_TP_CONTAINER_REGISTRY_USER}
+    TP_CONTAINER_REGISTRY_PASSWORD: ${GUI_TP_CONTAINER_REGISTRY_PASSWORD}
 
     # GCP setting
     # GCP_PROJECT_ID: ${GUI_GCP_PROJECT_ID} # GCP project is required
@@ -63,6 +68,8 @@ meta:
     # apm
     TP_DEPLOY_APM: "true" # set to true to deploy apm
     TP_DEPLOY_APM_INGRESS: "true" # set to true to deploy apm ingress
+    # grafana
+    TP_GRAFANA_ADMIN_PASSWORD: "${GUI_TP_GRAFANA_ADMIN_PASSWORD:-$(openssl rand -base64 16)}" # set grafana admin password
 
     # storage
     TP_STORAGE_CLASS: ${GUI_TP_STORAGE_CLASS:-"standard-rwx-tp"} # standard-rwx-tp for GCP Filestore
@@ -363,33 +370,49 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
-- name: postgresql
-  version: 15.5.38 # 15.5.38 use postgresql 16.4.0, 11.9.13 use postgresql 14.5.0 release: https://artifacthub.io/packages/helm/bitnami/postgresql
+- name: on-premises-third-party
+  version: ^1.0.0
   namespace: tibco-ext
   releaseName: postgresql
   condition: ${TP_INSTALL_POSTGRES}
   repo:
     helm:
-      url: https://charts.bitnami.com/bitnami
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
   values:
     keepPrevious: true
     content: |
-      auth:
-        postgresPassword: postgres
-        username: postgres
-        password: postgres
-        database: "postgres"
       global:
+        tibco:
+          containerRegistry:
+            url: "${TP_CONTAINER_REGISTRY_URL}"
+            username: "${TP_CONTAINER_REGISTRY_USER}"
+            password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+            repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
         storageClass: ${TP_STORAGE_CLASS}
-      primary:
-        # resourcesPreset: "nano" # nano micro small https://github.com/bitnami/charts/blob/7ba54fc3775106036c813a3819c76feab6deee83/bitnami/common/templates/_resources.tpl#L15
-        resources:
-          requests:
-            cpu: 250m
-            memory: 256Mi
+      postgresql:
+        enabled: true
+        auth:
+          postgresPassword: postgres
+          username: postgres
+          password: postgres
+          database: "postgres"
+        image:
+          registry: "${TP_CONTAINER_REGISTRY_URL}"
+          repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
+          tag: 16.4.0-debian-12-r14
+          pullSecrets:
+          - tibco-container-registry-credentials
+        primary:
+          # resourcesPreset: "nano" # nano micro small
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
   flags:
     createNamespace: true
     timeout: 1h
@@ -470,6 +493,7 @@ helmCharts:
           ingressClassName: ${TP_INGRESS_CLASS}
           hosts:
           - grafana.${TP_DOMAIN}
+        adminPassword: ${TP_GRAFANA_ADMIN_PASSWORD}
       prometheus:
         prometheusSpec:
           enableRemoteWriteReceiver: true
@@ -502,11 +526,6 @@ helmCharts:
               target_label: __metrics_path__
               regex: (.+)
               replacement: /$1
-        ingress:
-          enabled: true
-          ingressClassName: ${TP_INGRESS_CLASS}
-          hosts:
-          - prometheus-internal.${TP_DOMAIN}
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -516,3 +535,13 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+  hooks:
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl label namespace prometheus-system networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace prometheus-system networking.platform.tibco.com/non-cp-ns=enable
+        GRAFANA_ADMIN_PASSWORD=$(kubectl get secret -n prometheus-system kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode)
+        echo "Grafana admin password: $GRAFANA_ADMIN_PASSWORD"
