@@ -289,6 +289,8 @@ function pp-azure-assume-role() {
 
 # generate aks kubeconfig
 function aks-pp-assume-role() {
+  local _aks_clusters=''
+  local _aro_clusters=''
   if [ -z "${CLUSTER_NAME}" ]; then
     common::err "Please set CLUSTER_NAME environment variable"
     return 1
@@ -305,9 +307,22 @@ function aks-pp-assume-role() {
     return 1
   fi
 
-  az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${CLUSTER_NAME}" --overwrite-existing 1> /dev/null
-  if [ $? -ne 0 ]; then
-    common::err "generate kubeconfig for aks ${AZURE_RESOURCE_GROUP}/${CLUSTER_NAME} failed"
+  _aks_clusters=$(az aks list --resource-group "${AZURE_RESOURCE_GROUP}" --query "[].name" -o tsv 2>/dev/null)
+  _aro_clusters=$(az aro list --resource-group "${AZURE_RESOURCE_GROUP}" --query "[].name" -o tsv 2>/dev/null)
+
+  if echo "${_aks_clusters}" | grep -qw "${CLUSTER_NAME}"; then
+    az aks get-credentials --resource-group "${AZURE_RESOURCE_GROUP}" --name "${CLUSTER_NAME}" --overwrite-existing 1> /dev/null
+    if [ $? -ne 0 ]; then
+      common::err "generate kubeconfig for aks ${AZURE_RESOURCE_GROUP}/${CLUSTER_NAME} failed"
+      return 1
+    else
+      return 0
+    fi
+  elif echo "${_aro_clusters}" | grep -qw "${CLUSTER_NAME}"; then
+    common::warn "login to aro cluster ${CLUSTER_NAME} in resource group ${AZURE_RESOURCE_GROUP} must be handled in the pipeline pre-task; assuming logged in"
+    return 0
+  else
+    common::err "aks or aro cluster ${CLUSTER_NAME} does not exist in resource group ${AZURE_RESOURCE_GROUP}."
     return 1
   fi
 }

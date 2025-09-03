@@ -1,9 +1,11 @@
-FROM ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.6.0-tester-on-prem-jammy
+FROM --platform=${BUILDPLATFORM} ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.6.1-tester-on-prem-jammy
 
 ENV TP_AUTO_SCRIPT_PY_ENV_FOLDER=/tmp/auto-py-env
+ENV UV_PROJECT_ENVIRONMENT=${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Etc/UTC \
+    PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common gnupg ca-certificates tzdata && \
@@ -17,16 +19,23 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+SHELL ["/bin/bash", "-c"]
+
+COPY pyproject.toml poetry.lock* uv.lock* requirements*.txt* ./
+RUN set -eux; \
+    if [ -f "uv.lock" ] || [ -f "poetry.lock" ] || ls requirements*.txt >/dev/null 2>&1; then \
+      uv venv ${UV_PROJECT_ENVIRONMENT} --python python3.13; \
+      uv sync --frozen || uv sync; \
+    else \
+      true; \
+    fi
+
+# add pip to the venv
+RUN "${UV_PROJECT_ENVIRONMENT}/bin/python" -m ensurepip --upgrade; \
+    ln -sf "${UV_PROJECT_ENVIRONMENT}/bin/pip3" "${UV_PROJECT_ENVIRONMENT}/bin/pip"
 
 COPY . .
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-SHELL ["/bin/bash", "-c"]
-
-RUN python3.13 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER} && \
-    ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/pip install --upgrade pip && \
-    ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/pip install -r requirements.txt && \
-    ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/pip install supervisor
 
 ENV PATH="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin:$PATH"
 

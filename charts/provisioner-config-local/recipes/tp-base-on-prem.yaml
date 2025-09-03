@@ -53,8 +53,8 @@ meta:
     GUI_TP_AUTOMATION_NAMESPACE: automation
 
     # third party tools version
-    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.12.2
-    GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 34.4.1
+    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.13.2
+    GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 37.1.0
 
     # CNI
     GUI_TP_INSTALL_CALICO_CNI: false
@@ -122,8 +122,8 @@ meta:
     TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
 
     # third party tools version
-    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.12.2"} # release: https://github.com/kubernetes/ingress-nginx/releases
-    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"34.4.1"} # release: https://github.com/traefik/traefik-helm-chart/releases
+    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.13.2"} # release: https://github.com/kubernetes/ingress-nginx/releases
+    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"37.1.0"} # release: https://github.com/traefik/traefik-helm-chart/releases
 
     # CNI
     TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
@@ -142,7 +142,7 @@ meta:
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager
-  version: v1.17.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.18.2 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -164,7 +164,7 @@ helmCharts:
     createNamespace: true
 - condition: ${TP_INSTALL_METRICS_SERVER}
   name: metrics-server
-  version: "3.12.2" # release: https://github.com/kubernetes-sigs/metrics-server/blob/master/charts/metrics-server/Chart.yaml
+  version: "3.13.0" # release: https://github.com/kubernetes-sigs/metrics-server/blob/master/charts/metrics-server/Chart.yaml
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/metrics-server/
@@ -407,7 +407,7 @@ helmCharts:
         enabled: true
         image:
           repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.6.0-auto-on-prem-jammy
+          tag: 1.6.1-auto-on-prem-jammy
         ports:
           http:
             enabled: true

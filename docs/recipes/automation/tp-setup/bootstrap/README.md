@@ -2,7 +2,19 @@
 * Install pyenv and python >= 3.12.8 if you don't have it (Only need to run once)
 * For Windows: Install [Git Bash](https://git-scm.com/downloads)
 
-### 1. Install pyenv
+### 1. Install environment tools
+
+#### Install uv
+1. For Mac & Linux
+   ```shell
+   curl -fsSL https://uv.io/install.sh | sh
+   ```
+2. For Windows
+   ```shell
+   scoop install main/uv
+   ```
+   
+#### or Install pyenv
 1. For Mac & Linux
    ```shell
    curl https://pyenv.run | bash
@@ -48,6 +60,20 @@ python --version
 ### 1. Run from Source Code
 
 * Support for setting the KUBECONFIG path.
+
+uv way of running the server from source code (Recommended):
+
+```shell
+cd docs/recipes/automation/tp-setup/bootstrap
+
+uv sync
+uv run playwright install
+export TP_AUTO_TASK_FROM_LOCAL_SOURCE=true
+export TP_AUTO_KUBECONFIG=~/.kube/tp-cluster.yaml
+./run-auo.sh
+```
+
+old pip way:
 
 ```shell
 cd docs/recipes/automation/tp-setup/bootstrap

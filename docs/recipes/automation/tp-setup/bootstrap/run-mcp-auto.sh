@@ -8,6 +8,11 @@
 
 set -e
 
+# Change to mcps directory if it exists (for container environments)
+if [ -d /app ]; then
+  cd /app
+fi
+
 # Run TIBCO Platform MCP Server using the main module
 # Set default environment variables for TIBCO Platform MCP
 export TP_MCP_TRANSPORT=${TP_MCP_TRANSPORT:-"streamable-http"}
@@ -16,4 +21,4 @@ export TP_MCP_SERVER_PORT=${TP_MCP_SERVER_PORT:-"8090"}
 export TP_MCP_HTTP_BEARER_TOKEN=${TP_MCP_HTTP_BEARER_TOKEN:-""}
 export TP_MCP_DEBUG=${TP_MCP_DEBUG:-"false"}
 
-cd /app/mcps && /tmp/auto-py-env/bin/python -m tp_automation_mcp_server
+uv run -m mcps.tp_automation_mcp_server
