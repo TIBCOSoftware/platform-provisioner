@@ -276,9 +276,26 @@ tasks:
     content: |
       mkdir -p ${TP_AUTO_SCRIPT_FOLDER}
       cp -R * ${TP_AUTO_SCRIPT_FOLDER}
-      python3 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
-      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
-      pip install -r requirements.txt
+      if command -v uv >/dev/null 2>&1; then
+        echo "[INFO] uv detected, using uv sync..."
+        export UV_PROJECT_ENVIRONMENT="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"
+        uv venv "${UV_PROJECT_ENVIRONMENT}" --python python3.13
+        uv sync --frozen || uv sync
+      else
+        echo "[INFO] uv not found, falling back to python venv..."
+        python3 -m venv "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"
+        source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      
+        if [ -f requirements.txt ]; then
+          echo "[INFO] Installing from requirements.txt..."
+          pip install -r requirements.txt
+        elif [ -f pyproject.toml ]; then
+          echo "[INFO] Installing in editable mode from pyproject.toml..."
+          pip install -e .
+        else
+          echo "[WARN] No requirements.txt or pyproject.toml found, skipping pip install"
+        fi
+      fi
 - condition: ${TP_AUTO_USE_LOCAL_SCRIPT}
   name: setup-local-script
   clusters:
@@ -288,9 +305,26 @@ tasks:
     fileName: script.sh
     content: |
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python3 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
-      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
-      pip install -r requirements.txt
+      if command -v uv >/dev/null 2>&1; then
+        echo "[INFO] uv detected, using uv sync..."
+        export UV_PROJECT_ENVIRONMENT="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"
+        uv venv "${UV_PROJECT_ENVIRONMENT}" --python python3.13
+        uv sync --frozen || uv sync
+      else
+        echo "[INFO] uv not found, falling back to python venv..."
+        python3 -m venv "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"
+        source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      
+        if [ -f requirements.txt ]; then
+          echo "[INFO] Installing from requirements.txt..."
+          pip install -r requirements.txt
+        elif [ -f pyproject.toml ]; then
+          echo "[INFO] Installing in editable mode from pyproject.toml..."
+          pip install -e .
+        else
+          echo "[WARN] No requirements.txt or pyproject.toml found, skipping pip install"
+        fi
+      fi
 - condition: ${TP_ACTIVATION_SERVER_CONFIG}
   name: "activation-server-dns-config"
   script:
@@ -354,7 +388,12 @@ tasks:
         fi
       fi
 
-      python ${PYTHON_FILE_LOGIN_POINT}
+      echo "===== Task Name: active-user, Running file ${PYTHON_FILE_LOGIN_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_LOGIN_POINT}
+      else
+        python ${PYTHON_FILE_LOGIN_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -384,7 +423,12 @@ tasks:
         fi
       fi
 
-      python ${PYTHON_FILE_ENTRY_POINT}
+      echo "===== Task Name: create-dp, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -425,7 +469,13 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_FLOGO=${TP_AUTO_ENABLE_FLOGO}
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python ${PYTHON_FILE_ENTRY_POINT}
+      
+      echo "===== Task Name: deploy-flogo, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -440,7 +490,13 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python ${PYTHON_FILE_ENTRY_POINT}
+      
+      echo "===== Task Name: deploy-bwce, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -455,7 +511,13 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_TIBCOHUB=${TP_AUTO_ENABLE_TIBCOHUB}
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python ${PYTHON_FILE_ENTRY_POINT}
+      
+      echo "===== Task Name: deploy-tibcohub, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -470,7 +532,13 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_EMS=${TP_AUTO_ENABLE_EMS}
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python ${PYTHON_FILE_ENTRY_POINT}
+      
+      echo "===== Task Name: deploy-ems, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -485,12 +553,18 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       export TP_AUTO_IS_PROVISION_PULSAR=${TP_AUTO_ENABLE_PULSAR}
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python ${PYTHON_FILE_ENTRY_POINT}
+      
+      echo "===== Task Name: deploy-pulsar, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
 - condition: ${TP_AUTO_ENABLE_BMDP} # only create BMDP
-  name: create-dp
+  name: create-bmdp
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -515,7 +589,12 @@ tasks:
         fi
       fi
 
-      python ${PYTHON_FILE_ENTRY_POINT_BMDP}
+      echo "===== Task Name: create-bmdp, Running file ${PYTHON_FILE_ENTRY_POINT_BMDP} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT_BMDP}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT_BMDP}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -555,7 +634,13 @@ tasks:
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python ${PYTHON_FILE_ENTRY_POINT_O11Y}
+      
+      echo "===== Task Name: add-card-to-o11y, Running file ${PYTHON_FILE_ENTRY_POINT_O11Y} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT_O11Y}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT_O11Y}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit 0
@@ -569,7 +654,13 @@ tasks:
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python ${PYTHON_FILE_ENV_POINT}
+      
+      echo "===== Task Name: print-report, Running file ${PYTHON_FILE_ENV_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENV_POINT}
+      else
+        python ${PYTHON_FILE_ENV_POINT}
+      fi
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
@@ -585,6 +676,8 @@ tasks:
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       cd ${TP_AUTO_SCRIPT_FOLDER}
+      
+      echo "===== Task Name: run-e2e-test, Running file ${PYTHON_E2E_TEST_CASES} ====="
       pytest -n auto -v --tb=long --dist=loadfile --html=report/report.html --self-contained-html ${PYTHON_E2E_TEST_CASES}
       _result=$?
       echo "python return code: ${_result}"

@@ -161,3 +161,40 @@ helmCharts:
           kubectl create ns ${TP_BWDM_NAMESPACE}
           # add label for bmdp to connect to this namespace
           kubectl label namespace ${TP_BWDM_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+
+          # BW, EMS also need to add the activation server otherwise the pod will not ready
+          add_static_dns_record_to_coredns() {
+            local namespace="kube-system"
+            local configmap_name="coredns"
+            local new_record="${TP_ACTIVATION_SERVER_IP} ${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
+          
+            echo "🔍 Reading current NodeHosts from ConfigMap '$configmap_name' in namespace '$namespace'..."
+            local current_hosts
+            current_hosts=$(kubectl get configmap "$configmap_name" -n "$namespace" -o jsonpath='{.data.NodeHosts}')
+          
+            if echo "$current_hosts" | grep -Fxq "$new_record"; then
+              echo "✅ Record already exists: $new_record"
+              return 0
+            fi
+          
+            echo "➕ Appending new record: $new_record"
+            local updated_hosts="${current_hosts}"$'\n'"${new_record}"
+          
+            echo "📦 Patching ConfigMap..."
+            kubectl patch configmap "$configmap_name" -n "$namespace" --type merge \
+              --patch "$(cat <<EOF
+          data:
+            NodeHosts: |
+          $(echo "$updated_hosts" | sed 's/^/    /')
+          EOF
+          )"
+          
+            echo "✅ Record added successfully."
+          
+            echo "🔄 Restarting CoreDNS to apply changes..."
+            kubectl -n "$namespace" rollout restart deployment coredns
+          
+            echo "🎉 Done."
+          }
+          
+          add_static_dns_record_to_coredns

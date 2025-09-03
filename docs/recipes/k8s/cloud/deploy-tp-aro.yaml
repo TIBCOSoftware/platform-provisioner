@@ -1,0 +1,600 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Recipe for installing TIBCO Platform ARO
+apiVersion: v1
+kind: generic-runner
+meta:
+  globalEnvVariable:
+    # piepline env
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: false
+    PIPELINE_CHECK_DOCKER_STATUS: false
+
+    # github
+    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
+    TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
+    TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
+    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
+    PLATFORM_PROVISIONER_REPO: ${GUI_PLATFORM_PROVISIONER_REPO:-github.com/TIBCOSoftware/platform-provisioner}
+
+    # container registry
+    TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL:-"csgprduswrepoedge.jfrog.io"}
+    TP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_TP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
+    TP_CONTAINER_REGISTRY_USER: ${GUI_TP_CONTAINER_REGISTRY_USER}
+    TP_CONTAINER_REGISTRY_PASSWORD: ${GUI_TP_CONTAINER_REGISTRY_PASSWORD}
+
+    # redhat access token to pull OCP images
+    RED_HAT_OFFLINE_ACCESS_TOKEN: ${GUI_RED_HAT_OFFLINE_ACCESS_TOKEN}
+
+    # Azure env
+    ACCOUNT: ${ACCOUNT:-"azure-"} # Azure account prefix to trigger authenticating with Azure
+    TP_RESOURCE_GROUP: ${GUI_TP_RESOURCE_GROUP} # Azure resource group name
+    AZURE_RESOURCE_GROUP: ${TP_RESOURCE_GROUP} # provisioner pipeline assume role needed
+    TP_AZURE_REGION: ${GUI_TP_AZURE_REGION:-"eastus"} # the default region for the azure account
+
+    # cluster
+    TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"aroCluster"}
+    TP_CLUSTER_VERSION: ${GUI_TP_CLUSTER_VERSION:-4.16.30}
+    TP_VNET_NAME: ${GUI_TP_VNET_NAME:-"openshiftvnet"}
+    TP_VNET_CIDR: ${GUI_TP_VNET_CIDR:-"10.0.0.0/8"}
+    TP_MASTER_SUBNET_NAME: ${GUI_TP_MASTER_SUBNET_NAME:-"masterOpenshiftSubnet"}
+    TP_MASTER_SUBNET_CIDR: ${GUI_TP_MASTER_SUBNET_CIDR:-"10.0.0.0/23"}
+    TP_WORKER_COUNT: ${GUI_TP_WORKER_COUNT:-6}
+    TP_WORKER_SUBNET_NAME: ${GUI_TP_WORKER_SUBNET_NAME:-"workerOpenshiftSubnet"}
+    TP_WORKER_SUBNET_CIDR: ${GUI_TP_WORKER_SUBNET_CIDR:-"10.0.2.0/23"}
+    TP_WORKER_VM_DISK_SIZE_GB: ${GUI_TP_WORKER_VM_DISK_SIZE_GB:-128}
+    TP_WORKER_VM_SIZE: ${GUI_TP_WORKER_VM_SIZE:-"Standard_D8s_v5"}
+    TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID: ${GUI_TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID}
+    TP_AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_BASE64: ${GUI_TP_AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_BASE64}
+
+    # domain
+    TP_TOP_LEVEL_DOMAIN: ${GUI_TP_TOP_LEVEL_DOMAIN} # the top level domain for the main ingress
+    TP_SANDBOX: ${GUI_TP_SANDBOX} # the sandbox for the main ingress
+    TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN: ${GUI_TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}
+    TP_CLUSTER_DOMAIN: ${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}.${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN} # the actual domain for the TIBCO platform. Sample format: <cp/dp-env>.${SANDBOX}.${TP_TOP_LEVEL_DOMAIN}
+    TP_CLUSTER_API_DOMAIN_TLS_CRT_BASE64: ${GUI_TP_CLUSTER_API_DOMAIN_TLS_CRT_BASE64}
+    TP_CLUSTER_API_DOMAIN_TLS_KEY_BASE64: ${GUI_TP_CLUSTER_API_DOMAIN_TLS_KEY_BASE64}
+    TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64: ${GUI_TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64}
+    TP_CLUSTER_APPS_DOMAIN_TLS_KEY_BASE64: ${GUI_TP_CLUSTER_APPS_DOMAIN_TLS_KEY_BASE64}
+    TP_CLUSTER_API_SERVER_PUBLIC_VISIBILITY: ${GUI_TP_CLUSTER_API_SERVER_PUBLIC_VISIBILITY:-true}
+    TP_CLUSTER_INGRESS_PUBLIC_VISIBILITY: ${GUI_TP_CLUSTER_INGRESS_PUBLIC_VISIBILITY:-true}
+    TP_CUSTOM_CLUSTER_DOMAIN_ENABLED: $([[ -n "${TP_CLUSTER_DOMAIN}" ]] && echo "true" || echo "false")
+
+    # ingress
+    TP_DNS_RESOURCE_GROUP: ${GUI_TP_DNS_RESOURCE_GROUP} # must provide
+
+    # control plane domain and instance
+    INSTALL_ARO_CP: ${GUI_INSTALL_ARO_CP:-false}
+    CP_DNS_DOMAIN: apps.${TP_CLUSTER_DOMAIN}
+    CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID}
+    CP_SERVICE_DNS_DOMAIN: ${GUI_CP_INSTANCE_ID}-my.${CP_DNS_DOMAIN}
+    CP_SERVICE_DNS_DOMAIN_TLS_CRT_BASE64: ${GUI_CP_SERVICE_DNS_DOMAIN_TLS_CRT_BASE64}
+    CP_SERVICE_DNS_DOMAIN_TLS_KEY_BASE64: ${GUI_CP_SERVICE_DNS_DOMAIN_TLS_KEY_BASE64}
+    CP_TUNNEL_DNS_DOMAIN: ${GUI_CP_INSTANCE_ID}-tunnel.${CP_DNS_DOMAIN}
+    CP_TUNNEL_DNS_DOMAIN_TLS_CRT_BASE64: ${GUI_CP_TUNNEL_DNS_DOMAIN_TLS_CRT_BASE64}
+    CP_TUNNEL_DNS_DOMAIN_TLS_KEY_BASE64: ${GUI_CP_TUNNEL_DNS_DOMAIN_TLS_KEY_BASE64}
+    CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-"openshift-default"}
+
+    # flow control
+    TP_SCRIPT_BRANCH: ${GUI_TP_SCRIPT_BRANCH:-main}
+    TP_CREATE_PREREQUISITES_SCRIPT_FILENAME: ${GUI_TP_CREATE_PREREQUISITES_SCRIPT_FILENAME:-pre-aro-cluster-script.sh}
+    TP_CREATE_ARO_CLUSTER: ${GUI_TP_CREATE_ARO_CLUSTER:-true}
+    TP_GET_SETUP_DETAILS: ${GUI_TP_GET_SETUP_DETAILS:-true}
+    TP_INSTALL_STORAGE_CLASS_POSTGRES: ${GUI_TP_INSTALL_STORAGE_CLASS_POSTGRES:-true}
+    TP_CLEAN_UP_SCRIPT_FILENAME: clean-up.sh
+    TP_CLEAN_UP: ${GUI_TP_CLEAN_UP:-false}
+tasks:
+  - condition: ${TP_CREATE_ARO_CLUSTER}
+    repo:
+      git:
+        github:
+          repo: ${PLATFORM_PROVISIONER_REPO}
+          path: docs/recipes/k8s/cloud/scripts/aro
+          branch: ${TP_SCRIPT_BRANCH}
+    script:
+      ignoreErrors: false
+      fileName: ${TP_CREATE_PREREQUISITES_SCRIPT_FILENAME}
+  - condition: ${TP_CREATE_ARO_CLUSTER}
+    script:
+      ignoreErrors: false
+      content: |
+        if [[ -z "${RED_HAT_OFFLINE_ACCESS_TOKEN}" ]]; then
+          echo "ERROR: RED_HAT_OFFLINE_ACCESS_TOKEN not provided"
+          exit 1
+        fi
+        #Set the offline token value (in this example, we set it in plaintext and shorten the token value for clarity)
+        OFFLINE_TOKEN="${RED_HAT_OFFLINE_ACCESS_TOKEN}"
+        # Step 1: Get initial tokens
+        echo "Getting SSO token..."
+        RESPONSE=$(curl -s -X POST "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token" -d client_id=rhsm-api -d grant_type=refresh_token -d refresh_token="${OFFLINE_TOKEN}")
+        if echo "$RESPONSE" | grep -q "error"; then
+          echo "ERROR: authentication failed: $(echo $RESPONSE | jq -r .error_description)"
+          exit 1
+        fi
+        SSO_TOKEN=$(echo $RESPONSE | jq -r .access_token)
+        # Step 2: Use offline token to get pull secret
+        echo "Getting pull secret..."
+        curl -s -X POST https://api.openshift.com/api/accounts_mgmt/v1/access_token \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $SSO_TOKEN" \
+          | jq '.' > /tmp/pull-secret.json
+        echo "Pull secret saved to /tmp/pull-secret.json"
+        if [[ -f "/tmp/pull-secret.json" && -s "/tmp/pull-secret.json" ]]; then
+            echo "File /tmp/pull-secret.json exists and is not empty"
+        else
+            echo "Error: File /tmp/pull-secret.json either doesn't exist or is empty"
+            exit 1
+        fi
+        chmod 644 /tmp/pull-secret.json
+        echo "Validate ARO cluster with Client ID and Client Secret"
+        _client_id_param=""
+        _sp_client_secret=""
+        _client_secret_param=""
+        if [[ -n "${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID}" ]]; then
+          echo "Client ID is set"
+          _client_id_param="--client-id ${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID}"
+        fi
+        if [[ -n "${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_BASE64}" ]]; then
+          echo "Client Secret is set"
+          _sp_client_secret=$(echo "${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_BASE64}" | base64 --decode)
+          _client_secret_param="--client-secret ${_sp_client_secret}"
+        fi
+        az aro validate --master-subnet ${TP_MASTER_SUBNET_NAME} --worker-subnet ${TP_WORKER_SUBNET_NAME} --vnet ${TP_VNET_NAME} --resource-group ${TP_RESOURCE_GROUP} --name ${TP_CLUSTER_NAME} --location ${TP_AZURE_REGION} --version ${TP_CLUSTER_VERSION} ${_client_id_param} ${_client_secret_param}
+        _return_code=$?
+        if [[ $_return_code -ne 0 ]]; then
+          echo "Validation failed with error code: $_return_code"
+          exit $_return_code
+        fi
+  - condition: ${TP_CREATE_ARO_CLUSTER}
+    script:
+      ignoreErrors: false
+      content: |
+        az provider register -n Microsoft.RedHatOpenShift --wait
+        az provider register -n Microsoft.Compute --wait
+        az provider register -n Microsoft.Storage --wait
+        az provider register -n Microsoft.Authorization --wait
+  - condition: ${TP_CREATE_ARO_CLUSTER}
+    script:
+      ignoreErrors: false
+      content: |
+        cat /tmp/pull-secret.json
+        echo "Starting to create cluster with command:"
+        _client_id_param=""
+        _sp_client_secret=""
+        _client_secret_param=""
+        _cluster_domain_param=""
+        if [[ -n "${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID}" ]]; then
+          echo "Client ID is set"
+          _client_id_param="--client-id ${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_ID}"
+        fi
+        if [[ -n "${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_BASE64}" ]]; then
+          echo "Client Secret is set"
+          _sp_client_secret=$(echo "${TP_AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_BASE64}" | base64 --decode)
+          _client_secret_param="--client-secret ${_sp_client_secret}"
+        fi
+        if [[ "${TP_CLUSTER_API_SERVER_PUBLIC_VISIBILITY}" == "true" ]]; then
+          apiServerVisibility="Public"
+        else
+          apiServerVisibility="Private"
+        fi
+        if [[ "${TP_CLUSTER_INGRESS_PUBLIC_VISIBILITY}" == "true" ]]; then
+          ingressVisibility="Public"
+        else
+          ingressVisibility="Private"
+        fi
+        if [[ -n "${TP_CLUSTER_DOMAIN}" ]]; then
+          echo "Cluster Domain is set"
+          _cluster_domain_param="--domain ${TP_CLUSTER_DOMAIN}"
+        fi
+        echo "az aro create --location ${TP_AZURE_REGION} --resource-group ${TP_RESOURCE_GROUP} --name ${TP_CLUSTER_NAME} --version ${TP_CLUSTER_VERSION} --vnet ${TP_VNET_NAME} --master-subnet ${TP_MASTER_SUBNET_NAME} --worker-subnet ${TP_WORKER_SUBNET_NAME} --worker-count ${TP_WORKER_COUNT} --worker-vm-disk-size-gb ${TP_WORKER_VM_DISK_SIZE_GB} --worker-vm-size ${TP_WORKER_VM_SIZE} --apiserver-visibility ${apiServerVisibility} --ingress-visibility ${ingressVisibility} --pull-secret @/tmp/pull-secret.json ${_client_id_param} ${_client_secret_param} ${_cluster_domain_param}"
+        az aro create --location ${TP_AZURE_REGION} --resource-group ${TP_RESOURCE_GROUP} --name ${TP_CLUSTER_NAME} --version ${TP_CLUSTER_VERSION} --vnet ${TP_VNET_NAME} --master-subnet ${TP_MASTER_SUBNET_NAME} --worker-subnet ${TP_WORKER_SUBNET_NAME} --worker-count ${TP_WORKER_COUNT} --worker-vm-disk-size-gb ${TP_WORKER_VM_DISK_SIZE_GB} --worker-vm-size ${TP_WORKER_VM_SIZE} --apiserver-visibility ${apiServerVisibility} --ingress-visibility ${ingressVisibility} --pull-secret @/tmp/pull-secret.json ${_client_id_param} ${_client_secret_param} ${_cluster_domain_param}
+        if [[ $? -eq 0 ]]; then
+          echo "ARO Cluster creation successful"
+        fi
+  - condition: ${TP_CUSTOM_CLUSTER_DOMAIN_ENABLED}
+    script:
+      ignoreErrors: false
+      content: |
+        if [[ "${TP_CREATE_ARO_CLUSTER}" == "false" ]]; then
+          echo "TP_CREATE_ARO_CLUSTER is set to false, skipping custom domain setup"
+          exit 0
+        fi
+        if [[ -z "${TP_DNS_RESOURCE_GROUP}" ]]; then
+          echo "ERROR: TP_DNS_RESOURCE_GROUP not provided. It is required for custom domain setup."
+          exit 1
+        fi
+        if [[ -z "${TP_CLUSTER_API_DOMAIN_TLS_CRT_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_API_DOMAIN_TLS_CRT_BASE64 not provided. It is required for custom domain setup."
+          exit 1
+        fi
+        if [[ -z "${TP_CLUSTER_API_DOMAIN_TLS_KEY_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_API_DOMAIN_TLS_KEY_BASE64 not provided. It is required for custom domain setup."
+          exit 1
+        fi
+        if [[ -z "${TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64 not provided. It is required for custom domain setup."
+          exit 1
+        fi
+        if [[ -z "${TP_CLUSTER_APPS_DOMAIN_TLS_KEY_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_APPS_DOMAIN_TLS_KEY_BASE64 not provided. It is required for custom domain setup."
+          exit 1
+        fi
+        _ingress_ip="$(az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query 'ingressProfiles[0].ip' -o tsv)"
+        echo $_ingress_ip
+        az network dns record-set a add-record -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n '*.apps' -a ${_ingress_ip}
+        _api_server_ip="$(az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query 'apiserverProfile.ip' -o tsv)"
+        echo $_api_server_ip
+        az network dns record-set a add-record -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n 'api' -a ${_api_server_ip}
+        sleep 120
+        # dig +short test.apps.${TP_CLUSTER_DOMAIN}
+        # dig +short api.${TP_CLUSTER_DOMAIN}
+        uname=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminUsername -otsv)
+        password=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminPassword -otsv)
+        apiServer=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query apiserverProfile.url -o tsv)
+        oc login ${apiServer} -u ${uname} -p ${password} --insecure-skip-tls-verify=true
+        
+        # check whether the custom-ca configmap exists
+        if oc get configmap custom-ca -n openshift-config &>/dev/null; then
+          echo "configmap custom-ca exists in openshift-config namespace"
+        else
+          echo "configmap custom-ca does not exist in openshift-config namespace, creating it now"
+          echo "${TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64}" | base64 --decode > /tmp/fullchain.pem
+          oc create configmap custom-ca --from-file=fullchain.pem=/tmp/fullchain.pem -n openshift-config
+          oc patch proxy/cluster --type=merge --patch='{"spec":{"trustedCA":{"name":"custom-ca"}}}'
+        fi
+
+        # check whether the apps-custom-domain secret exists
+        if oc get secret apps-custom-domain -n openshift-ingress &>/dev/null; then
+          echo "tls secret apps-custom-domain exists in openshift-ingress namespace"
+        else
+          echo "tls secret apps-custom-domain does not exist in openshift-ingress namespace, creating it now"
+          if [[ -z "${TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64 not provided. It is required for custom ARO domain."
+          exit 1
+          fi
+          if [[ -z "${TP_CLUSTER_APPS_DOMAIN_TLS_KEY_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_APPS_DOMAIN_TLS_KEY_BASE64 not provided. It is required for custom ARO domain."
+          exit 1
+          fi
+          oc apply -f - << EOF
+        apiVersion: v1
+        data:
+          tls.crt: ${TP_CLUSTER_APPS_DOMAIN_TLS_CRT_BASE64}
+          tls.key: ${TP_CLUSTER_APPS_DOMAIN_TLS_KEY_BASE64}
+        kind: Secret
+        metadata:
+          name: apps-custom-domain
+          namespace: openshift-ingress
+        type: kubernetes.io/tls
+        EOF
+          oc patch ingresscontroller.operator default --type=merge -p '{"spec": {"routeAdmission": {"namespaceOwnership": "InterNamespaceAllowed", "wildcardPolicy": "WildcardsAllowed"}, "defaultCertificate": {"name": "apps-custom-domain"}}}' -n openshift-ingress-operator
+          oc get pod -n openshift-ingress
+        fi
+
+        # check whether the api-custom-domain-cert secret exists
+        if oc get secret api-custom-domain-cert -n openshift-config &>/dev/null; then
+          echo "tls secret api-custom-domain-cert exists in openshift-config namespace"
+        else
+          echo "tls secret api-custom-domain-cert does not exist in openshift-config namespace, creating it now"
+          if [[ -z "${TP_CLUSTER_API_DOMAIN_TLS_CRT_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_API_DOMAIN_TLS_CRT_BASE64 not provided. It is required for custom ARO domain."
+          exit 1
+          fi
+          if [[ -z "${TP_CLUSTER_API_DOMAIN_TLS_KEY_BASE64}" ]]; then
+          echo "ERROR: TP_CLUSTER_API_DOMAIN_TLS_KEY_BASE64 not provided. It is required for custom ARO domain."
+          exit 1
+          fi
+          oc apply -f - << EOF
+        apiVersion: v1
+        data:
+          tls.crt: ${TP_CLUSTER_API_DOMAIN_TLS_CRT_BASE64}
+          tls.key: ${TP_CLUSTER_API_DOMAIN_TLS_KEY_BASE64}
+        kind: Secret
+        metadata:
+          name: api-custom-domain-cert
+          namespace: openshift-config
+        type: kubernetes.io/tls
+        EOF
+          oc patch apiserver cluster --type=merge -p '{"spec": {"servingCerts": {"namedCertificates": [{"names": ["api.'${TP_CLUSTER_DOMAIN}'"], "servingCertificate": {"name": "api-custom-domain-cert"}}]}}}'
+          oc get apiserver cluster -o yaml
+        fi
+        oc logout
+        sleep 120
+        oc login ${apiServer} -u ${uname} -p ${password}
+        _return_code=$?
+        if [[ $_return_code -ne 0 ]]; then
+          echo "Login failed with error code: $_return_code due to issue"
+          echo "Insecure login"
+          oc login ${apiServer} -u ${uname} -p ${password} --insecure-skip-tls-verify=true
+        fi
+  - condition: ${TP_GET_SETUP_DETAILS}
+    script:
+      ignoreErrors: false
+      content: |
+        uname=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminUsername -otsv)
+        password=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminPassword -otsv)
+        apiServer=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query apiserverProfile.url -o tsv)
+        consoleUrl=$(az aro show -n ${TP_CLUSTER_NAME} -g ${TP_RESOURCE_GROUP} --query "consoleProfile.url" -o tsv)
+        serviceCIDR=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.serviceCidr -o tsv)
+        podCIDR=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.podCidr -o tsv)
+        echo "ARO Cluster Setup Details:"
+        echo "--------------------------------"
+        echo "Cluster Name: ${TP_CLUSTER_NAME}"
+        echo "Resource Group: ${TP_RESOURCE_GROUP}"
+        echo "API Server: ${apiServer}"
+        echo "Console URL: ${consoleUrl}"
+        echo "Kubeadmin Username: ${uname}"
+        echo "Kubeadmin Password: ${password}"
+        echo "Service CIDR: ${serviceCIDR}"
+        echo "Pod CIDR: ${podCIDR}"
+        echo "Node CIDR: ${TP_WORKER_SUBNET_CIDR} # Please re-verify the value for the parameter GUI_TP_WORKER_SUBNET_CIDR used while creating the cluster"
+        echo "--------------------------------"
+        echo "To access the cluster, run the following command:"
+        echo "oc login ${apiServer} -u ${uname} -p ${password}"
+        echo "If the above command fails due to certificate issue, run the following command for skipping certificate check:"
+        echo "oc login ${apiServer} -u ${uname} -p ${password} --insecure-skip-tls-verify=true"
+        echo "--------------------------------"
+        echo "Kubeconfig:"
+        az aro get-admin-kubeconfig --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --file /tmp/kubeconfig.yaml
+        cat /tmp/kubeconfig.yaml
+        echo "--------------------------------"
+  - condition: ${TP_CREATE_ARO_CLUSTER}
+    script:
+      ignoreErrors: false
+      content: |
+        uname=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminUsername -otsv)
+        password=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminPassword -otsv)
+        apiServer=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query apiserverProfile.url -o tsv)
+        oc login ${apiServer} -u ${uname} -p ${password}
+        _return_code=$?
+        if [[ $_return_code -ne 0 ]]; then
+          echo "Login failed with error code: $_return_code due to issue"
+          echo "Insecure login"
+          oc login ${apiServer} -u ${uname} -p ${password} --insecure-skip-tls-verify=true
+        fi
+        curl -fsSL -o /tmp/tp-scc.yaml https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/platform-provisioner/refs/heads/main/docs/recipes/k8s/on-prem/scripts/openshift/tp-scc.yaml
+        cat /tmp/tp-scc.yaml
+        kubectl apply -f /tmp/tp-scc.yaml
+  - condition: ${TP_INSTALL_STORAGE_CLASS_POSTGRES}
+    script:
+      ignoreErrors: false
+      content: |
+        uname=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminUsername -otsv)
+        password=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminPassword -otsv)
+        apiServer=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query apiserverProfile.url -o tsv)
+        oc login ${apiServer} -u ${uname} -p ${password}
+        _return_code=$?
+        if [[ $_return_code -ne 0 ]]; then
+          echo "Login failed with error code: $_return_code due to issue"
+          echo "Insecure login"
+          oc login ${apiServer} -u ${uname} -p ${password} --insecure-skip-tls-verify=true
+        fi
+        oc apply -f - << EOF
+        apiVersion: storage.k8s.io/v1
+        kind: StorageClass
+        metadata:
+          name: azure-files-sc
+        provisioner: file.csi.azure.com
+        allowVolumeExpansion: true
+        parameters:
+          skuName: Premium_LRS
+          allowBlobPublicAccess: "false"
+          networkEndpointType: privateEndpoint
+        reclaimPolicy: Retain
+        volumeBindingMode: Immediate
+        mountOptions:
+          - mfsymlinks
+          - cache=strict
+          - nosharesock
+          - noperm
+        EOF
+        oc apply -f - << EOF
+        apiVersion: storage.k8s.io/v1
+        kind: StorageClass
+        metadata:
+          name: azure-files-sc-ems
+        provisioner: file.csi.azure.com
+        allowVolumeExpansion: true
+        parameters:
+          skuName: Premium_LRS
+          allowBlobPublicAccess: "false"
+          networkEndpointType: privateEndpoint
+          protocol: nfs
+        reclaimPolicy: Retain
+        volumeBindingMode: Immediate
+        mountOptions:
+          - soft
+          - timeo=300
+          - actimeo=1
+          - retrans=2
+          - _netdev
+        EOF
+        oc apply -f - << EOF
+        apiVersion: storage.k8s.io/v1
+        allowVolumeExpansion: true
+        kind: StorageClass
+        metadata:
+          name: azure-disk-sc
+        parameters:
+          skuName: Premium_LRS # other values: Premium_ZRS, StandardSSD_LRS (default)
+        provisioner: disk.csi.azure.com
+        reclaimPolicy: Retain
+        volumeBindingMode: WaitForFirstConsumer
+        EOF
+        if [[ -n "${TP_CHART_REPO_USER_NAME}" && -n "${TP_CHART_REPO_TOKEN}" ]]; then
+          echo "Adding Helm repository with authentication"
+          helm repo add postgresql ${TP_CHART_REPO} --username ${TP_CHART_REPO_USER_NAME} --password ${TP_CHART_REPO_TOKEN}
+        else
+          echo "Adding Helm repository without authentication"
+          helm repo add postgresql ${TP_CHART_REPO}
+        fi
+        helm upgrade --install --wait --timeout 1h --debug postgresql postgresql/on-premises-third-party -n tibco-ext --version "^1.0.0" --labels layer=2 --create-namespace -f - << EOF
+        global:
+          tibco:
+            containerRegistry:
+              url: "${TP_CONTAINER_REGISTRY_URL}"
+              username: "${TP_CONTAINER_REGISTRY_USER}"
+              password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+              repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
+          storageClass: "managed-csi"
+        postgresql:
+          enabled: true
+          auth:
+            postgresPassword: postgres
+            username: postgres
+            password: postgres
+            database: "postgres"
+          image:
+            registry: "${TP_CONTAINER_REGISTRY_URL}"
+            repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
+            tag: 16.4.0-debian-12-r14
+            pullSecrets:
+            - tibco-container-registry-credentials
+            debug: true
+          primary:
+            # resourcesPreset: "nano" # nano micro small
+            resources:
+              requests:
+                cpu: 250m
+                memory: 256Mi
+        EOF
+        helm repo remove postgresql
+  - condition: ${INSTALL_ARO_CP}
+    script:
+      ignoreErrors: false
+      content: |
+        uname=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminUsername -otsv)
+        password=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminPassword -otsv)
+        apiServer=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query apiserverProfile.url -o tsv)
+        oc login ${apiServer} -u ${uname} -p ${password}
+        _return_code=$?
+        if [[ $_return_code -ne 0 ]]; then
+          echo "Login failed with error code: $_return_code due to issue"
+          echo "Insecure login"
+          oc login ${apiServer} -u ${uname} -p ${password} --insecure-skip-tls-verify=true
+        fi
+        # check whether the namespace exists
+        if oc get namespace -l "platform.tibco.com/controlplane-instance-id=${CP_INSTANCE_ID}" --no-headers 2>/dev/null | grep -q .; then
+          echo "Namespace with label platform.tibco.com/controlplane-instance-id=${CP_INSTANCE_ID} exists"
+        else
+          echo "No namespace with label platform.tibco.com/controlplane-instance-id=${CP_INSTANCE_ID} exists"
+          oc create ns ${CP_INSTANCE_ID}-ns
+          oc label ns ${CP_INSTANCE_ID}-ns platform.tibco.com/controlplane-instance-id=${CP_INSTANCE_ID}
+          oc create serviceaccount ${CP_INSTANCE_ID}-sa -n ${CP_INSTANCE_ID}-ns
+          oc adm policy add-scc-to-user tp-scc system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
+          oc adm policy add-scc-to-user tp-scc system:serviceaccount:${CP_INSTANCE_ID}-ns:default
+        fi
+        # check whether the custom-my-tls secret exists
+        if oc get secret custom-my-tls -n ${CP_INSTANCE_ID}-ns &>/dev/null; then
+          echo "tls secret custom-my-tls exists in ${CP_INSTANCE_ID}-ns namespace"
+        else
+          echo "tls secret custom-my-tls does not exist in ${CP_INSTANCE_ID}-ns namespace, creating it now"
+          if [[ -z "${CP_SERVICE_DNS_DOMAIN_TLS_CRT_BASE64}" ]]; then
+          echo "ERROR: CP_SERVICE_DNS_DOMAIN_TLS_CRT_BASE64 not provided. It is required for CP Domain."
+          exit 1
+          fi
+          if [[ -z "${CP_SERVICE_DNS_DOMAIN_TLS_KEY_BASE64}" ]]; then
+          echo "ERROR: CP_SERVICE_DNS_DOMAIN_TLS_KEY_BASE64 not provided. It is required for CP Domain."
+          exit 1
+          fi
+          oc apply -f - << EOF
+        apiVersion: v1
+        data:
+          tls.crt: ${CP_SERVICE_DNS_DOMAIN_TLS_CRT_BASE64}
+          tls.key: ${CP_SERVICE_DNS_DOMAIN_TLS_KEY_BASE64}
+        kind: Secret
+        metadata:
+          name: custom-my-tls
+          namespace: ${CP_INSTANCE_ID}-ns
+        type: kubernetes.io/tls
+        EOF
+        fi
+        # check whether the custom-tunnel-tls secret exists
+        if oc get secret custom-tunnel-tls -n ${CP_INSTANCE_ID}-ns &>/dev/null; then
+          echo "tls secret custom-tunnel-tls exists in ${CP_INSTANCE_ID}-ns namespace"
+        else
+          echo "tls secret custom-tunnel-tls does not exist in ${CP_INSTANCE_ID}-ns namespace, creating it now"
+          if [[ -z "${CP_TUNNEL_DNS_DOMAIN_TLS_CRT_BASE64}" ]]; then
+          echo "ERROR: CP_TUNNEL_DNS_DOMAIN_TLS_CRT_BASE64 not provided. It is required for CP Domain."
+          exit 1
+          fi
+          if [[ -z "${CP_TUNNEL_DNS_DOMAIN_TLS_KEY_BASE64}" ]]; then
+          echo "ERROR: CP_TUNNEL_DNS_DOMAIN_TLS_KEY_BASE64 not provided. It is required for CP Domain."
+          exit 1
+          fi
+          oc apply -f - << EOF
+        apiVersion: v1
+        data:
+          tls.crt: ${CP_TUNNEL_DNS_DOMAIN_TLS_CRT_BASE64}
+          tls.key: ${CP_TUNNEL_DNS_DOMAIN_TLS_KEY_BASE64}
+        kind: Secret
+        metadata:
+          name: custom-tunnel-tls
+          namespace: ${CP_INSTANCE_ID}-ns
+        type: kubernetes.io/tls
+        EOF
+        fi
+        if [[ -z "${TP_DNS_RESOURCE_GROUP}" ]]; then
+          echo "ERROR: TP_DNS_RESOURCE_GROUP not provided. It is required for CP Domain."
+          exit 1
+        fi
+        _ingress_ip="$(az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query 'ingressProfiles[0].ip' -o tsv)"
+        echo $_ingress_ip
+        az network dns record-set a add-record -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n "*.${CP_INSTANCE_ID}-my.apps" -a ${_ingress_ip}
+        az network dns record-set a add-record -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n "*.${CP_INSTANCE_ID}-tunnel.apps" -a ${_ingress_ip}
+        sleep 120
+        # dig +short test.${CP_SERVICE_DNS_DOMAIN}
+        # dig +short test.${CP_TUNNEL_DNS_DOMAIN}
+  - condition: ${TP_CLEAN_UP}
+    script:
+      ignoreErrors: false
+      content: |
+        uname=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminUsername -otsv)
+        password=$(az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query kubeadminPassword -otsv)
+        apiServer=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query apiserverProfile.url -o tsv)
+        oc login ${apiServer} -u ${uname} -p ${password}
+        _return_code=$?
+        if [[ $_return_code -ne 0 ]]; then
+          echo "Login failed with error code: $_return_code due to issue"
+          echo "Insecure login"
+          oc login ${apiServer} -u ${uname} -p ${password} --insecure-skip-tls-verify=true
+        fi          
+  - condition: ${TP_CLEAN_UP}
+    repo:
+      git:
+        github:
+          repo: ${PLATFORM_PROVISIONER_REPO}
+          path: docs/recipes/k8s/cloud/scripts/aro
+          branch: ${TP_SCRIPT_BRANCH}
+    script:
+      ignoreErrors: false
+      fileName: ${TP_CLEAN_UP_SCRIPT_FILENAME}
+  - condition: ${TP_CLEAN_UP}
+    script:
+      ignoreErrors: false
+      content: |
+        if [[ -z "${TP_CLUSTER_DOMAIN}" ]]; then
+          echo "TP_CLUSTER_DOMAIN not provided. Hence, it is assumed that cluster is not created with custom DNS."
+          echo "Skipping DNS cleanup."
+        else
+          echo "TP_CLUSTER_DOMAIN is provided. Proceeding with DNS cleanup."
+          if [[ -z "${TP_DNS_RESOURCE_GROUP}" ]]; then
+            echo "TP_DNS_RESOURCE_GROUP not provided. Hence, it is assumed that TP_RESOURCE_GROUP: ${TP_RESOURCE_GROUP} is the TP_DNS_RESOURCE_GROUP."
+            TP_DNS_RESOURCE_GROUP=${TP_RESOURCE_GROUP}
+          fi
+          if [[ -z "${CP_INSTANCE_ID}" ]]; then
+            echo "CP_INSTANCE_ID not provided."
+            echo "Skipping DNS cleanup for CP."
+          else
+            echo "CP_INSTANCE_ID is provided. Proceeding with DNS cleanup for CP instance ID ${CP_INSTANCE_ID}."
+            az network dns record-set a delete -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n "*.${CP_INSTANCE_ID}-my.apps" --yes || echo "*.${CP_INSTANCE_ID}-my.apps Record deletion failed or record doesn't exist"
+            az network dns record-set a delete -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n "*.${CP_INSTANCE_ID}-tunnel.apps" --yes || echo "*.${CP_INSTANCE_ID}-tunnel.apps Record deletion failed or record doesn't exist"
+          fi
+          echo "Deleting DNS records for *.apps and api.${TP_CLUSTER_DOMAIN}."
+          az network dns record-set a delete -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n '*.apps' --yes || echo "*.apps Record deletion failed or record doesn't exist"
+          az network dns record-set a delete -g ${TP_DNS_RESOURCE_GROUP} -z ${TP_CLUSTER_DOMAIN} -n 'api' --yes || echo "api Record deletion failed or record doesn't exist"
+        fi

@@ -165,7 +165,7 @@ function main() {
   # runner image
   export PIPELINE_DOCKER_IMAGE_RUNNER=${PIPELINE_DOCKER_IMAGE_RUNNER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.6.0-on-prem"}
   # tester image
-  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.6.0-tester-on-prem-jammy"}
+  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.6.1-tester-on-prem-jammy"}
 
   if [[ -f 05-tp-auto-deploy-dp.yaml ]]; then
     _IS_LOCAL_AUTOMATION=$(yq eval '.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT' 05-tp-auto-deploy-dp.yaml)

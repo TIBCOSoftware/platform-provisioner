@@ -48,3 +48,4 @@ docs/recipes/automation/on-prem/ins-key.pem
 /docs/recipes/automation/on-prem/ins-key.pem.pub
 /docs/recipes/automation/tp-setup/bootstrap/e2e/**/report/
 /docs/recipes/automation/tp-setup/bootstrap/.venv/
+/docs/recipes/automation/tp-setup/bootstrap/report/

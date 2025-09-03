@@ -13,13 +13,24 @@
 # Ubuntu 22.04 playwright release
 FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/playwright/python:v1.54.0-jammy-${TARGETARCH}
 
-ARG TARGETOS TARGETARCH
+ARG TARGETOS
+ARG TARGETARCH
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     gettext gettext-base jq vim tree unzip net-tools iputils-tracepath iproute2 iputils-ping dnsutils \
     apt-transport-https ca-certificates apt-transport-https software-properties-common curl wget lsb-release python3-venv gnupg && \
     rm -rf /var/lib/apt/lists/*
+
+# Install uv for python https://astral.sh/uv
+ARG UV_VERSION
+RUN set -eux; \
+    export UV_INSTALL_DIR=/usr/local/bin; \
+    if [ -n "${UV_VERSION:-}" ]; then \
+        curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh; \
+    else \
+        curl -fsSL "https://astral.sh/uv/install.sh" | sh; \
+    fi
 
 # cue for yaml validation https://github.com/cue-lang/cue/releases
 ARG CUE_VERSION
