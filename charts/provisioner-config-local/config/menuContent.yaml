@@ -125,6 +125,6 @@ menuConfig:
 - label: "Docs"
   icon: 'pi pi-fw pi-book'
   items:
-  - label: "Connect K8S"
+  - label: "readme"
     url: "/docs/connectDetailsPage"
     icon: 'pi pi-fw pi-link'

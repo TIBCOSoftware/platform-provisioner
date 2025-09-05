@@ -218,6 +218,7 @@ class PageObjectAuth:
             self.page.fill("#lastName", last_name)
             self.page.locator("input#country").click()
             self.page.locator(".pl-select-menu li", has_text=country).nth(0).click()
+            self.page.locator("input#state").clear()
             self.page.locator("input#state").click()
             self.page.locator(".pl-select-menu li", has_text=state).click()
             self.page.locator(".footer button", has_text="Next").click()
