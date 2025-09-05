@@ -104,7 +104,24 @@ tasks:
     fileName: script.sh
     content: |
       cd ${TP_AUTO_SCRIPT_FOLDER}
-      python3 -m venv ${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
-      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
-      pip install -r requirements.txt
-      python -m waitress --port=3120 server:app
+      if command -v uv >/dev/null 2>&1; then
+        echo "[INFO] uv detected, using uv sync..."
+        export UV_PROJECT_ENVIRONMENT="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"
+        uv venv "${UV_PROJECT_ENVIRONMENT}" --python python3.13
+        uv sync --frozen || uv sync
+      else
+        echo "[INFO] uv not found, falling back to python venv..."
+        python3 -m venv "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"
+        source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+
+        if [ -f requirements.txt ]; then
+          echo "[INFO] Installing from requirements.txt..."
+          pip install -r requirements.txt
+        elif [ -f pyproject.toml ]; then
+          echo "[INFO] Installing in editable mode from pyproject.toml..."
+          pip install -e .
+        else
+          echo "[WARN] No requirements.txt or pyproject.toml found, skipping pip install"
+        fi
+      fi
+      uv run -m waitress --port=3120 server:app

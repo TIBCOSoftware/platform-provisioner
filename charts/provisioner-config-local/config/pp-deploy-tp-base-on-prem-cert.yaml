@@ -24,6 +24,7 @@ groups:
     * We need to set the username and password to access the images.
     * `csgprdusw2reposaas.jfrog.io` for master node. Master node has dev images. 
     * `csgprduswrepoedge.jfrog.io` (US) `csgprdeuwrepoedge.jfrog.io` (EU) for edge node. Edge node has prod images only.
+    * For this pipeline; Postgres image is pulled from TIBCO JFrog registry.
 
     ---
 - title: "Cluster Ingress"
@@ -51,7 +52,9 @@ groups:
   description: |
     Change the installation flow control options.
     * Postgres database is optional if you only want to create a DP Cluster.
+    * NFS server provisioner will create a NFS server inside the cluster and create a new storage class called `nfs` for TP Cluster.
     * Install provisioner UI ingress for the on-prem setup. You can then access provisioner UI at [https://provisioner.localhost.dataplanes.pro](https://provisioner.localhost.dataplanes.pro)
+    * Automation UI has automation tasks for TP Cluster. Like: create subscription, create DP, deploy capabilities, etc.
 options:
 # groupIndex: 1 Chart Repository
 - name: "TP Chart repository"
@@ -241,7 +244,7 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER"
   description: |
-    Install NFS server provisioner for TP Cluster
+    Install NFS server provisioner for TP Cluster. Set to `true` to install NFS server inside the cluster.
 - name: "Install Postgres"
   groupIndex: 10
   type: boolean

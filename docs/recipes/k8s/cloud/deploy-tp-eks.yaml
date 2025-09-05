@@ -134,6 +134,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=0"
   hooks:
     postDeploy:
       ignoreErrors: false
@@ -180,6 +181,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=0"
 - name: aws-load-balancer-controller
   version: 1.8.3 # release: https://github.com/aws/eks-charts/releases 1.9.1 has issue: https://github.com/eksctl-io/eksctl/issues/7987
   repo:
@@ -201,6 +203,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=0"
 - name: metrics-server
   condition: ${TP_INSTALL_METRICS_SERVER}
   version: "3.12.2" # release: https://github.com/kubernetes-sigs/metrics-server/blob/master/charts/metrics-server/Chart.yaml
@@ -223,6 +226,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=0"
 - name: dp-config-aws
   version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   repo:
@@ -299,6 +303,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=1"
   hooks:
     preDeploy:
       ignoreErrors: false
@@ -437,6 +442,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
     extra: "--values ${TP_INSTALL_EFS_VALUES_FILE}"
+    labels: "layer=1"
 - name: on-premises-third-party
   version: ^1.0.0
   namespace: tibco-ext
@@ -483,6 +489,7 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
+    labels: "layer=2"
 - name: eck-operator
   version: 2.16.1 # release: https://artifacthub.io/packages/helm/elastic/eck-operator
   condition: ${TP_INSTALL_O11Y}
@@ -498,6 +505,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=1"
 - name: dp-config-es
   version: "${TP_CHART_VERSION_DP_CONFIG_ES}"
   condition: ${TP_INSTALL_O11Y}
@@ -543,6 +551,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=2"
 - name: kube-prometheus-stack
   version: "69.3.3" # release: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
   condition: ${TP_INSTALL_O11Y}
@@ -602,6 +611,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=2"
   hooks:
     postDeploy:
       ignoreErrors: false

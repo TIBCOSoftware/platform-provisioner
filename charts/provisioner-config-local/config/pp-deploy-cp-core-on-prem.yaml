@@ -138,6 +138,7 @@ options:
 - name: "Container Registry Username"
   groupIndex: 2
   type: string
+  required: true
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_USERNAME"
   description: |
@@ -145,6 +146,7 @@ options:
 - name: "Container Registry Password"
   groupIndex: 2
   type: password
+  required: true
   guiType: input
   reference: "meta.guiEnv.GUI_CP_CONTAINER_REGISTRY_PASSWORD"
   description: |

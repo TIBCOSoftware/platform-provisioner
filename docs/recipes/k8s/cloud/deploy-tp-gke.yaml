@@ -149,6 +149,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=0"
     extra: "--values extra_values.yaml"
   hooks:
     preDeploy:
@@ -220,6 +221,7 @@ helmCharts:
     timeout: 1h
     createNamespace: true
     extra: "--values extra_values.yaml"
+    labels: "layer=0"
   hooks:
     preDeploy:
       ignoreErrors: false
@@ -262,6 +264,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=1"
   hooks:
     preDeploy:
       ignoreErrors: false
@@ -326,6 +329,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=1"
   hooks:
     preDeploy:
       ignoreErrors: false
@@ -370,6 +374,7 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
+    labels: "layer=1"
 - name: on-premises-third-party
   version: ^1.0.0
   namespace: tibco-ext
@@ -416,6 +421,7 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
+    labels: "layer=2"
 - name: eck-operator
   version: 2.16.1 # release: https://artifacthub.io/packages/helm/elastic/eck-operator
   condition: ${TP_INSTALL_O11Y}
@@ -431,6 +437,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=1"
 - name: dp-config-es
   version: "${TP_CHART_VERSION_DP_CONFIG_ES}"
   condition: ${TP_INSTALL_O11Y}
@@ -476,6 +483,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=2"
 - name: kube-prometheus-stack
   version: "69.3.3" # release: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
   condition: ${TP_INSTALL_O11Y}
@@ -535,6 +543,7 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: true
+    labels: "layer=2"
   hooks:
     postDeploy:
       ignoreErrors: false
