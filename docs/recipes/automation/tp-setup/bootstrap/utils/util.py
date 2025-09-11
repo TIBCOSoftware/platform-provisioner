@@ -6,6 +6,7 @@ import sys
 import re
 
 import pytz
+import html
 import time
 import urllib.request
 from urllib.error import URLError, HTTPError
@@ -157,6 +158,30 @@ class Util:
         # Save the file content to the specified path
         file_obj.save_as(file_path)
         print(f"File saved to {file_path}")
+        return file_path
+
+    @staticmethod
+    def save_command_to_file(command, filename):
+        """
+        Saves a command string to a temporary file in the 'dp_commands' directory.
+
+        Args:
+            command (str): The command string to be saved.
+            filename (str): The name of the file to be created.
+
+        Returns:
+            str: The path to the created file.
+        """
+        # Create 'dp_commands' folder if it does not exist
+        steps_dir = os.path.join(ENV.TP_AUTO_REPORT_PATH, "dp_commands")
+        if not os.path.exists(steps_dir):
+            os.makedirs(steps_dir, exist_ok=True)
+        # Define the full file path
+        file_path = os.path.join(steps_dir, filename)
+        ColorLogger.info(f"Saving command script to file: {file_path}")
+        ColorLogger.info("Command:\n" + html.escape(command))
+        with open(file_path, 'w') as temp_script:
+            temp_script.write(f"#!/bin/bash\n{command}\n")
         return file_path
 
     @staticmethod

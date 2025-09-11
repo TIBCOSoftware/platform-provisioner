@@ -1,9 +1,8 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
+# Copyright © 2025. Cloud Software Group, Inc.
 # This file is subject to the license terms contained
 # in the license file that is distributed with this file.
 #
-
 pipelineName: "TP Automation"
 description: |
   This pipeline will run an automation to create a new DP, register a DP and configure o11y service for a given DP.
@@ -20,15 +19,94 @@ description: |
   * Create a new DP
   * Register a DP
   * Config o11y service for a given DP
+groups:
+- title: "Chart Repository Configuration"
+  index: 1
+  description: |
+    ## Chart repository configuration
+    * The GitHub token for DP to access private helm chart repo
+    * Matching CP version with automation version
 
+    ---
+- title: "Activation Server"
+  index: 3
+  description: |
+    ## Activation server specific configurations
+    * Activation server IP
+    * Activation server hostname
+    * Activation server port
+    * Activation server fingerprint
+
+    ---
+- title: "DP setup"
+  index: 5
+  description: |
+    ## DP specific configurations
+    * The automation will create a new DP
+    * DP host prefix
+    * Username and password of DP user
+
+    ---
+- title: "TP Automation Config"
+  index: 6
+  description: |
+    ## Control the TP Automation flow
+    * Select the workflow to be executed.
+    
+    ---
+- title: "DNS and Port Forward"
+  index: 7
+  description: |
+    ## DNS and Port Forward specific configurations
+    * TP overwrite DNS
+    * TP port forward
+
+    ---
 options:
+# groupIndex: 1 Chart Repository Configuration
 - name: "GitHub token"
+  groupIndex: 1
   type: password
   guiType: input
   reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
   description: |
     The GitHub token for DP to access private helm chart repo. If you deploy unreleased CP/DP; this GitHub token is a must.
+# groupIndex: 3 Activation Server
+- name: "Activation server IP"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_IP"
+  required: false
+  description: |
+    The IP address of activation server.
+- name: "Activation server port"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_PORT"
+  required: false
+  description: |
+    The port of activation server.
+- name: "Activation server hostname"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME"
+  required: false
+  description: |
+    The hostname of activation server.
+- name: "Activation server fingerprint"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_FINGER_PRINT"
+  required: false
+  description: |
+    The fingerprint of activation server.
+# groupIndex: 5 DP setup
 - name: "DP host prefix"
+  groupIndex: 5
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_DP_HOST_PREFIX"
@@ -36,6 +114,7 @@ options:
   description: |
     The host prefix of DP
 - name: "DP user email"
+  groupIndex: 5
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_DP_USER_EMAIL"
@@ -43,21 +122,87 @@ options:
   description: |
     The user email of DP
 - name: "DP user password"
+  groupIndex: 5
   type: password
   guiType: input
   reference: "meta.guiEnv.GUI_DP_USER_PASSWORD"
   required: true
   description: |
     The password of DP user
+# groupIndex: 6 TP Automation Config
+- name: "Active user"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ACTIVE_USER"
+  description: |
+    Set to true to activate admin and subscription user
+- name: "Create BMDP"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_BMDP"
+  description: |
+    Set to true to create BMDP (Control Tower Data Plane)
+- name: "Create DP"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_DP"
+  description: |
+    Set to true to create DP
+- name: "Configure DP O11Y"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_CONFIG_O11Y"
+  description: |
+    Set to true to configure DP O11Y
+- name: "Deploy Flogo"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_FLOGO"
+  description: |
+    Set to true to deploy Flogo
+- name: "Deploy BWCE"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_BWCE"
+  description: |
+    Set to true to deploy BWCE
+- name: "Deploy TIBCO Hub"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_TIBCOHUB"
+  description: |
+    Set to true to deploy TIBCO Hub
+- name: "Deploy EMS"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_EMS"
+  description: |
+    Set to true to deploy EMS
+- name: "Deploy Pulsar"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_PULSAR"
+  description: |
+    Set to true to deploy Pulsar
+# groupIndex: 7 DNS and Port Forward
 - name: "TP port forward"
-  groupIndex: 5
+  groupIndex: 7
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_PORT_FORWARD"
   description: |
-    This will run kubedtl port-forward command to forward the port of ingress controller. If you change the ingress controller name; you need to update the script.
+    This will run kubectl port-forward command to forward the port of ingress controller. If you change the ingress controller name; you need to update the script.
 - name: "TP overwrite DNS"
-  groupIndex: 5
+  groupIndex: 7
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_OVERWRITE_DNS"

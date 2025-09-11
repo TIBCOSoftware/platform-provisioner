@@ -153,7 +153,7 @@ class PageObjectAuth:
         admin_login_btn_text = "Sign in with Default IdP"
 
         print(f"Wait for '{admin_login_btn_text}' button is visible and clickable...")
-        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 3, 10, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 3, 9, True):
             ColorLogger.warning(f"Unable to load Admin login page {ENV.TP_AUTO_ADMIN_URL}")
             return False
         Util.click_button_until_enabled(self.page, self.page.locator("#ta-sign-in-button"))
@@ -292,7 +292,7 @@ class PageObjectAuth:
         ColorLogger.info(f"Navigating to login page {ENV.TP_AUTO_LOGIN_URL}...")
         self.page.goto(ENV.TP_AUTO_LOGIN_URL)
         print("Wait for login page is visible...")
-        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 3, 10, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator("#ta-sign-in-button"), 3, 9, True):
             ColorLogger.warning(f"Unable to load login page {ENV.TP_AUTO_LOGIN_URL}")
             return False
 
@@ -310,7 +310,7 @@ class PageObjectAuth:
             return False
 
         print(f"Waiting for user profile...")
-        if Util.check_dom_visibility(self.page, self.page.locator("#user-profile"), 3, 10, True):
+        if Util.check_dom_visibility(self.page, self.page.locator("#user-profile"), 3, 9, True):
             self.page.wait_for_selector('#user-profile')
             print(f"User {ENV.DP_USER_EMAIL} profile is displayed...")
             ReportYaml.set(".ENV.REPORT_AUTO_ACTIVE_USER", True)
@@ -334,8 +334,7 @@ class PageObjectAuth:
     def logout(self):
         ColorLogger.info(f"Logging out user {ENV.DP_USER_EMAIL}...")
         self.page.locator("#nav-bar-menu-list-signout").click()
-        # Note: there are 3 buttons has "Sign Out" label, so we need to use nth(2) to click the last one
-        self.page.locator("#confirm-button", has_text="Sign Out").nth(2).wait_for(state="visible")
-        self.page.locator("#confirm-button", has_text="Sign Out").nth(2).click()
+        self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").wait_for(state="visible")
+        self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").click()
         ColorLogger.success(f"Clicked Sign Out button, User {ENV.DP_USER_EMAIL} logout.")
         self.page.wait_for_timeout(1000)

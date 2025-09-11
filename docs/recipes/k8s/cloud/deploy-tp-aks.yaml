@@ -74,8 +74,8 @@ meta:
     TP_STORAGE_CLASS: "${TP_DISK_STORAGE_CLASS}" # name of azure disk storage class
 
     # TP versions
-    TP_CHART_VERSION_DP_CONFIG_AKS: ${GUI_TP_VERSION_DP_CONFIG_AKS:-"1.6.0"}
-    TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_VERSION_DP_CONFIG_ES:-"1.2.1"}
+    TP_CHART_VERSION_DP_CONFIG_AKS: ${GUI_TP_CHART_VERSION_DP_CONFIG_AKS:-"^1.0.0"}
+    TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_CHART_VERSION_DP_CONFIG_ES:-"^1.0.0"}
 
     # o11y
     TP_ES_RELEASE_NAME: "dp-config-es" # name of dp-config-es release name

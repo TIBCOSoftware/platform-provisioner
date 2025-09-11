@@ -3,7 +3,7 @@
  */
 
 let ENV;
-window.onload = function() {
+window.onload = function () {
   $(".is_loading").show();
   loadData().then(res => {
     ENV = res;
@@ -73,7 +73,17 @@ async function runGuiScript(currentElement) {
     TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG: document.getElementById("TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG").checked,
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS: document.getElementById("TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS").value,
     BWCE_APP_NAME: document.getElementById("BWCE_APP_NAME").value,
+    BW5CE_APP_NAME: document.getElementById("BW5CE_APP_NAME").value,
     FLOGO_APP_NAME: document.getElementById("FLOGO_APP_NAME").value,
+    GITHUB_TOKEN: document.getElementById("GITHUB_TOKEN").value,
+    TP_ACTIVATION_SERVER_IP: document.getElementById("TP_ACTIVATION_SERVER_IP").value,
+    TP_ACTIVATION_SERVER_PORT: document.getElementById("TP_ACTIVATION_SERVER_PORT").value,
+    TP_ACTIVATION_SERVER_CERT_HOSTNAME: document.getElementById("TP_ACTIVATION_SERVER_CERT_HOSTNAME").value,
+    TP_ACTIVATION_SERVER_FINGER_PRINT: document.getElementById("TP_ACTIVATION_SERVER_FINGER_PRINT").value,
+    TP_BMDP_IMAGE_TAG_EMS: document.getElementById("TP_BMDP_IMAGE_TAG_EMS").value,
+    TP_BMDP_IMAGE_TAG_BW5EMSDM: document.getElementById("TP_BMDP_IMAGE_TAG_BW5EMSDM").value,
+    TP_BMDP_IMAGE_TAG_BW5RVDM: document.getElementById("TP_BMDP_IMAGE_TAG_BW5RVDM").value,
+    TP_BMDP_IMAGE_TAG_BW6DM: document.getElementById("TP_BMDP_IMAGE_TAG_BW6DM").value,
   };
   const file_response = await handleFileUpload();
   if (file_response) {
@@ -82,7 +92,9 @@ async function runGuiScript(currentElement) {
     if (filetype === "FLOGO") {
       additionalParams.TP_AUTO_FLOGO_APP_FILE_NAME = filename;
     } else if (filetype === "BWCE") {
+      // In file server.py, API /upload, all .ear file is treated as BWCE file type
       additionalParams.TP_AUTO_BWCE_APP_FILE_NAME = filename;
+      additionalParams.TP_AUTO_BW5CE_APP_FILE_NAME = filename;
     }
   }
   const params = new URLSearchParams({ ...handleGuiSpecialCase(additionalParams) });
@@ -163,6 +175,7 @@ function stopScript(currentElement) {
 function handleGuiSpecialCase(params) {
   const provisionCaseMapping = {
     "provision_bwce": "TP_AUTO_IS_PROVISION_BWCE",
+    "provision_bw5ce": "TP_AUTO_IS_PROVISION_BW5CE",
     "provision_ems": "TP_AUTO_IS_PROVISION_EMS",
     "provision_flogo": "TP_AUTO_IS_PROVISION_FLOGO",
     "provision_pulsar": "TP_AUTO_IS_PROVISION_PULSAR",
@@ -174,8 +187,19 @@ function handleGuiSpecialCase(params) {
     params.case = "case.k8s_provision_capability";
   }
 
+  const createCaseMapping = {
+    "case.k8s_create_and_start_bwce_app": "bwce",
+    "case.k8s_create_and_start_bw5ce_app": "bw5ce",
+  };
+  // above two cases use same case file
+  if (createCaseMapping[params.case]) {
+    params.CAPABILITY = createCaseMapping[params.case];
+    params.case = "case.k8s_create_and_start_bwce_app";
+  }
+
   const deleteCaseMapping = {
     "delete_bwce_app": "bwce",
+    "delete_bw5ce_app": "bw5ce",
     "delete_flogo_app": "flogo",
   };
 
@@ -196,7 +220,7 @@ function handleCliSpecialCase(params) {
 }
 
 function handleFieldsAction() {
-  $("#guiAutoCase").on("change", function(e) {
+  $("#guiAutoCase").on("change", function (e) {
     const selectedValue = e.target.value;
     let fieldsSelector = [];
     // hide all optional fields, then show required fields for a selected case
@@ -241,14 +265,59 @@ function handleFieldsAction() {
         toggleField([".TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS"], true);
         break;
       case "case.k8s_create_and_start_bwce_app":
+        toggleField([".BWCE_APP_NAME"], true);
+        toggleField([".app_file"], true);
+        break;
+      case "case.k8s_create_and_start_bw5ce_app":
+        toggleField([".BW5CE_APP_NAME"], true);
+        toggleField([".app_file"], true);
+        break;
       case "case.k8s_create_and_start_flogo_app":
+        toggleField([".FLOGO_APP_NAME"], true);
         toggleField([".app_file"], true);
         break;
       case "delete_bwce_app":
         toggleField([".BWCE_APP_NAME"], true);
         break;
+      case "delete_bw5ce_app":
+        toggleField([".BW5CE_APP_NAME"], true);
+        break;
       case "delete_flogo_app":
         toggleField([".FLOGO_APP_NAME"], true);
+        break;
+      case "case.bmdp_create_dp":
+        toggleField([".TP_AUTO_K8S_BMDP_NAME", ".TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS"], true);
+        toggleField([".TP_AUTO_K8S_DP_NAME"], false);
+        break;
+      case "case.bmdp_delete_dp":
+        toggleField([".TP_AUTO_K8S_BMDP_NAME"], true);
+        toggleField([".TP_AUTO_K8S_DP_NAME"], false);
+        break;
+      case "case.bmdp_config_dp_o11y":
+        toggleField([".TP_AUTO_K8S_BMDP_NAME", ".TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG"], true);
+        toggleField([".TP_AUTO_K8S_DP_NAME"], false);
+        break;
+      case "case.bmdp_create_bw5dm":
+        toggleField([".TP_AUTO_K8S_DP_NAME"], false);
+        toggleField([
+          ".TP_AUTO_K8S_BMDP_NAME",
+          ".GITHUB_TOKEN",
+          ".TP_ACTIVATION_SERVER_IP",
+          ".TP_ACTIVATION_SERVER_PORT",
+          ".TP_ACTIVATION_SERVER_CERT_HOSTNAME",
+          ".TP_ACTIVATION_SERVER_FINGER_PRINT",
+          ".TP_BMDP_IMAGE_TAG_EMS",
+          ".TP_BMDP_IMAGE_TAG_BW5EMSDM",
+          ".TP_BMDP_IMAGE_TAG_BW5RVDM",
+          ".TP_BMDP_IMAGE_TAG_BW6DM"
+        ], true);
+        break;
+      case "case.bmdp_provision_capability":
+        toggleField([".TP_AUTO_K8S_BMDP_NAME"], true);
+        toggleField(['.TP_AUTO_K8S_DP_NAME'], false);
+        break;
+      case "case.bmdp_delete_bw5dm":
+        toggleField([".TP_AUTO_K8S_BMDP_NAME", '.TP_AUTO_K8S_DP_NAME'], false);
         break;
     }
   });
@@ -268,6 +337,26 @@ function handleFieldsAction() {
       const match = value.match(/^(https?:\/\/[^\/]+)/);
       if (match) {
         $(this).val(match[1]);
+      }
+    }
+  });
+
+  $('#app_file').on('change', function () {
+    const value = $(this).val();
+    if (value) {
+      const fileFullName = value.split('\\').pop().split('/').pop();
+      if (!fileFullName) return;
+      const fileName = fileFullName.split('.').slice(0, -1).join('.');
+      if (!fileName) return;
+      const caseValue = document.getElementById("guiAutoCase").value;
+      if (!caseValue) return;
+
+      if (caseValue === "case.k8s_create_and_start_bwce_app") {
+        $("#BWCE_APP_NAME").val(fileName);
+      } else if (caseValue === "case.k8s_create_and_start_bw5ce_app") {
+        $("#BW5CE_APP_NAME").val(fileName);
+      } else if (caseValue === "case.k8s_create_and_start_flogo_app") {
+        $("#FLOGO_APP_NAME").val(fileName);
       }
     }
   });
@@ -318,8 +407,18 @@ function hideFields() {
     ".TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG",
     ".TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS",
     ".BWCE_APP_NAME",
+    ".BW5CE_APP_NAME",
     ".FLOGO_APP_NAME",
-    ".app_file"
+    ".app_file",
+    ".GITHUB_TOKEN",
+    ".TP_ACTIVATION_SERVER_IP",
+    ".TP_ACTIVATION_SERVER_PORT",
+    ".TP_ACTIVATION_SERVER_CERT_HOSTNAME",
+    ".TP_ACTIVATION_SERVER_FINGER_PRINT",
+    ".TP_BMDP_IMAGE_TAG_EMS",
+    ".TP_BMDP_IMAGE_TAG_BW5EMSDM",
+    ".TP_BMDP_IMAGE_TAG_BW5RVDM",
+    ".TP_BMDP_IMAGE_TAG_BW6DM"
   ];
   // if TP_AUTO_TASK_FROM_LOCAL_SOURCE is not true, hide .TP_AUTO_KUBECONFIG, .IS_CLEAN_REPORT, .HEADLESS
   if (ENV?.["TP_AUTO_TASK_FROM_LOCAL_SOURCE"] !== "true") {
@@ -341,14 +440,14 @@ function initTab() {
     activateTab('tab1');
   }
 
-  $('.tab-button').click(function() {
+  $('.tab-button').click(function () {
     const target = $(this).data('target');
     const tabId = target.substring(1);
     window.location.hash = tabId;
     activateTab(tabId);
   });
 
-  $(window).on('hashchange', function() {
+  $(window).on('hashchange', function () {
     const newHash = window.location.hash;
     const tabId = newHash.substring(1);
     if ($('#' + tabId).length) {

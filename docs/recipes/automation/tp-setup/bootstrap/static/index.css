@@ -16,6 +16,9 @@
   font-size: 0.8rem;
   color: #888;
 }
+.container .row .row label span.required {
+  color: #F00;
+}
 .container .row .row label.flex-column {
   flex-direction: column;
   align-items: normal;

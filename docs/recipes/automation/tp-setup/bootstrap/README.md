@@ -44,9 +44,10 @@ python --version
 | **Create K8S DataPlane**                    | ✅ Create the specified DataPlane<br>✅ Run `create dp` command                                                                                                                                                                                                                                                     |
 | **Configure DataPlane Observability**       | ✅ Automatically create DataPlane-level Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces<br>✅ Support for config activation url                                                                                                                                            |
 | **Delete DataPlane**                        | ✅ Delete the specified DataPlane<br>✅ Run `delete dp` command                                                                                                                                                                                                                                                     |
-| **Provision Capabilities**                  | ✅ Provision BWCE / EMS / Flogo / Pulsar / TibcoHub                                                                                                                                                                                                                                                                |
-| **Create and Start Applications**           | ✅ Create a Flogo or BWCE application with a default file<br>✅ Upload a specified Flogo or BWCE app file<br>✅ Set up application environment variables<br>✅ Configure app endpoint visibility to public<br>✅ Start the application<br>✅ Test application via Swagger API                                           |
+| **Provision Capabilities**                  | ✅ Provision BW6(BWCE) / BW5 / EMS / Flogo / Pulsar / TibcoHub                                                                                                                                                                                                                                                     |
+| **Create and Start Applications**           | ✅ Create a BW6(BWCE)/BW5/Flogo application with a default file<br>✅ Upload a specified BW6(BWCE)/BW5/Flogo app file<br>✅ Set up application environment variables<br>✅ Configure app endpoint visibility to public<br>✅ Start the application<br>✅ Test application via Swagger API                               |
 | **Delete Applications**                     | ✅ Delete the specified application by name                                                                                                                                                                                                                                                                        |
+| **DataPlane(Control Tower)**                | ✅ Create Control Tower Data Plane<br> ✅ Config Control Tower DataPlane O11y<br>✅ Deploy BW5 domain(Include rvdm, emsdm, bw6dm, emsserver)<br>✅ Register BW5 domain<br>✅ Delete Control Tower Data Plane<br>✅ Delete BW5 domain(Include rvdm, emsdm, bw6dm, emsserver)                                             |
 ## One-Click Setup CP CLI - Supported Features
 
 | Category                    | Supported Features                                            |
@@ -69,7 +70,8 @@ cd docs/recipes/automation/tp-setup/bootstrap
 uv sync
 uv run playwright install
 export TP_AUTO_TASK_FROM_LOCAL_SOURCE=true
-export TP_AUTO_KUBECONFIG=~/.kube/tp-cluster.yaml
+# Optional, for connecting to GCP instance or other cluster
+export TP_AUTO_KUBECONFIG=~/.kube/ins-{GCP_IP}.yaml
 ./run-auo.sh
 ```
 
@@ -88,8 +90,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 playwright install
 export TP_AUTO_TASK_FROM_LOCAL_SOURCE=true
-# Optional, if you want to use a different kubeconfig path, you can set it here
-export TP_AUTO_KUBECONFIG=~/.kube/tp-cluster.yaml
+# Optional, for connecting to GCP instance or other cluster
+export TP_AUTO_KUBECONFIG=~/.kube/ins-{GCP_IP}.yaml
 python -m waitress --host=127.0.0.1 --port=3120 server:app
 open http://127.0.0.1:3120/
 ```
@@ -195,3 +197,7 @@ python page_dp.py
 3. Within customized **KUBECONFIG** path, if `Mail Server URL` can not be accessed.
    * port forwarding the `maildev` pod to your local machine.
    * put `http://localhost:YOUR_FORWARD_PORT` in the `Mail Server URL` field.
+4. CP GUI can not be accessed: "Your connection is not private"
+   * Go to CP installation folder
+   * Copy certificate key to 01-tp-on-prem.yaml from [TP Token](https://docs.google.com/document/d/1f39d0_L6iRpEPjJggYFJrL3oVAtDyPdVbOnjmzU7E0E/edit?pli=1&tab=t.l6dihjhx60qc#heading=h.8ir76m4dmdxu)
+   * Then run `./run.sh 2`

@@ -1,3 +1,33 @@
+## [09/09/2025 21:14]
+### Added
+- Add new automation case in One-Click Setup CP UI
+  - For K8s Dataplane
+    - Support for provision BW5(BW5CE) Capability
+    - Support for create and start BW5(BW5CE), include upload app file
+    - Support for delete BW5(BW5CE) app
+  - For Control Tower Dataplane(BMDP)
+    - Support for creating/deleting Control Tower Dataplane(BMDP)
+    - Support for config Control Tower Dataplane(BMDP) o11y
+    - Support for deploy BW5 domain(Include rvdm, emsdm, bw6dm, emsserver)
+    - Support for register/delete BW5 domain
+- Support for provision BW5CE capability in K8s Dataplane if bwce is installed and cp version >=1.10
+- Support for do not start BWCE app and BW5CE app by default after created in local environment
+
+## [08/15/2025 11:40]
+### Fixed
+- Change admin user automation activation steps after activation step changed in CP
+- Fix provision bwce automation issue after bwce UI is changed.
+- Fixed config flogo issue after flogo UI(set Endpoint visibility to Public dialog) is changed
+- Change name "BW5 Adapters" to BW5 for bmdp
+- Update capability status to "Running" in report yaml if it is running
+
+### Added
+- Add reset password steps if admin user did not receive active email
+- Support for config activation url, if TP_ACTIVATION_URL is not set, skip config Activation url.
+- Add a compatibility handling after BWCE changed to BW6 (Containers) in version 1.10 (#127)
+- Add ems/tibcohub capability check, skip it if it has not been installed.
+- Add Pussar capability check, it has been removed since CP 1.10
+
 ## [06/16/2025 23:41]
 ### Fixed
 - Fix the issue that the Set Endpoint visibility dialog cannot be found when setting Endpoint visibility for bwce

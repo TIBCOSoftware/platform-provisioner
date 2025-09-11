@@ -84,7 +84,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.goto_dataplane_config_sub_menu("Observability")
 
         print("Waiting for Observability config is loaded")
-        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 10):
+        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 9):
             Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", self.page, "o11y_config_dataplane_resource.png")
     
         print("Checking if 'Add new resource' button is exist...")
@@ -223,7 +223,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         ColorLogger.info("O11y start to add or select item...")
         name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
         print(f"Check if name: '{name_input}' is exist in {tab_sub_name} configurations")
-        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 10):
+        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 9):
             self.page.locator(add_button_selector).click()
             print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
             self.o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)
@@ -305,18 +305,24 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator("#add-storage-resource-btn").wait_for(state="visible")
             self.page.locator("#add-storage-resource-btn").click()
             print("Clicked 'Add Storage' button")
-            self.page.locator('.pl-modal__header', has_text="Add Storage").wait_for(state="visible")
-            print("Dialog 'Add Storage' popup")
-            self.page.fill('#resourceName-input', resource_name)
-            self.page.fill('#description-input', resource_name)
-            self.page.fill('#storageClassName-input', resource_name)
-            print(f"Filled Storage Class, {resource_name}")
-            Util.click_button_until_enabled(self.page, self.page.locator("#save-storage-configuration"))
-            print("Clicked 'Add' button")
+            # Add Storage dialog popup
+            self.add_storage(resource_name)
+
             if Util.check_dom_visibility(self.page, self.page.locator("#storage-resource-table tr td:first-child", has_text=resource_name), 3, 6):
                 ColorLogger.success(f"Add Storage '{resource_name}' successfully.")
                 ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, "storage", True)
-    
+
+    def add_storage(self, resource_name):
+        ColorLogger.info("Add Storage in dialog...")
+        self.page.locator('.pl-modal__header', has_text="Add Storage").wait_for(state="visible")
+        print("Dialog 'Add Storage' popup")
+        self.page.fill('#resourceName-input', resource_name)
+        self.page.fill('#description-input', resource_name)
+        self.page.fill('#storageClassName-input', resource_name)
+        print(f"Filled Storage Class, {resource_name}")
+        Util.click_button_until_enabled(self.page, self.page.locator("#save-storage-configuration"))
+        print("Clicked 'Add' button in 'Add Storage' dialog")
+
     def dp_config_resources_ingress(self, dp_name, ingress_controller, resource_name, ingress_class_name, fqdn):
         if ReportYaml.get_dataplane_info(dp_name, resource_name) == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, ingress '{resource_name}' is already created in DataPlane '{dp_name}'.")
@@ -345,38 +351,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             print("Clicked 'Add Ingress Controller' button")
     
             # Add Ingress Controller dialog popup
-            self.page.locator('.pl-modal__header', has_text="Add Ingress Controller").wait_for(state="visible")
-            print("Dialog 'Add Ingress Controller' popup")
-            self.page.locator('#ingress-controller-dropdown input').click()
-            print("Clicked 'Ingress Controller' dropdown")
-            self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).wait_for(state="visible")
-            print(f"Waiting for '{ingress_controller}' in Ingress Controller dropdown")
-            self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).click()
-            print(f"Selected '{ingress_controller}' in Ingress Controller dropdown")
-            self.page.fill('#resourceName-input', resource_name)
-            print(f"Filled Resource Name: {resource_name}")
-            self.page.fill('#ingressClassName-input', ingress_class_name)
-            print(f"Filled Ingress Class Name: {ingress_class_name}")
-            self.page.fill('#fqdn-input', fqdn)
-            print(f"Filled FQDN: {fqdn}")
-    
-            # for Ingress Key and Value
-            # if ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS != "" and ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES != "":
-            #     keys = ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS.split(" ")
-            #     values = ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES.split(" ")
-            #     for i in range(len(keys)):
-            #         key = keys[i].strip()
-            #         value = values[i].strip()
-            #         self.page.fill("#key-input", key)
-            #         self.page.fill("#value-textarea", value)
-            #         print(f"Filled Ingress Key: {key}, Value: {value}")
-            #         self.page.wait_for_timeout(500)
-            #         self.page.locator(".olly-header__inputs button", has_text="Save").click()
-            #         print("Clicked 'Save' button")
-            #         self.page.wait_for_timeout(500)
-    
-            Util.click_button_until_enabled(self.page, self.page.locator("#save-ingress-configuration"))
-            print("Clicked 'Add' button")
+            self.add_ingress_controller(ingress_controller, resource_name, ingress_class_name, fqdn)
             self.page.wait_for_timeout(1000)
             if self.page.locator(".pl-notification--error").is_visible():
                 error_content = self.page.locator(".pl-notification__message").text_content()
@@ -387,6 +362,43 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             if Util.check_dom_visibility(self.page, self.page.locator("#ingress-resource-table tr td:first-child", has_text=resource_name), 3, 6):
                 ColorLogger.success(f"Add Ingress Controller '{resource_name}' successfully.")
                 ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, resource_name, True)
+            else:
+                Util.warning_screenshot(f"Config Data Plane Resources '{resource_name}' Error", self.page, "dp_config_resources_ingress.png")
+
+    def add_ingress_controller(self, ingress_controller, resource_name, ingress_class_name, fqdn):
+        ColorLogger.info("Add Ingress Controller in dialog...")
+        self.page.locator('.pl-modal__header', has_text="Add Ingress Controller").wait_for(state="visible")
+        print("Dialog 'Add Ingress Controller' popup")
+        self.page.locator('#ingress-controller-dropdown input').click()
+        print("Clicked 'Ingress Controller' dropdown")
+        self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).wait_for(state="visible")
+        print(f"Waiting for '{ingress_controller}' in Ingress Controller dropdown")
+        self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).click()
+        print(f"Selected '{ingress_controller}' in Ingress Controller dropdown")
+        self.page.fill('#resourceName-input', resource_name)
+        print(f"Filled Resource Name: {resource_name}")
+        self.page.fill('#ingressClassName-input', ingress_class_name)
+        print(f"Filled Ingress Class Name: {ingress_class_name}")
+        self.page.fill('#fqdn-input', fqdn)
+        print(f"Filled FQDN: {fqdn}")
+
+        # for Ingress Key and Value
+        # if ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS != "" and ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES != "":
+        #     keys = ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS.split(" ")
+        #     values = ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES.split(" ")
+        #     for i in range(len(keys)):
+        #         key = keys[i].strip()
+        #         value = values[i].strip()
+        #         self.page.fill("#key-input", key)
+        #         self.page.fill("#value-textarea", value)
+        #         print(f"Filled Ingress Key: {key}, Value: {value}")
+        #         self.page.wait_for_timeout(500)
+        #         self.page.locator(".olly-header__inputs button", has_text="Save").click()
+        #         print("Clicked 'Save' button")
+        #         self.page.wait_for_timeout(500)
+
+        Util.click_button_until_enabled(self.page, self.page.locator("#save-ingress-configuration"))
+        print("Clicked 'Add' button in 'Add Ingress Controller' dialog")
 
     def dp_config_activation(self, dp_name, use_global = False):
         activation_url = ENV.TP_ACTIVATION_URL

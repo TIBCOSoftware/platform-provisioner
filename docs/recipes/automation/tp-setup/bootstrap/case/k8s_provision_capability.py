@@ -24,18 +24,22 @@ if __name__ == "__main__":
         po_dp_config.goto_dataplane_config()
         po_dp_config.dp_config_resources_storage(ENV.TP_AUTO_K8S_DP_NAME)
 
-        # for provision BWCE capability
-        if ENV.TP_AUTO_IS_PROVISION_BWCE:
+        # for provision BWCE/BW5 capability
+        if ENV.TP_AUTO_IS_PROVISION_BWCE or ENV.TP_AUTO_IS_PROVISION_BW5CE:
+            capability = "bw5ce" if ENV.TP_AUTO_IS_PROVISION_BW5CE else "bwce"
+
+            ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE else ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE
+            fqdn = ENV.TP_AUTO_FQDN_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE else ENV.TP_AUTO_FQDN_BWCE
             po_dp_config.dp_config_resources_ingress(
                 ENV.TP_AUTO_K8S_DP_NAME,
-                ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE,
-                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_BWCE
+                ENV.TP_AUTO_INGRESS_CONTROLLER, ingress_controller,
+                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, fqdn
             )
-            po_dp_bwce = PageObjectDataPlaneBWCE(page)
+            po_dp_bwce = PageObjectDataPlaneBWCE(page, capability)
             po_dp_bwce.goto_left_navbar_dataplane()
             po_dp_bwce.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_bwce.bwce_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
-            po_dp_bwce.bwce_provision_connector(ENV.TP_AUTO_K8S_DP_NAME, ENV.BWCE_APP_NAME)
+            po_dp_bwce.bwce_provision_connector(ENV.TP_AUTO_K8S_DP_NAME)
 
         # for provision EMS capability
         if ENV.TP_AUTO_IS_PROVISION_EMS:
