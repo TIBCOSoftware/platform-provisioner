@@ -32,6 +32,7 @@ meta:
     GUI_TP_AUTO_ENABLE_CONFIG_O11Y: true
     GUI_TP_AUTO_ENABLE_FLOGO: true
     GUI_TP_AUTO_ENABLE_BWCE: false
+    GUI_TP_AUTO_ENABLE_BW5CE: false
     GUI_TP_AUTO_ENABLE_TIBCOHUB: false
     GUI_TP_AUTO_ENABLE_EMS: false
     GUI_TP_AUTO_ENABLE_PULSAR: false
@@ -42,11 +43,17 @@ meta:
     GUI_TP_AUTO_ENABLE_O11Y_WIDGET: true
     GUI_TP_AUTO_ENABLE_E2E_TEST: false
 
+    # start app or not
+    GUI_TP_AUTO_START_FLOGO_APP: true
+    GUI_TP_AUTO_START_BWCE_APP: false
+    GUI_TP_AUTO_START_BW5CE_APP: false
+
     # CP setup
     GUI_TP_AUTO_CP_INSTANCE_ID: "cp1"
     GUI_TP_AUTO_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
     GUI_TP_AUTO_CP_SERVICE_DNS_DOMAIN: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE: ""
+    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ""
     GUI_TP_AUTO_LOGIN_URL: ""
@@ -84,6 +91,7 @@ meta:
 
     # fqdn setup
     GUI_TP_AUTO_FQDN_BWCE: ""
+    GUI_TP_AUTO_FQDN_BW5CE: ""
     GUI_TP_AUTO_FQDN_FLOGO: ""
     GUI_TP_AUTO_FQDN_TIBCOHUB: ""
     GUI_TP_AUTO_FQDN_BMDP: "bmdp.dummy.hostname"
@@ -137,6 +145,7 @@ meta:
     TP_AUTO_IS_CONFIG_O11Y: ${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-false} # need this as global value
     TP_AUTO_ENABLE_FLOGO: ${GUI_TP_AUTO_ENABLE_FLOGO:-true}
     TP_AUTO_ENABLE_BWCE: ${GUI_TP_AUTO_ENABLE_BWCE:-true}
+    TP_AUTO_ENABLE_BW5CE: ${GUI_TP_AUTO_ENABLE_BW5CE:-true}
     TP_AUTO_ENABLE_TIBCOHUB: ${GUI_TP_AUTO_ENABLE_TIBCOHUB:-true}
     TP_AUTO_ENABLE_EMS: ${GUI_TP_AUTO_ENABLE_EMS:-true}
     TP_AUTO_ENABLE_PULSAR: ${GUI_TP_AUTO_ENABLE_PULSAR:-true}
@@ -147,11 +156,17 @@ meta:
     TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-true}
     TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-true}
 
+    # start app or not
+    TP_AUTO_START_FLOGO_APP: ${GUI_TP_AUTO_START_FLOGO_APP:-true}
+    TP_AUTO_START_BWCE_APP: ${GUI_TP_AUTO_START_BWCE_APP:-false}
+    TP_AUTO_START_BW5CE_APP: ${GUI_TP_AUTO_START_BW5CE_APP:-false}
+
     # CP setup
     TP_AUTO_CP_INSTANCE_ID: ${GUI_TP_AUTO_CP_INSTANCE_ID:-"cp1"}
     TP_AUTO_CP_DNS_DOMAIN: ${GUI_TP_AUTO_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     TP_AUTO_CP_SERVICE_DNS_DOMAIN: ${GUI_TP_AUTO_CP_SERVICE_DNS_DOMAIN:-""} # full domain of CP
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE:-"bwce"}
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE:-"bw5ce"}
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO:-"flogo"}
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB:-"tibcohub"}
     TP_AUTO_LOGIN_URL: ${GUI_TP_AUTO_LOGIN_URL:-""}
@@ -194,6 +209,7 @@ meta:
 
     # fqdn setup
     TP_AUTO_FQDN_BWCE: ${GUI_TP_AUTO_FQDN_BWCE:-""}
+    TP_AUTO_FQDN_BW5CE: ${GUI_TP_AUTO_FQDN_BW5CE:-""}
     TP_AUTO_FQDN_FLOGO: ${GUI_TP_AUTO_FQDN_FLOGO:-""}
     TP_AUTO_FQDN_TIBCOHUB: ${GUI_TP_AUTO_FQDN_TIBCOHUB:-""}
     TP_AUTO_FQDN_BMDP: ${GUI_TP_AUTO_FQDN_BMDP:-""}
@@ -492,6 +508,27 @@ tasks:
       cd ${TP_AUTO_SCRIPT_FOLDER}
       
       echo "===== Task Name: deploy-bwce, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_BW5CE} # only deploy bw5ce
+  name: deploy-bw5ce
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      export TP_AUTO_IS_PROVISION_BW5CE=${TP_AUTO_ENABLE_BW5CE}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      
+      echo "===== Task Name: deploy-bw5ce, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
         uv run ${PYTHON_FILE_ENTRY_POINT}
       else

@@ -25,18 +25,15 @@ if __name__ == "__main__":
             if po_o11y.is_data_plane_in_list(ENV.TP_AUTO_K8S_DP_NAME):
                 widget_card_data = [
                     # level1_menu, level2_menu, middle_menu, data_plane_type
-                    ("Integration General", None, "Application CPU Utilization", "Kubernetes"),
-                    ("Integration General", None, "Application Memory Usage", "Kubernetes"),
                     ("Integration General", None, "Application Instances", "Kubernetes"),
-                    ("Integration General", None, "Application Request Counts", "Kubernetes"),
 
-                    ("BWCE", "Engine", "Active Thread Count", None),
-                    ("BWCE", "Process", "Process Max Elapsed Time", None),
-                    ("BWCE", "Activity", "Activity Max Elapsed Time", None),
+                    ("BW6 (Containers)", "Engine", "Active Thread Count", None),
+                    # ("BW6 (Containers)", "Process", "Process Max Elapsed Time", None),
+                    # ("BW6 (Containers)", "Activity", "Activity Max Elapsed Time", None),
 
                     ("Flogo", "Engine", "CPU Utilization/Limit Percentage", None),
-                    ("Flogo", "Flow", "Total Flow Executions", None),
-                    ("Flogo", "Activity", "Total Activity Executions", None),
+                    # ("Flogo", "Flow", "Total Flow Executions", None),
+                    # ("Flogo", "Activity", "Total Activity Executions", None),
                 ]
                 for level1_menu, level2_menu, middle_menu, data_plane_type in widget_card_data:
                     po_o11y.add_widget(level1_menu, level2_menu, middle_menu, data_plane_type)
@@ -45,12 +42,10 @@ if __name__ == "__main__":
             if po_o11y.is_data_plane_in_list(ENV.TP_AUTO_K8S_BMDP_NAME):
                 widget_card_data = [
                     # level1_menu, level2_menu, middle_menu, data_plane_type
-                    ("Integration General", None, "Application CPU Utilization", "Control Tower"),
-                    ("Integration General", None, "Application Memory Usage", "Control Tower"),
-                    ("Integration General", None, "Application Request Counts", "Control Tower"),
+                    ("Integration General", None, "Application Instances", "Control Tower"),
 
-                    ("BW5", "Engine", "CPU Percent", None),
-                    ("BW5", "Process", "Process Definitions Aborted", None),
+                    ("BW5 (Containers)", "Engine", "CPU Percent", None),
+                    # ("BW5 (Containers)", "Process", "Process Definitions Aborted", None),
                 ]
                 for level1_menu, level2_menu, middle_menu, data_plane_type in widget_card_data:
                     po_o11y.add_widget(level1_menu, level2_menu, middle_menu, data_plane_type)

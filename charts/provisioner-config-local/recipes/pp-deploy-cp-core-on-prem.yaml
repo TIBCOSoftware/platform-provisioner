@@ -65,7 +65,6 @@ meta:
     GUI_TP_TLS_SECRET_NAME_HYBRID_PROXY: ""
     GUI_TP_TLS_CERT_HYBRID_PROXY: ""
     GUI_TP_TLS_KEY_HYBRID_PROXY: ""
-    GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "easy-to-remember"
 
     # storage
     GUI_CP_STORAGE_CLASS: "hostpath" # user need to choose based on environment
@@ -217,9 +216,6 @@ meta:
     CP_MAIL_SERVER_PASSWORD: ${GUI_CP_MAIL_SERVER_PASSWORD:-""}
     CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME: ${GUI_CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME:-""} # the secret name for graph client details
     CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER: ${GUI_CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER:-false}
-
-    # CP SSO
-    CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: ${GUI_CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD:-"easy-to-remember"}
 
     # CP ingress
     CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
@@ -806,7 +802,6 @@ helmCharts:
           dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
           dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
           environment: ${CP_EXTERNAL_ENVIRONMENT}
-          helmRepo: ${CP_CHART_REPO}
           db_host: ${CP_DB_HOST}
           db_name: ${CP_DB_NAME}
           db_password: ${CP_DB_PASSWORD}
@@ -835,8 +830,6 @@ helmCharts:
             firstname: "admin"
             lastname: "admin"
             customerID: "myCustomerID"
-          enableLogging: false
-          IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
       tp-cp-infra:
         enabled: true
         resources:
@@ -854,12 +847,6 @@ helmCharts:
         enabled: ${CP_INSTALL_MSG_RECIPES}
       tp-cp-hawk:
         enabled: ${CP_INSTALL_HAWK}
-        tp-cp-hawk-infra-prometheus:
-          prometheus:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
       tp-cp-recipes:
         enabled: ${CP_INSTALL_RECIPES}
       tp-cp-integration:
@@ -920,9 +907,6 @@ helmCharts:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 100m
-                memory: 100Mi
         email-service:
           replicaCount: 1
           cpemailservice:
@@ -994,42 +978,12 @@ helmCharts:
                 cpu: 200m
                 memory: 200Mi
       tp-cp-core-finops:
-        finops-otel-collector:
-          resources:
-            requests:
-              cpu: ${CP_RESOURCES_REQUEST_CPU}
-              memory: ${CP_RESOURCES_REQUEST_MEMORY}
-            limits:
-              cpu: 300m
-              memory: 12Gi
-        finops-prometheus:
-          finopsprometheus:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 300m
-                memory: 12Gi
         finops-service:
           finopsservice:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 250m
-                memory: 1024Mi
-        finops-web-server:
-          replicaCount: "1"
-          finopswebserver:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 200m
-                memory: 200Mi
         monitoring-service:
           replicaCount: "1"
           monitoringservice:
@@ -1037,33 +991,21 @@ helmCharts:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 250m
-                memory: 1024Mi
           monitoringtibtunnel:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: "80m"
-                memory: "200Mi"
           monitoringcapresources:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: "80m"
-                memory: "200Mi"
           monitoringhomepagemetrics:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: "80m"
-                memory: "200Mi"
   cluster:
     names:
       - ${CP_CLUSTER_NAME}

@@ -6,10 +6,13 @@ from utils.helper import Helper
 from utils.env import ENV
 from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
+from page_object.po_dp_config import PageObjectDataPlaneConfiguration
 
 class PageObjectDataPlaneFlogo(PageObjectDataPlane):
+    po_dp_config = None
     capability = "flogo"
     def __init__(self, page):
+        self.po_dp_config = PageObjectDataPlaneConfiguration(page)
         super().__init__(page)
 
     def flogo_provision_capability(self, dp_name):
@@ -40,14 +43,40 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             self.page.wait_for_timeout(3000)
 
             if self.page.locator('#storage-class-resource-table').is_visible():
-                self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').wait_for(state="visible")
-                self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
-                print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for Flogo capability")
+                print(f"Checking Storage Class table has '{ENV.TP_AUTO_STORAGE_CLASS}' visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)), 2, 4):
+                    ColorLogger.info(f"Adding Storage Class: {ENV.TP_AUTO_STORAGE_CLASS} for {self.capability} capability")
+                    if self.page.locator("#add-storage-resource-storage-class-btn").is_visible():
+                        self.page.locator("#add-storage-resource-storage-class-btn").click()
+                        print("Clicked 'Adding Storage Class' button")
+                        # Adding Storage Class dialog popup
+                        self.po_dp_config.add_storage(ENV.TP_AUTO_STORAGE_CLASS)
+
+                if Util.check_dom_visibility(self.page, self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)), 3, 6):
+                    self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+                    print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for {self.capability} capability")
+                else:
+                    Util.exit_error(f"'{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             if self.page.locator('#ingress-resource-table').is_visible():
-                self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)).locator('label').wait_for(state="visible")
-                self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)).locator('label').click()
-                print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress Controller for Flogo capability")
+                print(f"Checking Ingress Controller table has '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 2, 4):
+                    ColorLogger.info(f"Adding Ingress Controller: {ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO} for Flogo capability")
+                    if self.page.locator("#add-ingress-resource-ingress-controller-btn").is_visible():
+                        self.page.locator("#add-ingress-resource-ingress-controller-btn").click()
+                        print("Clicked 'Add Ingress Controller' button")
+                        # Add Ingress Controller dialog popup
+                        self.po_dp_config.dp_config_resources_ingress(
+                            dp_name,
+                            ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
+                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
+                        )
+
+                if Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 3, 6):
+                    self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)).locator('label').click()
+                    print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress Controller for Flogo capability")
+                else:
+                    Util.exit_error(f"'{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress Controller is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             self.page.locator("#btnNextCapabilityProvision").click()
             print("Clicked Flogo 'Next' button, finished step 1")
@@ -160,9 +189,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.goto_capability(dp_name, capability, ".capability-connectors-container .total-capability", is_check_status)
     
         print("Flogo Checking app build...")
-        self.page.locator(".app-build-container").wait_for(state="visible")
-        print("Flogo capability page loaded, Checking Flogo App Builds...")
-        self.page.wait_for_timeout(3000)
+        # self.page.locator(".app-build-container").wait_for(state="visible")
+        # print("Flogo capability page loaded, Checking Flogo App Builds...")
+        # self.page.wait_for_timeout(3000)
         # is_app_build_created = self.page.locator(".app-build-container td", has_text=app_name).is_visible()
         # # Note: check 3 times, because sometimes Flogo App Builds can not be loaded in time
         # # if not Flogo App Builds, reload page, and check again, only check 3 times, if still empty, exit for loop
@@ -287,7 +316,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.locator('.finish-container .deploy-banner-icon').wait_for(state="visible")
         ColorLogger.success(f"Created Flogo app build '{app_name}' Successfully")
         print("Check if Flogo app deployed successfully...")
-        if Util.check_dom_visibility(self.page, self.page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 10):
+        if Util.check_dom_visibility(self.page, self.page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 9):
             Util.exit_error(f"Flogo app build '{app_name}' is not deployed.", self.page, "flogo_app_build_and_deploy_deploy.png")
     
         print("No deploy error, continue waiting for deploy status...")
@@ -353,7 +382,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             self.page.locator('#qaResourceAppDeploy').click()
             print("Clicked 'Deploy App' button")
             print("Check if Flogo app deployed successfully...")
-            if Util.check_dom_visibility(self.page, self.page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 10):
+            if Util.check_dom_visibility(self.page, self.page.locator('flogo-tp-pl-icon[icon="pl-icon-critical-error"]'),3, 9):
                 Util.exit_error(f"Flogo app '{app_name}' is not deployed.", self.page, "flogo_app_deploy.png")
     
             print("No deploy error, continue waiting for deploy status...")

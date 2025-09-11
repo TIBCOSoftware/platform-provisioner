@@ -425,6 +425,8 @@ helmCharts:
           value: ""
         - name: TP_MCP_DEBUG
           value: "false"
+        - name: TP_AUTO_TASK_FROM_LOCAL_SOURCE
+          value: "false"
         others:
           dnsPolicy: ClusterFirstWithHostNet
           # hostNetwork: true

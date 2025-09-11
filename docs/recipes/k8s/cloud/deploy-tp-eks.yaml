@@ -50,8 +50,8 @@ meta:
     TP_INSTALL_RESOURCE_FOLDER: "/workspace/resources"
     TP_INSTALL_EFS_VALUES_FILE: "${TP_INSTALL_RESOURCE_FOLDER}/efs_values.yaml"
     # TP versions
-    TP_CHART_VERSION_DP_CONFIG_AWS: ${GUI_TP_VERSION_DP_CONFIG_AWS:-"1.8.2"}
-    TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_VERSION_DP_CONFIG_ES:-"1.2.1"}
+    TP_CHART_VERSION_DP_CONFIG_AWS: ${GUI_TP_CHART_VERSION_DP_CONFIG_AWS:-"^1.0.0"}
+    TP_CHART_VERSION_DP_CONFIG_ES: ${GUI_TP_CHART_VERSION_DP_CONFIG_ES:-"^1.0.0"}
     # o11y
     TP_ES_RELEASE_NAME: "dp-config-es" # name of dp-config-es release name
     # elasticsearch

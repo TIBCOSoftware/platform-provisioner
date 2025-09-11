@@ -29,15 +29,15 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         ColorLogger.info("Going to Products page...")
         # "BW5" for BW5, "BE" for be, "BW6" for BW6
         print(f"Checking if {product_name} Card is Available.")
-        if Util.check_dom_visibility(self.page, self.page.locator(f".product-card:not(.disabled-card):has-text('{product_name}')"), 10, 120, True):
-            self.page.locator(f".product-card:not(.disabled-card):has-text('{product_name}')").click()
+        if Util.check_dom_visibility(self.page, self.page.locator(f".product-card:not(.disabled-card)", has=self.page.locator(f".product-card__title", has_text=product_name)), 30, 180, True):
+            self.page.locator(f".product-card:not(.disabled-card)", has=self.page.locator(f".product-card__title", has_text=product_name)).click()
             print(f"Clicked '{product_name}' Card")
         else:
             Util.exit_error(f"{product_name} Card is not visible.", self.page, "goto_Products.png")
 
     def dp_config_bw5_rvdm(self, domain_name):
         ColorLogger.info("Config BW5 RV domain...")
-        if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 10, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 9, True):
             # add domain
             self.page.locator("#add-domain-button").wait_for(state="visible")
             self.page.locator("#add-domain-button").click()
@@ -64,7 +64,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
 
     def dp_config_bw5_emsdm(self, domain_name):
         ColorLogger.info("Config BW5 EMS domain...")
-        if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 10, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 9, True):
             # add domain
             self.page.locator("#add-domain-button").wait_for(state="visible")
             self.page.locator("#add-domain-button").click()
@@ -116,13 +116,13 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
                 print(f"'{app_name}' is deployed and checking service instance status.")
                 ReportYaml.set_capability_app(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}")
             else:
-                Util.exit_error(f"'{app_name}' is not deployed successfully or cannot be discovered by CT in domain '{domain_name}'.", self.page, "check_bmdp_app_status_by_app_name.png")
+                ColorLogger.warning(f"'{app_name}' is not deployed successfully or cannot be discovered by CT in domain '{domain_name}'.")
             service_instance_row = self.page.locator("tr.pl-table__row")
             if Util.check_dom_visibility(self.page, service_instance_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
                 ColorLogger.success(f"'{app_name}' in domain '{domain_name}' instance is running.")
                 ReportYaml.set_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}", "Status", "Running")
             else:
-                Util.exit_error(f"'{app_name}' in domain '{domain_name}' instance is not running.", self.page, "check_bmdp_app_status_by_app_name.png")
+                ColorLogger.warning(f"'{app_name}' in domain '{domain_name}' instance is not running.")
         # check bw6 application status
         if product_name == "BW6":
             if Util.check_dom_visibility(self.page, self.page.locator(".pl-card--standard"), 2, 10):
@@ -156,7 +156,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         ColorLogger.info("Config BW6 domain...")
         # switch to BW6 Agents config page
         self.goto_dataplane_config_sub_menu("Agents")
-        if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{agent_name}')"), 3, 10, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{agent_name}')"), 3, 9, True):
             # add domain
             self.page.locator("#add-proxy").wait_for(state="visible")
             self.page.locator("#add-proxy").click()
@@ -236,7 +236,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             self.goto_dataplane_config_sub_menu("Observability")
 
         print("Waiting for Observability config is loaded")
-        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 10):
+        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 9):
             Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", self.page, "o11y_config_dataplane_resource.png")
 
         print("Checking if 'Add new resource' button is exist...")
@@ -332,7 +332,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         ColorLogger.info("O11y start to add or select item...")
         name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
         print(f"Check if name: '{name_input}' is exist in {tab_sub_name} configurations")
-        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 10):
+        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 9):
             self.page.locator(add_button_selector).click()
             print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
             self.o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)

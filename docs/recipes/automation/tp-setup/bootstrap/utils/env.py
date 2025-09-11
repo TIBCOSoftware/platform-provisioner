@@ -12,7 +12,7 @@ from utils.helper import Helper
 class EnvConfig:
     IS_HEADLESS = Helper.is_headless()
 
-    # GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or "" # GitHub token is not used for now
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or "" # GitHub token is not used for now
     RETRY_TIME = datetime.now(pytz.timezone("America/Chicago"))
     RETRY_TIME_FOLDER = RETRY_TIME.strftime("%Y%m%d-%H%M%S")
     DP_HOST_PREFIX = os.environ.get("DP_HOST_PREFIX") or "cp-sub1"
@@ -43,10 +43,16 @@ class EnvConfig:
     TP_AUTO_IS_ENABLE_BW6DM = os.environ.get("TP_AUTO_IS_ENABLE_BW6DM", "true").lower() == "true"
     TP_AUTO_IS_CONFIG_O11Y = os.environ.get("TP_AUTO_IS_CONFIG_O11Y", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_BWCE = os.environ.get("TP_AUTO_IS_PROVISION_BWCE", "false").lower() == "true"
+    TP_AUTO_IS_PROVISION_BW5CE = os.environ.get("TP_AUTO_IS_PROVISION_BW5CE", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_EMS = os.environ.get("TP_AUTO_IS_PROVISION_EMS", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_FLOGO = os.environ.get("TP_AUTO_IS_PROVISION_FLOGO", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_PULSAR = os.environ.get("TP_AUTO_IS_PROVISION_PULSAR", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
+
+    # start app or not
+    TP_AUTO_START_FLOGO_APP = os.environ.get("TP_AUTO_START_FLOGO_APP", "true").lower() == "true"
+    TP_AUTO_START_BWCE_APP = os.environ.get("TP_AUTO_START_BWCE_APP", "false").lower() == "true"
+    TP_AUTO_START_BW5CE_APP = os.environ.get("TP_AUTO_START_BW5CE_APP", "false").lower() == "true"
 
     # k8s data plane
     TP_AUTO_DP_NAME_GLOBAL = "Global"
@@ -58,6 +64,7 @@ class EnvConfig:
     TIBCOP_CLI_DP_SERVICE_ACCOUNT = os.environ.get("TIBCOP_CLI_DP_SERVICE_ACCOUNT") or f"{TIBCOP_CLI_DP_NAME}sa"
 
     # activation url
+    TP_ACTIVATION_SERVER_IP = os.environ.get("TP_ACTIVATION_SERVER_IP") or ""
     TP_ACTIVATION_SERVER_CERT_HOSTNAME = os.environ.get("TP_ACTIVATION_SERVER_CERT_HOSTNAME") or ""
     TP_ACTIVATION_SERVER_PORT = os.environ.get("TP_ACTIVATION_SERVER_PORT") or "7070"
     TP_ACTIVATION_SERVER_FINGER_PRINT = os.environ.get("TP_ACTIVATION_SERVER_FINGER_PRINT") or ""
@@ -71,7 +78,7 @@ class EnvConfig:
     TP_AUTO_K8S_BMDP_NAME = os.environ.get("TP_AUTO_K8S_BMDP_NAME") or "k8s-auto-bmdp1"
     TP_AUTO_K8S_BMDP_NAMESPACE = os.environ.get("TP_AUTO_K8S_BMDP_NAMESPACE") or f"{TP_AUTO_K8S_BMDP_NAME}ns"
     TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_BMDP_NAME}sa"
-    TP_AUTO_FQDN_BMDP = os.environ.get("TP_AUTO_FQDN_BMDP") or socket.gethostname()
+    TP_AUTO_FQDN_BMDP = os.environ.get("TP_AUTO_FQDN_BMDP") or socket.gethostname().lower()
     TP_AUTO_K8S_BMDP_BW5_RVDM = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM") or "tra5130rv"
     TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE") or "7474"
     TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK") or ""
@@ -82,12 +89,18 @@ class EnvConfig:
     TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD = os.environ.get("TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD") or ""
     TP_AUTO_K8S_BMDP_BW6DM = os.environ.get("TP_AUTO_K8S_BMDP_BW6DM") or "bw6110"
     TP_AUTO_K8S_BMDP_BW6DM_URL = os.environ.get("TP_AUTO_K8S_BMDP_BW6DM_URL") or "http://bw6dm.bw5dm.svc:9091/bwta"
+    TP_OTEL_TRACES_ENDPOINT = os.environ.get("TP_OTEL_TRACES_ENDPOINT") or "http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"
+    TP_BMDP_IMAGE_TAG_BW5EMSDM = os.environ.get("TP_BMDP_IMAGE_TAG_BW5EMSDM") or "emsdm-latest"
+    TP_BMDP_IMAGE_TAG_EMS = os.environ.get("TP_BMDP_IMAGE_TAG_EMS") or "ems-latest"
+    TP_BMDP_IMAGE_TAG_BW5RVDM = os.environ.get("TP_BMDP_IMAGE_TAG_BW5RVDM") or "rvdm-latest"
+    TP_BMDP_IMAGE_TAG_BW6DM = os.environ.get("TP_BMDP_IMAGE_TAG_BW6DM") or "bw6-latest"
 
     # CP_DNS_DOMAIN
     TP_AUTO_CP_INSTANCE_ID = os.environ.get("TP_AUTO_CP_INSTANCE_ID") or "cp1"
     TP_AUTO_CP_DNS_DOMAIN = os.environ.get("TP_AUTO_CP_DNS_DOMAIN") or Helper.get_cp_dns_domain() or "localhost.dataplanes.pro"
     TP_AUTO_CP_SERVICE_DNS_DOMAIN = os.environ.get("TP_AUTO_CP_SERVICE_DNS_DOMAIN") or f"{TP_AUTO_CP_INSTANCE_ID}-my.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE") or "bwce"
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE") or "bw5ce"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO") or "flogo"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB") or "tibcohub"
 
@@ -106,6 +119,7 @@ class EnvConfig:
 
     # fqdn
     TP_AUTO_FQDN_BWCE = os.environ.get("TP_AUTO_FQDN_BWCE") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE}.{TP_AUTO_CP_DNS_DOMAIN}"
+    TP_AUTO_FQDN_BW5CE = os.environ.get("TP_AUTO_FQDN_BW5CE") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE}.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_FQDN_FLOGO = os.environ.get("TP_AUTO_FQDN_FLOGO") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_FQDN_TIBCOHUB = os.environ.get("TP_AUTO_FQDN_TIBCOHUB") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}.{TP_AUTO_CP_DNS_DOMAIN}"
 
@@ -119,6 +133,7 @@ class EnvConfig:
     TP_AUTO_INGRESS_CONTROLLER = os.environ.get("TP_AUTO_INGRESS_CONTROLLER") or "nginx"
     TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME") or "nginx"
     TP_AUTO_INGRESS_CONTROLLER_BWCE = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_BWCE") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE}"
+    TP_AUTO_INGRESS_CONTROLLER_BW5CE = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_BW5CE") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE}"
     TP_AUTO_INGRESS_CONTROLLER_FLOGO = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_FLOGO") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}"
     TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}"
     # TP_AUTO_INGRESS_CONTROLLER_KEYS = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_KEYS") or ""
@@ -128,9 +143,11 @@ class EnvConfig:
     # At most 0-9 dp are supported, if more dp is needed, the matching rule of dp selector is required
     TP_AUTO_MAX_DATA_PLANE = 9
 
-    # apps: bwce, flogo
-    BWCE_APP_FILE_NAME = os.environ.get("TP_AUTO_BWCE_APP_FILE_NAME") or "tt.ear"
+    # apps: bwce, bw5ce, flogo
+    BWCE_APP_FILE_NAME = os.environ.get("TP_AUTO_BWCE_APP_FILE_NAME") or "bwce-tt.ear"
     BWCE_APP_NAME = os.environ.get("BWCE_APP_NAME") or BWCE_APP_FILE_NAME.removesuffix(".ear")
+    BW5CE_APP_FILE_NAME = os.environ.get("TP_AUTO_BW5CE_APP_FILE_NAME") or "bw5ce-dynamicHeaders.ear"
+    BW5CE_APP_NAME = os.environ.get("BW5CE_APP_NAME") or BW5CE_APP_FILE_NAME.removesuffix(".ear")
     FLOGO_APP_FILE_NAME = os.environ.get("TP_AUTO_FLOGO_APP_FILE_NAME") or "flogo.json"
     # need to make sure the flogo app name is unique and lower case in the above JSON file
     FLOGO_APP_NAME = os.environ.get("FLOGO_APP_NAME") or Helper.get_app_name(FLOGO_APP_FILE_NAME)

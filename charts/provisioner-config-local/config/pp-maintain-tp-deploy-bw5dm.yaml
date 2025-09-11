@@ -1,3 +1,8 @@
+#
+# Copyright © 2025. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
 pipelineName: "Deploy BW5"
 description: |
   This pipeline will deploy BW5 suit in the TP cluster. It will install 
@@ -8,7 +13,36 @@ description: |
   You need to have access to the TIBCO BW5 private chart repo to use this pipeline.
   This pipeline only works on x86 architecture. (arm64 is not supported. i.e no Mac M silicon)
 
+groups:
+- title: "BW5 Chart Repository Configuration"
+  index: 1
+  description: |
+    ## Chart repository configuration to access BW5 private helm chart repo
+    * The GitHub token
+    * The chart repo url
+    * The chart repo user name (if necessary)
+
+    ---
+- title: "Activation Server"
+  index: 3
+  description: |
+    ## Activation server specific configurations
+    * Activation server IP
+    * Activation server hostname
+    * Activation server port
+    * Activation server fingerprint
+
+    ---
+- title: "TP Automation Config"
+  index: 6
+  description: |
+    ## Control the TP Automation flow
+    * Select the workflow to be executed.
+    * Enable debug log
+
+    ---
 options:
+# groupIndex: 1 Chart Repository Configuration
 - name: "BW5 Chart repository"
   groupIndex: 1
   type: string
@@ -26,35 +60,73 @@ options:
   groupIndex: 1
   type: password
   guiType: input
-  required: true
   reference: "meta.guiEnv.GUI_BW5_CHART_REPO_TOKEN"
   description: |
     The token to access the BW5 private chart repo. It is required to deploy BW5.
+# groupIndex: 3 Activation Server
+- name: "Activation server IP"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_IP"
+  required: false
+  description: |
+    The IP address of activation server.
+- name: "Activation server port"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_PORT"
+  required: false
+  description: |
+    The port of activation server.
+- name: "Activation server hostname"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME"
+  required: false
+  description: |
+    The hostname of activation server.
+- name: "Activation server fingerprint"
+  groupIndex: 3
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_FINGER_PRINT"
+  required: false
+  description: |
+    The fingerprint of activation server.
+# groupIndex: 6 TP Automation Config
 - name: "Deploy RVDM"
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_DEPLOY_RVDM"
   description: |
     If checked, the pipeline will deploy RVDM.
 - name: "Deploy EMS Server"
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_DEPLOY_EMS_SERVER"
   description: |
     If checked, the pipeline will deploy EMS Server.
 - name: "Deploy BW5 EMS DM"
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_DEPLOY_EMSDM"
   description: |
     If checked, the pipeline will deploy BW5 EMS DM.
 - name: "Deploy Hawk Console"
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_DEPLOY_HAWKCONSOLE"
   description: |
     If checked, the pipeline will deploy Hawk Console.
 - name: "Enable debug log"
+  groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"

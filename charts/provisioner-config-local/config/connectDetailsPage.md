@@ -33,6 +33,6 @@ Go to Automation UI and use following automation cases to deploy TIBCO Platform 
 The following are the default links to access TIBCO Platform components:
 
 * [TIBCO Platform Console](https://admin.cp1-my.localhost.dataplanes.pro)
-* [TIBCO Platform](https://cp1-my.localhost.dataplanes.pro)
+* [TIBCO Platform](https://cp-sub1.cp1-my.localhost.dataplanes.pro)
 * [E-mail server](https://mail.localhost.dataplanes.pro)
 * [Automation UI](https://automation.localhost.dataplanes.pro)

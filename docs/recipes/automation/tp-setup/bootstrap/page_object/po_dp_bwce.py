@@ -1,4 +1,6 @@
 #  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+from dataclasses import dataclass
+from typing import Dict
 
 from utils.color_logger import ColorLogger
 from utils.util import Util
@@ -6,12 +8,72 @@ from utils.helper import Helper
 from utils.env import ENV
 from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
+from page_object.po_dp_config import PageObjectDataPlaneConfiguration
+
+@dataclass(frozen=True)
+class EnvConfig:
+    ingress_controller: str
+    fqdn: str
+    app_name: str
+    app_file_name: str
+    create_app_build_button_selector: str
+    provision_plugin_button_selector: str
+
 
 class PageObjectDataPlaneBWCE(PageObjectDataPlane):
+    CONFIGS: Dict[str, EnvConfig] = {
+        "bw5ce": EnvConfig(
+            ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE,
+            ENV.TP_AUTO_FQDN_BW5CE,
+            ENV.BW5CE_APP_NAME,
+            ENV.BW5CE_APP_FILE_NAME,
+            "#buildComp-btn-importAppBuild",
+            "#capContainer-cont-appPackages #buildComp-btn-importAppBuild",
+        ),
+        "bwce": EnvConfig(
+            ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE,
+            ENV.TP_AUTO_FQDN_BWCE,
+            ENV.BWCE_APP_NAME,
+            ENV.BWCE_APP_FILE_NAME,
+            "#capBuildsCreateNewBuildBtn",
+            "#capPackagesBackToDP",
+        ),
+    }
+
+    po_dp_config = None
     capability = "bwce"
     capability_upper = capability.upper()
-    def __init__(self, page):
+    ingress_controller = CONFIGS[capability].ingress_controller
+    fqdn = CONFIGS[capability].fqdn
+    app_name = CONFIGS[capability].app_name
+    app_file_name = CONFIGS[capability].app_file_name
+    create_app_build_button_selector = CONFIGS[capability].create_app_build_button_selector
+    provision_plugin_button_selector = CONFIGS[capability].provision_plugin_button_selector
+    def __init__(self, page, capability):
         super().__init__(page)
+        self.po_dp_config = PageObjectDataPlaneConfiguration(page)
+        self.set_capability(capability)
+
+    def set_capability(self, capability):
+        key = capability.strip().lower()
+        if key not in self.CONFIGS:
+            raise ValueError(f"Unknown capability '{capability}'. Valid options: {list(self.CONFIGS.keys())}")
+
+        self.capability = key
+        self.capability_upper = key.upper()
+
+        conf = self.CONFIGS[key]
+        self.ingress_controller = conf.ingress_controller
+        self.app_name = conf.app_name
+        self.app_file_name = conf.app_file_name
+        self.create_app_build_button_selector = conf.create_app_build_button_selector
+        self.provision_plugin_button_selector = conf.provision_plugin_button_selector
+        return self
+
+    def _set_capability(self, capability, ingress_controller):
+        self.capability = capability
+        self.capability_upper = capability.upper()
+        self.ingress_controller = ingress_controller
 
     def bwce_provision_capability(self, dp_name):
         if ReportYaml.is_capability_for_dataplane_created(dp_name, self.capability):
@@ -32,6 +94,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             print("Clicked 'Provision a capability' button")
             self.page.wait_for_timeout(2000)
             selected_card_title = self.page.locator('capability-select-card', has=self.page.locator(f'#{self.capability_upper}-capability-select-button')).locator('.capability-title').inner_text().strip()
+            selected_card_title = " ".join(selected_card_title.split())
             Util.click_button_until_enabled(self.page, self.page.locator(f'#{self.capability_upper}-capability-select-button'))
             print(f"Clicked '{selected_card_title}' -> 'Start' button")
 
@@ -41,14 +104,39 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             self.page.wait_for_timeout(3000)
 
             if self.page.locator('#storage-class-resource-table').is_visible():
-                self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').wait_for(state="visible")
-                self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
-                print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for {self.capability_upper} capability")
+                print(f"Checking Storage Class table has '{ENV.TP_AUTO_STORAGE_CLASS}' visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)), 2, 4):
+                    ColorLogger.info(f"Adding Storage Class: {ENV.TP_AUTO_STORAGE_CLASS} for {self.capability_upper} capability")
+                    if self.page.locator("#add-storage-resource-storage-class-btn").is_visible():
+                        self.page.locator("#add-storage-resource-storage-class-btn").click()
+                        print("Clicked 'Adding Storage Class' button")
+                        # Adding Storage Class dialog popup
+                        self.po_dp_config.add_storage(ENV.TP_AUTO_STORAGE_CLASS)
+
+                if Util.check_dom_visibility(self.page, self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)), 3, 6):
+                    self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+                    print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for {self.capability_upper} capability")
+                else:
+                    Util.exit_error(f"'{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             if self.page.locator('#ingress-resource-table').is_visible():
-                self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE)).locator('label').wait_for(state="visible")
-                self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE)).locator('label').click()
-                print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE}' Ingress Controller for {self.capability_upper} capability")
+                print(f"Checking Ingress Controller table has '{self.ingress_controller}' visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=self.ingress_controller)), 2, 4):
+                    ColorLogger.info(f"Adding Ingress Controller: {self.ingress_controller} for {self.capability_upper} capability")
+                    if self.page.locator("#add-ingress-resource-ingress-controller-btn").is_visible():
+                        self.page.locator("#add-ingress-resource-ingress-controller-btn").click()
+                        print("Clicked 'Add Ingress Controller' button")
+                        # Add Ingress Controller dialog popup
+                        self.po_dp_config.add_ingress_controller(
+                            ENV.TP_AUTO_INGRESS_CONTROLLER, self.ingress_controller,
+                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, self.fqdn
+                        )
+
+                if Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=self.ingress_controller)), 3, 6):
+                    self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=self.ingress_controller)).locator('label').click()
+                    print(f"Selected '{self.ingress_controller}' Ingress Controller for {self.capability_upper} capability")
+                else:
+                    Util.exit_error(f"'{self.ingress_controller}' Ingress Controller is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             self.page.locator("#btnNextCapabilityProvision", has_text="Next").click()
             print(f"Clicked {self.capability_upper} 'Next' button, finished step 1")
@@ -74,7 +162,8 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         else:
             Util.warning_screenshot(f"{self.capability_upper} capability is not in capability list", self.page, f"{self.capability}_provision_capability-2.png")
 
-    def bwce_provision_connector(self, dp_name, app_name):
+    def bwce_provision_connector(self, dp_name, app_name = None):
+        app_name = app_name or self.app_name
         if ReportYaml.get_capability_info(dp_name, self.capability, "provisionConnector") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' Connector is already created in DataPlane '{dp_name}'.")
             return
@@ -93,6 +182,10 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         print(f"{self.capability_upper} capability page loaded, Checking Plugins...")
         self.page.wait_for_timeout(3000)
 
+        if self.page.locator("#capContainer-cont-appPackages .caret-icon").is_visible():
+            self.page.locator("#capContainer-cont-appPackages .caret-icon").click()
+            print("Clicked 'Expand' icon to show Plugins list")
+
         plugins = [text.strip() for text in self.page.locator("#pkgsTbl-table-listPkg td:first-child").all_inner_texts()]
         # Note: check 2 times, because sometimes BWCE Plugins cannot be loaded in time
         # if plugin is empty, reload page, and check again, only check 2 times, if still empty, exit for loop
@@ -109,7 +202,8 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         required_connectors = {self.capability_upper}
         # This is a compatibility handling after BWCE changed to BW6 (Containers) in version 1.10
         name_map = {
-            "BWCE": "BW6 (Containers)"
+            "BWCE": "BW6 (Containers)",
+            "BW5CE": "BW5 (Containers)"
         }
         mapped_name = name_map.get(self.capability_upper)
         if required_connectors.issubset(set(plugins)) or (mapped_name and {mapped_name}.issubset(set(plugins))):
@@ -121,8 +215,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
 
         print(f"Start to Provision {self.capability_upper} Plugins...")
 
-        self.page.locator("#capPackagesBackToDP", has_text="Provision").wait_for(state="visible")
-        self.page.locator("#capPackagesBackToDP", has_text="Provision").click()
+        # Note: do not change below locator, this is to be compatible with both BWCE and BW5CE
+        self.page.locator(self.provision_plugin_button_selector, has_text="Provision").wait_for(state="visible")
+        self.page.locator(self.provision_plugin_button_selector, has_text="Provision").click()
         print("Clicked 'Provision' button")
         self.page.locator("#provisionPluginUpdt-footBtn-nextStep").click()
         print("Clicked 'Next' button")
@@ -135,7 +230,10 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.page.locator("#capabilityHeader-lbl-dpname", has_text=dp_name).click()
         print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
 
-    def bwce_app_build_and_deploy(self, dp_name, app_file_name, app_name):
+    def bwce_app_build_and_deploy(self, dp_name, app_file_name = None, app_name = None):
+        app_file_name = app_file_name or self.app_file_name
+        app_name = app_name or self.app_name
+
         if ReportYaml.get_capability_info(dp_name, self.capability, "appBuild") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' App Build '{app_name}' is already created in DataPlane '{dp_name}'.")
             return
@@ -149,9 +247,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.goto_capability(dp_name, self.capability, "#capContainer-cont-appPackages", is_check_status)
 
         print(f"{self.capability_upper} Checking app build...")
-        self.page.locator("#capContainer-cont-appBuilds").wait_for(state="visible")
-        print(f"{self.capability_upper} capability page loaded, Checking {self.capability_upper} App Builds...")
-        self.page.wait_for_timeout(3000)
+        # self.page.locator("#capContainer-cont-appBuilds").wait_for(state="visible")
+        # print(f"{self.capability_upper} capability page loaded, Checking {self.capability_upper} App Builds...")
+        # self.page.wait_for_timeout(3000)
 
         is_app_build_created = Util.refresh_until_success(self.page,
                                                           self.page.locator("#capContainer-cont-appBuilds td", has_text=app_name),
@@ -166,7 +264,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
 
         print(f"Start Create {self.capability_upper} app build...")
 
-        self.page.locator("#capBuildsCreateNewBuildBtn", has_text="Create New App Build & Deploy").click()
+        self.page.locator(self.create_app_build_button_selector, has_text="Create New App Build & Deploy").click()
         print("Clicked 'Create New App Build & Deploy' button")
 
         # step1: Upload Files
@@ -190,7 +288,12 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.page.wait_for_timeout(2000)
         active_title = self.page.locator("ul.pl-secondarynav__menu .is-active a").inner_text()
         print(f"{self.capability_upper} 'App Build & Deploy' Step 2: '{active_title}' page is loaded")
-        # self.page.locator("#bldConf-tblBody-txt-appBuildName-text-input").fill(app_name)
+        if self.page.locator("#bldConf-tblBody-btn-refreshProvBWCEList", has_text="Refresh").is_visible():
+            self.page.locator("#bldConf-tblBody-btn-refreshProvBWCEList", has_text="Refresh").click()
+            print("Clicked 'Refresh' button to refresh BWCE versions list")
+            self.page.wait_for_timeout(2000)
+        self.page.locator("#bldConf-tblBody-txt-appBuildName-text-input").fill(app_name)
+        print(f"Filled App Build Name: {app_name}")
 
         # click 'Create Build' button in step2
         self.page.locator('#DeployDeployBtn').click()
@@ -219,9 +322,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             else:
                 Util.exit_error(f"No success message is seen, Failed to create {self.capability_upper} {app_name} app build", self.page, f"{self.capability}_app_build_and_deploy.png")
 
-            self.page.fill("#app-name-text-input", app_name)
-            print(f"Filled App Name: {app_name}")
-            self.bwce_app_build_and_deploy_select_namespace()
+            self.bwce_app_build_and_deploy_select_namespace(app_name)
 
         # below steps is after "Resource Configurations" step
         self.page.locator('#deployComp-btn-ResourceConfigBtn2').click()
@@ -235,7 +336,10 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             ColorLogger.success(f"{self.capability_upper} app build '{app_name}' is deployed.")
             ReportYaml.set_capability_info(dp_name, self.capability, "appBuild", True)
 
-    def bwce_app_build_and_deploy_select_namespace(self):
+    def bwce_app_build_and_deploy_select_namespace(self, app_name = None):
+        app_name = app_name or self.app_name
+        self.page.locator("#nameSpace input").wait_for(state="visible")
+        print(f"App Resource Configuration' page loaded")
         self.page.locator("#nameSpace input").click()
         print(f"Clicked 'Namespace' dropdown, and waiting for namespace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
         self.page.wait_for_timeout(1000)
@@ -244,10 +348,19 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
 
         self.page.locator("#nameSpace .pl-select-menu li", has_text=ENV.TP_AUTO_K8S_DP_NAMESPACE).click()
         print(f"Selected namespace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
+
+        if self.page.locator("#app-name-text-input").is_visible():
+            self.page.locator("#app-name-text-input").clear()
+            self.page.locator("#app-name-text-input").fill(app_name)
+            print(f"Filled App Name: {app_name}")
+
         self.page.locator("label[for='eula-checkbox']").click()
         print("Clicked 'EUA' checkbox")
+        self.page.wait_for_timeout(1000)
 
-    def bwce_app_deploy(self, dp_name, app_name):
+    def bwce_app_deploy(self, dp_name, app_name = None):
+        app_name = app_name or self.app_name
+
         if ReportYaml.is_app_created(dp_name, self.capability, app_name):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' App '{app_name}' is already created in DataPlane '{dp_name}'.")
             return
@@ -268,7 +381,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.goto_capability(dp_name, self.capability, "#capContainer-cont-appPackages", is_check_status)
 
         print(f"Waiting for {self.capability_upper} app build {app_name} is deployed...")
-        if not Util.check_dom_visibility(self.page, self.page.locator("#bldTbl-table-buildsList td:first-child", has_text=app_name), 5, 180, True):
+        if not Util.check_dom_visibility(self.page, self.page.locator("#bldTbl-table-buildsList tr td", has_text=app_name), 5, 180, True):
             Util.exit_error(f"{self.capability_upper} app {app_name} is not deployed.", self.page, f"{self.capability}_app_deploy.png")
 
         # if capability appBuild has not been set to true, set it to true
@@ -287,7 +400,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             print("Deploy App Dialog popup")
             self.page.locator('#appMngModal-btn-deployBWprov', has_text="Deploy").click()
             print("Clicked 'Deploy App' button from Deploy App Dialog")
-            self.bwce_app_build_and_deploy_select_namespace()
+            self.bwce_app_build_and_deploy_select_namespace(app_name)
 
             self.page.locator('#deployComp-btn-ResourceConfigBtn2').click()
             print("Clicked 'Deploy App' button")
@@ -307,7 +420,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         else:
             Util.warning_screenshot(f"Deploy {self.capability_upper} app '{app_name}' in namespace {dp_name_space} may failed.", self.page, f"{self.capability}_app_deploy-2.png")
 
-    def bwce_app_config(self, dp_name, app_name):
+    def bwce_app_config(self, dp_name, app_name = None):
+        app_name = app_name or self.app_name
+
         ColorLogger.info(f"{self.capability_upper} Config app '{app_name}'...")
         self.goto_app_detail(dp_name, app_name, ".app-name")
 
@@ -335,20 +450,25 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 print("Clicked 'Set Endpoint Visibility' menu item")
                 self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").wait_for(state="visible")
                 print("Dialog 'Set Endpoint Visibility' popup")
-                texts = self.page.locator(".pl-modal__container strong").all_inner_texts()
+                texts = self.page.locator(".pl-modal__container strong").nth(0).all_inner_texts()
                 if any(t in ["Set Endpoint visibility", "Update Endpoint visibility"] for t in texts):
-                    if self.page.locator(".pl-table__cell label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE).is_visible():
-                        self.page.locator(".pl-table__cell label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE).click()
-                        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE}' from Resource Name column")
+                    if self.page.locator(".pl-table__cell label", has_text=self.ingress_controller).is_visible():
+                        self.page.locator(".pl-table__cell label", has_text=self.ingress_controller).click()
+                        print(f"Selected '{self.ingress_controller}' from Resource Name column")
                         self.page.locator('label[for="endpoint-radio-0-public"]').click()
-                        print("Set Public Endpoint Visibility to 'Public'")
-                        self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").click()
-                        print("Clicked 'Save Changes' button")
-                        if Util.wait_for_success_message(self.page, 5) and self.page.locator("#endpointV1-btn-openSwagger").is_visible():
-                            ColorLogger.success(f"{self.capability_upper} app '{app_name}' has set Endpoint Visibility to Public.")
-                            ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "endpointPublic", True)
+                        if self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").is_enabled():
+                            print("Set Public Endpoint Visibility to 'Public'")
+                            self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").click()
+                            print("Clicked 'Save Changes' button")
+                            if Util.wait_for_success_message(self.page, 5) and self.page.locator("#endpointV1-btn-openSwagger").is_visible():
+                                ColorLogger.success(f"{self.capability_upper} app '{app_name}' has set Endpoint Visibility to Public.")
+                                ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "endpointPublic", True)
+                        else:
+                            ColorLogger.warning(f"{self.capability_upper} app '{app_name}' has set Endpoint Visibility to Public.")
+                            self.page.locator(".pl-modal__footer-left button", has_text="Cancel").click()
+                            print(f"Clicked 'Cancel' button from '{texts}' dialog")
                     else:
-                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE}' is not available.", self.page, f"{self.capability}_app_config-endpoint.png")
+                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{self.ingress_controller}' is not available.", self.page, f"{self.capability}_app_config-endpoint.png")
 
         if ReportYaml.get_capability_app_info(dp_name, self.capability, app_name, "enableTrace") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' Trace is already Enabled in DataPlane '{dp_name}'.")
@@ -382,7 +502,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                     ColorLogger.success("Set BW_OTEL_TRACES_ENABLED to true successfully.")
                     ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "enableTrace", True)
 
-    def bwce_app_start(self, dp_name, app_name):
+    def bwce_app_start(self, dp_name, app_name = None):
+        app_name = app_name or self.app_name
+
         if ReportYaml.get_capability_app_info(dp_name, self.capability, app_name, "status") == "Running" or self.is_app_running(dp_name, self.capability, app_name):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' App '{app_name}' is Running in DataPlane '{dp_name}'.")
             return
@@ -408,7 +530,13 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             else:
                 Util.warning_screenshot(f"Wait too long to scale {self.capability_upper} app '{app_name}'.", self.page, f"{self.capability}_app_start.png")
 
-    def bwce_app_test_endpoint(self, dp_name, app_name):
+    def bwce_app_test_endpoint(self, dp_name, app_name = None):
+        app_name = app_name or self.app_name
+
+        if self.capability == "bw5ce":
+            ColorLogger.warning(f"{self.capability} app does not have 'Test' button in Endpoints tab, skip testing endpoint.")
+            return
+
         if ReportYaml.get_capability_app_info(dp_name, self.capability, app_name, "testedEndpoint") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, has tested '{self.capability}' App '{app_name}' endpoint in DataPlane '{dp_name}'.")
             return
@@ -422,9 +550,10 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         print("Endpoint tab is loaded.")
         self.page.wait_for_timeout(1000)
         print("Check if 'Test' button is visible...")
-        if self.page.locator("#endpointV1-btn-openSwagger").is_visible():
+        test_btn = self.page.locator("#endpointV1-btn-openSwagger")
+        if test_btn.is_visible() and test_btn.is_enabled():
             with self.page.context.expect_page() as new_page_info:
-                self.page.locator("#endpointV1-btn-openSwagger").click()
+                test_btn.click()
                 print("Clicked 'Test' button")
 
             new_page = new_page_info.value

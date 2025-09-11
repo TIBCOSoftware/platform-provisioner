@@ -508,7 +508,6 @@ class PageObjectDataPlane(PageObjectGlobal):
         ReportYaml.set_dataplane(dp_name)
         ReportYaml.set_dataplane_info(dp_name, "status", "Running successfully")
 
-
     def k8s_wait_tunnel_connected(self, dp_name, is_update_report=True):
         print(f"Waiting for Data Planes {dp_name} tunnel connected.")
         self.goto_left_navbar_dataplane()

@@ -23,7 +23,10 @@ forward_port_to_instance() {
   echo "You can now use connect-ins.sh 2 to copy kubeconfig and start port-forwarding"
   ssh-keygen -R "${INSTANCE_IP}"
   ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
-   -o ExitOnForwardFailure=yes -A -L 0.0.0.0:"${LOCAL_PORT}":0.0.0.0:"${INS_PORT}" -N -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
+      -o ExitOnForwardFailure=yes -A \
+      -L 0.0.0.0:"${LOCAL_PORT}":0.0.0.0:"${INS_PORT}" \
+      -L 0.0.0.0:443:0.0.0.0:443 \
+      -N -i "${KEY_PEM}" ubuntu@"${INSTANCE_IP}"
   echo "Forward local port ${LOCAL_PORT} to instance port ${INS_PORT}"
 }
 
@@ -53,14 +56,30 @@ start_local_server() {
 
 stop_local_server() {
   export KUBECONFIG=""
+  echo "Stop Local CP Ingress if any"
   kubectl -n "${INGRESS_SERVICE_NAMESPACE_LOCAL}" patch service "${INGRESS_SERVICE_NAME_LOCAL}" -p '{"spec": {"type": "ClusterIP"}}'
   echo "Disable Local CP Ingress"
 }
 
 forward_ingress_to_instance() {
-  export KUBECONFIG=~/.kube/${INS_KUBECONFIG}
-  kubectl port-forward -n "${INGRESS_SERVICE_NAMESPACE_INSTANCE}" --address 0.0.0.0 "service/${INGRESS_SERVICE_NAME_INSTANCE}" "${INGRESS_SERVICE_PORT_INSTANCE}"
-  echo "instance Server started"
+  export KUBECONFIG="${HOME}/.kube/${INS_KUBECONFIG:?missing INS_KUBECONFIG}"
+
+  local attempt=1
+  trap 'echo "Stop kubectl port-forward"; exit 0' INT TERM
+
+  while true; do
+   echo "kubectl port-forward service/${INGRESS_SERVICE_NAME_INSTANCE} ${INGRESS_SERVICE_PORT_INSTANCE} -n ${INGRESS_SERVICE_NAMESPACE_INSTANCE} --address 0.0.0.0"
+   kubectl port-forward \
+     -n "${INGRESS_SERVICE_NAMESPACE_INSTANCE:?missing INGRESS_SERVICE_NAMESPACE_INSTANCE}" \
+     --address 0.0.0.0 \
+     "service/${INGRESS_SERVICE_NAME_INSTANCE:?missing INGRESS_SERVICE_NAME_INSTANCE}" \
+     "${INGRESS_SERVICE_PORT_INSTANCE:?missing INGRESS_SERVICE_PORT_INSTANCE}"
+
+   rc=$?
+   echo "[kubectl] port-forward exited (rc=$rc). Restarting (attempt ${attempt})..."
+   sleep "$(awk 'BEGIN{srand(); print rand()*5}')"
+   attempt=$((attempt+1))
+  done
 }
 
 copy_file_to_instance() {
@@ -171,6 +190,7 @@ function connect_ins() {
       ;;
     1)
       echo "Executing Task 1: Forwarding local port to instance port"
+      echo "Will open 2 ports locally: ${LOCAL_PORT} (for k8s API server) and 443 (for main Ingress)"
       check_pem_key
 
       prompt_for_instance_ip
@@ -178,14 +198,14 @@ function connect_ins() {
       forward_port_to_instance
       ;;
     2)
-      echo "Executing Task 2: Copying kubeconfig, modifying port, and forwarding ingress"
+      echo "Executing Task 2: Copying kubeconfig, stop local ingress port"
       check_pem_key
 
       prompt_for_instance_ip
 
       copy_instance_kubeconfig
       stop_local_server
-      forward_ingress_to_instance
+      # forward_ingress_to_instance
       ;;
     3)
       echo "Executing Task 3: Start Local server (Switch back to Local CP From Remote CP)"
@@ -193,7 +213,7 @@ function connect_ins() {
       start_local_server
       ;;
     4)
-      echo "Executing Task 8: Download from instance folder"
+      echo "Executing Task 4: Download from instance folder"
       check_pem_key
 
       prompt_for_instance_ip
