@@ -184,12 +184,12 @@ class PageObjectAuth:
 
         self.page.locator(".pcp-page-title", has_text="Welcome").wait_for(state="visible")
         ColorLogger.success(f"Admin user {ENV.CP_ADMIN_EMAIL} login successful.")
-        ReportYaml.set(".ENV.REPORT_TP_AUTO_ADMIN", True)
+        ReportYaml.set(".ENV.REPORT_AUTO_ACTIVE_ADMIN", True)
         return True
 
     def logout_admin_user(self):
         ColorLogger.info(f"Loging out admin user...")
-        self.page.locator("#changeME-dropdown-label").click()
+        self.page.locator("#changeME-dropdown-label", has_text="admin").click()
         self.page.locator(".pl-dropdown-menu .pl-dropdown-menu__link", has_text="Sign Out").click()
         self.page.locator(".pl-modal__container .pl-modal__footer button", has_text="Sign Out").click()
         print(f"Clicked Sign Out button, Admin user {ENV.CP_ADMIN_EMAIL} logout.")

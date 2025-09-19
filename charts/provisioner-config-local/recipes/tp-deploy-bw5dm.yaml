@@ -21,6 +21,8 @@ meta:
     GUI_TP_BWDM_NAMESPACE: "bw5dm"
     GUI_TP_BWDM_RELEASE_NAME: "bw5dm"
     GUI_TP_OTEL_TRACES_ENDPOINT: "http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"
+    GUI_TP_OTEL_METRICS_ENDPOINT: "http://otel-userapp-metrics.k8s-auto-bmdp1ns.svc:4318/v1/metrics"
+    GUI_TP_OTEL_LOGS_ENDPOINT: "http://otel-userapp-logs.k8s-auto-bmdp1ns.svc:4318/v1/logs"
 
     # image tag
     GUI_TP_BMDP_IMAGE_TAG_BW5EMSDM: ""
@@ -53,6 +55,8 @@ meta:
     TP_BWDM_NAMESPACE: ${GUI_TP_BWDM_NAMESPACE:-bw5dm}
     TP_BWDM_RELEASE_NAME: ${GUI_TP_BWDM_RELEASE_NAME:-bw5dm}
     TP_OTEL_TRACES_ENDPOINT: ${GUI_TP_OTEL_TRACES_ENDPOINT:-"http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"}
+    TP_OTEL_METRICS_ENDPOINT: ${GUI_TP_OTEL_METRICS_ENDPOINT:-"http://otel-userapp-metrics.k8s-auto-bmdp1ns.svc:4318/v1/metrics"}
+    TP_OTEL_LOGS_ENDPOINT: ${GUI_TP_OTEL_LOGS_ENDPOINT:-"http://otel-userapp-logs.k8s-auto-bmdp1ns.svc:4318/v1/logs"}
 
     # activation server
     TP_ACTIVATION_SERVER_IP: ${GUI_TP_ACTIVATION_SERVER_IP:-""}
@@ -108,6 +112,10 @@ helmCharts:
             env:
               - name: OTEL_TRACES_ENDPOINT
                 value: "${TP_OTEL_TRACES_ENDPOINT}"
+              - name: OTEL_METRICS_ENDPOINT
+                value: "${TP_OTEL_METRICS_ENDPOINT}"
+              - name: OTEL_LOGS_ENDPOINT
+                value: "${TP_OTEL_LOGS_ENDPOINT}"
               - name: LICENSE_URL
                 value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
               - name: ACTIVATION_SERVER_IP
@@ -129,6 +137,10 @@ helmCharts:
             env:
               - name: OTEL_TRACES_ENDPOINT
                 value: "${TP_OTEL_TRACES_ENDPOINT}"
+              - name: OTEL_METRICS_ENDPOINT
+                value: "${TP_OTEL_METRICS_ENDPOINT}"
+              - name: OTEL_LOGS_ENDPOINT
+                value: "${TP_OTEL_LOGS_ENDPOINT}"
               - name: LICENSE_URL
                 value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
               - name: ACTIVATION_SERVER_IP
@@ -167,19 +179,19 @@ helmCharts:
             local namespace="kube-system"
             local configmap_name="coredns"
             local new_record="${TP_ACTIVATION_SERVER_IP} ${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
-          
+
             echo "🔍 Reading current NodeHosts from ConfigMap '$configmap_name' in namespace '$namespace'..."
             local current_hosts
             current_hosts=$(kubectl get configmap "$configmap_name" -n "$namespace" -o jsonpath='{.data.NodeHosts}')
-          
+
             if echo "$current_hosts" | grep -Fxq "$new_record"; then
               echo "✅ Record already exists: $new_record"
               return 0
             fi
-          
+
             echo "➕ Appending new record: $new_record"
             local updated_hosts="${current_hosts}"$'\n'"${new_record}"
-          
+
             echo "📦 Patching ConfigMap..."
             kubectl patch configmap "$configmap_name" -n "$namespace" --type merge \
               --patch "$(cat <<EOF
@@ -188,13 +200,13 @@ helmCharts:
           $(echo "$updated_hosts" | sed 's/^/    /')
           EOF
           )"
-          
+
             echo "✅ Record added successfully."
-          
+
             echo "🔄 Restarting CoreDNS to apply changes..."
             kubectl -n "$namespace" rollout restart deployment coredns
-          
+
             echo "🎉 Done."
           }
-          
+
           add_static_dns_record_to_coredns

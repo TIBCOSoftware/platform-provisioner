@@ -53,7 +53,7 @@ async def provision_bwce(dp_name: str = "") -> str:
         "HEADLESS": True,
         "FORCE_RUN_AUTOMATION": False,
         "IS_CLEAN_REPORT": False,
-        "BWCE_APP_NAME": DEFAULT_VALUES.get("BWCE_APP_NAME", "tt"),
+        "BWCE_APP_NAME": DEFAULT_VALUES.get("BWCE_APP_NAME", "bwce-tt"),
     }
 
     # Set Data Plane name if provided

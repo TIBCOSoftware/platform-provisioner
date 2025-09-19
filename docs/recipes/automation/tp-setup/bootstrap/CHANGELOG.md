@@ -1,3 +1,19 @@
+## [09/19/2025 14:30]
+### Fixed
+- In select "Force Run Automation" in One-Click Setup UI
+  - will automatically switch dataplane to use global activation url.
+  - will automatically switch dataplane to use global dataplane configuration.
+
+## [09/18/2025 21:55]
+### Fixed
+- Improve the execution speed of the automated setup script after CP is successfully installed. Detect in advance whether the task to be executed has been completed to avoid repeated execution.
+  - Avoid redeploying Flogo/BWCE/BW5CE, if the Flogo/BWCE/BW5CE app is already running successfully, skip it
+  - Avoid recreating tibcohub/ems, if tibcohub/ems has already been created successfully, skip it
+  - Avoid recreating BMDP, if BMDP has already been created successfully, skip it
+    - If the BW5/BW6 app of BMDP is already running successfully, skip it
+    - If the EMSServer of BMDP is already connected successfully, skip it
+  - Avoid reconfiguring o11y card, if the o11y card has already been configured successfully, skip it
+
 ## [09/09/2025 21:14]
 ### Added
 - Add new automation case in One-Click Setup CP UI

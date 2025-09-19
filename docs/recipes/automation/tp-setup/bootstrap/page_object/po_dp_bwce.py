@@ -549,6 +549,13 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.page.locator(".endpoint-menu-dropdown").wait_for(state="visible")
         print("Endpoint tab is loaded.")
         self.page.wait_for_timeout(1000)
+
+        is_app_running = self.page.locator("#appDtls-appName-cont .status_label", has_text="Running").is_visible()
+        if not is_app_running:
+            app_status = self.page.locator("#appDtls-appName-cont .status_label").inner_text()
+            Util.warning_screenshot(f"Current {self.capability_upper} app '{app_name}' status is not Running, it is {app_status}, will skip test app endpoint.", self.page, f"{self.capability}_app_test_endpoint.png")
+            return
+
         print("Check if 'Test' button is visible...")
         test_btn = self.page.locator("#endpointV1-btn-openSwagger")
         if test_btn.is_visible() and test_btn.is_enabled():

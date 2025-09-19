@@ -42,6 +42,9 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         return add_new_resource_button
 
     def o11y_config_switch_to_global(self, dp_name):
+        if ReportYaml.get_dataplane_info(dp_name, "switchGlobal") == "true":
+            ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, switch to Global is already set in DataPlane '{dp_name}'.")
+            return
         ColorLogger.info(f"Switch dataplane {dp_name} configuration to Global...")
         self.goto_left_navbar_dataplane()
         self.goto_dataplane(dp_name)
@@ -402,7 +405,8 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
     def dp_config_activation(self, dp_name, use_global = False):
         activation_url = ENV.TP_ACTIVATION_URL
-        if not activation_url:
+        # If not using global activation URL and activation URL is empty, skip config as there is no URL to configure
+        if not activation_url and use_global == False:
             ColorLogger.warning("TP_ACTIVATION_URL is not set, skip config Activation url.")
             return
 
@@ -414,8 +418,15 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         ColorLogger.info(f"Config {dp_name} Data Plane Activation Url: {activation_url}")
         activation_menu_item.click()
         print("Clicked 'Activation' left side menu")
-        if Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
+        if activation_url and Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
             ColorLogger.success(f"Activation URL '{activation_url}' is already exist for Data Plane '{dp_name}'.")
+            return
+
+        # If activation_url is empty and use_global is True,
+        # it means that only the global Activation URL needs to be linked
+        if not activation_url and use_global:
+            current_activation_url = self.page.locator(".activation-server-url").inner_text()
+            ColorLogger.success(f"ENV.TP_ACTIVATION_URL is empty, but Activation URL '{current_activation_url}' is already exist for Data Plane '{dp_name}'.")
             return
 
         if use_global:

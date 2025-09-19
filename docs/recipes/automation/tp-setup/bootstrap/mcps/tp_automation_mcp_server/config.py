@@ -71,7 +71,7 @@ DEFAULT_VALUES = {
     "TP_AUTO_K8S_BMDP_NAME": "k8s-auto-bmdp1",
     "TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG": False,
     "TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS": "",
-    "BWCE_APP_NAME": "tt",
+    "BWCE_APP_NAME": "bwce-tt",
     "FLOGO_APP_NAME": "flogo-auto-1",
     "TP_AUTO_IS_CONFIG_O11Y": True,
     "HEADLESS": True,
