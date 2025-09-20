@@ -137,6 +137,17 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             self.check_bw6_app_status(domain_name, "AppNodes", "test_an")
             self.check_bw6_app_status(domain_name, "Applications", "mySleep.application")
 
+    def is_app_running(self, product_name, domain_name, app_name):
+        if ReportYaml.get_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, product_name, f"{domain_name}.{app_name}", "Status"):
+            ColorLogger.success(f"Dataplane '{ENV.TP_AUTO_K8S_BMDP_NAME}' capability '{product_name}' app '{domain_name}.{app_name}' is already running.")
+            return True
+        return False
+
+    def is_ems_server_connected(self, server_group_name):
+        if ReportYaml.get_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer", server_group_name):
+            ColorLogger.success(f"Dataplane '{ENV.TP_AUTO_K8S_BMDP_NAME}' '{server_group_name}' is Connected.")
+            return True
+        return False
 
     def check_bw6_app_status(self, domain_name, app_type, app_name):
         ColorLogger.info(f"Checking BW6 application - {app_type} status")
@@ -187,6 +198,71 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             ColorLogger.info(f"Domain '{agent_name}' is already registered.")
         self.check_domain_status(agent_name, "BW6")
 
+    def dp_config_ems(self, server_group_name):
+        ColorLogger.info("Config EMS Instance...")
+        # switch to EMS Agents config page
+        self.goto_dataplane_config_sub_menu("Messaging")
+        if not Util.check_dom_visibility(self.page, self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=server_group_name)), 3, 9, True):
+            # add EMS Server
+            self.page.locator(".pl-button__label").wait_for(state="visible")
+            self.page.locator(".pl-button__label").click()
+            print("Clicked 'Register New Instances' button, to add a EMS Server instance")
+            self.page.locator("[class^='wizard_title']", has_text="Enterprise Message Service").wait_for(state="visible")
+            self.page.locator("[class^='wizard_title']", has_text="Enterprise Message Service").click()
+            print("Clicked 'Enterprise Message Service' button")
+            self.page.locator("[class^='wizard_title']", has_text="Register a Server").wait_for(state="visible")
+            self.page.locator("[class^='wizard_title']", has_text="Register a Server").click()
+            print("Clicked 'Register a Server' button")
+
+            self.page.fill("input[name='groupName']", ENV.TP_BMDP_IMAGE_TAG_EMS)
+            print(f"Filled EMS Server Name: {ENV.TP_BMDP_IMAGE_TAG_EMS}")
+
+            # add EMS client url
+            self.page.fill("input[name='clientUrl']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL)
+            print(f"Filled EMS Client URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL}")
+            # add EMS Monitor url
+            self.page.fill("input[name='monitorUrl']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL)
+            print(f"Filled EMS Monitor URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL}")
+            # add EMS user
+            self.page.fill("input[name='registrationUser']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME)
+            print(f"Filled EMS User Name: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME}")
+            # add EMS password
+            self.page.fill("input[name='registrationPass']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD)
+            print(f"Filled EMS Password: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD}")
+            
+            # Validate Server
+            self.page.locator("button.pl-button.pl-button--secondary.gemsButton", has_text="Validate Server").wait_for(state="visible")
+            self.page.locator("button.pl-button.pl-button--secondary.gemsButton", has_text="Validate Server").click()
+            print("Clicked 'Validate Server' button")
+
+            if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']"), 1, 10):
+                self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Register Server").click()
+                print("Clicked 'Register Server' button")
+                if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']"), 1, 10):
+                    ColorLogger.success("EMS Server registration is successful.")
+                    self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Done").click()
+                    print("Clicked 'Done' button")
+            else:
+                Util.exit_error(f"'{server_group_name}' is not registered successfully or not reachable", self.page, "ems_register_error.png")
+        else:
+            ColorLogger.info(f"Domain '{server_group_name}' is already registered.")
+        self.check_ems_server_status(server_group_name)
+
+    def check_ems_server_status(self, server_group_name):
+        # Check the status of the EMS server
+        ColorLogger.info(f"Checking EMS Server '{server_group_name}' status")
+        ems_server_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=server_group_name))
+        ems_health_svg = ems_server_row.locator("td[class*='serverGroupTable_healthCell'] svg").get_attribute("class")
+        if ems_server_row.is_visible():
+            if ems_health_svg and "serverGroupTable_healthIcon" in ems_health_svg:
+                ColorLogger.success(f"EMS Server '{server_group_name}' is connected.")
+                ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer")
+                ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer", server_group_name, "Connected")
+                return
+            ColorLogger.warning(f"EMS Server '{server_group_name}' is not connected.")
+        else:
+            ColorLogger.warning(f"EMS Server '{server_group_name}' is not connected.")
+
     def o11y_get_new_resource(self, dp_name):
         # For 1.4 version
         add_new_resource_button = self.page.locator(".add-dp-observability-btn", has_text="Add new resource")
@@ -201,6 +277,9 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         return add_new_resource_button
 
     def o11y_config_switch_to_global(self, dp_name):
+        if ReportYaml.get_dataplane_info(dp_name, "switchGlobal") == "true":
+            ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, switch to Global is already set in DataPlane '{dp_name}'.")
+            return
         ColorLogger.info(f"Switch dataplane {dp_name} configuration to Global...")
         self.goto_left_navbar_dataplane()
         self.goto_dataplane(dp_name)

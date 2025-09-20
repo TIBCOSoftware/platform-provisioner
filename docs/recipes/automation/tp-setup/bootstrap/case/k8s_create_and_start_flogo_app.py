@@ -27,6 +27,8 @@ if __name__ == "__main__":
                 ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
                 ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
             )
+            po_dp_config.dp_config_activation(ENV.TP_AUTO_K8S_DP_NAME, True)
+            po_dp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_DP_NAME)
 
         po_dp_flogo = PageObjectDataPlaneFlogo(page)
         po_dp_flogo.goto_left_navbar_dataplane()

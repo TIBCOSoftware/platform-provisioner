@@ -67,6 +67,8 @@ class PageObjectDataPlane(PageObjectGlobal):
         print(f"Check if {capability} capability is ready...")
         card_id = capability.lower()
         if Util.check_dom_visibility(self.page, self.page.locator(f"capability-card #{card_id}"), 10, 120, True):
+            ColorLogger.success(f"{capability} capability is already provisioned.")
+            ReportYaml.set_capability(dp_name, capability)
             print(f"Waiting for {capability} capability status is ready...")
             is_capability_success = Util.check_dom_visibility(self.page, self.page.locator(f"capability-card #{card_id} .status .success"))
             if not is_check_status or is_capability_success:
@@ -551,6 +553,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         print("PreCheck if Data Plane is already linked to Global Observability Resource...")
         if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 10, 10, True):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
+            ReportYaml.set_dataplane_info(dp_name, "switchGlobal", True)
             return
 
         print("Check if 'Switch to Global' or 'Use Global Resource' button is visible...")
@@ -574,5 +577,6 @@ class PageObjectDataPlane(PageObjectGlobal):
         print("Double Check if Data Plane is already linked to Global Observability Resource...")
         if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 10, 10, True):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
+            ReportYaml.set_dataplane_info(dp_name, "switchGlobal", True)
         else:
             ColorLogger.warning(f"Linked {dp_name} to Global Observability Resource failed.")

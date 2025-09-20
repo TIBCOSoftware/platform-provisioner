@@ -1,5 +1,5 @@
 ## Pre-requisites
-* Install pyenv and python >= 3.12.8 if you don't have it (Only need to run once)
+* Install pyenv and python >= 3.13 if you don't have it (Only need to run once)
 * For Windows: Install [Git Bash](https://git-scm.com/downloads)
 
 ### 1. Install environment tools
@@ -26,10 +26,10 @@
    export PYENV="$HOME/.pyenv/pyenv-win"
    export PATH="$PYENV/bin:$PYENV/shims:$PATH"
    ```
-### 2. Install python 3.12.8
+### 2. Install python 3.13
 ```shell
-pyenv install 3.12.8
-pyenv global 3.12.8
+pyenv install 3.13
+pyenv global 3.13
 python --version
 ```
 

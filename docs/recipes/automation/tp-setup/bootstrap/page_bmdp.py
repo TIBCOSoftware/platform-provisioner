@@ -32,27 +32,32 @@ if __name__ == "__main__":
             # po_dp.k8s_delete_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_dp.k8s_create_bmdp(ENV.TP_AUTO_K8S_BMDP_NAME)
 
-            if ENV.TP_AUTO_IS_ENABLE_RVDM:
+            if ENV.TP_AUTO_IS_ENABLE_RVDM and po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, "mySleep") == False:
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_dataplane_config()
                 po_bmdp_config.dp_config_bw5_rvdm(ENV.TP_AUTO_K8S_BMDP_BW5_RVDM)
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_products("BW5") # "BW5" for BW5, "BE" for be, "BW6" for BW6
                 po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, "mySleep")
-            if ENV.TP_AUTO_IS_ENABLE_EMSDM:
+            if ENV.TP_AUTO_IS_ENABLE_EMSDM and po_bmdp_config.is_ems_server_connected(ENV.TP_BMDP_IMAGE_TAG_EMS) == False:
+                po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
+                po_bmdp_config.goto_dataplane_config()
+                po_bmdp_config.dp_config_ems(ENV.TP_BMDP_IMAGE_TAG_EMS)
+            if ENV.TP_AUTO_IS_ENABLE_EMSDM and po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, "mySleep") == False:
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_dataplane_config()
                 po_bmdp_config.dp_config_bw5_emsdm(ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM)
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_products("BW5")
                 po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, "mySleep")
-            if ENV.TP_AUTO_IS_ENABLE_BW6DM:
+            if ENV.TP_AUTO_IS_ENABLE_BW6DM and po_bmdp_config.is_app_running("BW6", ENV.TP_AUTO_K8S_BMDP_BW6DM, "mySleep.application") == False:
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_dataplane_config()
                 po_bmdp_config.dp_config_bw6(ENV.TP_AUTO_K8S_BMDP_BW6DM)
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_products("BW6")
                 po_bmdp_config.check_bmdp_app_status_by_app_name("BW6", ENV.TP_AUTO_K8S_BMDP_BW6DM, "mySleep.application")
+            
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_bmdp_config.goto_dataplane_config()
             po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_BMDP_NAME)

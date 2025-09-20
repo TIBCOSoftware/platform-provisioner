@@ -13,7 +13,9 @@ if [ -d /app ]; then
   cd /app
 fi
 
-export TP_AUTO_TASK_FROM_LOCAL_SOURCE=${TP_AUTO_TASK_FROM_LOCAL_SOURCE:-"true"}
+# by default, the TP_AUTO_TASK_FROM_LOCAL_SOURCE is empty, because of "One-Click Setup UI" should keep it empty
+# for local testing, you can set TP_AUTO_TASK_FROM_LOCAL_SOURCE to "true" to load tasks from local source code
+export TP_AUTO_TASK_FROM_LOCAL_SOURCE=${TP_AUTO_TASK_FROM_LOCAL_SOURCE:-""}
 export TP_AUTO_KUBECONFIG=${TP_AUTO_KUBECONFIG:-""}
 
 uv run -m waitress --host=0.0.0.0 --port=3120 server:app

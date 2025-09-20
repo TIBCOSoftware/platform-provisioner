@@ -1,3 +1,5 @@
+#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+
 # This task will deploy a BW5 domains to the cluster.
 import os
 from utils.color_logger import ColorLogger
@@ -8,6 +10,8 @@ from utils.util import Util
 def create_helm_command():
     # Create the helm command for deploying BW5 domains.
     TP_OTEL_TRACES_ENDPOINT = f"http://otel-userapp-traces.{ENV.TP_AUTO_K8S_BMDP_NAME}ns.svc:4318/v1/traces"
+    TP_OTEL_METRICS_ENDPOINT = f"http://otel-userapp-metrics.{ENV.TP_AUTO_K8S_BMDP_NAME}ns.svc:4318/v1/metrics"
+    TP_OTEL_LOGS_ENDPOINT = f"http://otel-userapp-logs.{ENV.TP_AUTO_K8S_BMDP_NAME}ns.svc:4318/v1/logs"
     helm_command_str = f"""
 helm upgrade --install --create-namespace -n bw5dm bw5dm bw5dm-chart \
   --repo 'https://{ENV.GITHUB_TOKEN}@raw.githubusercontent.com/tibco/cicinfra-integration/gh-pages/' \
@@ -32,6 +36,10 @@ bw5emsdm:
     env:
       - name: OTEL_TRACES_ENDPOINT
         value: "{TP_OTEL_TRACES_ENDPOINT}"
+      - name: OTEL_METRICS_ENDPOINT
+        value: "{TP_OTEL_METRICS_ENDPOINT}"
+      - name: OTEL_LOGS_ENDPOINT
+        value: "{TP_OTEL_LOGS_ENDPOINT}"
       - name: LICENSE_URL
         value: "{ENV.TP_ACTIVATION_URL}"
       - name: ACTIVATION_SERVER_IP
@@ -46,6 +54,10 @@ bw5rvdm:
     env:
       - name: OTEL_TRACES_ENDPOINT
         value: "{TP_OTEL_TRACES_ENDPOINT}"
+      - name: OTEL_METRICS_ENDPOINT
+        value: "{TP_OTEL_METRICS_ENDPOINT}"
+      - name: OTEL_LOGS_ENDPOINT
+        value: "{TP_OTEL_LOGS_ENDPOINT}"
       - name: LICENSE_URL
         value: "{ENV.TP_ACTIVATION_URL}"
       - name: ACTIVATION_SERVER_IP

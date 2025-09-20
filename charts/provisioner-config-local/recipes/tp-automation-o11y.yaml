@@ -406,7 +406,7 @@ tasks:
 
       echo "===== Task Name: active-user, Running file ${PYTHON_FILE_LOGIN_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_LOGIN_POINT}
+        uv run --active ${PYTHON_FILE_LOGIN_POINT}
       else
         python ${PYTHON_FILE_LOGIN_POINT}
       fi
@@ -426,11 +426,10 @@ tasks:
       cd ${TP_AUTO_SCRIPT_FOLDER}
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
-        # Get all dataPlane.name and concatenate them into a,b,c format
-        dp_names=$(yq '.dataPlane[].name' "$_report_file" | tr '\n' ',' | sed 's/,$//')
-        if [[ -n "$dp_names" ]]; then
+        dp_name=$(yq '.dataPlane[] | select(.name == env(TP_AUTO_K8S_DP_NAME)) | .name' "$_report_file")
+        if [[ -n "$dp_name" ]]; then
           echo "----------------------------------------------------------------"
-          echo "dataPlane[$dp_names] already exists. Exiting..."
+          echo "dataPlane[$dp_name] already exists. Exiting..."
           echo "----------------------------------------------------------------"
           exit 0
         else
@@ -441,7 +440,7 @@ tasks:
 
       echo "===== Task Name: create-dp, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
       fi
@@ -486,9 +485,33 @@ tasks:
       export TP_AUTO_IS_PROVISION_FLOGO=${TP_AUTO_ENABLE_FLOGO}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="flogo"
+      export app_name="flogo-auto-1"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        app_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                   .capability[] | select(.name == env(capability)) |
+                   .app[]        | select(.name == env(app_name)) |
+                   .status
+                   ][0] // ""
+                   ' "$_report_file"
+            )"
+        if [[ -n "$app_status" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} -> ${app_name}.status: '${app_status}' already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       echo "===== Task Name: deploy-flogo, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
       fi
@@ -507,9 +530,33 @@ tasks:
       export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="bwce"
+      export app_name="bwce-tt"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        app_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                   .capability[] | select(.name == env(capability)) |
+                   .app[]        | select(.name == env(app_name)) |
+                   .status
+                   ][0] // ""
+                   ' "$_report_file"
+            )"
+        if [[ -n "$app_status" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} -> ${app_name}.status: '${app_status}' already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       echo "===== Task Name: deploy-bwce, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
       fi
@@ -528,9 +575,33 @@ tasks:
       export TP_AUTO_IS_PROVISION_BW5CE=${TP_AUTO_ENABLE_BW5CE}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="bw5ce"
+      export app_name="bw5ce-dynamicHeaders"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        app_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                   .capability[] | select(.name == env(capability)) |
+                   .app[]        | select(.name == env(app_name)) |
+                   .status
+                   ][0] // ""
+                   ' "$_report_file"
+            )"
+        if [[ -n "$app_status" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} -> ${app_name}.status: '${app_status}' already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       echo "===== Task Name: deploy-bw5ce, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
       fi
@@ -549,9 +620,30 @@ tasks:
       export TP_AUTO_IS_PROVISION_TIBCOHUB=${TP_AUTO_ENABLE_TIBCOHUB}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="tibcohub"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        capability_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                   .capability[].name
+                   ][0] // ""
+                   ' "$_report_file"
+            )"
+        if [[ -n "$capability_status" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       echo "===== Task Name: deploy-tibcohub, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
       fi
@@ -570,9 +662,30 @@ tasks:
       export TP_AUTO_IS_PROVISION_EMS=${TP_AUTO_ENABLE_EMS}
       cd ${TP_AUTO_SCRIPT_FOLDER}
       
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="ems"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        capability_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                   .capability[].name
+                   ][0] // ""
+                   ' "$_report_file"
+            )"
+        if [[ -n "$capability_status" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       echo "===== Task Name: deploy-ems, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
       fi
@@ -593,7 +706,7 @@ tasks:
       
       echo "===== Task Name: deploy-pulsar, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
       fi
@@ -613,11 +726,10 @@ tasks:
       cd ${TP_AUTO_SCRIPT_FOLDER}
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
-        # Get all dataPlane.name and concatenate them into a,b,c format
-        bmdp_names=$(yq '.dataPlane[].name' "$_report_file" | tr '\n' ',' | sed 's/,$//')
-        if [[ -n "$dp_names" ]]; then
+        dp_name=$(yq '.dataPlane[] | select(.name == env(TP_AUTO_K8S_BMDP_NAME)) | .name' "$_report_file")
+        if [[ -n "$dp_name" ]]; then
           echo "----------------------------------------------------------------"
-          echo "dataPlane[$dp_names] already exists. Exiting..."
+          echo "dataPlane[$dp_name] already exists. Exiting..."
           echo "----------------------------------------------------------------"
           exit 0
         else
@@ -628,7 +740,7 @@ tasks:
 
       echo "===== Task Name: create-bmdp, Running file ${PYTHON_FILE_ENTRY_POINT_BMDP} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT_BMDP}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT_BMDP}
       else
         python ${PYTHON_FILE_ENTRY_POINT_BMDP}
       fi
@@ -672,9 +784,28 @@ tasks:
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
       cd ${TP_AUTO_SCRIPT_FOLDER}
       
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        k8s_o11y_widget_status="$(
+              yq e -r '[.dataPlane[] | select(.name == env(TP_AUTO_K8S_DP_NAME)).o11yWidget] // ""' "$_report_file"
+            )"
+        bmdp_o11y_widget_status="$(
+              yq e -r '[.dataPlane[] | select(.name == env(TP_AUTO_K8S_BMDP_NAME)).o11yWidget] // ""' "$_report_file"
+            )"
+        if [[ -n "$k8s_o11y_widget_status" || -n "$bmdp_o11y_widget_status" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane -> o11y widget already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
       echo "===== Task Name: add-card-to-o11y, Running file ${PYTHON_FILE_ENTRY_POINT_O11Y} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENTRY_POINT_O11Y}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT_O11Y}
       else
         python ${PYTHON_FILE_ENTRY_POINT_O11Y}
       fi
@@ -694,7 +825,7 @@ tasks:
       
       echo "===== Task Name: print-report, Running file ${PYTHON_FILE_ENV_POINT} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run ${PYTHON_FILE_ENV_POINT}
+        uv run --active ${PYTHON_FILE_ENV_POINT}
       else
         python ${PYTHON_FILE_ENV_POINT}
       fi

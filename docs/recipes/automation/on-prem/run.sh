@@ -277,5 +277,6 @@ function main() {
     esac
   done
 }
-
+SECONDS=0
 main "$@"
+printf "Total execution time: %d min %d seconds\n" $((SECONDS / 60)) $((SECONDS % 60))
