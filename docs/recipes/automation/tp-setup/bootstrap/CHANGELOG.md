@@ -1,3 +1,7 @@
+## [09/22/2025 10:06]
+### Fixed
+- Fixed config dataplane's activation url issue.
+
 ## [09/19/2025 14:30]
 ### Fixed
 - In select "Force Run Automation" in One-Click Setup UI
