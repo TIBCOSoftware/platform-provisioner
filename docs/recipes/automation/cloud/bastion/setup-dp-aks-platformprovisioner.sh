@@ -59,7 +59,7 @@ export INSTALL_PREREQ=true
 export SKIP_HELM_CHARTS=false # Set to true to set all .helmCharts[].condition to false so that only K8s is setup
 # Replacement for recipe globalEnvVariable below
 export PIPELINE_LOG_DEBUG=true
-export ACCOUNT="<<e.g., azure-740123456789>>" # Azure account prefix to trigger authenticating with Azure
+export ACCOUNT="<<e.g., 123abc12-0abc-12ab-a1b2-123a123ab12a>>" # This is the subscription id from your azure subscription.
 export TP_RESOURCE_GROUP="tp-rg"
 export TP_AZURE_REGION="eastus"
 export TP_CLUSTER_NAME="<<tp-cluster>>"
