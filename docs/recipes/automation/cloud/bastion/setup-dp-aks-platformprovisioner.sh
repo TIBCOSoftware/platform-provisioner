@@ -69,6 +69,7 @@ export TP_SANDBOX="cs-nam" # Your sandbox name
 export TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN="aks-dp" # Your main ingress subdomain name. full domain will be: <TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN>.<TP_SANDBOX>.<TP_TOP_LEVEL_DOMAIN>
 export TP_DNS_RESOURCE_GROUP="cic-dns" # The resource group for the DNS zone
 export TP_INSTALL_O11Y=true
+export TP_CLUSTER_INSTANCE_TYPE=Standard_D8s_v5 # default is Standard_D8_v5 (does not support Premium_LRS), using D8s does.
 EOT
         exit 0
     else
