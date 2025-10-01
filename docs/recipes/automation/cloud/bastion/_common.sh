@@ -203,7 +203,8 @@ function common::update_yaml_value() {
             yq eval -i "${YAML_KEY_PATH} = ${NEW_VALUE}" "${YAML_FILE}"
             echo "Key ${YAML_KEY_PATH} in ${YAML_FILE} updated to ${NEW_VALUE}."
         else
-	        echo "WARNING!!! ${YAML_KEY_PATH} not found in ${YAML_FILE}. No changes made."
+	        echo "WARNING!!! ${YAML_KEY_PATH} not found in ${YAML_FILE}. Adding..."
+			yq -i ''"${YAML_KEY_PATH}"' = "'"${NEW_VALUE}"'"' "${YAML_FILE}"
 	    fi
 	else
 	    echo "Skipping commented ${YAML_KEY_PATH}}..."
