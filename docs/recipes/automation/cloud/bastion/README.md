@@ -272,7 +272,7 @@ To use these scripts, follow the steps below.
     ```
 
 > [!NOTE]
-> This step will create a blank config.props file if one does not already exists. Update the config file with the desired values and re-execute the scipt.
+> This step will create a blank config.props file if one does not already exists. If this happens, update the config file with the desired values and re-execute the scipt.
 
 > [!NOTE] 
 > This step might also reboot the Bastion host if it is installing docker for the first time. If it does, just re-execute Step 2.

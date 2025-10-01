@@ -59,7 +59,7 @@ export INSTALL_PREREQ=true
 export SKIP_HELM_CHARTS=false # Set to true to set all .helmCharts[].condition to false so that only K8s is setup
 # Replacement for recipe globalEnvVariable below
 export PIPELINE_LOG_DEBUG=true
-export ACCOUNT="<<e.g., azure-740123456789>>" # Azure account prefix to trigger authenticating with Azure
+export ACCOUNT="<<e.g., 123abc12-0abc-12ab-a1b2-123a123ab12a>>" # This is the subscription id from your azure subscription.
 export TP_RESOURCE_GROUP="tp-rg"
 export TP_AZURE_REGION="eastus"
 export TP_CLUSTER_NAME="<<tp-cluster>>"
@@ -69,6 +69,7 @@ export TP_SANDBOX="cs-nam" # Your sandbox name
 export TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN="aks-dp" # Your main ingress subdomain name. full domain will be: <TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN>.<TP_SANDBOX>.<TP_TOP_LEVEL_DOMAIN>
 export TP_DNS_RESOURCE_GROUP="cic-dns" # The resource group for the DNS zone
 export TP_INSTALL_O11Y=true
+export TP_CLUSTER_INSTANCE_TYPE=Standard_D8s_v5 # default is Standard_D8_v5 (does not support Premium_LRS), using D8s does.
 EOT
         exit 0
     else

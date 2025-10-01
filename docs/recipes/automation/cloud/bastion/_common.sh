@@ -104,11 +104,11 @@ function common::install_prereq() {
     if [ "${RESULT}" -ne 0 ]; then
         echo "########## Install Helm ##########"
         if [ "${SP_UBUNTU}" == true ]; then
-            curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-            sudo apt-get install apt-transport-https --yes
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-            sudo apt-get -y update
-            sudo apt-get -y install helm
+            sudo apt-get install curl gpg apt-transport-https --yes
+            curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+            echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+            sudo apt-get update
+            sudo apt-get install helm
         fi
         if [ "${SP_RHEL}" == true ] || [ "${SP_AMZN}" == true ]; then    
             curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
@@ -203,7 +203,8 @@ function common::update_yaml_value() {
             yq eval -i "${YAML_KEY_PATH} = ${NEW_VALUE}" "${YAML_FILE}"
             echo "Key ${YAML_KEY_PATH} in ${YAML_FILE} updated to ${NEW_VALUE}."
         else
-	        echo "WARNING!!! ${YAML_KEY_PATH} not found in ${YAML_FILE}. No changes made."
+	        echo "WARNING!!! ${YAML_KEY_PATH} not found in ${YAML_FILE}. Adding..."
+			yq -i ''"${YAML_KEY_PATH}"' = "'"${NEW_VALUE}"'"' "${YAML_FILE}"
 	    fi
 	else
 	    echo "Skipping commented ${YAML_KEY_PATH}}..."
