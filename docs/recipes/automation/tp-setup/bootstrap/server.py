@@ -44,6 +44,13 @@ def set_env_vars_from_request(request_args, include_system_env=True):
             print(f"{key} = {value}")
     return env_vars
 
+@app.after_request
+def add_header(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 @app.route('/')
 def home():
     """ Render the main HTML page """

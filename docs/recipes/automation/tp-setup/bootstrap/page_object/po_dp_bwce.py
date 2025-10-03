@@ -368,8 +368,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         dp_name_space = ENV.TP_AUTO_K8S_DP_NAMESPACE
 
         self.goto_dataplane(dp_name)
+        print(f"Checking if {self.capability_upper} app '{app_name}' is in dataplane {dp_name}.")
         if self.page.locator("apps-list td.app-name a", has_text=app_name).is_visible():
-            ColorLogger.success(f"{self.capability_upper} app '{app_name}' in namespace {dp_name_space} is already deployed.")
+            ColorLogger.success(f"{self.capability_upper} app '{app_name}' in dataplane {dp_name} is already deployed.")
             ReportYaml.set_capability_app(dp_name, self.capability, app_name)
             return
 

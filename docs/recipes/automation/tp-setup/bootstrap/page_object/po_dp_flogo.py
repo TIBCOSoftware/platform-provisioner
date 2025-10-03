@@ -241,9 +241,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.wait_for_timeout(2000)
         active_title = self.page.locator("ul.items .is-active .step-text").inner_text()
         print(f"Flogo 'App Build & Deploy' Step 2: '{active_title}' page is loaded")
-        if self.page.locator(".version-field-container .provision-link", has_text="Provision Flogo in another tab").is_visible():
+        if self.page.locator(".version-field-container .provision-link").is_visible():
             with self.page.context.expect_page() as new_page_info:
-                self.page.locator(".version-field-container .provision-link", has_text="Provision Flogo in another tab").click()
+                self.page.locator(".version-field-container .provision-link").click()
                 print("Clicked 'Provision Flogo in another tab' link")
     
             new_page = new_page_info.value
@@ -260,9 +260,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             self.page.locator(".refresh-link", has_text="Refresh List").click()
             self.page.wait_for_timeout(1000)
             # check if Flogo version and Connectors General version is loaded
-            for _ in range(5):
+            for _ in range(3):
                 flogo_version_value = self.page.locator(".flogo-version-container flogo-tp-dropdown input").input_value().strip()
-                flogo_general_value = self.page.locator(".provisioned-container flogo-tp-dropdown input").input_value().strip()
+                flogo_general_value = self.page.locator(".provisioned-container flogo-tp-dropdown input").nth(0).input_value().strip()
                 if flogo_version_value and flogo_general_value:
                     print(f"Flogo version {flogo_version_value} is loaded")
                     print(f"Connectors General version {flogo_general_value} is loaded")
@@ -345,8 +345,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         dp_name_space = ENV.TP_AUTO_K8S_DP_NAMESPACE
 
         self.goto_dataplane(dp_name)
+        print(f"Checking if {self.capability} app '{app_name}' is in dataplane {dp_name}.")
         if self.page.locator("apps-list td.app-name a", has_text=app_name).is_visible():
-            ColorLogger.success(f"Flogo app '{app_name}' in namespace {dp_name_space} is already deployed.")
+            ColorLogger.success(f"Flogo app '{app_name}' in dataplane {dp_name} is already deployed.")
             ReportYaml.set_capability_app(dp_name, capability, app_name)
             return
     

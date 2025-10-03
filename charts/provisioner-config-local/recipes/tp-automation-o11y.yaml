@@ -487,7 +487,7 @@ tasks:
       
       export dp_name=${TP_AUTO_K8S_DP_NAME}
       export capability="flogo"
-      export app_name="flogo-auto-1"
+      export app_name="rest-flogo-1"
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
         app_status="$(
@@ -532,7 +532,7 @@ tasks:
       
       export dp_name=${TP_AUTO_K8S_DP_NAME}
       export capability="bwce"
-      export app_name="bwce-tt"
+      export app_name="rest-bwce-1"
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
         app_status="$(

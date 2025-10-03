@@ -60,7 +60,8 @@ if __name__ == "__main__":
             
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_bmdp_config.goto_dataplane_config()
-            po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_BMDP_NAME)
+            # Note: Will switch to global dataplane configuration, remove config dataplane level o11y
+            # po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_bmdp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_BMDP_NAME)
 
         po_dp.goto_left_navbar_dataplane()

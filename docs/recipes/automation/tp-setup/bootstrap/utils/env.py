@@ -147,11 +147,11 @@ class EnvConfig:
     TP_AUTO_MAX_DATA_PLANE = 9
 
     # apps: bwce, bw5ce, flogo
-    BWCE_APP_FILE_NAME = os.environ.get("TP_AUTO_BWCE_APP_FILE_NAME") or "bwce-tt.ear"
+    BWCE_APP_FILE_NAME = os.environ.get("TP_AUTO_BWCE_APP_FILE_NAME") or "rest-bwce-1.ear"
     BWCE_APP_NAME = os.environ.get("BWCE_APP_NAME") or BWCE_APP_FILE_NAME.removesuffix(".ear")
     BW5CE_APP_FILE_NAME = os.environ.get("TP_AUTO_BW5CE_APP_FILE_NAME") or "bw5ce-dynamicHeaders.ear"
     BW5CE_APP_NAME = os.environ.get("BW5CE_APP_NAME") or BW5CE_APP_FILE_NAME.removesuffix(".ear")
-    FLOGO_APP_FILE_NAME = os.environ.get("TP_AUTO_FLOGO_APP_FILE_NAME") or "flogo.json"
+    FLOGO_APP_FILE_NAME = os.environ.get("TP_AUTO_FLOGO_APP_FILE_NAME") or "rest-flogo-1.json"
     # need to make sure the flogo app name is unique and lower case in the above JSON file
     FLOGO_APP_NAME = os.environ.get("FLOGO_APP_NAME") or Helper.get_app_name(FLOGO_APP_FILE_NAME)
 

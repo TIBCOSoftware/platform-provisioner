@@ -53,7 +53,7 @@ async def provision_bwce(dp_name: str = "") -> str:
         "HEADLESS": True,
         "FORCE_RUN_AUTOMATION": False,
         "IS_CLEAN_REPORT": False,
-        "BWCE_APP_NAME": DEFAULT_VALUES.get("BWCE_APP_NAME", "bwce-tt"),
+        "BWCE_APP_NAME": DEFAULT_VALUES.get("BWCE_APP_NAME", "rest-bwce-1"),
     }
 
     # Set Data Plane name if provided
@@ -184,7 +184,7 @@ async def provision_flogo(dp_name: str = "") -> str:
         "HEADLESS": True,
         "FORCE_RUN_AUTOMATION": False,
         "IS_CLEAN_REPORT": False,
-        "FLOGO_APP_NAME": DEFAULT_VALUES.get("FLOGO_APP_NAME", "flogo-auto-1"),
+        "FLOGO_APP_NAME": DEFAULT_VALUES.get("FLOGO_APP_NAME", "rest-flogo-1"),
     }
 
     # Set Data Plane name if provided
