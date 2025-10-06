@@ -49,6 +49,12 @@ class EnvConfig:
     TP_AUTO_IS_PROVISION_PULSAR = os.environ.get("TP_AUTO_IS_PROVISION_PULSAR", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
 
+    # OAuth token
+    TP_AUTO_TOKEN_NAMESPACE = os.environ.get("TP_AUTO_TOKEN_NAMESPACE") or "automation"
+    TP_AUTO_TOKEN_NAME = os.environ.get("TP_AUTO_TOKEN_NAME") or "auto-token"
+    TP_AUTO_TOKEN_DURATION = os.environ.get("TP_AUTO_TOKEN_DURATION") or "3"
+    TP_AUTO_TOKEN_DURATION_UNIT = os.environ.get("TP_AUTO_TOKEN_DURATION_UNIT") or "Months"
+
     # start app or not
     TP_AUTO_START_FLOGO_APP = os.environ.get("TP_AUTO_START_FLOGO_APP", "true").lower() == "true"
     TP_AUTO_START_BWCE_APP = os.environ.get("TP_AUTO_START_BWCE_APP", "false").lower() == "true"
@@ -168,6 +174,8 @@ class EnvConfig:
             ColorLogger.warning(f"TP_AUTO_IS_CONFIG_O11Y is false, will not config Data Plane o11y")
         if not self.TP_AUTO_IS_PROVISION_BWCE:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_BWCE is false, will not provision BWCE capability")
+        if not self.TP_AUTO_IS_PROVISION_BW5CE:
+            ColorLogger.warning(f"TP_AUTO_IS_PROVISION_BW5CE is false, will not provision BW5CE capability")
         if not self.TP_AUTO_IS_PROVISION_EMS:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_EMS is false, will not provision EMS capability")
         if not self.TP_AUTO_IS_PROVISION_FLOGO:

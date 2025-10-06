@@ -138,6 +138,7 @@ meta:
     TP_AUTO_GITHUB_REPO_BRANCH: ${GUI_TP_AUTO_GITHUB_REPO_BRANCH:-"provisioner-config-local-{{ .Chart.Version }}"}
 
     # DP capabilities deployment
+    TP_AUTO_CREATE_OAUTH_TOKEN: ${GUI_TP_AUTO_CREATE_OAUTH_TOKEN:-true}
     TP_AUTO_ACTIVE_USER: ${GUI_TP_AUTO_ACTIVE_USER:-true}
     TP_AUTO_ENABLE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true}
     TP_AUTO_IS_CREATE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true} # need this as global value
@@ -154,7 +155,7 @@ meta:
     TP_AUTO_IS_ENABLE_EMSDM: ${GUI_TP_AUTO_IS_ENABLE_EMSDM:-true}
     TP_AUTO_IS_ENABLE_BW6DM: ${GUI_TP_AUTO_IS_ENABLE_BW6DM:-true}
     TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-true}
-    TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-true}
+    TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-false}
 
     # start app or not
     TP_AUTO_START_FLOGO_APP: ${GUI_TP_AUTO_START_FLOGO_APP:-true}
@@ -413,6 +414,39 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
+- condition: ${TP_AUTO_CREATE_OAUTH_TOKEN}
+  name: create-oauth-token
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        if [[ "$(yq '.ENV.REPORT_OAUTH_TOKEN' "$_report_file")" == "true" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "OAuth Token exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+      
+      echo "===== Task Name: create-oauth-token, Running file ${PYTHON_FILE_ENTRY_POINT_O11Y} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run --active ${PYTHON_FILE_ENTRY_POINT_O11Y}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT_O11Y}
+      fi
+      _result=$?
+      echo "python return code: ${_result}"
+      exit 0
 - condition: ${TP_AUTO_ENABLE_DP} # only create DP
   name: create-dp
   clusters:

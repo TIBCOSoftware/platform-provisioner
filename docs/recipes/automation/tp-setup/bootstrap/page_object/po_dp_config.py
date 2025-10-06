@@ -52,6 +52,27 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         self.goto_dataplane_config_sub_menu("Observability")
         self.switch_to_global_config(dp_name)
 
+    def o11y_config_activation(self, dp_name):
+        ColorLogger.info("Start to config Activation URL...")
+        if ReportYaml.get_dataplane_info(dp_name, "ActivationUrl") == "true":
+            ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, ActivationUrl is already set in DataPlane '{dp_name}'.")
+            return
+
+        self.goto_left_navbar_dataplane()
+        if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
+            self.page.locator(".global-configuration button", has_text="Global configuration").click()
+            print("Clicked 'Global configuration' button")
+
+            # This is new for 1.9+ version, to set global activation url
+            print("Start to set Global Activation URL...")
+            self.dp_config_activation(dp_name)
+        else:
+            self.goto_dataplane(dp_name)
+            self.goto_dataplane_config()
+            # This is new for 1.9+ version, link to global activation url
+            print("Start to link to Global Activation URL...")
+            self.dp_config_activation(dp_name, True)
+
     def o11y_config_dataplane_resource(self, dp_name):
         if ReportYaml.get_dataplane_info(dp_name, "o11yConfig") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, o11yConfig is already created in DataPlane '{dp_name}'.")
@@ -70,9 +91,6 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator(".global-configuration button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")
 
-            # This is new for 1.9+ version, to set global activation url
-            self.dp_config_activation(dp_name)
-
             o11y_selector = ".pl-leftnav-layout .pl-leftnav-menu__link"         # for 1.4 version
             if Util.check_dom_visibility(self.page, self.page.locator(".pl-leftnav-layout .pl-tooltip__trigger", has_text="Observability"), 3, 6):
                 o11y_selector = ".pl-leftnav-layout .pl-tooltip__trigger"       # for 1.5+ version
@@ -81,9 +99,6 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             print("Clicked Global configuration -> 'Observability' left side menu")
             o11y_config_page_selector = ".global-configuration-details"         # for global level
         else:
-            # This is new for 1.9+ version, link to global activation url
-            self.dp_config_activation(dp_name, True)
-
             self.goto_dataplane_config_sub_menu("Observability")
 
         print("Waiting for Observability config is loaded")
@@ -455,5 +470,6 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
         if Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
             ColorLogger.success(f"Add Activation URL '{activation_url}' successfully.")
+            ReportYaml.set_dataplane_info(dp_name, "ActivationUrl", True)
         else:
             ColorLogger.warning(f"Add Activation URL '{activation_url}' failed.")

@@ -21,6 +21,7 @@ if __name__ == "__main__":
         po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
         po_dp_config.goto_dataplane_config()
         po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
+        po_dp_config.o11y_config_activation(ENV.TP_AUTO_K8S_DP_NAME)
 
         po_auth.logout()
     except Exception as e:

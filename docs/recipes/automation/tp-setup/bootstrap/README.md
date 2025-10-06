@@ -38,6 +38,7 @@ python --version
 | Category                                    | Supported Features                                                                                                                                                                                                                                                                                                |
 |:--------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Display Current Environment Information** | ✅ Show Control Plane `platform-bootstrap` version<br>✅ Show Control Plane `platform-base` version<br>✅ Display Mail Server URL<br>✅ Display CP Admin Server URL, Admin Email, and Password<br>✅ Display CP Server URL, User Email, and Password<br>✅ Display Elastic, Kibana, and Prometheus URLs and Credentials |
+| **Create a OAuth Token**                    | ✅ Support for creating OAuth Token and saving it to kubernetes secret.<br>✅ If the token only exists in the Kubernetes Secret or only in the UI, it will be deleted and a new one will be created. The token must exist in both places at the same time.                                                          |
 | **Create a New Subscription**               | ✅ Provision a new subscription using the User Email by an Admin<br>✅ Activate the user via the `maildev` server<br>✅ Set the user's password and complete the login process                                                                                                                                       |
 | **Configure Observability Widget**          | ✅ Automatically add widget cards for Kubernetes or Control Tower                                                                                                                                                                                                                                                  |
 | **Configure Global Observability**          | ✅ Automatically create global Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces<br>✅ Support for config activation url                                                                                                                                                     |
@@ -201,3 +202,7 @@ python page_dp.py
    * Go to CP installation folder
    * Copy certificate key to 01-tp-on-prem.yaml from [TP Token](https://docs.google.com/document/d/1f39d0_L6iRpEPjJggYFJrL3oVAtDyPdVbOnjmzU7E0E/edit?pli=1&tab=t.l6dihjhx60qc#heading=h.8ir76m4dmdxu)
    * Then run `./run.sh 2`
+5. Get stored OAuth token from kubernetes secret
+   ```shell
+   kubectl get secret auto-token -n automation -o jsonpath="{.data['auto-token']}" | base64 --decode
+   ```

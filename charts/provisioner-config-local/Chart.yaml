@@ -8,7 +8,7 @@ apiVersion: v2
 name: provisioner-config-local
 description: Platform Provisioner local config
 type: application
-version: "1.11.0"
+version: "1.11.1"
 appVersion: "2.0.1"
 home: https://github.com/TIBCOSoftware/tp-helm-charts
 maintainers:

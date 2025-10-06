@@ -89,9 +89,13 @@
                 <div class="col-sm-9"><input type="text" id="TP_AUTO_K8S_DP_NAME"></div>
               </div>
               <div class="row TP_AUTO_K8S_BMDP_NAME">
-                <div class="col-sm-3"><label for="TP_AUTO_K8S_BMDP_NAME">DataPlane Name<span>(Control
-                      Tower)</span></label></div>
+                <div class="col-sm-3"><label for="TP_AUTO_K8S_BMDP_NAME">DataPlane Name<span>(Control Tower)</span></label></div>
                 <div class="col-sm-9"><input type="text" id="TP_AUTO_K8S_BMDP_NAME"></div>
+              </div>
+
+              <div class="row TP_AUTO_TOKEN_NAME">
+                <div class="col-sm-3"><label for="TP_AUTO_TOKEN_NAME">Token Name</label></div>
+                <div class="col-sm-9"><input type="text" id="TP_AUTO_TOKEN_NAME"></div>
               </div>
             </div>
             <div class="col-sm-6">
@@ -127,6 +131,7 @@
                   <select id="guiAutoCase">
                     <option>--Select Case--</option>
                     <option value="page_env">Show Current Environment (Login CP/Elastic Credentials)</option>
+                    <option value="page_token">Create OAuth Token</option>
                     <option value="page_auth">Create new subscription with User Email</option>
                     <option value="page_o11y">Config o11y widget</option>
                     <option value="case.create_global_config">Config Global O11y</option>

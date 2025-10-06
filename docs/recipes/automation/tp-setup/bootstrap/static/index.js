@@ -237,6 +237,13 @@ function handleFieldsAction() {
         toggleField(fieldsSelector, true);
         toggleField(['.TP_AUTO_K8S_DP_NAME'], false);
         break;
+      case "page_token":
+        fieldsSelector = [
+          ".TP_AUTO_TOKEN_NAME",
+        ];
+        toggleField(fieldsSelector, true);
+        toggleField(['.TP_AUTO_K8S_DP_NAME'], false);
+        break;
       case "page_auth":
         fieldsSelector = [
           ".TP_AUTO_ADMIN_URL",
@@ -422,6 +429,7 @@ function hideFields() {
     ".CP_ADMIN_PASSWORD",
     ".DP_HOST_PREFIX",
     ".TP_AUTO_MAIL_URL",
+    ".TP_AUTO_TOKEN_NAME",
     ".TP_AUTO_K8S_BMDP_NAME",
     ".TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG",
     ".TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS",
