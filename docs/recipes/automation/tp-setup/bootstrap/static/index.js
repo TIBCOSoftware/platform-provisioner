@@ -237,6 +237,13 @@ function handleFieldsAction() {
         toggleField(fieldsSelector, true);
         toggleField(['.TP_AUTO_K8S_DP_NAME'], false);
         break;
+      case "page_token":
+        fieldsSelector = [
+          ".TP_AUTO_TOKEN_NAME",
+        ];
+        toggleField(fieldsSelector, true);
+        toggleField(['.TP_AUTO_K8S_DP_NAME'], false);
+        break;
       case "page_auth":
         fieldsSelector = [
           ".TP_AUTO_ADMIN_URL",
@@ -267,14 +274,17 @@ function handleFieldsAction() {
       case "case.k8s_create_and_start_bwce_app":
         toggleField([".BWCE_APP_NAME"], true);
         toggleField([".app_file"], true);
+        cleanAppFileInput();
         break;
       case "case.k8s_create_and_start_bw5ce_app":
         toggleField([".BW5CE_APP_NAME"], true);
         toggleField([".app_file"], true);
+        cleanAppFileInput();
         break;
       case "case.k8s_create_and_start_flogo_app":
         toggleField([".FLOGO_APP_NAME"], true);
         toggleField([".app_file"], true);
+        cleanAppFileInput();
         break;
       case "delete_bwce_app":
         toggleField([".BWCE_APP_NAME"], true);
@@ -346,7 +356,8 @@ function handleFieldsAction() {
     if (value) {
       const fileFullName = value.split('\\').pop().split('/').pop();
       if (!fileFullName) return;
-      const fileName = fileFullName.split('.').slice(0, -1).join('.');
+      // filename will become app name, need to replace . and _ with -
+      const fileName = fileFullName.split('.').slice(0, -1).join('.').replace(/[._]/g, "-");
       if (!fileName) return;
       const caseValue = document.getElementById("guiAutoCase").value;
       if (!caseValue) return;
@@ -360,6 +371,21 @@ function handleFieldsAction() {
       }
     }
   });
+}
+
+// Clean the app_file input and reset the app name to default value from ENV
+function cleanAppFileInput() {
+  $('#app_file').val('');
+  const caseValue = document.getElementById("guiAutoCase").value;
+  if (!caseValue) return;
+
+  if (caseValue === "case.k8s_create_and_start_bwce_app") {
+    $("#BWCE_APP_NAME").val(ENV.BWCE_APP_NAME);
+  } else if (caseValue === "case.k8s_create_and_start_bw5ce_app") {
+    $("#BW5CE_APP_NAME").val(ENV.BW5CE_APP_NAME);
+  } else if (caseValue === "case.k8s_create_and_start_flogo_app") {
+    $("#FLOGO_APP_NAME").val(ENV.FLOGO_APP_NAME);
+  }
 }
 
 function initInputValue(data) {
@@ -403,6 +429,7 @@ function hideFields() {
     ".CP_ADMIN_PASSWORD",
     ".DP_HOST_PREFIX",
     ".TP_AUTO_MAIL_URL",
+    ".TP_AUTO_TOKEN_NAME",
     ".TP_AUTO_K8S_BMDP_NAME",
     ".TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG",
     ".TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS",

@@ -1,3 +1,19 @@
+## [10/04/2025 22:17]
+### Added
+- Support for creating OAuth Token and saving it to kubernetes secret.
+### Fixed
+- Link k8s dataplane activation url to global.
+
+## [09/27/2025 21:30]
+### Fixed
+- Fixed deploy flogo issue after flogo UI is changed
+- Do not cache UI for One-Click Setup CP index.html file
+- Change "Automation Case" dropdown list will reset input file field and filename field to default value
+### Changed
+- Will switch to global dataplane configuration, remove config dataplane level o11y
+- Rename "flogo-auto-1" to "rest-flogo-1" for flogo app name in automation script
+- Rename "bwce-tt" to "rest-bwce-1" for bwce app name in automation script
+
 ## [09/22/2025 10:06]
 ### Fixed
 - Fixed config dataplane's activation url issue.

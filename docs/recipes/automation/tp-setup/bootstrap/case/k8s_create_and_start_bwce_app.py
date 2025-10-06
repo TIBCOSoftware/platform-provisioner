@@ -11,7 +11,7 @@ from page_object.po_dp_bwce import PageObjectDataPlaneBWCE
 
 if __name__ == "__main__":
     FORCE_RUN_AUTOMATION = os.environ.get("FORCE_RUN_AUTOMATION", "false").lower() == "true"
-    CAPABILITY = os.environ.get("CAPABILITY").lower() or "bwce"
+    CAPABILITY = os.environ.get("CAPABILITY", "bwce").lower()
     # if ENV.TP_AUTO_CP_VERSION == "1.3" or ENV.TP_AUTO_CP_VERSION == "1.4":
     #     Util.exit_error(f"Create and start BWCE app is not supported for CP version {ENV.TP_AUTO_CP_VERSION}")
 

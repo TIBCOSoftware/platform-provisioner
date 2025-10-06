@@ -407,7 +407,7 @@ helmCharts:
         enabled: true
         image:
           repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.6.3-auto-on-prem-jammy
+          tag: 1.6.5-auto-on-prem-jammy
         ports:
           http:
             enabled: true

@@ -29,6 +29,7 @@ if __name__ == "__main__":
 
         # config global dataplane
         po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_DP_NAME_GLOBAL)
+        po_dp_config.o11y_config_activation(ENV.TP_AUTO_DP_NAME_GLOBAL)
 
         if ENV.TP_AUTO_IS_CREATE_DP:
             # for create dataplane and config dataplane resources
@@ -61,7 +62,9 @@ if __name__ == "__main__":
                     ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB,
                     ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_TIBCOHUB
                 )
-            po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
+            # Note: Will switch to global dataplane configuration, remove config dataplane level o11y
+            # po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
+            po_dp_config.o11y_config_activation(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_DP_NAME)
 
             # for provision Flogo capability, connector, app, and start app
