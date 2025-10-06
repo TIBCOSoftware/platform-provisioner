@@ -124,6 +124,9 @@ class PageObjectSettings:
 
         ColorLogger.info(f"Creating kubernetes secret '{ENV.TP_AUTO_TOKEN_NAME}' for OAuth token...")
         self.print_oauth_token_info(token_value)
+        print(f"Create namespace '{ENV.TP_AUTO_TOKEN_NAMESPACE}' if not exists...")
+        Helper.get_command_output(f"kubectl get ns {ENV.TP_AUTO_TOKEN_NAMESPACE} >/dev/null 2>&1 || kubectl create ns {ENV.TP_AUTO_TOKEN_NAMESPACE}", True)
+        print(f"Created secret generic '{ENV.TP_AUTO_TOKEN_NAME}' in namespace '{ENV.TP_AUTO_TOKEN_NAMESPACE}'")
         Helper.get_command_output(f"kubectl create secret generic {ENV.TP_AUTO_TOKEN_NAME} --from-literal=\"{ENV.TP_AUTO_TOKEN_NAME}={token_value}\" -n {ENV.TP_AUTO_TOKEN_NAMESPACE}", True)
         if self.is_created_oauth_token():
             ColorLogger.success(f"OAuth Token '{ENV.TP_AUTO_TOKEN_NAME}' is set in kubernetes successfully.")

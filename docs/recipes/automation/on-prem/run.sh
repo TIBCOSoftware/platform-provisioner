@@ -182,7 +182,7 @@ function main() {
   while true; do
     if [[ -z $choice ]]; then
       echo "Please select an option:"
-      echo "1. Deploy TP from scratch. (All steps: 2,5,7,3,7,4)"
+      echo "1. Deploy TP from scratch. (All steps: 2,5,6,3,6,4)"
       echo "2. Prepare TP cluster (Ingress, DB, storage, etc.)"
       echo "3. Deploy platform-bootstrap and platform-base only"
       echo "4. Deploy CP subscription (Admin, sub user, DP, app, etc.)"
@@ -208,7 +208,7 @@ function main() {
           echo "Failed to deploy o11y stack."
           exit 1
         fi
-        post-deploy-cleanup-resource # 7
+        post-deploy-cleanup-resource # 6
         echo "Wait for 30 seconds before deploying CP..."
         sleep 30
         deploy-tp # 3
@@ -218,7 +218,7 @@ function main() {
         fi
         echo "Finish deploy TP in $(($(date +%s) - start_time)) seconds"
         post-deploy-adjust-dns # dns adjustment
-        post-deploy-cleanup-resource # 7
+        post-deploy-cleanup-resource # 6
 
         echo "Wait for 30 seconds before deploying CP subscription..."
         sleep 30
