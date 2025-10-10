@@ -14,7 +14,7 @@ attrs==25.3.0
     #   cyclopts
     #   jsonschema
     #   referencing
-authlib==1.6.3
+authlib==1.6.5
     # via fastmcp
 blinker==1.9.0
     # via flask
