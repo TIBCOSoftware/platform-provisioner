@@ -238,6 +238,7 @@ meta:
     PYTHON_FILE_ENTRY_POINT: page_dp.py
     PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
     PYTHON_FILE_ENTRY_POINT_O11Y: page_o11y.py
+    PYTHON_FILE_ENTRY_POINT_TOKEN: page_token.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
@@ -438,11 +439,11 @@ tasks:
         fi
       fi
       
-      echo "===== Task Name: create-oauth-token, Running file ${PYTHON_FILE_ENTRY_POINT_O11Y} ====="
+      echo "===== Task Name: create-oauth-token, Running file ${PYTHON_FILE_ENTRY_POINT_TOKEN} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run --active ${PYTHON_FILE_ENTRY_POINT_O11Y}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT_TOKEN}
       else
-        python ${PYTHON_FILE_ENTRY_POINT_O11Y}
+        python ${PYTHON_FILE_ENTRY_POINT_TOKEN}
       fi
       _result=$?
       echo "python return code: ${_result}"

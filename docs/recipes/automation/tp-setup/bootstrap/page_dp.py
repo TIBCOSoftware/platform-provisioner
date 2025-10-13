@@ -64,8 +64,8 @@ if __name__ == "__main__":
                 )
             # Note: Will switch to global dataplane configuration, remove config dataplane level o11y
             # po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
-            po_dp_config.o11y_config_activation(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_DP_NAME)
+            po_dp_config.o11y_config_activation(ENV.TP_AUTO_K8S_DP_NAME)
 
             # for provision Flogo capability, connector, app, and start app
             if ENV.TP_AUTO_IS_PROVISION_FLOGO:

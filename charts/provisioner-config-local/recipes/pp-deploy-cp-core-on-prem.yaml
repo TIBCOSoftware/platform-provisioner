@@ -45,6 +45,13 @@ meta:
     GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: true
     GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE: true
 
+    # CP AI MCP servers
+    GUI_TP_AI_DEPLOY_CP_MCP_SERVER: false
+    GUI_TP_AI_DEPLOY_K8S_MCP_SERVER: false
+    GUI_TP_AI_DEPLOY_O11Y_MCP_SERVER: false
+    GUI_TP_AI_DEPLOY_BW_MCP_SERVER: false
+    GUI_TP_AI_DEPLOY_FLOGO_MCP_SERVER: false
+
     # network policy
     GUI_TP_CREATE_NETWORK_POLICIES: false
 
@@ -239,6 +246,13 @@ meta:
     CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.11.0} # use ^1.0.0 for latest
     CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.11.0} # use ^1.0.0 for latest
 
+    # CP AI MCP servers
+    CP_ENABLE_AI_MCP: ${GUI_TP_AI_DEPLOY_CP_MCP_SERVER:-false}
+    CP_ENABLE_K8S: ${GUI_TP_AI_DEPLOY_K8S_MCP_SERVER:-false}
+    CP_ENABLE_AI_O11Y_MCP: ${GUI_TP_AI_DEPLOY_O11Y_MCP_SERVER:-false}
+    CP_ENABLE_AI_BW_MCP: ${GUI_TP_AI_DEPLOY_BW_MCP_SERVER:-false}
+    CP_ENABLE_AI_FLOGO_MCP: ${GUI_TP_AI_DEPLOY_FLOGO_MCP_SERVER:-false}
+
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}
     CP_CREATE_NAMESPACE: ${GUI_CP_CREATE_NAMESPACE:-true}
@@ -258,7 +272,6 @@ meta:
     CP_INSTALL_INTEGRATION_BW5CE_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES:-true} # Env for before 1.8.0
     CP_INSTALL_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_INTEGRATION_FLOGO:-true}
     CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES:-true}
-    CP_INSTALL_MCP_SERVER: ${TP_AI_DEPLOY_CP_MCP_SERVER:-true}
   tools:
     yq: "4.40" # this also have the logic to create soft link of yq-4.40 --> yq
 preTasks:
@@ -850,6 +863,16 @@ helmCharts:
         enabled: ${CP_INSTALL_HAWK}
       tp-cp-recipes:
         enabled: ${CP_INSTALL_RECIPES}
+      tp-cp-o11y:
+        o11ymcpserver:
+          enabled: ${CP_ENABLE_AI_O11Y_MCP}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
       tp-cp-integration:
         enabled: ${CP_INSTALL_INTEGRATION}
         tp-cp-integration-common:
@@ -873,6 +896,15 @@ helmCharts:
                 limits:
                   cpu: 200m
                   memory: 200Mi
+            bwmcpserver:
+              enabled: ${CP_ENABLE_AI_BW_MCP}
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 200m
+                  memory: 512Mi
         tp-cp-bwce-utilities:
           enabled: ${CP_INSTALL_INTEGRATION_BWCE_UTILITIES}
         tp-cp-bw5ce-utilities:
@@ -888,6 +920,15 @@ helmCharts:
                 limits:
                   cpu: 200m
                   memory: 200Mi
+            mcpserver:
+              enabled: ${CP_ENABLE_AI_FLOGO_MCP}
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 200m
+                  memory: 512Mi
         tp-cp-flogo-utilities:
           enabled: ${CP_INSTALL_INTEGRATION_FLOGO_UTILITIES}
       tp-cp-core:
@@ -979,7 +1020,14 @@ helmCharts:
                 cpu: 200m
                 memory: 200Mi
           cpmcpserver:
-            enabled: ${CP_INSTALL_MCP_SERVER:-true}
+            enabled: ${CP_ENABLE_AI_MCP}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 200m
+                memory: 512Mi
       tp-cp-core-finops:
         finops-service:
           finopsservice:
