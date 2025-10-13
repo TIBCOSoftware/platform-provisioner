@@ -438,12 +438,14 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             return
 
         if use_global:
+            self.page.locator(".dp-activation").wait_for(state="visible")
+            print(f"Checking if dataplane {dp_name} is able to use global activation url...")
             if self.page.locator(".activation-server-url").is_visible():
                 current_activation_url = self.page.locator(".activation-server-url").inner_text()
                 ColorLogger.success(f"ENV.TP_ACTIVATION_URL is empty, but Activation URL '{current_activation_url}' is already exist for Data Plane '{dp_name}'.")
                 return
             # if "Use Global Activation URL" button is visible but not enabled, skip config
-            if self.page.locator("#use-global-activation-on-dp").is_visible() and not self.page.locator("#use-global-activation-on-dp").is_enabled():
+            if self.page.locator("#use-global-activation-on-dp").is_visible() and "pcp-disabled" in (self.page.locator("#use-global-activation-on-dp").get_attribute("class") or ""):
                 ColorLogger.warning("'Use Global Activation URL' button is not enabled, skip config Activation url.")
                 return
 

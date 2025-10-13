@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.13' # 3.14 will not work
           check-latest: true
 
       - name: Set up chart-testing

@@ -64,8 +64,20 @@ groups:
       * MailDev address: [https://mail.localhost.dataplanes.pro](https://mail.localhost.dataplanes.pro)
         You can then follow the admin E-mail to create the admin user.
     ---
-- title: "Flow control"
+- title: "CP AI MCP Servers"
   index: 10
+  description: |
+    ## CP AI MCP Servers specific configurations.
+    * There are total 5 MCP servers in CP.
+      * CP MCP Server
+      * K8S MCP Server
+      * O11Y MCP Server
+      * FLOGO MCP Server
+      * BWCE MCP Server
+    * By default all MCP servers are disabled.
+    ---
+- title: "Flow control"
+  index: 11
   description: |
     ## Change the installation flow control options.
     
@@ -493,105 +505,142 @@ options:
   description: |
     The Graph skip sent folder. The default value is false.
 
-# groupIndex: 10 Flow control
-- name: "Validate Cluster Resource"
+# group: 10 CP AI MCP Servers
+- name: "CP AI MCP Server"
   groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_CP_MCP_SERVER"
+  description: |
+    The CP AI MCP Server. Default value is false. Select this checkbox to enable the CP AI MCP server.
+- name: "CP AI MCP k8s"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_K8S_MCP_SERVER"
+  description: |
+    The CP AI MCP k8s. Default value is false. Select this checkbox to enable the CP AI k8s MCP server.
+- name: "CP AI MCP o11y"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_O11Y_MCP_SERVER"
+  description: |
+    The CP AI MCP o11y. Default value is false. Select this checkbox to enable the CP AI o11y MCP server.
+- name: "CP AI MCP BW"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_BW_MCP_SERVER"
+  description: |
+    The CP AI MCP BW. Default value is false. Select this checkbox to enable the CP AI BW MCP server.
+- name: "CP AI MCP FLOGO"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_FLOGO_MCP_SERVER"
+  description: |
+    The CP AI MCP FLOGO. Default value is false. Select this checkbox to enable the CP AI FLOGO MCP server.
+
+# groupIndex: 11 Flow control
+- name: "Validate Cluster Resource"
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_VALIDATE_CLUSTER_RESOURCE"
   description: |
     Before deploying the CP, set ture to validate that all resources are properly configured.
 - name: "Create CP namespace"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_CREATE_NAMESPACE"
   description: |
     Create the CP namespace, service account, network policy, DB secret and certificate secret
 - name: "Install MailDev"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_MAILDEV"
   description: "Install maildev for testing email"
 - name: "Install MailDev Ingress"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_MAILDEV_INGRESS"
   description: "Install maildev ingress for testing email"
 - name: "Install platform-bootstrap"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BOOTSTRAP"
   description: "Install platform-bootstrap"
 - name: "Install platform-base"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BASE"
   description: "Install platform-base"
 - name: "Install recipes"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_RECIPES"
   description: ""
 - name: "Install integration"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION"
   description: ""
 - name: "Install integration BW"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW"
   description: "New values for 1.8.0 and later"
 - name: "Install integration BWCE utilities"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES"
 - name: "Install integration BW5CE utilities"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES"
 - name: "Install integration Flogo"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_FLOGO"
   description: ""
 - name: "Install integration Flogo utilities"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES"
   description: ""
 - name: "Install tibcohub-contrib"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_TIBCOHUB_CONTRIB"
   description: ""
 - name: "Install msg-contrib"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_MSG_CONTRIB"
   description: ""
 - name: "Install hawk"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_HAWK"
   description: ""
 - name: "Enable debug log"
-  groupIndex: 10
+  groupIndex: 11
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_PIPELINE_LOG_DEBUG"

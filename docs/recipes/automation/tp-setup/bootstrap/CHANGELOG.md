@@ -1,3 +1,7 @@
+## [10/07/2025 13:51]
+### Fixed
+- If button "Use Global Activation URL" is disabled, skip config it. 
+
 ## [10/04/2025 22:17]
 ### Added
 - Support for creating OAuth Token and saving it to kubernetes secret.
