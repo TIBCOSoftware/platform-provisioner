@@ -17,7 +17,7 @@ dependencies = [
     "pydantic==2.11.7",         # Data validation and settings management
 
     # Domain-Specific
-    "fastmcp==2.12.0",          # TIBCO MCP automation
+    "fastmcp==2.13.0",          # TIBCO MCP automation
 
     # Web Framework & API
     "flask-cors==6.0.1",        # CORS for Flask
