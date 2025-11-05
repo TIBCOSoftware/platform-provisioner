@@ -17,7 +17,7 @@ meta:
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
     TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
     TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
-    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
+    TP_CHART_REPO_TOKEN: ${GUI_GITHUB_TOKEN}
     PLATFORM_PROVISIONER_REPO: ${GUI_PLATFORM_PROVISIONER_REPO:-github.com/TIBCOSoftware/platform-provisioner}
 
     # container registry
@@ -563,12 +563,13 @@ helmCharts:
           username: postgres
           password: postgres
           database: "postgres"
+        global:
+          imageRegistry: "${TP_CONTAINER_REGISTRY_URL}"
+          imagePullSecrets:
+          - tibco-container-registry-credentials
         image:
-          registry: "${TP_CONTAINER_REGISTRY_URL}"
           repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
           tag: 16.4.0-debian-12-r14
-          pullSecrets:
-          - tibco-container-registry-credentials
         primary:
           # resourcesPreset: "nano" # nano micro small
           resources:

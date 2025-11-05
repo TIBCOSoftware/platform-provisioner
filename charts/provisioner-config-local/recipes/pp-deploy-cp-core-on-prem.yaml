@@ -31,8 +31,8 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.11.0
-    GUI_CP_PLATFORM_BASE_VERSION: 1.11.0
+    GUI_CP_PLATFORM_BOOTSTRAP_VERSION: 1.12.0
+    GUI_CP_PLATFORM_BASE_VERSION: 1.12.0
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -243,8 +243,8 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.11.0} # use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.11.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.12.0} # use ^1.0.0 for latest
+    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.12.0} # use ^1.0.0 for latest
 
     # CP AI MCP servers
     CP_ENABLE_AI_MCP: ${GUI_TP_AI_DEPLOY_CP_MCP_SERVER:-false}
@@ -356,7 +356,7 @@ preTasks:
       metadata:
         name: ${TP_GENERATE_CERTIFICATE_NAME}
         namespace: ${CP_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT}
         tls.key: ${TP_TLS_KEY}
@@ -371,7 +371,7 @@ preTasks:
       metadata:
         name: ${TP_TLS_SECRET_NAME_ROUTER}
         namespace: ${CP_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT_ROUTER}
         tls.key: ${TP_TLS_KEY_ROUTER}
@@ -386,7 +386,7 @@ preTasks:
       metadata:
         name: ${TP_TLS_SECRET_NAME_HYBRID_PROXY}
         namespace: ${CP_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT_HYBRID_PROXY}
         tls.key: ${TP_TLS_KEY_HYBRID_PROXY}
@@ -411,7 +411,7 @@ preTasks:
       metadata:
         name: ${TP_GENERATE_CERTIFICATE_NAME}
         namespace: ${CP_EXT_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT}
         tls.key: ${TP_TLS_KEY}

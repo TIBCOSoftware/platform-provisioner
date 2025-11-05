@@ -1,3 +1,8 @@
+## [10/14/2025 14:58]
+### Fixed
+- Fix bug: ems and tibcohub do not deployed by default
+- Remove deploy Pussar by default
+
 ## [10/07/2025 13:51]
 ### Fixed
 - If button "Use Global Activation URL" is disabled, skip config it. 
