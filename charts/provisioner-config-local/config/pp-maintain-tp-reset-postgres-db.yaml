@@ -58,7 +58,6 @@ recipe: |
       GUI_GITHUB_TOKEN: ""
       GUI_TP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
       GUI_TP_CHART_REPO_USER_NAME: ""
-      GUI_TP_CHART_REPO_TOKEN: ""
       GUI_TP_CONTAINER_REGISTRY_URL: "csgprduswrepoedge.jfrog.io"
       GUI_TP_CONTAINER_REGISTRY_REPOSITORY: "tibco-platform-docker-prod"
       GUI_TP_CONTAINER_REGISTRY_USER: ""
@@ -71,7 +70,7 @@ recipe: |
       TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
       TP_CHART_REPO: ${GUI_TP_CHART_REPO}
       TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
-      TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
+      TP_CHART_REPO_TOKEN: ${GUI_GITHUB_TOKEN}
       TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL}
       TP_CONTAINER_REGISTRY_REPOSITORY: ${GUI_TP_CONTAINER_REGISTRY_REPOSITORY}
       TP_CONTAINER_REGISTRY_USER: ${GUI_TP_CONTAINER_REGISTRY_USER}
@@ -109,12 +108,13 @@ recipe: |
               username: postgres
               password: postgres
               database: "postgres"
+            global:
+              imageRegistry: "${TP_CONTAINER_REGISTRY_URL}"
+              imagePullSecrets:
+              - tibco-container-registry-credentials
             image:
-              registry: "${TP_CONTAINER_REGISTRY_URL}"
               repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
               tag: 16.4.0-debian-12-r14
-              pullSecrets:
-              - tibco-container-registry-credentials
             primary:
               # resourcesPreset: "nano" # nano micro small
               resources:

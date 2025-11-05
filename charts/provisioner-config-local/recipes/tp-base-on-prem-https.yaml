@@ -40,7 +40,6 @@ meta:
     GUI_GITHUB_TOKEN: ""
     GUI_TP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
     GUI_TP_CHART_REPO_USER_NAME: "cp-test"
-    GUI_TP_CHART_REPO_TOKEN: ""
 
     # container registry
     GUI_TP_CONTAINER_REGISTRY_URL: "csgprduswrepoedge.jfrog.io"
@@ -82,7 +81,7 @@ meta:
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
     TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
     TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME:-"cp-test"}
-    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
+    TP_CHART_REPO_TOKEN: ${GUI_GITHUB_TOKEN}
 
     # container registry
     TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL:-"csgprduswrepoedge.jfrog.io"}
@@ -128,7 +127,7 @@ meta:
 
     # third party tools version
     TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.13.2"} # release: https://github.com/kubernetes/ingress-nginx/releases
-    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"37.1.0"} # release: https://github.com/traefik/traefik-helm-chart/releases
+    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"37.2.0"} # release: https://github.com/traefik/traefik-helm-chart/releases
 
     # CNI
     TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
@@ -147,7 +146,7 @@ meta:
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager
-  version: v1.18.2 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.19.1 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -237,7 +236,7 @@ helmCharts:
         metadata:
           name: default-certificate
           namespace: ${TP_INGRESS_NAMESPACE}
-        type: Opaque
+        type: kubernetes.io/tls
         data:
           tls.crt: ${TP_TLS_CERT}
           tls.key: ${TP_TLS_KEY}
@@ -301,7 +300,7 @@ helmCharts:
         metadata:
           name: default-certificate
           namespace: ${TP_INGRESS_NAMESPACE}
-        type: Opaque
+        type: kubernetes.io/tls
         data:
           tls.crt: ${TP_TLS_CERT}
           tls.key: ${TP_TLS_KEY}
@@ -383,12 +382,13 @@ helmCharts:
           username: ${TP_DB_USER_NAME}
           password: ${TP_DB_PASSWORD}
           database: "${TP_DB_NAME}"
+        global:
+          imageRegistry: "${TP_CONTAINER_REGISTRY_URL}"
+          imagePullSecrets:
+          - tibco-container-registry-credentials
         image:
-          registry: "${TP_CONTAINER_REGISTRY_URL}"
           repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
           tag: 16.4.0-debian-12-r14
-          pullSecrets:
-          - tibco-container-registry-credentials
         primary:
           # resourcesPreset: "nano" # nano micro small
           resources:
@@ -470,6 +470,8 @@ helmCharts:
         - name: TP_MCP_HTTP_BEARER_TOKEN
           value: ""
         - name: TP_MCP_DEBUG
+          value: "false"
+        - name: TP_AUTO_TASK_FROM_LOCAL_SOURCE
           value: "false"
         others:
           dnsPolicy: ClusterFirstWithHostNet

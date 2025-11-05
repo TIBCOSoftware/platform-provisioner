@@ -430,7 +430,11 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             ColorLogger.warning("Activation menu item is not visible, skip config Activation url.")
             return
 
-        ColorLogger.info(f"Config {dp_name} Data Plane Activation Url: {activation_url}")
+        if activation_url:
+            ColorLogger.info(f"Config Data Plane '{dp_name}' Activation Url: {activation_url}")
+        else:
+            ColorLogger.info(f"Current Activation Url is empty, will link Data Plane '{dp_name}' to use Global Activation Url")
+
         activation_menu_item.click()
         print("Clicked 'Activation' left side menu")
         if activation_url and Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):

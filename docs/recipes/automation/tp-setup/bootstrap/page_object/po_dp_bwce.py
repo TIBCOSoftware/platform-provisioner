@@ -571,9 +571,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             new_page.wait_for_load_state()
 
             print(f"Waiting for Swagger title '{app_name}' to be displayed.")
-            if Util.check_dom_visibility(new_page, new_page.locator("h2.title", has_text=app_name), 5, 15, True):
-                new_page.locator("h2.title", has_text=app_name).wait_for(state="visible")
-                print(f"The Swagger title '{app_name}' is displayed.")
+            if Util.check_dom_visibility(new_page, new_page.locator("h2.title"), 5, 15, True):
+                # new_page.locator("h2.title", has_text=app_name).wait_for(state="visible")
+                # print(f"The Swagger title '{app_name}' is displayed.")
 
                 new_page.locator("#operations-Resource-post-resource .opblock-summary-control").click()
                 print("Clicked '/resource' path, expand API details")

@@ -28,7 +28,9 @@ class Util:
     @staticmethod
     def get_dns_ip():
         awk_script = '/^Name:/ {getline; if ($1=="Address:") print $2}'
-        return Helper.get_command_output(f"nslookup *.{ENV.TP_AUTO_CP_DNS_DOMAIN} | awk '{awk_script}'", True)
+        result = Helper.get_command_output(f"nslookup *.{ENV.TP_AUTO_CP_DNS_DOMAIN} | awk '{awk_script}'", True)
+        # Only return the first IP address if multiple are found
+        return result.strip().split('\n')[0] if result else ""
 
     @staticmethod
     def browser_launch(is_headless=ENV.IS_HEADLESS):
