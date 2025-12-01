@@ -102,7 +102,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.goto_dataplane_config_sub_menu("Observability")
 
         print("Waiting for Observability config is loaded")
-        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 9):
+        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 6):
             Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", self.page, "o11y_config_dataplane_resource.png")
     
         print("Checking if 'Add new resource' button is exist...")
@@ -241,7 +241,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         ColorLogger.info("O11y start to add or select item...")
         name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
         print(f"Check if name: '{name_input}' is exist in {tab_sub_name} configurations")
-        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 9):
+        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 6):
             self.page.locator(add_button_selector).click()
             print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
             self.o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)

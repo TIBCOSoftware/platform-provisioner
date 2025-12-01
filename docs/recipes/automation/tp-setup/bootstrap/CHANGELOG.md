@@ -1,3 +1,8 @@
+## [11/18/2025 13:06]
+### Fixed
+- Windows Docker + Git Bash need double slash for mounting local folder into pod.
+- Browser launch failure due to --single-process issue in windows VDI environment.
+
 ## [10/14/2025 14:58]
 ### Fixed
 - Fix bug: ems and tibcohub do not deployed by default

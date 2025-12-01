@@ -6,7 +6,7 @@ description: |
   
   CP helm chart repo: 
   * public: https://tibcosoftware.github.io/tp-helm-charts (no need for GitHub token)
-  * private: https://<token>@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages/
+  * private: https://csgprdusw2reposaas.jfrog.io/artifactory/api/helm/tibco-platform-helm-dev-github
 options:
 - name: "GitHub token"
   type: string
@@ -20,7 +20,7 @@ options:
   required: true
   description: |
     The helm chart repository to deploy CP. The default value is public repo. 
-    To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_CP_CHART_REPO_TOKEN` OR use https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
+    To use private repo set: https://csgprdusw2reposaas.jfrog.io/artifactory/api/helm/tibco-platform-helm-dev-github and set `GUI_CP_CHART_REPO_TOKEN`
 - name: "CP Chart repo user name"
   type: string
   guiType: input
@@ -42,28 +42,97 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_CP_NAMESPACE"
   required: true
-- name: "CP platform bootstrap chart version"
+- name: "Upgrade tibco-cp-base"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_TIBCO_CP_BASE"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION"]
+  description: ""
+- name: "tibco-cp-base version"
   type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_PLATFORM_BOOTSTRAP_VERSION"
-  description: "The version of CP platform bootstrap. Use ^1.0.0 for latest"
-- name: "CP platform base chart version"
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION"
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-base"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION"
   description: "The version of CP platform base. Use ^1.0.0 for latest"
-- name: "Upgrade platform bootstrap"
+- name: "Upgrade tibco-cp-bw"
   groupIndex: 10
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BOOTSTRAP"
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_INTEGRATION_BW"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_BW_VERSION"]
   description: ""
-- name: "Upgrade platform base"
+- name: "tibco-cp-bw version"
+  type: string
+  guiType: input
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-bw"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_BW_VERSION"
+  description: "The version of CP platform integration bw. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-flogo"
   groupIndex: 10
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BASE"
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_INTEGRATION_FLOGO"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION"]
   description: ""
+- name: "tibco-cp-flogo version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-flogo"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION"
+  description: "The version of CP platform integration flogo. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-devhub"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_TIBCOHUB"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_TIBCOHUB_VERSION"]
+  description: ""
+- name: "tibco-cp-devhub version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-devhub"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_TIBCOHUB_VERSION"
+  description: "The version of CP platform tibcohub. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-messaging"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_MESSAGING"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_MESSAGING_VERSION"]
+  description: ""
+- name: "tibco-cp-messaging version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-messaging"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_MESSAGING_VERSION"
+  description: "The version of CP platform messaging. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-hawk"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_HAWK"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_HAWK_VERSION"]
+  description: ""
+- name: "tibco-cp-hawk version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-hawk"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_HAWK_VERSION"
+  description: "The version of CP platform hawk. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-addon-eventprocessing"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_EVENTPROCESSING"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION"]
+  description: ""
+- name: "tibco-cp-addon-eventprocessing version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-addon-eventprocessing"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION"
+  description: "The version of CP platform addon eventprocessing. Use ^1.0.0 for latest"
 recipe: |
   apiVersion: v1
   kind: helm-install
@@ -74,12 +143,23 @@ recipe: |
       GUI_CP_CHART_REPO_TOKEN: ""
       GUI_CP_INSTANCE_ID: "cp1"
       GUI_CP_NAMESPACE: "cp1-ns"
-      GUI_CP_PLATFORM_BOOTSTRAP_VERSION: ^1.0.0
-      GUI_CP_PLATFORM_BASE_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_TIBCOHUB_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_MESSAGING_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_HAWK_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_INTEGRATION_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: ^1.0.0
       GUI_GITHUB_TOKEN: ""
       GUI_CP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
-      GUI_CP_INSTALL_PLATFORM_BOOTSTRAP: true
-      GUI_CP_INSTALL_PLATFORM_BASE: true
+      GUI_CP_UPGRADE_PLATFORM_TIBCO_CP_BASE: false
+      GUI_CP_UPGRADE_PLATFORM_MESSAGING: false
+      GUI_CP_UPGRADE_PLATFORM_HAWK: false
+      GUI_CP_UPGRADE_PLATFORM_TIBCOHUB: false
+      GUI_CP_UPGRADE_PLATFORM_INTEGRATION_BW: false
+      GUI_CP_UPGRADE_PLATFORM_INTEGRATION_FLOGO: false
+      GUI_CP_UPGRADE_PLATFORM_EVENTPROCESSING: false
     globalEnvVariable:
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: false
@@ -90,37 +170,28 @@ recipe: |
       CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"on-prem"}
       CP_NAMESPACE: "${GUI_CP_NAMESPACE}"
       # CP version
-      CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-^1.0.0} # ^1.0.0 for latest
-      CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_INTEGRATION_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-^1.0.0} # ^1.0.0 for latest
       # flow control
-      CP_INSTALL_PLATFORM_BOOTSTRAP: ${GUI_CP_INSTALL_PLATFORM_BOOTSTRAP:-true}
-      CP_INSTALL_PLATFORM_BASE: ${GUI_CP_INSTALL_PLATFORM_BASE:-true}
+      CP_UPGRADE_PLATFORM_TIBCO_CP_BASE: ${GUI_CP_UPGRADE_PLATFORM_TIBCO_CP_BASE:-false}
+      CP_UPGRADE_PLATFORM_INTEGRATION_BW: ${GUI_CP_UPGRADE_PLATFORM_INTEGRATION_BW:-false}
+      CP_UPGRADE_PLATFORM_INTEGRATION_FLOGO: ${GUI_CP_UPGRADE_PLATFORM_INTEGRATION_FLOGO:-false}
+      CP_UPGRADE_PLATFORM_TIBCOHUB: ${GUI_CP_UPGRADE_PLATFORM_TIBCOHUB:-false}
+      CP_UPGRADE_PLATFORM_MESSAGING: ${GUI_CP_UPGRADE_PLATFORM_MESSAGING:-false}
+      CP_UPGRADE_PLATFORM_HAWK: ${GUI_CP_UPGRADE_PLATFORM_HAWK:-false}
+      CP_UPGRADE_PLATFORM_EVENTPROCESSING: ${GUI_CP_UPGRADE_PLATFORM_EVENTPROCESSING:-false}
     tools:
       yq: "4.40"
   helmCharts:
-  - name: platform-bootstrap
-    version: ${CP_PLATFORM_BOOTSTRAP_VERSION}
-    condition: ${CP_INSTALL_PLATFORM_BOOTSTRAP}
-    repo:
-      helm:
-        url: ${CP_CHART_REPO}
-        username: "${CP_CHART_REPO_USER_NAME}"
-        password: "${CP_CHART_REPO_TOKEN}"
-    values:
-      keepPrevious: true
-      content: |
-        dummy: "dummy"
-    cluster:
-      names:
-        - ${CP_CLUSTER_NAME}
-    releaseName: platform-bootstrap
-    namespace: ${CP_NAMESPACE}
-    flags:
-      wait: true
-      timeout: 1h
-  - name: platform-base
-    version: ${CP_PLATFORM_BASE_VERSION}
-    condition: ${CP_INSTALL_PLATFORM_BASE}
+  - name: tibco-cp-base
+    version: ${CP_PLATFORM_TIBCO_CP_BASE_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_TIBCO_CP_BASE}
     repo:
       helm:
         url: ${CP_CHART_REPO}
@@ -134,6 +205,126 @@ recipe: |
       names:
         - ${CP_CLUSTER_NAME}
     releaseName: platform-base
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-bw
+    version: ${CP_PLATFORM_INTEGRATION_BW_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_INTEGRATION_BW}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-bw
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-flogo
+    version: ${CP_PLATFORM_INTEGRATION_FLOGO_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_INTEGRATION_FLOGO}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-flogo
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-devhub
+    version: ${CP_PLATFORM_TIBCOHUB_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_TIBCOHUB}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-devhub
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-messaging
+    version: ${CP_PLATFORM_MESSAGING_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_MESSAGING}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-messaging
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-hawk
+    version: ${CP_PLATFORM_HAWK_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_HAWK}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-hawk
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-addon-eventprocessing
+    version: ${CP_PLATFORM_EVENTPROCESSING_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_EVENTPROCESSING}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-addon-eventprocessing
     namespace: ${CP_NAMESPACE}
     flags:
       wait: true

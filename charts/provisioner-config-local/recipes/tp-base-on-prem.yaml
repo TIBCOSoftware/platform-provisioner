@@ -34,10 +34,10 @@ meta:
     GUI_TP_STORAGE_NFS_SERVER_ADDRESS: ""
     GUI_TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS: nfs-client
 
-    # github
-    GUI_GITHUB_TOKEN: ""
+    # chart repo
     GUI_TP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
     GUI_TP_CHART_REPO_USER_NAME: "cp-test"
+    GUI_TP_CHART_REPO_TOKEN: ""
 
     # container registry
     GUI_TP_CONTAINER_REGISTRY_URL: "csgprduswrepoedge.jfrog.io"
@@ -75,11 +75,10 @@ meta:
     PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
     PIPELINE_CHECK_DOCKER_STATUS: false
 
-    # github
-    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
+    # chart repo
     TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
     TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME:-"cp-test"}
-    TP_CHART_REPO_TOKEN: ${GUI_GITHUB_TOKEN}
+    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
 
     # container registry
     TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL:-"csgprduswrepoedge.jfrog.io"}

@@ -36,8 +36,8 @@ class Util:
     def browser_launch(is_headless=ENV.IS_HEADLESS):
         if Util._browser is None:
             dns_ip = Util.get_dns_ip()
+            # PCP-15474: Fix browser launch failure due to --single-process issue in windows VDI environment
             args = [
-                '--single-process'
             ]
             if dns_ip:
                 args.append(f"--host-resolver-rules=MAP *.{ENV.TP_AUTO_CP_DNS_DOMAIN} {dns_ip}")

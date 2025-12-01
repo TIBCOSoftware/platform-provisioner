@@ -172,7 +172,9 @@ function main() {
     if [[ "${_IS_LOCAL_AUTOMATION}" = "true" ]]; then
       PIPELINE_SCRIPT="$(realpath "../../../../dev/platform-provisioner.sh")"
       echo "Using local automation script: ${PIPELINE_SCRIPT}"
-      export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="-v $(realpath '../tp-setup/bootstrap/'):/tmp/auto"
+      # PCP-15474: Windows Docker + Git Bash need double slash for mounting local folder into pod
+      # double / also works for linux and Mac
+      export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="-v /$(realpath '../tp-setup/bootstrap/'):/tmp/auto"
     fi
   fi
 

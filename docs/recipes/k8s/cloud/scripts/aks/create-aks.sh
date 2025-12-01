@@ -17,6 +17,7 @@
 #   TP_AUTHORIZED_IP: authorized ip address access to api server (add your public ip)
 #   TP_NETWORK_POLICY: "" # possible values "" (to disable network policy), "azure", "calico"
 #   TP_VNET_NAME: virtual network name
+#   TP_ADDON_ENABLE_APPLICATION_GW: enable application gateway integration
 #   TP_APPLICATION_GW_SUBNET_NAME: application gateway subnet name
 #   TP_PUBLIC_IP_NAME: public ip name
 #   TP_AKS_SUBNET_NAME: aks subnet name
@@ -43,6 +44,7 @@ export TP_NETWORK_POLICY=${TP_NETWORK_POLICY:-"azure"}
 export TP_VNET_NAME=${TP_VNET_NAME:-"${TP_CLUSTER_NAME}-vnet"}
 export TP_SERVICE_CIDR=${TP_SERVICE_CIDR:-"10.0.0.0/16"}
 export TP_SERVICE_DNS_IP=${TP_SERVICE_DNS_IP:-"10.0.0.10"}
+export TP_ADDON_ENABLE_APPLICATION_GW=${TP_ADDON_ENABLE_APPLICATION_GW:-"false"}
 export TP_APPLICATION_GW_SUBNET_NAME=${TP_APPLICATION_GW_SUBNET_NAME:-"${TP_CLUSTER_NAME}-application-gw-subnet"}
 export TP_PUBLIC_IP_NAME=${TP_PUBLIC_IP_NAME:-"${TP_CLUSTER_NAME}-public-ip"}
 export TP_AKS_SUBNET_NAME=${TP_AKS_SUBNET_NAME:-"${TP_CLUSTER_NAME}-aks-subnet"}
@@ -82,21 +84,21 @@ _user_assigned_id="/subscriptions/${TP_SUBSCRIPTION_ID}/resourcegroups/${TP_RESO
 # set aks vnet details
 _aks_vnet_subnet_id="/subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${TP_VNET_NAME}/subnets/${TP_AKS_SUBNET_NAME}"
 
-# set application gateway subnet details
-_application_gw_subnet_id="/subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${TP_VNET_NAME}/subnets/${TP_APPLICATION_GW_SUBNET_NAME}"
-
 # set api server subnet details
 _apiserver_subnet_id="/subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${TP_VNET_NAME}/subnets/${TP_APISERVER_SUBNET_NAME}"
+
+_application_gw_parameter=""
+# set application gateway subnet details and other details related to application gateway
+if [ "${TP_ADDON_ENABLE_APPLICATION_GW}" == "true" ]; then
+  _application_gw_subnet_id="/subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${TP_VNET_NAME}/subnets/${TP_APPLICATION_GW_SUBNET_NAME}"
+  _application_gw_parameter="--enable-addons ingress-appgw --appgw-name ${TP_CLUSTER_NAME}-app-gw --appgw-subnet-id ${_application_gw_subnet_id}"
+fi
 
 # create aks cluster
 echo "start to create AKS: ${TP_RESOURCE_GROUP}/${TP_CLUSTER_NAME}"
 az aks create -g "${TP_RESOURCE_GROUP}" -n "${TP_CLUSTER_NAME}" \
-  --node-vm-size "${TP_CLUSTER_INSTANCE_TYPE}" \
-  --node-count 1 \
-  --enable-cluster-autoscaler \
-  --min-count 1 \
-  --max-count 10 \
-  --enable-addons ingress-appgw \
+  --node-vm-size "${TP_CLUSTER_INSTANCE_TYPE}" --node-count 1 --min-count 1 --max-count 10 \
+  --enable-cluster-autoscaler ${_application_gw_parameter} \
   --enable-msi-auth-for-monitoring false \
   --generate-ssh-keys \
   --api-server-authorized-ip-ranges "${AUTHORIZED_IP}" \
@@ -105,11 +107,9 @@ az aks create -g "${TP_RESOURCE_GROUP}" -n "${TP_CLUSTER_NAME}" \
   --network-plugin azure${_network_policy_parameter} \
   --kubernetes-version "${TP_CLUSTER_VERSION}" \
   --outbound-type userAssignedNATGateway \
-  --appgw-name gateway \
   --vnet-subnet-id "${_aks_vnet_subnet_id}" \
   --service-cidr "${TP_SERVICE_CIDR}" \
   --dns-service-ip "${TP_SERVICE_DNS_IP}" \
-  --appgw-subnet-id "${_application_gw_subnet_id}" \
   --enable-apiserver-vnet-integration \
   --apiserver-subnet-id "${_apiserver_subnet_id}" \
   --assign-identity "${_user_assigned_id}" \

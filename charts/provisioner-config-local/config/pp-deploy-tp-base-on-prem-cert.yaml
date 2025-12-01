@@ -73,8 +73,8 @@ options:
   groupIndex: 1
   type: password
   guiType: input
-  reference: "meta.guiEnv.GUI_GITHUB_TOKEN"
-  description: "TIBCO TP internal GitHub token (optional)"
+  reference: "meta.guiEnv.GUI_TP_CHART_REPO_TOKEN"
+  description: "The TIBCO Platform chart repository token/password. (optional)"
 
 # groupIndex: 2 Container Registry
 - name: "Container Registry"
