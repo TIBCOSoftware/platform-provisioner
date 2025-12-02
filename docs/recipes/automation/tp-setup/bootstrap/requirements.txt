@@ -258,7 +258,7 @@ waitress==3.0.2
     # via tp-automation (pyproject.toml)
 websockets==15.0.1
     # via tp-automation (pyproject.toml)
-werkzeug==3.1.1
+werkzeug==3.1.4
     # via
     #   flask
     #   flask-cors
