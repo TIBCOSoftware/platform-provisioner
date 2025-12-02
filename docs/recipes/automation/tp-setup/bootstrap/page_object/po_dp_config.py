@@ -444,6 +444,12 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         if use_global:
             self.page.locator(".dp-activation").wait_for(state="visible")
             print(f"Checking if dataplane {dp_name} is able to use global activation url...")
+
+            # for 1.13+ version, need select 'TIBCO Activation Service' option
+            if self.page.locator("label", has_text="TIBCO Activation Service").is_visible():
+                self.page.locator("label", has_text="TIBCO Activation Service").click()
+                print("Selected 'TIBCO Activation Service' option")
+
             if self.page.locator(".activation-server-url").is_visible():
                 current_activation_url = self.page.locator(".activation-server-url").inner_text()
                 ColorLogger.success(f"ENV.TP_ACTIVATION_URL is empty, but Activation URL '{current_activation_url}' is already exist for Data Plane '{dp_name}'.")
@@ -463,6 +469,11 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator("#confirm-button", has_text="Link").click()
             print("Clicked 'Link' button in 'Use Global Activation URL' modal dialog")
         else:
+            # for 1.13+ version, need select 'TIBCO Activation Service' option
+            if self.page.locator("label", has_text="TIBCO Activation Service").is_visible():
+                self.page.locator("label", has_text="TIBCO Activation Service").click()
+                print("Selected 'TIBCO Activation Service' option")
+
             print("Waiting for 'Add Global Activation URL' button is visible...")
             self.page.locator("#add-global-activation-server").wait_for(state="visible")
             self.page.locator("#add-global-activation-server").click()

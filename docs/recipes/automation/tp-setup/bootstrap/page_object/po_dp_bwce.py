@@ -93,6 +93,8 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             self.page.locator('button', has_text="Provision a capability").click()
             print("Clicked 'Provision a capability' button")
             self.page.wait_for_timeout(2000)
+            print(f"Waiting for capability list is loaded")
+            self.page.locator(".capability-select-container").wait_for(state="visible")
             selected_card_title = self.page.locator('capability-select-card', has=self.page.locator(f'#{self.capability_upper}-capability-select-button')).locator('.capability-title').inner_text().strip()
             selected_card_title = " ".join(selected_card_title.split())
             Util.click_button_until_enabled(self.page, self.page.locator(f'#{self.capability_upper}-capability-select-button'))

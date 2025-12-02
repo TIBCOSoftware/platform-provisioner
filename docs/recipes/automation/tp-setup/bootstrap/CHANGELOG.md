@@ -1,3 +1,8 @@
+## [12/02/2025 09:28]
+### Fixed
+- The automation support for 1.13 release 
+  - Fix issue after activation URL UI changed
+
 ## [11/18/2025 13:06]
 ### Fixed
 - Windows Docker + Git Bash need double slash for mounting local folder into pod.

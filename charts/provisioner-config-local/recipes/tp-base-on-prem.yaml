@@ -65,6 +65,10 @@ meta:
     GUI_TP_DB_NAME: postgres
     GUI_TP_DB_TLS_ENABLED: false
 
+    # CP automation
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.9-auto-on-prem-jammy
+
     # flow control
     GUI_TP_INSTALL_PROVISIONER_UI: false
     GUI_TP_INSTALL_CERT_MANAGER: true
@@ -133,6 +137,10 @@ meta:
     TP_DB_PASSWORD: ${GUI_TP_DB_PASSWORD:-"postgres"}
     TP_DB_NAME: ${GUI_TP_DB_NAME:-"postgres"}
     TP_DB_TLS_ENABLED: ${GUI_TP_DB_TLS_ENABLED:-"false"}
+
+    # CP automation
+    TP_AUTOMATION_DOCKER_IMAGE_REPO: ${GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO:-""}
+    TP_AUTOMATION_DOCKER_IMAGE_TAG: ${GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG:-""}
 
     # flow control
     TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
@@ -405,8 +413,8 @@ helmCharts:
       deployment:
         enabled: true
         image:
-          repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.6.7-auto-on-prem-jammy
+          repository: ${TP_AUTOMATION_DOCKER_IMAGE_REPO}
+          tag: ${TP_AUTOMATION_DOCKER_IMAGE_TAG}
         ports:
           http:
             enabled: true

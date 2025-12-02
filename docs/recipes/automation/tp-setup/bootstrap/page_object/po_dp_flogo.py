@@ -34,6 +34,8 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             self.page.locator('button', has_text="Provision a capability").click()
             print("Clicked 'Provision a capability' button")
             self.page.wait_for_timeout(2000)
+            print(f"Waiting for capability list is loaded")
+            self.page.locator(".capability-select-container").wait_for(state="visible")
             Util.click_button_until_enabled(self.page, self.page.locator('#FLOGO-capability-select-button'))
             print("Clicked 'Provision TIBCO Flogo® Enterprise' -> 'Start' button")
 

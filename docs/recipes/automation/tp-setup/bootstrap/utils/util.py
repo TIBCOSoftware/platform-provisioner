@@ -229,8 +229,13 @@ class Util:
         str_num = 90
         print("=" * str_num)
         print(f"{'Control Plane information': ^{str_num}}")
-        print("platform-bootstrap: ", Helper.get_cp_platform_bootstrap_version())
-        print("platform-base: ", Helper.get_cp_platform_base_version())
+        cp_platform_bootstrap_version = Helper.get_cp_platform_bootstrap_version()
+        if cp_platform_bootstrap_version:
+            print("platform-bootstrap: ", cp_platform_bootstrap_version)
+
+        cp_platform_base_version = Helper.get_cp_platform_base_version()
+        if cp_platform_base_version:
+            print("platform-base: ", cp_platform_bootstrap_version)
 
         if ENV.TP_AUTO_KUBECONFIG:
             print("KUBECONFIG: ", ENV.TP_AUTO_KUBECONFIG)
