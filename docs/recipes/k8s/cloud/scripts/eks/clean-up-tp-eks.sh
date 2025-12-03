@@ -30,7 +30,7 @@ function remove-ingress() {
 
 function remove-charts() {
   echo "deleting all installed charts with no layer labels"
-  readarray arr < <(helm ls -a -A -o yaml | yq -o=j -I=0 '.[]')
+  readarray arr < <(helm ls -a -A -l '!layer' -o yaml | yq -o=j -I=0 '.[]')
   for a in "${arr[@]}"; do
       # identity mapping is a single json snippet representing a single entry
       release=$(echo "$a" | yq '.name')

@@ -31,6 +31,8 @@ class PageObjectDataPlaneTibcoHub(PageObjectDataPlane):
             self.page.locator('button', has_text="Provision a capability").click()
             print("Clicked 'Provision a capability' button")
             self.page.wait_for_timeout(2000)
+            print(f"Waiting for capability list is loaded")
+            self.page.locator(".capability-select-container").wait_for(state="visible")
             if not Util.check_dom_visibility(self.page, self.page.locator('#TIBCOHUB-capability-select-button'), 5, 5):
                 Util.warning_screenshot("TIBCOHUB capability 'Start' button is not visible.", self.page, "tibcohub_provision_capability-1.png")
                 return

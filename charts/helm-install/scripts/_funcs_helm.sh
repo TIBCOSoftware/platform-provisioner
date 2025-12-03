@@ -28,19 +28,28 @@ function pull_helm_chart() {
   local _password=""
   _password="$(echo "${_chart_repo_helm_section}" | common::yq4-get '.password')"
   common::debug "downloading chart ${_name} form ${_url} with version ${_version}"
-
-  _cmd="${HELM_COMMAND_LINE} pull --repo ${_url} ${_name} --version ${_version}"
+  _cmd=""
   if [[ "${_url}" =~ ^oci:// ]]; then
-    # helm pull oci://troposphere/tsc-top-level-chart --version 0.1.0
-    # special case for oci repo: see: https://github.com/helm/helm/blob/0199b748aaea3091852d16687c9f9f809061777c/pkg/cmd/install.go#L116
-    _cmd="${HELM_COMMAND_LINE} pull ${_url} --version ${_version}"
-  fi
-  if [[ -n "${_username}" ]]; then
-    _cmd="${_cmd} --username ${_username}"
-  fi
-
-  if [[ -n "${_password}" ]]; then
-    _cmd="${_cmd} --password ${_password}"
+    export HELM_EXPERIMENTAL_OCI=1
+    if [[ -n "${_username}" && -n "${_password}" ]]; then
+      # helm v4 is going to break this: https://github.com/helm/helm/issues/31499
+      common::info "OCI registry username and password are provided, performing helm registry login"
+      echo "${_password}" | ${HELM_COMMAND_LINE} registry login ${_url} --username ${_username} --password-stdin
+      _res=$?
+      if [ ${_res} -ne 0 ]; then
+        common::err "OCI registry login error"
+        return ${_res}
+      fi
+    fi
+    _cmd="${HELM_COMMAND_LINE} pull ${_url}/${_name} --version ${_version}"
+  else
+    _cmd="${HELM_COMMAND_LINE} pull --repo ${_url} ${_name} --version ${_version}"
+    if [[ -n "${_username}" ]]; then
+      _cmd="${_cmd} --username ${_username}"
+    fi
+    if [[ -n "${_password}" ]]; then
+      _cmd="${_cmd} --password ${_password}"
+    fi
   fi
 
   if ! eval "${_cmd}"; then

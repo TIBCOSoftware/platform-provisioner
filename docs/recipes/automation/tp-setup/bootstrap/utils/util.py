@@ -36,8 +36,8 @@ class Util:
     def browser_launch(is_headless=ENV.IS_HEADLESS):
         if Util._browser is None:
             dns_ip = Util.get_dns_ip()
+            # PCP-15474: Fix browser launch failure due to --single-process issue in windows VDI environment
             args = [
-                '--single-process'
             ]
             if dns_ip:
                 args.append(f"--host-resolver-rules=MAP *.{ENV.TP_AUTO_CP_DNS_DOMAIN} {dns_ip}")
@@ -229,8 +229,13 @@ class Util:
         str_num = 90
         print("=" * str_num)
         print(f"{'Control Plane information': ^{str_num}}")
-        print("platform-bootstrap: ", Helper.get_cp_platform_bootstrap_version())
-        print("platform-base: ", Helper.get_cp_platform_base_version())
+        cp_platform_bootstrap_version = Helper.get_cp_platform_bootstrap_version()
+        if cp_platform_bootstrap_version:
+            print("platform-bootstrap: ", cp_platform_bootstrap_version)
+
+        cp_platform_base_version = Helper.get_cp_platform_base_version()
+        if cp_platform_base_version:
+            print("platform-base: ", cp_platform_bootstrap_version)
 
         if ENV.TP_AUTO_KUBECONFIG:
             print("KUBECONFIG: ", ENV.TP_AUTO_KUBECONFIG)

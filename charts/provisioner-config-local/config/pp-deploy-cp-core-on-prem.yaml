@@ -64,17 +64,15 @@ groups:
       * MailDev address: [https://mail.localhost.dataplanes.pro](https://mail.localhost.dataplanes.pro)
         You can then follow the admin E-mail to create the admin user.
     ---
-- title: "CP AI MCP Servers"
+- title: "TP AI"
   index: 10
   description: |
-    ## CP AI MCP Servers specific configurations.
-    * There are total 5 MCP servers in CP.
-      * CP MCP Server
-      * K8S MCP Server
-      * O11Y MCP Server
-      * FLOGO MCP Server
-      * BWCE MCP Server
-    * By default all MCP servers are disabled.
+    # TP AI specific configurations.
+    ## MCP Config
+    * CP MCP Server
+    * O11Y MCP Server
+    * FLOGO MCP Server
+    * BWCE MCP Server
     ---
 - title: "Flow control"
   index: 11
@@ -91,7 +89,7 @@ options:
   reference: "meta.guiEnv.GUI_CP_CHART_REPO"
   description: |
     The helm chart repository to deploy CP. The default value is public repo. 
-    To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_CP_CHART_REPO_TOKEN` OR use https://${GITHUB_TOKEN}@raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages
+    To use private repo set: https://csgprdusw2reposaas.jfrog.io/artifactory/api/helm/tibco-platform-helm-dev-github and set `GUI_CP_CHART_REPO_TOKEN`
 - name: "CP Chart repo user name"
   groupIndex: 1
   type: string
@@ -165,18 +163,55 @@ options:
     The container registry password to deploy CP
 
 # groupIndex: 5 CP Configuration
-- name: "CP platform bootstrap version"
+- name: "tibco-cp-base version"
   groupIndex: 5
   type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_PLATFORM_BOOTSTRAP_VERSION"
-  description: "The version of CP platform bootstrap. Use ^1.0.0 for latest"
-- name: "CP platform base version"
-  groupIndex: 5
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION"
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-base"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION"
   description: "The version of CP platform base. Use ^1.0.0 for latest"
+- name: "tibco-cp-bw version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-bw"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_BW_VERSION"
+  description: "The version of CP platform integration bw. Use ^1.0.0 for latest"
+- name: "tibco-cp-flogo version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-flogo"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION"
+  description: "The version of CP platform integration flogo. Use ^1.0.0 for latest"
+- name: "tibco-cp-devhub version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-devhub"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_TIBCOHUB_VERSION"
+  description: "The version of CP platform tibcohub. Use ^1.0.0 for latest"
+- name: "tibco-cp-messaging version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-messaging"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_MESSAGING_VERSION"
+  description: "The version of CP platform messaging. Use ^1.0.0 for latest"
+- name: "tibco-cp-hawk version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-hawk"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_HAWK_VERSION"
+  description: "The version of CP platform hawk. Use ^1.0.0 for latest"
+- name: "tibco-cp-addon-eventprocessing version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-addon-eventprocessing"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION"
+  description: "The version of CP platform addon eventprocessing. Use ^1.0.0 for latest"
 - name: "CP instance ID"
   groupIndex: 5
   type: string
@@ -379,15 +414,13 @@ options:
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_DB_USER_NAME"
-  required: true
   description: |
     The DB user name. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master user name.
 - name: "CP DB password"
   groupIndex: 8
-  type: string
+  type: password
   guiType: input
   reference: "meta.guiEnv.GUI_CP_DB_PASSWORD"
-  required: true
   description: |
     The DB password. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master password.
 - name: "CP DB name"
@@ -401,9 +434,19 @@ options:
   groupIndex: 8
   type: string
   guiType: input
+  required: true
   reference: "meta.guiEnv.GUI_CP_DB_SECRET_NAME"
   description: |
     The secret name for DB credentials. The default value is provider-cp-database-credentials
+- name: "CP Manage DB Schema"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_MANAGE_DB_SCHEMA"
+  description: |
+    Set to true to allow the CP installation create/manage DB schema. 
+    Default is true. If set to false then the DB schema population will be handled out of the box.
+    Please refer to the github repo script for more information: <a href='https://github.com/tibco/tp-helm-charts/blob/main/scripts/database/postgres-helper.bash' target='_blank'>link</a>
 - name: "CP DB ssl mode"
   groupIndex: 8
   type: string
@@ -506,41 +549,34 @@ options:
     The Graph skip sent folder. The default value is false.
 
 # group: 10 CP AI MCP Servers
-- name: "CP AI MCP Server"
+- name: "Enable CP MCP Server"
   groupIndex: 10
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_CP_MCP_SERVER"
+  reference: "meta.guiEnv.GUI_TP_AI_ENABLE_CP_MCP_SERVER"
   description: |
-    The CP AI MCP Server. Default value is false. Select this checkbox to enable the CP AI MCP server.
-- name: "CP AI MCP k8s"
+    Enable/Disable CP MCP server.
+- name: "Enable CP MCP o11y"
   groupIndex: 10
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_K8S_MCP_SERVER"
+  reference: "meta.guiEnv.GUI_TP_AI_ENABLE_O11Y_MCP_SERVER"
   description: |
-    The CP AI MCP k8s. Default value is false. Select this checkbox to enable the CP AI k8s MCP server.
-- name: "CP AI MCP o11y"
+    Enable/Disable CP o11y MCP server.
+- name: "Enable CP MCP BW"
   groupIndex: 10
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_O11Y_MCP_SERVER"
+  reference: "meta.guiEnv.GUI_TP_AI_ENABLE_BW_MCP_SERVER"
   description: |
-    The CP AI MCP o11y. Default value is false. Select this checkbox to enable the CP AI o11y MCP server.
-- name: "CP AI MCP BW"
+    Enable/Disable CP BW MCP server.
+- name: "Enable CP MCP FLOGO"
   groupIndex: 10
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_BW_MCP_SERVER"
+  reference: "meta.guiEnv.GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER"
   description: |
-    The CP AI MCP BW. Default value is false. Select this checkbox to enable the CP AI BW MCP server.
-- name: "CP AI MCP FLOGO"
-  groupIndex: 10
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_TP_AI_DEPLOY_FLOGO_MCP_SERVER"
-  description: |
-    The CP AI MCP FLOGO. Default value is false. Select this checkbox to enable the CP AI FLOGO MCP server.
+    Enable/Disable CP FLOGO MCP server.
 
 # groupIndex: 11 Flow control
 - name: "Validate Cluster Resource"
@@ -569,76 +605,48 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_MAILDEV_INGRESS"
   description: "Install maildev ingress for testing email"
-- name: "Install platform-bootstrap"
+- name: "Install tibco-cp-base"
   groupIndex: 11
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BOOTSTRAP"
-  description: "Install platform-bootstrap"
-- name: "Install platform-base"
+  reference: "meta.guiEnv.GUI_CP_INSTALL_TIBCO_CP_BASE"
+  description: "Install tibco-cp-base"
+- name: "Install tibco-cp-bw"
   groupIndex: 11
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_BASE"
-  description: "Install platform-base"
-- name: "Install recipes"
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW"
+  description: "Install platform integration bw"
+- name: "Install tibco-cp-flogo"
   groupIndex: 11
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_RECIPES"
-  description: ""
-- name: "Install integration"
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_INTEGRATION_FLOGO"
+  description: "Install platform integration flogo"
+- name: "Install tibco-cp-devhub"
   groupIndex: 11
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION"
-  description: ""
-- name: "Install integration BW"
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_TIBCOHUB"
+  description: "Install platform tibcohub"
+- name: "Install tibco-cp-messaging"
   groupIndex: 11
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW"
-  description: "New values for 1.8.0 and later"
-- name: "Install integration BWCE utilities"
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_MESSAGING"
+  description: "Install platform messaging"
+- name: "Install tibco-cp-hawk"
   groupIndex: 11
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES"
-- name: "Install integration BW5CE utilities"
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_HAWK"
+  description: "Install platform hawk"
+- name: "Install tibco-cp-addon-eventprocessing"
   groupIndex: 11
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES"
-- name: "Install integration Flogo"
-  groupIndex: 11
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_FLOGO"
-  description: ""
-- name: "Install integration Flogo utilities"
-  groupIndex: 11
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES"
-  description: ""
-- name: "Install tibcohub-contrib"
-  groupIndex: 11
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_TIBCOHUB_CONTRIB"
-  description: ""
-- name: "Install msg-contrib"
-  groupIndex: 11
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_MSG_CONTRIB"
-  description: ""
-- name: "Install hawk"
-  groupIndex: 11
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_INSTALL_HAWK"
-  description: ""
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING"
+  description: "Install platform addon eventprocessing"
 - name: "Enable debug log"
   groupIndex: 11
   type: boolean

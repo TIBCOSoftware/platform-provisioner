@@ -15,6 +15,14 @@ aws:
     - 'us-east-2'
     - 'us-west-2'
     defaultValue: 'us-west-2'
+chartConfig:
+  chartUrls:
+  # Helm repo index.yaml file url format support for:
+  # GitHub url, or GitHub raw content url.
+  - url: "https://github.com/TIBCOSoftware/tp-helm-charts/blob/gh-pages/index.yaml"
+    description: "TIBCO Helm Charts"
+  - url: "https://github.com/tibco/tp-helm-charts/blob/gh-pages/index.yaml"
+    description: "TIBCO Internal Helm Charts"
 menuConfig:
 - label: "Deploy"
   icon: 'pi pi-fw pi-cloud-upload'
@@ -125,6 +133,6 @@ menuConfig:
 - label: "Docs"
   icon: 'pi pi-fw pi-book'
   items:
-  - label: "readme"
+  - label: "README"
     url: "/docs/connectDetailsPage"
     icon: 'pi pi-fw pi-link'

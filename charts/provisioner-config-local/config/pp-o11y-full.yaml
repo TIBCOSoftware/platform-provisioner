@@ -70,7 +70,7 @@ options:
   guiType: input
   reference: "meta.guiEnv.GUI_TP_CHART_REPO"
   description: |
-    The helm chart repository to deploy TP. The default value is public repo. To use private repo set: https://raw.githubusercontent.com/tibco/tp-helm-charts/gh-pages and set `GUI_TP_CHART_REPO_TOKEN`
+    The helm chart repository to deploy TP. The default value is public repo. To use private repo set: https://csgprdusw2reposaas.jfrog.io/artifactory/api/helm/tibco-platform-helm-dev-github and set `GUI_TP_CHART_REPO_TOKEN`
 - name: "TP Chart repo user name"
   groupIndex: 1
   type: string

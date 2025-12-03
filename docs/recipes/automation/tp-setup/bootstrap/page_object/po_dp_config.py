@@ -102,7 +102,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.goto_dataplane_config_sub_menu("Observability")
 
         print("Waiting for Observability config is loaded")
-        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 9):
+        if not Util.check_dom_visibility(self.page, self.page.locator(o11y_config_page_selector), 3, 6):
             Util.exit_error(f"Data Plane '{dp_title}' Observability config load failed.", self.page, "o11y_config_dataplane_resource.png")
     
         print("Checking if 'Add new resource' button is exist...")
@@ -241,7 +241,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         ColorLogger.info("O11y start to add or select item...")
         name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
         print(f"Check if name: '{name_input}' is exist in {tab_sub_name} configurations")
-        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 9):
+        if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 6):
             self.page.locator(add_button_selector).click()
             print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
             self.o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)
@@ -444,6 +444,12 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         if use_global:
             self.page.locator(".dp-activation").wait_for(state="visible")
             print(f"Checking if dataplane {dp_name} is able to use global activation url...")
+
+            # for 1.13+ version, need select 'TIBCO Activation Service' option
+            if self.page.locator("label", has_text="TIBCO Activation Service").is_visible():
+                self.page.locator("label", has_text="TIBCO Activation Service").click()
+                print("Selected 'TIBCO Activation Service' option")
+
             if self.page.locator(".activation-server-url").is_visible():
                 current_activation_url = self.page.locator(".activation-server-url").inner_text()
                 ColorLogger.success(f"ENV.TP_ACTIVATION_URL is empty, but Activation URL '{current_activation_url}' is already exist for Data Plane '{dp_name}'.")
@@ -463,6 +469,11 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator("#confirm-button", has_text="Link").click()
             print("Clicked 'Link' button in 'Use Global Activation URL' modal dialog")
         else:
+            # for 1.13+ version, need select 'TIBCO Activation Service' option
+            if self.page.locator("label", has_text="TIBCO Activation Service").is_visible():
+                self.page.locator("label", has_text="TIBCO Activation Service").click()
+                print("Selected 'TIBCO Activation Service' option")
+
             print("Waiting for 'Add Global Activation URL' button is visible...")
             self.page.locator("#add-global-activation-server").wait_for(state="visible")
             self.page.locator("#add-global-activation-server").click()

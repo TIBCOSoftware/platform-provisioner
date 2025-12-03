@@ -90,6 +90,7 @@ meta:
     CP_ENCRYPTION_SECRET_KEY: ${GUI_CP_ENCRYPTION_SECRET_KEY:-"CP_ENCRYPTION_SECRET"}
     CP_DB_SSL_ROOT_CERT_SECRET_NAME: ${GUI_CP_DB_SSL_ROOT_CERT_SECRET_NAME:-"db-ssl-root-cert"}
     CP_DB_SSL_ROOT_CERT_FILENAME: ${GUI_CP_DB_SSL_ROOT_CERT_FILENAME:-"db_ssl_root.cert"}
+    CP_MANAGE_DB_SCHEMA: ${GUI_CP_MANAGE_DB_SCHEMA:-"true"}
 
     # CP mail server
     CP_MAIL_MAILDEV_SERVICE_NAME: ${GUI_CP_MAIL_MAILDEV_SERVICE_NAME:-"development-mailserver"}
@@ -125,8 +126,19 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_BOOTSTRAP_VERSION: ${GUI_CP_PLATFORM_BOOTSTRAP_VERSION:-1.12.0} # use ^1.0.0 for latest
-    CP_PLATFORM_BASE_VERSION: ${GUI_CP_PLATFORM_BASE_VERSION:-1.12.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.13.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.13.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.13.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.13.0} # use ^1.0.0 for latest
+    CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.13.15} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.13.15} # use ^1.0.0 for latest
+    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.12.0} # use ^1.0.0 for latest
+    
+    # CP AI MCP servers
+    TP_AI_ENABLE_CP_MCP_SERVER: ${GUI_TP_AI_ENABLE_CP_MCP_SERVER:-false}
+    TP_AI_ENABLE_O11Y_MCP_SERVER: ${GUI_TP_AI_ENABLE_O11Y_MCP_SERVER:-false}
+    TP_AI_ENABLE_BW_MCP_SERVER: ${GUI_TP_AI_ENABLE_BW_MCP_SERVER:-false}
+    TP_AI_ENABLE_FLOGO_MCP_SERVER: ${GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER:-false}
 
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}
@@ -134,19 +146,15 @@ meta:
     CP_INSTALL_MAILDEV: ${GUI_CP_INSTALL_MAILDEV:-true}
     CP_INSTALL_MAILDEV_INGRESS: ${GUI_CP_INSTALL_MAILDEV_INGRESS:-true}
     CP_STORAGE_CREATE_PV: ${GUI_CP_STORAGE_CREATE_PV:-false} # create PV for control-plane-pv for Kind, MicroK8s and Azure use case
-    CP_INSTALL_PLATFORM_BOOTSTRAP: ${GUI_CP_INSTALL_PLATFORM_BOOTSTRAP:-true}
-    CP_INSTALL_PLATFORM_BASE: ${GUI_CP_INSTALL_PLATFORM_BASE:-true}
-    CP_INSTALL_TIBCOHUB_CONTRIB: ${GUI_CP_INSTALL_TIBCOHUB_CONTRIB:-true}
-    CP_INSTALL_MSG_CONTRIB: ${GUI_CP_INSTALL_MSG_CONTRIB:-true}
-    CP_INSTALL_MSG_RECIPES: ${GUI_CP_INSTALL_MSG_RECIPES:-true}
-    CP_INSTALL_HAWK: ${GUI_CP_INSTALL_HAWK:-true}
-    CP_INSTALL_RECIPES: ${GUI_CP_INSTALL_RECIPES:-true}
-    CP_INSTALL_INTEGRATION: ${GUI_CP_INSTALL_INTEGRATION:-true}
-    CP_INSTALL_INTEGRATION_BW: ${GUI_CP_INSTALL_INTEGRATION_BW:-true} # Env added after 1.8.0
-    CP_INSTALL_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES:-true}
-    CP_INSTALL_INTEGRATION_BW5CE_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES:-true}
-    CP_INSTALL_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_INTEGRATION_FLOGO:-true}
-    CP_INSTALL_INTEGRATION_FLOGO_UTILITIES: ${GUI_CP_INSTALL_INTEGRATION_FLOGO_UTILITIES:-true}
+    CP_INSTALL_TIBCO_CP_BASE: ${GUI_CP_INSTALL_TIBCO_CP_BASE:-true}
+    CP_INSTALL_PLATFORM_TIBCOHUB: ${GUI_CP_INSTALL_PLATFORM_TIBCOHUB:-true}
+    CP_INSTALL_PLATFORM_MESSAGING: ${GUI_CP_INSTALL_PLATFORM_MESSAGING:-true}
+    CP_INSTALL_PLATFORM_HAWK: ${GUI_CP_INSTALL_PLATFORM_HAWK:-true}
+    CP_INSTALL_PLATFORM_INTEGRATION_BW: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW:-true} # Env added after 1.8.0
+    CP_INSTALL_PLATFORM_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_FLOGO:-true}
+    CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES:-true}
+    CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES:-true}
+    CP_INSTALL_PLATFORM_EVENTPROCESSING: ${GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING:-true}
   tools:
     yq: "4.40" # this also have the logic to create soft link of yq-4.40 --> yq
 preTasks:
@@ -247,7 +255,7 @@ preTasks:
       metadata:
         name: ${TP_GENERATE_CERTIFICATE_NAME}
         namespace: ${CP_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT}
         tls.key: ${TP_TLS_KEY}
@@ -262,7 +270,7 @@ preTasks:
       metadata:
         name: ${TP_TLS_SECRET_NAME_ROUTER}
         namespace: ${CP_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT_ROUTER}
         tls.key: ${TP_TLS_KEY_ROUTER}
@@ -277,7 +285,7 @@ preTasks:
       metadata:
         name: ${TP_TLS_SECRET_NAME_HYBRID_PROXY}
         namespace: ${CP_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT_HYBRID_PROXY}
         tls.key: ${TP_TLS_KEY_HYBRID_PROXY}
@@ -302,7 +310,7 @@ preTasks:
       metadata:
         name: ${TP_GENERATE_CERTIFICATE_NAME}
         namespace: ${CP_EXT_NAMESPACE}
-      type: Opaque
+      type: kubernetes.io/tls
       data:
         tls.crt: ${TP_TLS_CERT}
         tls.key: ${TP_TLS_KEY}
@@ -435,9 +443,9 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
-- name: platform-bootstrap # router hybrid-proxy compute-service cp-evn certificates
-  version: ${CP_PLATFORM_BOOTSTRAP_VERSION}
-  condition: ${CP_INSTALL_PLATFORM_BOOTSTRAP}
+- name: tibco-cp-base
+  version: ${CP_PLATFORM_TIBCO_CP_BASE_VERSION}
+  condition: ${CP_INSTALL_TIBCO_CP_BASE}
   repo:
     helm:
       url: ${CP_CHART_REPO}
@@ -446,15 +454,86 @@ helmCharts:
   values:
     keepPrevious: false
     content: |
-      compute-services:
-        enabled: true
-        resources:
-          requests:
-            cpu: ${CP_RESOURCES_REQUEST_CPU}
-            memory: ${CP_RESOURCES_REQUEST_MEMORY}
-          limits:
-            cpu: 1250m
-            memory: 1000Mi
+      global:
+        tibco:
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
+          manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
+          db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
+          db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
+          helm:
+            url: "${DP_CHART_REPO_HOST}"
+            repo: "${DP_CHART_REPO_PATH}"
+            username: "${DP_CHART_REPO_USER_NAME}"
+            password: "${DP_CHART_REPO_TOKEN}"
+        cp:
+          deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+        external:
+          cpEncryptionSecretName: "${CP_ENCRYPTION_SECRET_NAME}"
+          cpEncryptionSecretKey: "${CP_ENCRYPTION_SECRET_KEY}"
+          clusterInfo:
+            nodeCIDR: ${TP_CLUSTER_NODE_CIDR}
+            podCIDR: ${TP_CLUSTER_POD_CIDR}
+            serviceCIDR: ${TP_CLUSTER_SERVICE_CIDR}
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+          dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
+          storage:
+            resources:
+              requests:
+                storage: ${CP_STORAGE_PV_SIZE}
+            storageClassName: ${CP_STORAGE_CLASS}
+          logserver:
+            endpoint: "${CP_LOG_ENDPOINT}" # optional logserver endpoint, if you have ELK stack or other logging solution
+            username: "${CP_LOG_USERNAME}" # optional logserver username
+            password: "${CP_LOG_PASSWORD}" # optional logserver password
+            index: "${CP_LOG_INDEX}" # optional logserver index
+          environment: ${CP_EXTERNAL_ENVIRONMENT}
+          db_host: ${CP_DB_HOST}
+          db_name: ${CP_DB_NAME}
+          db_password: ${CP_DB_PASSWORD}
+          db_port: "${CP_DB_PORT}"
+          db_secret_name: ${CP_DB_SECRET_NAME}
+          db_ssl_mode: ${CP_DB_SSL_MODE}
+          db_ssl_root_cert: "${CP_DB_SSL_ROOT_CERT}"
+          db_username: ${CP_DB_USER_NAME}
+          emailServerType: ${CP_MAIL_SERVER_TYPE}
+          emailServer:
+            ses:
+              arn: "${CP_MAIL_SERVER_SES_ARN}"
+            sendgrid:
+              apiKey: "${CP_MAIL_SERVER_SENDGRID_API_KEY}"
+            smtp:
+              server: ${CP_MAIL_SERVER_ADDRESS}
+              port: "${CP_MAIL_SERVER_PORT_NUMBER}"
+              username: "${CP_MAIL_SERVER_USERNAME}"
+              password: "${CP_MAIL_SERVER_PASSWORD}"
+            graph:
+              clientDetailsSecretName: ${CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME}
+              skipSentFolder: ${CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER}
+          fromAndReplyToEmailAddress: "${CP_FROM_REPLY_TO_EMAIL}"
+          admin:
+            email: ${CP_ADMIN_EMAIL}
+            firstname: "admin"
+            lastname: "admin"
+            customerID: "myCustomerID"
+          enableLogging: false
+          IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
       hybrid-proxy:
         enabled: true
         resources:
@@ -509,296 +588,18 @@ helmCharts:
             memory: 1000Mi
       otel-collector:
         enabled: ${CP_LOG_ENABLE}
-      global:
-        external:
-          clusterInfo:
-            nodeCIDR: ${TP_CLUSTER_NODE_CIDR}
-            podCIDR: ${TP_CLUSTER_POD_CIDR}
-            serviceCIDR: ${TP_CLUSTER_SERVICE_CIDR}
-          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
-          dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
-          storage:
-            resources:
-              requests:
-                storage: ${CP_STORAGE_PV_SIZE}
-            storageClassName: ${CP_STORAGE_CLASS}
-          logserver:
-            endpoint: "${CP_LOG_ENDPOINT}" # optional logserver endpoint, if you have ELK stack or other logging solution
-            username: "${CP_LOG_USERNAME}" # optional logserver username
-            password: "${CP_LOG_PASSWORD}" # optional logserver password
-            index: "${CP_LOG_INDEX}" # optional logserver index
-        tibco:
-          logging:
-            fluentbit:
-              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
-          containerRegistry:
-            url: ${CP_CONTAINER_REGISTRY}
-            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
-            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
-            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
-          proxy:
-            httpProxy: "${CP_PROXY_HTTP_PROXY}"
-            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
-            noProxy: "${CP_PROXY_NO_PROXY}"
-          controlPlaneInstanceId: ${CP_INSTANCE_ID}
-          serviceAccount: ${CP_INSTANCE_ID}-sa
-          createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
-          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
-  cluster:
-    names:
-      - ${CP_CLUSTER_NAME}
-  releaseName: platform-bootstrap
-  namespace: ${CP_NAMESPACE}
-  flags:
-    wait: true
-    timeout: 1h
-    createNamespace: ${CP_CREATE_NAMESPACE}
-    extra: "--values tls_values.yaml --values tls_router_values.yaml --values tls_hybrid_proxy_values.yaml --values volume_values.yaml --values log_values.yaml"
-  hooks:
-    preDeploy:
-      ignoreErrors: false
-      base64Encoded: false
-      skip: false
-      content: |
-        # optional chart values fields
-        touch tls_values.yaml
-        if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
-          export _star_service_dns="'*.${CP_SERVICE_DNS_DOMAIN}'"
-          export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
-          export _tp_generate_certificate_name="${TP_GENERATE_CERTIFICATE_NAME}"
-          yq eval '
-            (.router-operator.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
-            (.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
-            (.router-operator.ingress.tls[0].hosts[0] style="single") |
-            (.hybrid-proxy.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
-            (.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
-            (.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
-            ' tls_values.yaml > tls_values.yaml
-          
-          echo "TLS values:"
-          cat tls_values.yaml
-        fi
-
-        touch tls_router_values.yaml
-        if [[ -n "${TP_TLS_SECRET_NAME_ROUTER}" ]]; then
-          export _star_service_dns="'*.${CP_SERVICE_DNS_DOMAIN}'"
-          export _tp_router_certificate_name="${TP_TLS_SECRET_NAME_ROUTER}"
-          yq eval '
-            (.router-operator.ingress.tls[0].secretName = env(_tp_router_certificate_name)) |
-            (.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
-            (.router-operator.ingress.tls[0].hosts[0] style="single")
-            ' tls_router_values.yaml > tls_router_values.yaml
-          
-          echo "TLS Router values:"
-          cat tls_router_values.yaml
-        fi
-
-        touch tls_hybrid_proxy_values.yaml
-        if [[ -n "${TP_TLS_SECRET_NAME_HYBRID_PROXY}" ]]; then
-          export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
-          export _tp_hybrid_proxy_certificate_name="${TP_TLS_SECRET_NAME_HYBRID_PROXY}"
-          yq eval '
-            (.hybrid-proxy.ingress.tls[0].secretName = env(_tp_hybrid_proxy_certificate_name)) |
-            (.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
-            (.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
-            ' tls_hybrid_proxy_values.yaml > tls_hybrid_proxy_values.yaml
-          
-          echo "TLS Hybrid Proxy values:"
-          cat tls_hybrid_proxy_values.yaml
-        fi
-
-        touch volume_values.yaml
-        if [[ "${CP_STORAGE_PV_NAME}" != "" ]]; then
-          yq eval '.global.external.storage.volumeName = env(CP_STORAGE_PV_NAME)' volume_values.yaml > volume_values.yaml
-          echo "Volume values:"
-          cat volume_values.yaml
-        fi
-        
-        if [[ "${CP_STORAGE_PVC_NAME}" != "" ]]; then
-          yq eval '.global.external.storage.pvcName = env(CP_STORAGE_PVC_NAME)' volume_values.yaml > volume_values.yaml
-          echo "PVC values:"
-          cat volume_values.yaml
-        fi
-
-        touch log_values.yaml
-        if [[ "${CP_LOG_ENABLE}" == "true" && -z "${CP_LOG_PASSWORD}" ]]; then
-          # update es logging password
-          export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode)
-          if [[ -n "${HOOK_CP_LOG_PASSWORD}" ]]; then
-            yq eval '.global.external.logserver.password = env(HOOK_CP_LOG_PASSWORD)' log_values.yaml > log_values.tmp.yaml
-          else
-            echo "Log server password not found, please set it in the recipe"
-            echo "disable otel-collector"
-            yq eval '.otel-collector.enabled = false' log_values.yaml > log_values.tmp.yaml
-          fi
-          mv log_values.tmp.yaml log_values.yaml
-          echo "Log values:"
-          cat log_values.yaml
-        fi
-        TSC_SESSION_KEY=$(kubectl get tibcoclusterenv ops.tsc.session.key -n $CP_NAMESPACE -o jsonpath='{.spec.value}')
-        DOMAIN_SESSION_KEY=$(kubectl get tibcoclusterenv ops.domain.session.key -n $CP_NAMESPACE -o jsonpath='{.spec.value}')
-        if [[ -n "${TSC_SESSION_KEY}" && -n "${DOMAIN_SESSION_KEY}" ]]; then
-          if kubectl get secret -n $CP_NAMESPACE session-keys --ignore-not-found | grep -q session-keys; then
-            echo "session-keys secret already exists, not creating a new one"
-          else
-            echo "Found session keys in tibcoclusterenv, creating session-keys secret using existing tibcoclusterenv values"
-            kubectl create secret -n $CP_NAMESPACE generic session-keys --from-literal=TSC_SESSION_KEY=$TSC_SESSION_KEY --from-literal=DOMAIN_SESSION_KEY=$DOMAIN_SESSION_KEY
-          fi
-        else
-          if kubectl get secret -n $CP_NAMESPACE session-keys --ignore-not-found | grep -q session-keys; then
-            echo "session-keys secret already exists, not creating a new one"
-          else
-            echo "session-keys secret not found, creating a new one using random values"
-            kubectl create secret -n $CP_NAMESPACE generic session-keys --from-literal=TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32) --from-literal=DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
-          fi
-        fi
-- name: platform-base
-  version: ${CP_PLATFORM_BASE_VERSION}
-  condition: ${CP_INSTALL_PLATFORM_BASE}
-  repo:
-    helm:
-      url: ${CP_CHART_REPO}
-      username: "${CP_CHART_REPO_USER_NAME}"
-      password: "${CP_CHART_REPO_TOKEN}"
-  values:
-    keepPrevious: false
-    content: |
-      global:
-        tibco:
-          logging:
-            fluentbit:
-              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
-          containerRegistry:
-            url: ${CP_CONTAINER_REGISTRY}
-            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
-            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
-            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
-          proxy:
-            httpProxy: "${CP_PROXY_HTTP_PROXY}"
-            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
-            noProxy: "${CP_PROXY_NO_PROXY}"
-          controlPlaneInstanceId: ${CP_INSTANCE_ID}
-          serviceAccount: ${CP_INSTANCE_ID}-sa
-          createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
-          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
-          db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
-          db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
-          helm:
-            url: "${DP_CHART_REPO_HOST}"
-            repo: "${DP_CHART_REPO_PATH}"
-            username: "${DP_CHART_REPO_USER_NAME}"
-            password: "${DP_CHART_REPO_TOKEN}"
-        cp:
-          deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
-          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
-        external:
-          cpEncryptionSecretName: "${CP_ENCRYPTION_SECRET_NAME}"
-          cpEncryptionSecretKey: "${CP_ENCRYPTION_SECRET_KEY}"
-          clusterInfo:
-            nodeCIDR: ${TP_CLUSTER_NODE_CIDR}
-            podCIDR: ${TP_CLUSTER_POD_CIDR}
-            serviceCIDR: ${TP_CLUSTER_SERVICE_CIDR}
-          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
-          dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
-          environment: ${CP_EXTERNAL_ENVIRONMENT}
-          helmRepo: ${CP_CHART_REPO}
-          db_host: ${CP_DB_HOST}
-          db_name: ${CP_DB_NAME}
-          db_password: ${CP_DB_PASSWORD}
-          db_port: "${CP_DB_PORT}"
-          db_secret_name: ${CP_DB_SECRET_NAME}
-          db_ssl_mode: ${CP_DB_SSL_MODE}
-          db_ssl_root_cert: "${CP_DB_SSL_ROOT_CERT}"
-          db_username: ${CP_DB_USER_NAME}
-          emailServerType: ${CP_MAIL_SERVER_TYPE}
-          emailServer:
-            ses:
-              arn: "${CP_MAIL_SERVER_SES_ARN}"
-            sendgrid:
-              apiKey: "${CP_MAIL_SERVER_SENDGRID_API_KEY}"
-            smtp:
-              server: ${CP_MAIL_SERVER_ADDRESS}
-              port: "${CP_MAIL_SERVER_PORT_NUMBER}"
-              username: "${CP_MAIL_SERVER_USERNAME}"
-              password: "${CP_MAIL_SERVER_PASSWORD}"
-            graph:
-              clientDetailsSecretName: ${CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME}
-              skipSentFolder: ${CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER}
-          fromAndReplyToEmailAddress: "${CP_FROM_REPLY_TO_EMAIL}"
-          admin:
-            email: ${CP_ADMIN_EMAIL}
-            firstname: "admin"
-            lastname: "admin"
-            customerID: "myCustomerID"
-          enableLogging: false
-          IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
       tp-cp-infra:
         enabled: true
         resources:
-          requests:
-            cpu: ${CP_RESOURCES_REQUEST_CPU}
-            memory: ${CP_RESOURCES_REQUEST_MEMORY}
-          limits:
-            cpu: 1250m
-            memory: 1000Mi
-      tp-cp-tibcohub-contrib:
-        enabled: ${CP_INSTALL_TIBCOHUB_CONTRIB}
-      tp-cp-msg-contrib:
-        enabled: ${CP_INSTALL_MSG_CONTRIB}
-      tp-cp-msg-recipes:
-        enabled: ${CP_INSTALL_MSG_RECIPES}
-      tp-cp-hawk:
-        enabled: ${CP_INSTALL_HAWK}
-        tp-cp-hawk-infra-prometheus:
-          prometheus:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-      tp-cp-recipes:
-        enabled: ${CP_INSTALL_RECIPES}
-      tp-cp-integration:
-        enabled: ${CP_INSTALL_INTEGRATION}
-        tp-cp-integration-common:
-          fileserver:
-            enabled: true
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 200m
-                memory: 200Mi
-        tp-cp-integration-bw:
-          enabled: ${CP_INSTALL_INTEGRATION_BW}
-          bw-webserver:
-            bwwebserver:
-              resources:
-                requests:
-                  cpu: ${CP_RESOURCES_REQUEST_CPU}
-                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
-                limits:
-                  cpu: 200m
-                  memory: 200Mi
-        tp-cp-bwce-utilities:
-          enabled: ${CP_INSTALL_INTEGRATION_BWCE_UTILITIES}
-        tp-cp-bw5ce-utilities:
-          enabled: ${CP_INSTALL_INTEGRATION_BW5CE_UTILITIES}
-        tp-cp-integration-flogo:
-          enabled: ${CP_INSTALL_INTEGRATION_FLOGO}
-          flogo-webserver:
-            flogowebserver:
-              resources:
-                requests:
-                  cpu: ${CP_RESOURCES_REQUEST_CPU}
-                  memory: ${CP_RESOURCES_REQUEST_MEMORY}
-                limits:
-                  cpu: 200m
-                  memory: 200Mi
-        tp-cp-flogo-utilities:
-          enabled: ${CP_INSTALL_INTEGRATION_FLOGO_UTILITIES}
+          infra-compute-services:
+            requests:
+              cpu: ${CP_RESOURCES_REQUEST_CPU}
+              memory: ${CP_RESOURCES_REQUEST_MEMORY}
+            limits:
+              cpu: 1250m
+              memory: 1000Mi
+      tp-cp-auditsafe:
+        enabled: true
       tp-cp-core:
         admin-webserver:
           replicaCount: 1
@@ -817,9 +618,6 @@ helmCharts:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 100m
-                memory: 100Mi
         email-service:
           replicaCount: 1
           cpemailservice:
@@ -890,43 +688,25 @@ helmCharts:
               limits:
                 cpu: 200m
                 memory: 200Mi
-      tp-cp-core-finops:
-        finops-otel-collector:
-          resources:
-            requests:
-              cpu: ${CP_RESOURCES_REQUEST_CPU}
-              memory: ${CP_RESOURCES_REQUEST_MEMORY}
-            limits:
-              cpu: 300m
-              memory: 12Gi
-        finops-prometheus:
-          finopsprometheus:
+          cpmcpserver:
+            enabled: ${TP_AI_ENABLE_CP_MCP_SERVER}
             resources:
               requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
+                cpu: 100m
+                memory: 256Mi
               limits:
-                cpu: 300m
-                memory: 12Gi
+                cpu: 200m
+                memory: 512Mi
+      tp-cp-o11y:
+        o11ymcpserver: 
+          enabled: ${TP_AI_ENABLE_O11Y_MCP_SERVER}
+      tp-cp-core-finops:
         finops-service:
           finopsservice:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 250m
-                memory: 1024Mi
-        finops-web-server:
-          replicaCount: "1"
-          finopswebserver:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 200m
-                memory: 200Mi
         monitoring-service:
           replicaCount: "1"
           monitoringservice:
@@ -934,33 +714,21 @@ helmCharts:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 250m
-                memory: 1024Mi
           monitoringtibtunnel:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: "80m"
-                memory: "200Mi"
           monitoringcapresources:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: "80m"
-                memory: "200Mi"
           monitoringhomepagemetrics:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: "80m"
-                memory: "200Mi"
   cluster:
     names:
       - ${CP_CLUSTER_NAME}
@@ -970,12 +738,101 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: ${CP_CREATE_NAMESPACE}
+    extra: "--values tls_values.yaml --values tls_router_values.yaml --values tls_hybrid_proxy_values.yaml --values volume_values.yaml --values log_values.yaml"
   hooks:
     preDeploy:
       ignoreErrors: false
       base64Encoded: false
       skip: false
       content: |
+        # optional chart values fields
+        touch tls_values.yaml
+        if [[ -n "${TP_TLS_CERT}" || "${TP_GENERATE_CERTIFICATES}" == "true" ]]; then
+          export _star_service_dns="'*.${CP_SERVICE_DNS_DOMAIN}'"
+          export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
+          export _tp_generate_certificate_name="${TP_GENERATE_CERTIFICATE_NAME}"
+          yq eval '
+            (.router-operator.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
+            (.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
+            (.router-operator.ingress.tls[0].hosts[0] style="single") |
+            (.hybrid-proxy.ingress.tls[0].secretName = env(_tp_generate_certificate_name)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
+            ' tls_values.yaml > tls_values.yaml
+          
+          echo "TLS values:"
+          cat tls_values.yaml
+        fi
+        touch tls_router_values.yaml
+        if [[ -n "${TP_TLS_SECRET_NAME_ROUTER}" ]]; then
+          export _star_service_dns="'*.${CP_SERVICE_DNS_DOMAIN}'"
+          export _tp_router_certificate_name="${TP_TLS_SECRET_NAME_ROUTER}"
+          yq eval '
+            (.router-operator.ingress.tls[0].secretName = env(_tp_router_certificate_name)) |
+            (.router-operator.ingress.tls[0].hosts[0] = env(_star_service_dns)) |
+            (.router-operator.ingress.tls[0].hosts[0] style="single")
+            ' tls_router_values.yaml > tls_router_values.yaml
+          
+          echo "TLS Router values:"
+          cat tls_router_values.yaml
+        fi
+        touch tls_hybrid_proxy_values.yaml
+        if [[ -n "${TP_TLS_SECRET_NAME_HYBRID_PROXY}" ]]; then
+          export _star_tunnel_dns="'*.${CP_TUNNEL_DNS_DOMAIN}'"
+          export _tp_hybrid_proxy_certificate_name="${TP_TLS_SECRET_NAME_HYBRID_PROXY}"
+          yq eval '
+            (.hybrid-proxy.ingress.tls[0].secretName = env(_tp_hybrid_proxy_certificate_name)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] = env(_star_tunnel_dns)) |
+            (.hybrid-proxy.ingress.tls[0].hosts[0] style="single")
+            ' tls_hybrid_proxy_values.yaml > tls_hybrid_proxy_values.yaml
+          
+          echo "TLS Hybrid Proxy values:"
+          cat tls_hybrid_proxy_values.yaml
+        fi
+        touch volume_values.yaml
+        if [[ "${CP_STORAGE_PV_NAME}" != "" ]]; then
+          yq eval '.global.external.storage.volumeName = env(CP_STORAGE_PV_NAME)' volume_values.yaml > volume_values.yaml
+          echo "Volume values:"
+          cat volume_values.yaml
+        fi
+        
+        if [[ "${CP_STORAGE_PVC_NAME}" != "" ]]; then
+          yq eval '.global.external.storage.pvcName = env(CP_STORAGE_PVC_NAME)' volume_values.yaml > volume_values.yaml
+          echo "PVC values:"
+          cat volume_values.yaml
+        fi
+        touch log_values.yaml
+        if [[ "${CP_LOG_ENABLE}" == "true" && -z "${CP_LOG_PASSWORD}" ]]; then
+          # update es logging password
+          export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode)
+          if [[ -n "${HOOK_CP_LOG_PASSWORD}" ]]; then
+            yq eval '.global.external.logserver.password = env(HOOK_CP_LOG_PASSWORD)' log_values.yaml > log_values.tmp.yaml
+          else
+            echo "Log server password not found, please set it in the recipe"
+            echo "disable otel-collector"
+            yq eval '.otel-collector.enabled = false' log_values.yaml > log_values.tmp.yaml
+          fi
+          mv log_values.tmp.yaml log_values.yaml
+          echo "Log values:"
+          cat log_values.yaml
+        fi
+        TSC_SESSION_KEY=$(kubectl get tibcoclusterenv ops.tsc.session.key -n $CP_NAMESPACE -o jsonpath='{.spec.value}')
+        DOMAIN_SESSION_KEY=$(kubectl get tibcoclusterenv ops.domain.session.key -n $CP_NAMESPACE -o jsonpath='{.spec.value}')
+        if [[ -n "${TSC_SESSION_KEY}" && -n "${DOMAIN_SESSION_KEY}" ]]; then
+          if kubectl get secret -n $CP_NAMESPACE session-keys --ignore-not-found | grep -q session-keys; then
+            echo "session-keys secret already exists, not creating a new one"
+          else
+            echo "Found session keys in tibcoclusterenv, creating session-keys secret using existing tibcoclusterenv values"
+            kubectl create secret -n $CP_NAMESPACE generic session-keys --from-literal=TSC_SESSION_KEY=$TSC_SESSION_KEY --from-literal=DOMAIN_SESSION_KEY=$DOMAIN_SESSION_KEY
+          fi
+        else
+          if kubectl get secret -n $CP_NAMESPACE session-keys --ignore-not-found | grep -q session-keys; then
+            echo "session-keys secret already exists, not creating a new one"
+          else
+            echo "session-keys secret not found, creating a new one using random values"
+            kubectl create secret -n $CP_NAMESPACE generic session-keys --from-literal=TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32) --from-literal=DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+          fi
+        fi
         if kubectl get secret -n $CP_NAMESPACE $CP_ENCRYPTION_SECRET_NAME --ignore-not-found | grep -q $CP_ENCRYPTION_SECRET_NAME; then
           echo "$CP_ENCRYPTION_SECRET_NAME secret already exists, not creating a new one"
           echo "Annotating the secret with helm.sh/resource-policy=keep so that it doesn't get deleted by helm upgrade"
@@ -984,3 +841,255 @@ helmCharts:
           echo "CP_ENCRYPTION_SECRET_NAME secret not found, Creating a new secret with random value"
           kubectl create secret -n $CP_NAMESPACE generic $CP_ENCRYPTION_SECRET_NAME --from-literal=$CP_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c44)
         fi
+- name: tibco-cp-bw
+  version: ${CP_PLATFORM_INTEGRATION_BW_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_INTEGRATION_BW}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
+      bw-recipes:
+        enabled: true
+      bw-webserver:
+        enabled: true
+        bwmcpserver:
+          enabled: ${TP_AI_ENABLE_BW_MCP_SERVER}
+      bwce-utilities:
+        enabled: "${CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES}"
+      bw5ce-utilities:
+        enabled: "${CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES}"
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-bw
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-flogo
+  version: ${CP_PLATFORM_INTEGRATION_FLOGO_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_INTEGRATION_FLOGO}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
+      flogo-recipes:
+        enabled: true
+      flogo-webserver:
+        enabled: true
+        mcpserver:
+          enabled: ${TP_AI_ENABLE_FLOGO_MCP_SERVER}
+      flogoce-utilities:
+        enabled: true
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-flogo
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-devhub
+  version: ${CP_PLATFORM_TIBCOHUB_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_TIBCOHUB}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
+      tibcohub-recipes:
+        enabled: true
+      tibcohub-contrib:
+        enabled: true
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-devhub
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-messaging
+  version: ${CP_PLATFORM_MESSAGING_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_MESSAGING}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-messaging
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-hawk
+  version: ${CP_PLATFORM_HAWK_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_HAWK}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+        tibco:
+          manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-hawk
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-addon-eventprocessing
+  version: ${CP_PLATFORM_EVENTPROCESSING_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_EVENTPROCESSING}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          environment: "${CP_EXTERNAL_ENVIRONMENT}"
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-addon-eventprocessing
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}

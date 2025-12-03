@@ -31,6 +31,8 @@ class PageObjectDataPlanePulsar(PageObjectDataPlane):
             self.page.locator('button', has_text="Provision a capability").click()
             print("Clicked 'Provision a capability' button")
             self.page.wait_for_timeout(2000)
+            print(f"Waiting for capability list is loaded")
+            self.page.locator(".capability-select-container").wait_for(state="visible")
             if not Util.check_dom_visibility(self.page, self.page.locator('#PULSAR-capability-select-button'), 5, 5):
                 ColorLogger.warning("'Pulsar capability' has been removed from the capability list from CP version 1.10.x")
                 Util.warning_screenshot("Pulsar capability 'Start' button is not visible.", self.page, "pulsar_provision_capability-1.png")

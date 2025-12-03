@@ -36,3 +36,6 @@ The following are the default links to access TIBCO Platform components:
 * [TIBCO Platform](https://cp-sub1.cp1-my.localhost.dataplanes.pro)
 * [E-mail server](https://mail.localhost.dataplanes.pro)
 * [Automation UI](https://automation.localhost.dataplanes.pro)
+
+---
+**provisioner-config-local** version: `{{ .Chart.Version }}`

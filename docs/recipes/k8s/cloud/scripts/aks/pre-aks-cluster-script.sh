@@ -18,6 +18,7 @@
 #   TP_VNET_CIDR: virtual network cidr
 #   TP_AKS_SUBNET_NAME: aks subnet name
 #   TP_AKS_SUBNET_CIDR: aks subnet cidr
+#   TP_ADDON_ENABLE_APPLICATION_GW: enable application gateway integration
 #   TP_APPLICATION_GW_SUBNET_NAME: application gateway subnet name
 #   TP_APPLICATION_GW_SUBNET_CIDR: application gateway subnet cidr
 #   TP_PUBLIC_IP_NAME: public ip name
@@ -47,6 +48,7 @@ export TP_VNET_NAME=${TP_VNET_NAME:-"${TP_CLUSTER_NAME}-vnet"}
 export TP_VNET_CIDR=${TP_VNET_CIDR:-"10.4.0.0/16"}
 export TP_AKS_SUBNET_NAME=${TP_AKS_SUBNET_NAME:-"${TP_CLUSTER_NAME}-aks-subnet"}
 export TP_AKS_SUBNET_CIDR=${TP_AKS_SUBNET_CIDR:-"10.4.0.0/20"}
+export TP_ADDON_ENABLE_APPLICATION_GW=${TP_ADDON_ENABLE_APPLICATION_GW:-"false"}
 export TP_APPLICATION_GW_SUBNET_NAME=${TP_APPLICATION_GW_SUBNET_NAME:-"${TP_CLUSTER_NAME}-application-gw-subnet"}
 export TP_APPLICATION_GW_SUBNET_CIDR=${TP_APPLICATION_GW_SUBNET_CIDR:-"10.4.17.0/24"}
 export TP_PUBLIC_IP_NAME=${TP_PUBLIC_IP_NAME:-"${TP_CLUSTER_NAME}-public-ip"}
@@ -125,9 +127,11 @@ _ret=$?
 verify_error "${_ret}" "VNet"
 
 # create application gateway subnets
-az network vnet subnet create -g "${TP_RESOURCE_GROUP}" --vnet-name "${TP_VNET_NAME}" -n "${TP_APPLICATION_GW_SUBNET_NAME}" --address-prefixes "${TP_APPLICATION_GW_SUBNET_CIDR}"
-_ret=$?
-verify_error "${_ret}" "application_gateway_subnet"
+if [ "${TP_ADDON_ENABLE_APPLICATION_GW}" == "true" ]; then
+  az network vnet subnet create -g "${TP_RESOURCE_GROUP}" --vnet-name "${TP_VNET_NAME}" -n "${TP_APPLICATION_GW_SUBNET_NAME}" --address-prefixes "${TP_APPLICATION_GW_SUBNET_CIDR}"
+  _ret=$?
+  verify_error "${_ret}" "application_gateway_subnet"
+fi
 
 # create aks subnet
 az network vnet subnet create -g "${TP_RESOURCE_GROUP}" --vnet-name "${TP_VNET_NAME}" -n "${TP_AKS_SUBNET_NAME}" --address-prefixes "${TP_AKS_SUBNET_CIDR}" --nat-gateway "${_net_gw_id}"

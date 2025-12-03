@@ -34,10 +34,10 @@ meta:
     GUI_TP_STORAGE_NFS_SERVER_ADDRESS: ""
     GUI_TP_STORAGE_NFS_SUBDIR_EXTERNAL_PROVISIONER_STORAGE_CLASS: nfs-client
 
-    # github
-    GUI_GITHUB_TOKEN: ""
+    # chart repo
     GUI_TP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
     GUI_TP_CHART_REPO_USER_NAME: "cp-test"
+    GUI_TP_CHART_REPO_TOKEN: ""
 
     # container registry
     GUI_TP_CONTAINER_REGISTRY_URL: "csgprduswrepoedge.jfrog.io"
@@ -65,6 +65,10 @@ meta:
     GUI_TP_DB_NAME: postgres
     GUI_TP_DB_TLS_ENABLED: false
 
+    # CP automation
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.9-auto-on-prem-jammy
+
     # flow control
     GUI_TP_INSTALL_PROVISIONER_UI: false
     GUI_TP_INSTALL_CERT_MANAGER: true
@@ -75,11 +79,10 @@ meta:
     PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG:-false}
     PIPELINE_CHECK_DOCKER_STATUS: false
 
-    # github
-    GITHUB_TOKEN: ${GUI_GITHUB_TOKEN}
+    # chart repo
     TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
     TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME:-"cp-test"}
-    TP_CHART_REPO_TOKEN: ${GUI_GITHUB_TOKEN}
+    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
 
     # container registry
     TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL:-"csgprduswrepoedge.jfrog.io"}
@@ -134,6 +137,10 @@ meta:
     TP_DB_PASSWORD: ${GUI_TP_DB_PASSWORD:-"postgres"}
     TP_DB_NAME: ${GUI_TP_DB_NAME:-"postgres"}
     TP_DB_TLS_ENABLED: ${GUI_TP_DB_TLS_ENABLED:-"false"}
+
+    # CP automation
+    TP_AUTOMATION_DOCKER_IMAGE_REPO: ${GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO:-""}
+    TP_AUTOMATION_DOCKER_IMAGE_TAG: ${GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG:-""}
 
     # flow control
     TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
@@ -406,8 +413,8 @@ helmCharts:
       deployment:
         enabled: true
         image:
-          repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.6.7-auto-on-prem-jammy
+          repository: ${TP_AUTOMATION_DOCKER_IMAGE_REPO}
+          tag: ${TP_AUTOMATION_DOCKER_IMAGE_TAG}
         ports:
           http:
             enabled: true

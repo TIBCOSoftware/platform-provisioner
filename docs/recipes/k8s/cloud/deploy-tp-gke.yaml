@@ -13,11 +13,11 @@ meta:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: false
     PIPELINE_CHECK_DOCKER_STATUS: false
-    # github
+    # chart repo
     GITHUB_TOKEN: ${GUI_GITHUB_TOKEN} # don't need it for public repo
     TP_CHART_REPO: ${GUI_TP_CHART_REPO:-"https://tibcosoftware.github.io/tp-helm-charts"}
     TP_CHART_REPO_USER_NAME: ${GUI_TP_CHART_REPO_USER_NAME}
-    TP_CHART_REPO_TOKEN: ${GUI_GITHUB_TOKEN}
+    TP_CHART_REPO_TOKEN: ${GUI_TP_CHART_REPO_TOKEN}
     PLATFORM_PROVISIONER_REPO: ${GUI_PLATFORM_PROVISIONER_REPO:-github.com/TIBCOSoftware/platform-provisioner}
     # container registry
     TP_CONTAINER_REGISTRY_URL: ${GUI_TP_CONTAINER_REGISTRY_URL:-"csgprduswrepoedge.jfrog.io"}

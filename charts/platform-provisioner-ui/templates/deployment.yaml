@@ -83,6 +83,8 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           {{- if .Values.guiConfig.dataConfigMapName }}
             - name: {{ .Values.guiConfig.dataConfigMapName }}
               mountPath: /workspace/data
@@ -101,6 +103,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
         {{- if .Values.guiConfig.dataConfigMapName }}
         - name: {{ .Values.guiConfig.dataConfigMapName }}
           configMap:

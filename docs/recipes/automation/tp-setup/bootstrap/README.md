@@ -33,6 +33,20 @@ pyenv global 3.13
 python --version
 ```
 
+### 3. Install required packages for local development
+* Set PYTHONPATH for bootstrap folder
+  * For IntelliJ IDEA:
+    * Right click folder `docs/recipes/automation/tp-setup/bootstrap`, then select `Mark Directory as` -> `Sources Root`
+  * For Git Bash on Windows, or bash on Mac:
+    * `export PYTHONPATH="$PWD/docs/recipes/automation/tp-setup/bootstrap"`
+
+```shell
+cd docs/recipes/automation/tp-setup/bootstrap
+
+uv sync
+uv run playwright install
+```
+
 ## One-Click Setup CP GUI - Supported Features
 
 | Category                                    | Supported Features                                                                                                                                                                                                                                                                                                |
@@ -130,6 +144,8 @@ open http://127.0.0.1:3120/
 
 ## Test Automation script in Docker container (Dev)
 
+* Run local python automation script(`docs/recipes/automation/tp-setup/bootstrap`) in the Docker container.
+
 ```shell
 # Optional, set it to true if you want to stay in the container after the pipeline fails
 # export PIPELINE_FAIL_STAY_IN_CONTAINER=true
@@ -186,12 +202,18 @@ python page_dp.py
 
 
 ## FAQ
-1. If pod `dp-config-es-es-default-0` is pending, run the following command to fix it.
+1. If pod `dp-config-es-es-default-0` is pending.
+   * CP was installed: run the following command to fix it.
     ```shell
     cd docs/recipes/automation/on-prem
     # Undeploy o11y stack then Redeploy o11y stack 
     ./generate-recipe.sh 1 1 && ./run.sh 7
     ```
+   * CP is being installed in the VDI.
+     1. Reset Docker to factory defaults.
+     2. Restart VDI.
+     3. Start docker and enable Kubernetes.
+     4. Run CP installation command.
 2. If you want to use a different **KUBECONFIG** path for the automation task UI
    * Must run it from source code mode, then UI will share the same environment as your local settings.
    * Follow the step: [One-Click Setup of the Control Plane](#One-Click-Setup-of-the-Control-Plane)
