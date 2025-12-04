@@ -237,6 +237,10 @@ class Util:
         if cp_platform_base_version:
             print("platform-base: ", cp_platform_bootstrap_version)
 
+        all_tibco_cp_version = Helper.get_all_tibco_cp_version()
+        if all_tibco_cp_version:
+            print(f"All TIBCO CP versions:\n{all_tibco_cp_version}")
+
         if ENV.TP_AUTO_KUBECONFIG:
             print("KUBECONFIG: ", ENV.TP_AUTO_KUBECONFIG)
 
@@ -248,6 +252,17 @@ class Util:
         if is_print_auth:
             print("-" * str_num)
             print(f"{'Login Credentials': ^{str_num}}")
+            auto_token = Helper.get_auto_token()
+            if auto_token:
+                tibco_cp_installation_time = Helper.get_auto_token_creation().split("T")
+                print("-" * str_num)
+                print(
+                    f"{'OAuth Token:':<{col_space}}{auto_token}",
+                    " " * 5,
+                    ENV.TP_AUTO_TOKEN_DURATION,
+                    ENV.TP_AUTO_TOKEN_DURATION_UNIT,
+                    f"since {tibco_cp_installation_time[0]}" if len(tibco_cp_installation_time) else ""
+                )
             print("-" * str_num)
             print(f"{'Mail URL:':<{col_space}}{ENV.TP_AUTO_MAIL_URL} {'√' if Util.is_url_accessible(ENV.TP_AUTO_MAIL_URL) else 'X'}")
             print("-" * str_num)

@@ -110,19 +110,34 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         self.page.wait_for_timeout(1000)
         # check bw5 application status
         if product_name == "BW5":
-            app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=domain_name))
-            if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
-                app_row.locator('td.pl-table__cell .text', has_text=app_name).click()
-                print(f"'{app_name}' is deployed and checking service instance status.")
-                ReportYaml.set_capability_app(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}")
+            print("Checking if new domain card layout is available...")
+            if self.page.locator(".domains-grid").is_visible():
+                print("New domain card layout detected.")
+                domain_card = self.page.locator(".domain-card", has=self.page.locator('.pl-card__header', has_text=domain_name))
+                if domain_card.is_visible():
+                    domain_card.locator(".pl-card__footer", has_text="Go into Domain").click()
+                    print(f"'{domain_name}' is deployed and checking application instance status.")
+                    app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=app_name))
+                    if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
+                        print(f"'{app_name}' is deployed and checking service instance status.")
+                        ReportYaml.set_capability_app(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}")
+                        ReportYaml.set_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}", "Status", "Running")
+                    else:
+                        ColorLogger.warning(f"'{app_name}' is not deployed successfully or cannot be discovered by CT in domain '{domain_name}'.")
             else:
-                ColorLogger.warning(f"'{app_name}' is not deployed successfully or cannot be discovered by CT in domain '{domain_name}'.")
-            service_instance_row = self.page.locator("tr.pl-table__row")
-            if Util.check_dom_visibility(self.page, service_instance_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
-                ColorLogger.success(f"'{app_name}' in domain '{domain_name}' instance is running.")
-                ReportYaml.set_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}", "Status", "Running")
-            else:
-                ColorLogger.warning(f"'{app_name}' in domain '{domain_name}' instance is not running.")
+                app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=domain_name))
+                if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
+                    app_row.locator('td.pl-table__cell .text', has_text=app_name).click()
+                    print(f"'{app_name}' is deployed and checking service instance status.")
+                    ReportYaml.set_capability_app(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}")
+                else:
+                    ColorLogger.warning(f"'{app_name}' is not deployed successfully or cannot be discovered by CT in domain '{domain_name}'.")
+                service_instance_row = self.page.locator("tr.pl-table__row")
+                if Util.check_dom_visibility(self.page, service_instance_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
+                    ColorLogger.success(f"'{app_name}' in domain '{domain_name}' instance is running.")
+                    ReportYaml.set_capability_app_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", f"{domain_name}.{app_name}", "Status", "Running")
+                else:
+                    ColorLogger.warning(f"'{app_name}' in domain '{domain_name}' instance is not running.")
         # check bw6 application status
         if product_name == "BW6":
             if Util.check_dom_visibility(self.page, self.page.locator(".pl-card--standard"), 2, 10):
@@ -179,21 +194,25 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             self.page.fill("#agentUrl-text-input", ENV.TP_AUTO_K8S_BMDP_BW6DM_URL)
             print(f"Filled BW6Agent URL: {ENV.TP_AUTO_K8S_BMDP_BW6DM_URL}")
             # test connection and register bw6 agent
-            if Util.check_dom_visibility(self.page, self.page.locator(".pl-button.pl-button--mini.pl-button--secondary"), 2, 10):
-                self.page.locator(".pl-button.pl-button--mini.pl-button--secondary").click()
+            if Util.check_dom_visibility(self.page, self.page.locator("button", has_text="Test Connection"), 2, 4):
+                self.page.locator("button", has_text="Test Connection").click()
                 print("Clicked 'Test Connection' button")
-                if Util.check_dom_visibility(self.page, self.page.locator(".test-connection-success"), 2, 10):
+                if Util.check_dom_visibility(self.page, self.page.locator(".test-connection-success"), 2, 6):
                     ColorLogger.success("BW6Agent connection is successful.")
-                    self.page.locator(".pcp-mr4").click()
+                    self.page.locator("agent-config-modal button", has_text="Register").click()
                     print("Clicked 'Register' button")
+                    self.page.wait_for_timeout(3000)
+                    if self.page.locator(".pl-notification__message", has_text="successfully").is_visible():
+                        agent_banner = self.page.locator(".pl-notification__message").inner_text()
+                        ColorLogger.success(agent_banner)
+                    else:
+                        Util.warning_screenshot(f"May failed to register RV domain", self.page, "dp_config_bw6dm.png")
+                else:
+                    Util.warning_screenshot(f"'{agent_name}' connection test failed.", self.page, "test_connection_bw6agent_error.png")
+                    self.page.locator("agent-config-modal button", has_text="Cancel").click()
             else:
                 Util.exit_error(f"'{agent_name}' is not deployed successfully or cannot be discovered by CT", self.page, "test_connection_bw6agent.png")
-            self.page.wait_for_timeout(5000)
-            agent_banner = self.page.locator(".pl-notification__message").inner_text()
-            if self.page.locator(".pl-notification__message", has_text="successfully").is_visible():
-                ColorLogger.success(agent_banner)
-            else:
-                Util.warning_screenshot(f"May failed to register RV domain due to: {agent_banner}", self.page, "dp_config_bw6dm.png")
+
         else:
             ColorLogger.info(f"Domain '{agent_name}' is already registered.")
         self.check_domain_status(agent_name, "BW6")

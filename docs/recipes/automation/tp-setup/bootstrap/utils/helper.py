@@ -127,6 +127,18 @@ class Helper:
         return Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'")
 
     @staticmethod
+    def get_all_tibco_cp_version():
+        return Helper.get_command_output("helm list --all-namespaces -o json | jq -r '.[].chart' | grep tibco-cp")
+
+    @staticmethod
+    def get_auto_token_creation():
+        return Helper.get_command_output("kubectl get secret auto-token -n automation -o jsonpath='{.metadata.creationTimestamp}'")
+
+    @staticmethod
+    def get_auto_token():
+        return Helper.get_command_output("kubectl get secret auto-token -n automation -o jsonpath=\"{.data['auto-token']}\" | base64 --decode")
+
+    @staticmethod
     def get_storage_class():
         return Helper.get_command_output("kubectl get sc | awk '/\\(default\\)/ {print $1}'")
 
