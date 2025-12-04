@@ -1,7 +1,8 @@
-## [12/02/2025 09:28]
+## [12/02/2025 22:35]
 ### Fixed
 - The automation support for 1.13 release 
   - Fix issue after activation URL UI changed
+  - Fix issue after BMDP BW5 domain UI changed
 
 ## [11/18/2025 13:06]
 ### Fixed
