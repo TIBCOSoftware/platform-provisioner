@@ -382,6 +382,20 @@ class PageObjectDataPlane(PageObjectGlobal):
         print(f"Input Storage Class Name: nfs")
 
         # step 4 Configure resources - ingress controller
+        # For 1.13 and above, the ingress controller changed to dropdown selection from a readonly input box
+        if not self.page.locator("ingress-controller-text-input").is_visible():
+            # click dropdown and select ENV.TP_AUTO_INGRESS_CONTROLLER
+            print("For 1.13 and above, the ingress controller changed to dropdown selection from a readonly input box")
+            if self.page.locator('.ingress pcp-dropdown').is_visible():
+                print("Selecting Ingress Controller from dropdown")
+                self.page.locator('.ingress pcp-dropdown input[type="button"]').click()
+                print("Clicked Ingress Controller dropdown")
+                self.page.locator('.ingress pcp-dropdown div#ingressController').wait_for(state="visible")
+                print("Ingress Controller options are visible")
+                select_ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER.capitalize()
+                self.page.locator('.ingress pcp-dropdown div#ingressController li', has_text=select_ingress_controller).click()
+                print(f"Selected Ingress Controller: {select_ingress_controller}")
+
         self.page.fill("#ingress-resource-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER)
         print(f"Input Ingress Description: ${ENV.TP_AUTO_INGRESS_CONTROLLER}")
         self.page.fill("#ingress-class-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME)

@@ -1,3 +1,8 @@
+## [12/05/2025 19:12]
+### Fixed
+- The automation support for 1.13 release
+  - Fix issue after BMDP creation UI changed
+  - 
 ## [12/02/2025 22:35]
 ### Fixed
 - The automation support for 1.13 release 

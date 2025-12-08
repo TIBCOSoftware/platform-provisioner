@@ -69,7 +69,7 @@ meta:
 
     # CP automation
     GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
-    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.10-auto-on-prem-jammy
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.11-auto-on-prem-jammy
 
     # flow control
     GUI_TP_INSTALL_PROVISIONER_UI: false

@@ -38,6 +38,7 @@ meta:
     GUI_CP_PLATFORM_MESSAGING_VERSION: 1.13.15
     GUI_CP_PLATFORM_HAWK_VERSION: 1.13.15
     GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.12.0
+    GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.14.0-0"
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -131,6 +132,7 @@ meta:
     GUI_CP_INSTALL_PLATFORM_MESSAGING: true
     GUI_CP_INSTALL_PLATFORM_HAWK: true
     GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING: true
+    GUI_CP_INSTALL_PLATFORM_AI_AGENT: false
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: false
@@ -252,6 +254,7 @@ meta:
     CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.13.15} # use ^1.0.0 for latest
     CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.13.15} # use ^1.0.0 for latest
     CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.12.0} # use ^1.0.0 for latest
+    CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.14.0-0"} # use ~1.14.0-0 for latest alpha/stable
     
     # CP AI MCP servers
     TP_AI_ENABLE_CP_MCP_SERVER: ${GUI_TP_AI_ENABLE_CP_MCP_SERVER:-false}
@@ -274,6 +277,7 @@ meta:
     CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES:-true}
     CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES:-true}
     CP_INSTALL_PLATFORM_EVENTPROCESSING: ${GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING:-true}
+    CP_INSTALL_PLATFORM_AI_AGENT: ${GUI_CP_INSTALL_PLATFORM_AI_AGENT:-false}
   tools:
     yq: "4.40" # this also have the logic to create soft link of yq-4.40 --> yq
 preTasks:
@@ -1176,6 +1180,43 @@ helmCharts:
     names:
       - ${CP_CLUSTER_NAME}
   releaseName: tibco-cp-addon-eventprocessing
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-ai-agent
+  version: ${CP_PLATFORM_AI_AGENT_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_AI_AGENT}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        cp:
+          deleteDBOnUninstall: "${CP_DB_DELETE_ON_UNINSTALL}"
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
+          containerRegistry:
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+            url: ${CP_CONTAINER_REGISTRY}
+        external:
+          environment: "${CP_EXTERNAL_ENVIRONMENT}"
+          dnsAgentDomain: agent-cp-only.${CP_DNS_DOMAIN}
+          dnsAgentUIDomain: agent-cp-ui.${CP_DNS_DOMAIN}
+      ingress:
+        className: ${CP_INGRESS_CLASSNAME}
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-ai-agent
   namespace: ${CP_NAMESPACE}
   flags:
     wait: true

@@ -212,6 +212,13 @@ options:
   dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-addon-eventprocessing"
   reference: "meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION"
   description: "The version of CP platform addon eventprocessing. Use ^1.0.0 for latest"
+- name: "tibco-cp-ai-agent version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-ai-agent"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_AI_AGENT_VERSION"
+  description: "The version of CP platform AI agent. Use ^1.0.0 for latest"
 - name: "CP instance ID"
   groupIndex: 5
   type: string
@@ -647,6 +654,12 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING"
   description: "Install platform addon eventprocessing"
+- name: "Install tibco-cp-ai-agent"
+  groupIndex: 11
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_AI_AGENT"
+  description: "Install platform AI agent"
 - name: "Enable debug log"
   groupIndex: 11
   type: boolean

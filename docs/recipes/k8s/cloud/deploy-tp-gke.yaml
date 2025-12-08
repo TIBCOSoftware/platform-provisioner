@@ -26,7 +26,7 @@ meta:
     TP_CONTAINER_REGISTRY_PASSWORD: ${GUI_TP_CONTAINER_REGISTRY_PASSWORD}
 
     # GCP setting
-    # GCP_PROJECT_ID: ${GUI_GCP_PROJECT_ID} # GCP project is required
+    GCP_PROJECT_ID: ${GUI_GCP_PROJECT_ID} # GCP project is required
     GCP_REGION: ${GUI_GCP_REGION:-us-west1} # GCP region is required to connect to GKE
     GCP_SA_CERT_MANAGER_NAME: ${GUI_GCP_SA_CERT_MANAGER_NAME:-tp-cert-manager-sa} # GCP service account name for cert-manager
     GCP_SA_EXTERNAL_DNS_NAME: ${GUI_GCP_SA_EXTERNAL_DNS_NAME:-tp-external-dns-sa} # GCP service account name for external-dns
@@ -49,13 +49,19 @@ meta:
     TP_DOMAIN: ${TP_MAIN_INGRESS_SANDBOX_SUBDOMAIN}.${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN} # the actual domain for the TIBCO platform. Sample format: <cp/dp-env>.${SANDBOX}.${TP_TOP_LEVEL_DOMAIN}
 
     # ingress
-    TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-"nginx"}
+    TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-""}
     TP_INSTALL_NGINX_INGRESS: $([[ "$TP_INGRESS_CLASS" == "nginx" ]] && echo "true" || echo "false")
     TP_INSTALL_TRAEFIK_INGRESS: $([[ "$TP_INGRESS_CLASS" == "traefik" ]] && echo "true" || echo "false")
     TP_INGRESS_NAMESPACE: ingress-system
     TP_INGRESS_SERVICE_TYPE: LoadBalancer # NodePort for kind, LoadBalancer for others
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
-    
+
+    # gateway api
+    TP_GATEWAY_API: ${GUI_TP_GATEWAY_API:-"disabled"} # set to disabled to disable gateway api
+    TP_INSTALL_GATEWAY_API: $([[ "$TP_GATEWAY_API" == "standard" ]] && echo "true" || echo "false")
+    TP_GATEWAY_CLASS_NAME: ${GUI_TP_GATEWAY_CLASS_NAME:-"gke-l7-regional-external-managed"}
+    TP_GATEWAY_NAMESPACE: ${GUI_TP_GATEWAY_NAMESPACE:-"gateway-system"}
+
     # o11y
     TP_ES_RELEASE_NAME: "dp-config-es" # name of dp-config-es release name
     # elasticsearch
@@ -83,7 +89,7 @@ meta:
 
     # flow control
     TP_INSTALL_K8S: ${GUI_TP_INSTALL_K8S:-true} # change to true to install k8s
-    TP_SCRIPT_BRANCH: main
+    TP_SCRIPT_BRANCH: ${GUI_TP_SCRIPT_BRANCH:-main}
     TP_SCRIPT_NAME_SH_GCP: create-gke.sh
     TP_SKIP_GENERATE_CLUSTER_ISSUER: ${GUI_TP_SKIP_GENERATE_CLUSTER_ISSUER:-false}
     TP_INSTALL_CERT_MANAGER: ${GUI_TP_INSTALL_CERT_MANAGER:-true}
@@ -207,10 +213,12 @@ helmCharts:
       extraArgs:
         # only register DNS for these ingress classes
         - "--ingress-class=${TP_INGRESS_CLASS}"
+        - "--gateway-namespace=${TP_GATEWAY_NAMESPACE}"
       provider: google
       sources:
         - ingress
         - service
+        - gateway-httproute
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -555,3 +563,53 @@ helmCharts:
         kubectl label namespace prometheus-system networking.platform.tibco.com/non-cp-ns=enable
         GRAFANA_ADMIN_PASSWORD=$(kubectl get secret -n prometheus-system kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode)
         echo "Grafana admin password: $GRAFANA_ADMIN_PASSWORD"
+postTasks:
+- condition: ${TP_INSTALL_GATEWAY_API}
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      kubectl create ns ${TP_GATEWAY_NAMESPACE}
+      kubectl apply -f  - <<EOF
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: tp-certificate-main-gateway
+        namespace: ${TP_GATEWAY_NAMESPACE}
+      spec:
+        secretName: tp-certificate-main-gateway
+        issuerRef:
+          name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+          kind: ClusterIssuer
+        dnsNames:
+          - '*.${TP_DOMAIN}'
+      EOF
+      kubectl apply -f - <<EOF
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      metadata:
+        name: external-http-gateway
+        namespace: ${TP_GATEWAY_NAMESPACE}
+      spec:
+        gatewayClassName: ${TP_GATEWAY_CLASS_NAME}
+        listeners:
+        - name: https-listener
+          protocol: HTTPS
+          port: 443
+          allowedRoutes:
+            namespaces:
+              from: All
+          hostname: "*.${TP_DOMAIN}"
+          tls:
+            mode: Terminate
+            certificateRefs:
+            - kind: Secret
+              group: ""
+              name: "tp-certificate-main-gateway"
+        - name: http-redirect
+          protocol: HTTP
+          port: 80
+          hostname: "*.${TP_DOMAIN}"
+      EOF

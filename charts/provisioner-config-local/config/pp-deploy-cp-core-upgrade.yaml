@@ -133,6 +133,19 @@ options:
   dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-addon-eventprocessing"
   reference: "meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION"
   description: "The version of CP platform addon eventprocessing. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-ai-agent"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_AI_AGENT"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_AI_AGENT_VERSION"]
+  description: ""
+- name: "tibco-cp-ai-agent version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-ai-agent"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_AI_AGENT_VERSION"
+  description: "The version of CP platform AI agent. Use ^1.0.0 for latest"
 recipe: |
   apiVersion: v1
   kind: helm-install
@@ -151,6 +164,7 @@ recipe: |
       GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: ^1.0.0
       GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ^1.0.0
       GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.14.0-0"
       GUI_GITHUB_TOKEN: ""
       GUI_CP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
       GUI_CP_UPGRADE_PLATFORM_TIBCO_CP_BASE: false
@@ -160,12 +174,15 @@ recipe: |
       GUI_CP_UPGRADE_PLATFORM_INTEGRATION_BW: false
       GUI_CP_UPGRADE_PLATFORM_INTEGRATION_FLOGO: false
       GUI_CP_UPGRADE_PLATFORM_EVENTPROCESSING: false
+      GUI_CP_UPGRADE_PLATFORM_AI_AGENT: false
     globalEnvVariable:
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: false
       PIPELINE_CHECK_DOCKER_STATUS: false
       GITHUB_TOKEN: ${GUI_GITHUB_TOKEN} # You need to set GITHUB_TOKEN for local use. For pipeline, it will be set by pipeline
       CP_CHART_REPO: ${GUI_CP_CHART_REPO}
+      CP_CHART_REPO_USER_NAME: ${GUI_CP_CHART_REPO_USER_NAME}
+      CP_CHART_REPO_TOKEN: ${GUI_CP_CHART_REPO_TOKEN}
       CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID}
       CP_CLUSTER_NAME: ${GUI_CP_CLUSTER_NAME:-"on-prem"}
       CP_NAMESPACE: "${GUI_CP_NAMESPACE}"
@@ -178,6 +195,7 @@ recipe: |
       CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-^1.0.0} # ^1.0.0 for latest
       CP_PLATFORM_INTEGRATION_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_VERSION:-^1.0.0} # ^1.0.0 for latest
       CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.14.0-0"} # ~1.14.0-0 for latest alpha/stable
       # flow control
       CP_UPGRADE_PLATFORM_TIBCO_CP_BASE: ${GUI_CP_UPGRADE_PLATFORM_TIBCO_CP_BASE:-false}
       CP_UPGRADE_PLATFORM_INTEGRATION_BW: ${GUI_CP_UPGRADE_PLATFORM_INTEGRATION_BW:-false}
@@ -186,6 +204,7 @@ recipe: |
       CP_UPGRADE_PLATFORM_MESSAGING: ${GUI_CP_UPGRADE_PLATFORM_MESSAGING:-false}
       CP_UPGRADE_PLATFORM_HAWK: ${GUI_CP_UPGRADE_PLATFORM_HAWK:-false}
       CP_UPGRADE_PLATFORM_EVENTPROCESSING: ${GUI_CP_UPGRADE_PLATFORM_EVENTPROCESSING:-false}
+      CP_UPGRADE_PLATFORM_AI_AGENT: ${GUI_CP_UPGRADE_PLATFORM_AI_AGENT:-false}
     tools:
       yq: "4.40"
   helmCharts:
@@ -325,6 +344,26 @@ recipe: |
       names:
         - ${CP_CLUSTER_NAME}
     releaseName: tibco-cp-addon-eventprocessing
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-ai-agent
+    version: ${CP_PLATFORM_AI_AGENT_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_AI_AGENT}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-ai-agent
     namespace: ${CP_NAMESPACE}
     flags:
       wait: true
