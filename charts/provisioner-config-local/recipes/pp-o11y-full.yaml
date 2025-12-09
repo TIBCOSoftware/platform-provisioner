@@ -29,6 +29,18 @@ meta:
     GUI_TP_DEPLOY_KIBANA_INGRESS: "true"
     GUI_TP_DEPLOY_APM: "true"
     GUI_TP_DEPLOY_APM_INGRESS: "true"
+    GUI_TP_ES_MEMORY_REQUEST: "3Gi"
+    GUI_TP_ES_CPU_REQUEST: "250m"
+    GUI_TP_ES_MEMORY_LIMIT: "4Gi"
+    GUI_TP_ES_CPU_LIMIT: "1"
+    GUI_TP_KIBANA_MEMORY_REQUEST: "1Gi"
+    GUI_TP_KIBANA_CPU_REQUEST: "150m"
+    GUI_TP_KIBANA_MEMORY_LIMIT: "2Gi"
+    GUI_TP_KIBANA_CPU_LIMIT: "1"
+    GUI_TP_APM_MEMORY_REQUEST: "128Mi"
+    GUI_TP_APM_CPU_REQUEST: "50m"
+    GUI_TP_APM_MEMORY_LIMIT: "512Mi"
+    GUI_TP_APM_CPU_LIMIT: "250m"
 
     # prometheus
     GUI_TP_KUBE_PROMETHEUS_STACK_VERSION: "69.3.3"
@@ -72,6 +84,18 @@ meta:
     TP_DEPLOY_APM: ${GUI_TP_DEPLOY_APM}
     TP_DEPLOY_APM_INGRESS: ${GUI_TP_DEPLOY_APM_INGRESS}
     TP_ECK_VERSION: "${GUI_TP_ECK_VERSION}" # helm search repo elastic/eck-operator https://www.elastic.co/guide/en/cloud-on-k8s/master/eck-release-notes.html
+    TP_KIBANA_CPU_LIMIT: "${GUI_TP_KIBANA_CPU_LIMIT}"
+    TP_KIBANA_MEMORY_LIMIT: "${GUI_TP_KIBANA_MEMORY_LIMIT}"
+    TP_APM_CPU_LIMIT: "${GUI_TP_APM_CPU_LIMIT}"
+    TP_APM_MEMORY_LIMIT: "${GUI_TP_APM_MEMORY_LIMIT}"
+    TP_ES_CPU_LIMIT: "${GUI_TP_ES_CPU_LIMIT}"
+    TP_ES_MEMORY_LIMIT: "${GUI_TP_ES_MEMORY_LIMIT}"
+    TP_ES_CPU_REQUEST: "${GUI_TP_ES_CPU_REQUEST}"
+    TP_ES_MEMORY_REQUEST: "${GUI_TP_ES_MEMORY_REQUEST}"
+    TP_KIBANA_CPU_REQUEST: "${GUI_TP_KIBANA_CPU_REQUEST}"
+    TP_KIBANA_MEMORY_REQUEST: "${GUI_TP_KIBANA_MEMORY_REQUEST}"
+    TP_APM_CPU_REQUEST: "${GUI_TP_APM_CPU_REQUEST}"
+    TP_APM_MEMORY_REQUEST: "${GUI_TP_APM_MEMORY_REQUEST}"
 
     # prometheus
     TP_KUBE_PROMETHEUS_STACK_VERSION: "${GUI_TP_KUBE_PROMETHEUS_STACK_VERSION}" # https://github.com/prometheus-community/helm-charts/releases?q=kube-prometheus-stack&expanded=true
@@ -125,6 +149,13 @@ helmCharts:
           service: ${TP_ES_RELEASE_NAME}-es-http
         storage:
           name: ${TP_STORAGE_CLASS}
+        resources:
+          requests:
+            memory: ${TP_ES_MEMORY_REQUEST}
+            cpu: ${TP_ES_CPU_REQUEST}
+          limits:
+            memory: ${TP_ES_MEMORY_LIMIT}
+            cpu: ${TP_ES_CPU_LIMIT}
       kibana:
         enabled: "${TP_DEPLOY_KIBANA}"
         count: ${TP_CONFIG_ES_KIBANA_COUNT}
@@ -133,6 +164,13 @@ helmCharts:
           enabeld: "${TP_DEPLOY_KIBANA_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-kb-http
+        resources:
+          requests:
+            memory: ${TP_KIBANA_MEMORY_REQUEST}
+            cpu: ${TP_KIBANA_CPU_REQUEST}
+          limits:
+            memory: ${TP_KIBANA_MEMORY_LIMIT}
+            cpu: ${TP_KIBANA_CPU_LIMIT}
       apm:
         enabled: "${TP_DEPLOY_APM}"
         version: "${TP_CONFIG_ES_VERSION}"
@@ -140,6 +178,13 @@ helmCharts:
           enabled: "${TP_DEPLOY_APM_INGRESS}"
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-apm-http
+        resources:
+          requests:
+            memory: ${TP_APM_MEMORY_REQUEST}
+            cpu: ${TP_APM_CPU_REQUEST}
+          limits:
+            memory: ${TP_APM_MEMORY_LIMIT}
+            cpu: ${TP_APM_CPU_LIMIT}
   cluster:
     names:
       - ${TP_CLUSTER_NAME}

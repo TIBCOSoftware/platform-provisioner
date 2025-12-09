@@ -20,9 +20,11 @@ export TP_CLUSTER_VPC_CIDR=${TP_CLUSTER_VPC_CIDR:-"10.0.0.0/20"}
 # must be less than /21 otherwise: Cluster CIDR range is greater than maximum (24 > 21)
 export TP_CLUSTER_CIDR=${TP_CLUSTER_CIDR:-"10.1.0.0/16"}
 export TP_CLUSTER_SERVICE_CIDR=${TP_CLUSTER_SERVICE_CIDR:-"10.2.0.0/20"}
-export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.31"}
+export TP_CLUSTER_PROXY_SUBNET_CIDR=${TP_CLUSTER_PROXY_SUBNET_CIDR:-"10.129.0.0/23"}
+export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.33"}
 export TP_CLUSTER_INSTANCE_TYPE=${TP_CLUSTER_INSTANCE_TYPE:-"e2-standard-4"}
 export TP_CLUSTER_DESIRED_CAPACITY=${TP_CLUSTER_DESIRED_CAPACITY:-"2"}
+export TP_GATEWAY_API=${TP_GATEWAY_API:-"disabled"}
 
 # add your public ip
 # PIPELINE_OUTBOUND_IP_ADDRESS is the outbound ip address of the pipeline engine
@@ -49,8 +51,22 @@ gcloud compute networks subnets create "${TP_CLUSTER_NAME}" \
   --region "${GCP_REGION}" \
   --range "${TP_CLUSTER_VPC_CIDR}"
 if [ $? -ne 0 ]; then
-  echo "create vpc failed"
+  echo "create subnet failed"
   exit 1
+fi
+
+if [[ "${TP_GATEWAY_API}" != "disabled" ]]; then
+  echo "create proxy subnet"
+  gcloud compute networks subnets create "${TP_CLUSTER_NAME}-proxy-subnet" \
+    --network "${TP_CLUSTER_NAME}" \
+    --region "${GCP_REGION}" \
+    --range "${TP_CLUSTER_PROXY_SUBNET_CIDR}" \
+    --purpose "REGIONAL_MANAGED_PROXY" \
+    --role "ACTIVE"
+  if [ $? -ne 0 ]; then
+    echo "create proxy subnet failed"
+  exit 1
+  fi
 fi
 
 echo "create firewall rule"
@@ -85,6 +101,7 @@ gcloud beta container \
   --num-nodes "${TP_CLUSTER_DESIRED_CAPACITY}" \
   --monitoring=SYSTEM \
   --enable-ip-alias \
+  --gateway-api "${TP_GATEWAY_API}" \
   --network "${TP_CLUSTER_NAME}" \
   --subnetwork "${TP_CLUSTER_NAME}" \
   --cluster-ipv4-cidr "${TP_CLUSTER_CIDR}" \

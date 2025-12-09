@@ -99,8 +99,8 @@ DEFAULT_VALUES = {
     "TP_AUTO_FQDN_FLOGO": "flogo.localhost.dataplanes.pro",
     "TP_AUTO_FQDN_TIBCOHUB": "tibcohub.localhost.dataplanes.pro",
     # Ingress and Storage settings
-    "TP_AUTO_INGRESS_CONTROLLER": "nginx",
-    "TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME": "nginx",
+    "TP_AUTO_INGRESS_CONTROLLER": "traefik",
+    "TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME": "traefik",
     "TP_AUTO_INGRESS_CONTROLLER_BWCE": "nginx-bwce",
     "TP_AUTO_INGRESS_CONTROLLER_FLOGO": "nginx-flogo",
     "TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB": "nginx-tibcohub",
