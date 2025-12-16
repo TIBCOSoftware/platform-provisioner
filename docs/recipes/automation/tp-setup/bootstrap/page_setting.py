@@ -16,6 +16,7 @@ if __name__ == "__main__":
         po_auth.login_check()
 
         po_settings = PageObjectSettings(page)
+        po_settings.set_mcp_server()
         po_settings.set_oauth_token()
     except Exception as e:
         current_filename = Path(__file__).stem

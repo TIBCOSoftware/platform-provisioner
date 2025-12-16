@@ -1,8 +1,13 @@
+## [12/08/2025 22:30]
+### Added
+- Support for config MCP Server in settings page before creating OAuth Token
+- Print more helm chart information in "Show Current Environment" automation case
+  
 ## [12/05/2025 19:12]
 ### Fixed
 - The automation support for 1.13 release
   - Fix issue after BMDP creation UI changed
-  - 
+
 ## [12/02/2025 22:35]
 ### Fixed
 - The automation support for 1.13 release 
@@ -11,17 +16,17 @@
 
 ## [11/18/2025 13:06]
 ### Fixed
-- Windows Docker + Git Bash need double slash for mounting local folder into pod.
+- Windows Docker and Git Bash need double slash for mounting local folder into pod.
 - Browser launch failure due to --single-process issue in windows VDI environment.
 
 ## [10/14/2025 14:58]
 ### Fixed
-- Fix bug: ems and tibcohub do not deployed by default
+- Fix bug: ems and tibcohub do not deploy by default
 - Remove deploy Pussar by default
 
 ## [10/07/2025 13:51]
 ### Fixed
-- If button "Use Global Activation URL" is disabled, skip config it. 
+- If the button "Use Global Activation URL" is disabled, skip config it. 
 
 ## [10/04/2025 22:17]
 ### Added
@@ -45,7 +50,7 @@
 
 ## [09/19/2025 14:30]
 ### Fixed
-- In select "Force Run Automation" in One-Click Setup UI
+- Select "Force Run Automation" in One-Click Setup UI
   - will automatically switch dataplane to use global activation url.
   - will automatically switch dataplane to use global dataplane configuration.
 
@@ -80,7 +85,7 @@
 - Fix provision bwce automation issue after bwce UI is changed.
 - Fixed config flogo issue after flogo UI(set Endpoint visibility to Public dialog) is changed
 - Change name "BW5 Adapters" to BW5 for bmdp
-- Update capability status to "Running" in report yaml if it is running
+- Update capability status to "Running" in report YAML if it is running
 
 ### Added
 - Add reset password steps if admin user did not receive active email

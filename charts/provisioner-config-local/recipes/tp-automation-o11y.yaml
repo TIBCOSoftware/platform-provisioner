@@ -11,11 +11,11 @@ meta:
     note: "tp-automation-o11y"
     GUI_PIPELINE_LOG_DEBUG: false
 
-    GUI_TP_CLUSTER_NAME: 'on-prem'
+    GUI_TP_CLUSTER_NAME: "on-prem"
     GUI_GITHUB_TOKEN: ""
 
     # automation setup
-    GUI_TP_AUTO_CP_VERSION: ""    # keep it empty, unless you see an error with GUI_TP_AUTO_CP_VERSION in the logs
+    GUI_TP_AUTO_CP_VERSION: "" # keep it empty, unless you see an error with GUI_TP_AUTO_CP_VERSION in the logs
     GUI_TP_AUTO_USE_LOCAL_SCRIPT: false
     GUI_TP_AUTO_USE_GITHUB_SCRIPT: true
     GUI_TP_AUTO_REPORT_PATH: "/tmp/auto/report"
@@ -70,11 +70,11 @@ meta:
     GUI_TP_AUTO_K8S_DP_NAME: "k8s-auto-dp1"
     GUI_TP_AUTO_K8S_DP_NAMESPACE: "k8s-auto-dp1ns"
     GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT: "k8s-auto-dp1sa"
-    GUI_TP_AUTO_INGRESS_CONTROLLER: "nginx"
-    GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: "nginx"
-    GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME: "ingress-nginx-controller"
+    GUI_TP_AUTO_INGRESS_CONTROLLER: "traefik"
+    GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: "traefik"
+    GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME: "traefik"
     GUI_TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE: "ingress-system"
-    GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT: "443:https"
+    GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT: "443:websecure"
     GUI_TP_AUTO_STORAGE_CLASS: "hostpath"
 
     # network policy
@@ -183,11 +183,11 @@ meta:
     TP_AUTO_K8S_DP_NAME: ${GUI_TP_AUTO_K8S_DP_NAME:-"k8s-auto-dp1"}
     TP_AUTO_K8S_DP_NAMESPACE: ${GUI_TP_AUTO_K8S_DP_NAMESPACE:-"k8s-auto-dp1ns"}
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT: ${GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT:-"k8s-auto-dp1sa"}
-    TP_AUTO_INGRESS_CONTROLLER: ${GUI_TP_AUTO_INGRESS_CONTROLLER:-"nginx"}
-    TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: ${GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME:-"nginx"}
-    TP_INGRESS_CONTROLLER_SERVICE_NAME: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME:-"ingress-nginx-controller"}
+    TP_AUTO_INGRESS_CONTROLLER: ${GUI_TP_AUTO_INGRESS_CONTROLLER:-"traefik"}
+    TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: ${GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME:-"traefik"}
+    TP_INGRESS_CONTROLLER_SERVICE_NAME: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME:-"traefik"}
     TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE:-"ingress-system"}
-    TP_INGRESS_CONTROLLER_SERVICE_PORT: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT:-"443:https"}
+    TP_INGRESS_CONTROLLER_SERVICE_PORT: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT:-"443:websecure"}
     TP_AUTO_STORAGE_CLASS: ${GUI_TP_AUTO_STORAGE_CLASS:-"hostpath"}
 
     # network policies
@@ -236,7 +236,7 @@ meta:
     PYTHON_FILE_ENTRY_POINT: page_dp.py
     PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
     PYTHON_FILE_ENTRY_POINT_O11Y: page_o11y.py
-    PYTHON_FILE_ENTRY_POINT_TOKEN: page_token.py
+    PYTHON_FILE_ENTRY_POINT_SETTING: page_setting.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
@@ -437,11 +437,11 @@ tasks:
         fi
       fi
       
-      echo "===== Task Name: create-oauth-token, Running file ${PYTHON_FILE_ENTRY_POINT_TOKEN} ====="
+      echo "===== Task Name: create-oauth-token, Running file ${PYTHON_FILE_ENTRY_POINT_SETTING} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run --active ${PYTHON_FILE_ENTRY_POINT_TOKEN}
+        uv run --active ${PYTHON_FILE_ENTRY_POINT_SETTING}
       else
-        python ${PYTHON_FILE_ENTRY_POINT_TOKEN}
+        python ${PYTHON_FILE_ENTRY_POINT_SETTING}
       fi
       _result=$?
       echo "python return code: ${_result}"

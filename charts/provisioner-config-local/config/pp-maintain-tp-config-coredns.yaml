@@ -39,7 +39,7 @@ recipe: |
     guiEnv:
       note: "config-coredns"
       GUI_PIPELINE_LOG_DEBUG: false
-      GUI_TARGET_SERVICE: "ingress-nginx-controller.ingress-system.svc.cluster.local"
+      GUI_TARGET_SERVICE: "traefik.ingress-system.svc.cluster.local"
       GUI_REGEX_PATTERN_BASE64: "KC4qKVwubG9jYWxob3N0XC5kYXRhcGxhbmVzXC5wcm8K"
     globalEnvVariable:
       REPLACE_RECIPE: true

@@ -11,9 +11,11 @@ from utils.helper import Helper
 @dataclass(frozen=True)
 class EnvConfig:
     IS_HEADLESS = Helper.is_headless()
+    IS_CLUSTER_ACCESSIBLE = "Kubernetes control plane" in (Helper.get_command_output("kubectl cluster-info", is_print_error=False) or "")
 
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or "" # GitHub token is not used for now
-    RETRY_TIME = datetime.now(pytz.timezone("America/Chicago"))
+    TIME_ZONE = "America/Chicago"
+    RETRY_TIME = datetime.now(pytz.timezone(TIME_ZONE))
     RETRY_TIME_FOLDER = RETRY_TIME.strftime("%Y%m%d-%H%M%S")
     DP_HOST_PREFIX = os.environ.get("DP_HOST_PREFIX") or "cp-sub1"
     DP_USER_EMAIL = os.environ.get("DP_USER_EMAIL") or "cp-sub1@tibco.com"
@@ -106,6 +108,7 @@ class EnvConfig:
 
     # CP_DNS_DOMAIN
     TP_AUTO_CP_INSTANCE_ID = os.environ.get("TP_AUTO_CP_INSTANCE_ID") or "cp1"
+    TP_AUTO_CP_NAMESPACE = os.environ.get("TP_AUTO_CP_NAMESPACE") or f"{TP_AUTO_CP_INSTANCE_ID}-ns"
     TP_AUTO_CP_DNS_DOMAIN = os.environ.get("TP_AUTO_CP_DNS_DOMAIN") or Helper.get_cp_dns_domain() or "localhost.dataplanes.pro"
     TP_AUTO_CP_SERVICE_DNS_DOMAIN = os.environ.get("TP_AUTO_CP_SERVICE_DNS_DOMAIN") or f"{TP_AUTO_CP_INSTANCE_ID}-my.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE") or "bwce"

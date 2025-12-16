@@ -200,6 +200,17 @@ export GITHUB_TOKEN=""
 python page_dp.py
 ```
 
+## Build and push docker image to GHCR Public repo
+1. Go to [github Actions page](https://github.com/tibco/platform-provisioner/actions/workflows/docker-image-ghcr-build-push-public.yml)
+2. Run the workflow manually
+   1. update image tag: 1.x.x-auto-on-prem-jammy
+   2. git branch name: your_branch_name
+   3. click "Run workflow" button
+3. After the workflow is done, search `-auto-on-prem-jammy` in all files, then update it, currently in the following files:
+    * in `charts/provisioner-config-local/recipes/tp-base-on-prem-https.yaml` file
+    * in `charts/provisioner-config-local/recipes/tp-base-on-prem.yaml` file
+    * in `docs/recipes/tp-base/tp-base-on-prem-https.yaml` file
+    * in `docs/recipes/tp-base/tp-base-on-prem.yaml` file
 
 ## FAQ
 1. If pod `dp-config-es-es-default-0` is pending.

@@ -136,3 +136,47 @@ class PageObjectSettings:
         else:
             ColorLogger.error(f"Failed to create kubernetes secret {ENV.TP_AUTO_TOKEN_NAME} in namespace {ENV.TP_AUTO_TOKEN_NAMESPACE}.")
             ReportYaml.set(".ENV.REPORT_OAUTH_TOKEN", False)
+
+    def set_mcp_server(self):
+        print("Start set MCP Server...")
+        self.page.locator("#nav-bar-menu-item-settings").click()
+        print("Clicked left navbar 'Settings' menu")
+        self.page.locator(".left-sub-menu ul.menu-items").wait_for(state="visible")
+        print("'Sub-menu' page is visible")
+
+        if Util.check_dom_visibility(self.page, self.page.locator("#mcp-servers-menu-item"), 2, 2):
+            self.page.locator("#mcp-servers-menu-item").click()
+            print("Clicked 'MCP Server' submenu")
+
+            self.page.locator(".settings-mcp-servers").wait_for(state="visible")
+            print("'MCP Server' page is visible")
+
+            self.page.locator(".mcp-header-row .select-button", has_text="Select all").wait_for(state="visible")
+            self.page.locator(".mcp-header-row .select-button", has_text="Select all").click()
+            print("Clicked 'Select all' button to select all MCP servers")
+            self.page.wait_for_timeout(1000)
+
+            if self.page.locator(".settings-mcp-servers .mcp-footer button", has_text="Save").is_disabled():
+                ColorLogger.info(f"'Save' button is disabled, no changes to save for MCP server settings.")
+                ColorLogger.success(f"'MCP Server' has been enabled.")
+                ReportYaml.set(".ENV.ENABLE_MCP_SERVER", True)
+                return
+
+            self.page.locator(".settings-mcp-servers .mcp-footer button", has_text="Save").click()
+            print("Clicked 'Save' button to save MCP server settings")
+            self.page.wait_for_timeout(1000)
+
+            if self.page.locator(".pl-modal__heading", has_text="Update MCP Servers Configuration").is_visible():
+                ColorLogger.success(f"'Update MCP Server' confirmation dialog is visible")
+                self.page.locator(".pl-modal__container #confirm-button", has_text="Update").click()
+                print("Clicked 'Update' button on confirmation dialog")
+
+                if Util.check_dom_visibility(self.page, self.page.locator(".pl-notification__message", has_text="MCP servers updated successfully"), 2, 6):
+                    ColorLogger.success(f"'MCP Server' settings are updated successfully.")
+                    ReportYaml.set(".ENV.ENABLE_MCP_SERVER", True)
+                else:
+                    ColorLogger.warning(f"Failed to update MCP Server settings.")
+            else:
+                ColorLogger.warning(f"Failed to load 'MCP Server' page.")
+        else:
+            ColorLogger.warning(f"'MCP Server' submenu is not available in 'Settings' page.")

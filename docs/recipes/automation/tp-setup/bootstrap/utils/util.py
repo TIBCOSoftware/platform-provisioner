@@ -83,12 +83,12 @@ class Util:
             ColorLogger.success("Browser Closed Successfully.")
 
         if Util._run_start_time is not None:
-            chicago_time = datetime.now(pytz.timezone("America/Chicago")).strftime('%m/%d/%Y %H:%M:%S')
+            chicago_time = datetime.now(pytz.timezone(ENV.TIME_ZONE)).strftime('%m/%d/%Y %H:%M:%S')
             total_seconds = time.time() - Util._run_start_time
             minutes = int(total_seconds // 60)
             seconds = total_seconds % 60
             ColorLogger.info(f"Total running time: {minutes} minutes {seconds:.2f} seconds")
-            ColorLogger.info(f"Current time: {chicago_time} at America/Chicago")
+            ColorLogger.info(f"Current time: {chicago_time} at {ENV.TIME_ZONE}")
 
     @staticmethod
     def stop_tracing():
@@ -227,8 +227,23 @@ class Util:
     @staticmethod
     def print_cp_info():
         str_num = 90
+        space_nums = 45
         print("=" * str_num)
         print(f"{'Control Plane information': ^{str_num}}")
+        print("Is cluster accessible:", "√" if ENV.IS_CLUSTER_ACCESSIBLE else "X")
+        node_name = Helper.get_node_name()
+        ip = Helper.get_node_ip()
+        if ENV.TP_AUTO_KUBECONFIG:
+            # get ip from KUBECONFIG file name
+            kubeconfig_file = os.path.basename(ENV.TP_AUTO_KUBECONFIG)
+            ip_match = re.search(r'(\d{1,3}(?:\.\d{1,3}){3})', kubeconfig_file)
+            if ip_match:
+                ip = ip_match.group(1)
+        if node_name:
+            print("{:<{}} {}".format("Node name", space_nums, "IP"))
+            print("{:<{}} {}".format(node_name, space_nums, ip))
+            print("-" * str_num)
+
         cp_platform_bootstrap_version = Helper.get_cp_platform_bootstrap_version()
         if cp_platform_bootstrap_version:
             print("platform-bootstrap: ", cp_platform_bootstrap_version)
@@ -240,6 +255,20 @@ class Util:
         all_tibco_cp_version = Helper.get_all_tibco_cp_version()
         if all_tibco_cp_version:
             print(f"All TIBCO CP versions:\n{all_tibco_cp_version}")
+            print("-" * str_num)
+
+        deployment_images = Helper.get_deployment_images(f"{ENV.TP_AUTO_CP_NAMESPACE}")
+        if deployment_images:
+            print(f"All Deployment images:")
+            images = deployment_images.splitlines()
+            print("{:<{}} {}".format("Image name", space_nums, "Version"))
+            for image in images:
+                if ":" in image:
+                    name, version = image.split(":", 1)
+                else:
+                    name, version = image, ""
+                print("{:<{}} {}".format(name, space_nums, version))
+            print("-" * str_num)
 
         if ENV.TP_AUTO_KUBECONFIG:
             print("KUBECONFIG: ", ENV.TP_AUTO_KUBECONFIG)

@@ -49,5 +49,5 @@ Choose minikube as option to install TIBCO Platform. For more details, see [READ
 
 After installing the main ingress, we can forward the ingress port locally:
 ```bash
-kubectl port-forward -n ingress-system --address 0.0.0.0 service/ingress-nginx-controller 80:http 443:https
+kubectl port-forward -n ingress-system --address 0.0.0.0 service/traefik 80:web 443:websecure
 ```
