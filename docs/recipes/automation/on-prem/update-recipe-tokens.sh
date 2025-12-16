@@ -49,11 +49,6 @@ function set_github_token() {
       echo "Update GitHub token for ${_recipe_file_name}..."
       yq eval -i '(.meta.guiEnv.GUI_GITHUB_TOKEN = env(GITHUB_TOKEN))' ${_recipe_file_name}
     fi
-    local _recipe_file_name="07-tp-bw5-stack.yaml"
-    if [[ -f "${CURRENT_PATH}/${_recipe_file_name}" ]]; then
-      echo "Update GitHub token for ${_recipe_file_name}..."
-      yq eval -i '(.meta.guiEnv.GUI_BW5_CHART_REPO_TOKEN = env(GITHUB_TOKEN))' ${_recipe_file_name}
-    fi
   fi
 }
 
@@ -143,6 +138,14 @@ function set_jfrog_token() {
     echo "Update jFrog token for ${_recipe_file_name}..."
     export GUI_CP_CONTAINER_REGISTRY_PASSWORD
     yq eval -i '(.meta.guiEnv.GUI_BW5_CONTAINER_REGISTRY_PASSWORD = env(GUI_CP_CONTAINER_REGISTRY_PASSWORD))' "$_recipe_file_name"
+  fi
+  if [ -z "$GUI_BW5_CHART_REPO_TOKEN" ]; then
+    read -rp "Enter JFrog Chart Repo Token for BW5 (Press Enter to skip): " GUI_BW5_CHART_REPO_TOKEN
+  fi
+  if [ -n "$GUI_BW5_CHART_REPO_TOKEN" ]; then
+    echo "Update JFrog Chart Repo Token for ${_recipe_file_name}..."
+    export GUI_BW5_CHART_REPO_TOKEN
+    yq eval -i '(.meta.guiEnv.GUI_BW5_CHART_REPO_TOKEN = env(GUI_BW5_CHART_REPO_TOKEN))' "$_recipe_file_name"
   fi
 }
 

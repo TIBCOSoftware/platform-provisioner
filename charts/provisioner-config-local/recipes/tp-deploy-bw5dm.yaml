@@ -22,6 +22,10 @@ meta:
     GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
     GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
 
+    # ingress
+    GUI_TP_INGRESS_CLASS: "traefik"
+    GUI_TP_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
+
     # BW5DM
     GUI_BW5_CHART_VERSION: "^1.1.0"
     GUI_TP_BWDM_NAMESPACE: "bw5dm"
@@ -61,6 +65,10 @@ meta:
     TP_CONTAINER_REGISTRY_PASSWORD: "${GUI_BW5_CONTAINER_REGISTRY_PASSWORD}"
 
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
+
+    # ingress
+    TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-"traefik"}
+    TP_DNS_DOMAIN: ${GUI_TP_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
 
     # BW5DM
     BW5_CHART_VERSION: ${GUI_BW5_CHART_VERSION:-"^1.1.0"}
@@ -109,6 +117,8 @@ helmCharts:
           containerRegistry: "${TP_CONTAINER_REGISTRY}"
           containerRegistryUsername: "${TP_CONTAINER_REGISTRY_USERNAME}"
           containerRegistryPassword: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+          ingressClassName: ${TP_INGRESS_CLASS}
+          tpDNSDomainName: ${TP_DNS_DOMAIN}
         secret:
           enabled: true
         ems-server:

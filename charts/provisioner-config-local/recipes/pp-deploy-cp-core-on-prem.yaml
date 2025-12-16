@@ -67,7 +67,7 @@ meta:
     GUI_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
     GUI_TP_TLS_CERT: ""
     GUI_TP_TLS_KEY: ""
-    GUI_CP_INGRESS_CLASSNAME: "nginx"
+    GUI_CP_INGRESS_CLASSNAME: "traefik"
     GUI_CP_BOOTSTRAP_INGRESS_ROUTER: true
     GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY: true
     GUI_TP_GENERATE_CERTIFICATES: false
@@ -229,7 +229,7 @@ meta:
     CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER: ${GUI_CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER:-false}
 
     # CP ingress
-    CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-nginx} # the ingress for CP
+    CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-traefik} # the ingress for CP
     CP_BOOTSTRAP_INGRESS_ROUTER: ${GUI_CP_BOOTSTRAP_INGRESS_ROUTER:-true} # set to false will create ingress for router and hybrid-proxy
     CP_BOOTSTRAP_INGRESS_HYBRID_PROXY: ${GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY:-true} # set to false will create ingress for router and hybrid-proxy
     CP_ALB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for ALB

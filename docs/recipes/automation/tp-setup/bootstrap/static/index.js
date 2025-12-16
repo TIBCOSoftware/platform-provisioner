@@ -237,7 +237,7 @@ function handleFieldsAction() {
         toggleField(fieldsSelector, true);
         toggleField(['.TP_AUTO_K8S_DP_NAME'], false);
         break;
-      case "page_token":
+      case "page_setting":
         fieldsSelector = [
           ".TP_AUTO_TOKEN_NAME",
         ];

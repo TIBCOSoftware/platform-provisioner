@@ -70,7 +70,9 @@ class Helper:
         return ""
 
     @staticmethod
-    def get_command_output(command, is_print_cmd=False):
+    def get_command_output(command, is_print_cmd=False, is_print_error=True):
+        if command is None or command.strip() == "":
+            return None
         try:
             if platform.system() == "Windows":
                 bash_path = Helper.get_windows_bash()
@@ -89,12 +91,14 @@ class Helper:
                 check=True,
                 env=Helper.get_env_vars()
             )
-            if result.stderr:
+            if result.stderr and is_print_error:
+                print(f"Run command: {command}")
                 print(f"Command stderr: {result.stderr.strip()}")
             return result.stdout.strip()  # Return standard output
         except subprocess.CalledProcessError as e:
-            print(f"Failed command: {command}")
-            print(f"Command failed with error: {e.stderr.strip()}")
+            if is_print_error:
+                print(f"Failed command: {command}")
+                print(f"Command failed with error: {e.stderr.strip()}")
             return None
 
     @staticmethod
@@ -108,39 +112,53 @@ class Helper:
 
     @staticmethod
     def get_cp_dns_domain():
-        return Helper.get_command_output("kubectl get ingress -A | awk '$2 == \"router\" {print $4; exit}' | sed -E 's/^\\*?\\.//' | cut -d. -f2-")
+        return Helper.get_command_output("kubectl get ingress -A | awk '$2 == \"router\" {print $4; exit}' | sed -E 's/^\\*?\\.//' | cut -d. -f2-", is_print_error=False)
 
     @staticmethod
     def get_elastic_password():
-        return Helper.get_command_output("kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' | base64 --decode; echo")
+        return Helper.get_command_output("kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' | base64 --decode; echo", is_print_error=False)
 
     @staticmethod
     def get_cp_version():
-        return Helper.get_command_output("helm ls -A | grep platform-base | awk '{print $9}' | awk -F 'platform-base-' '{print $2}' | cut -d'.' -f1,2")
+        return Helper.get_command_output("helm ls -A | grep platform-base | awk '{print $9}' | awk -F 'platform-base-' '{print $2}' | cut -d'.' -f1,2", is_print_error=False)
 
     @staticmethod
     def get_cp_platform_bootstrap_version():
-        return Helper.get_command_output(r"helm list --all-namespaces | grep platform-bootstrap | sed -n 's/.*platform-bootstrap-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'")
+        return Helper.get_command_output(r"helm list --all-namespaces | grep platform-bootstrap | sed -n 's/.*platform-bootstrap-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'", is_print_error=False)
 
     @staticmethod
     def get_cp_platform_base_version():
-        return Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'")
+        return Helper.get_command_output(r"helm list --all-namespaces | grep platform-base | sed -n 's/.*platform-base-\(.*\)[[:space:]].*/\1/p' | sed 's/[[:space:]].*//'", is_print_error=False)
 
     @staticmethod
     def get_all_tibco_cp_version():
-        return Helper.get_command_output("helm list --all-namespaces -o json | jq -r '.[].chart' | grep tibco-cp")
+        return Helper.get_command_output("helm list --all-namespaces -o json | jq -r '.[].chart' | grep tibco-cp", is_print_error=False)
+
+    @staticmethod
+    def get_node_name():
+        return Helper.get_command_output("kubectl get nodes | grep ' Ready ' | awk '{print $1}' | awk -F '.' '{print $1}'", is_print_error=False)
+
+    @staticmethod
+    def get_node_ip():
+        # import requests
+        # return requests.get("https://ifconfig.me").text
+        return Helper.get_command_output("curl ifconfig.me", is_print_error=False)
+
+    @staticmethod
+    def get_deployment_images(namespace):
+        return Helper.get_command_output(f"kubectl get deployment -n {namespace} -o json | jq -r '.items[] | .metadata.name as $name | .spec.template.spec.containers[0].image | (split(\"/\")[-1])'", is_print_error=False)
 
     @staticmethod
     def get_auto_token_creation():
-        return Helper.get_command_output("kubectl get secret auto-token -n automation -o jsonpath='{.metadata.creationTimestamp}'")
+        return Helper.get_command_output("kubectl get secret auto-token -n automation -o jsonpath='{.metadata.creationTimestamp}'", is_print_error=False)
 
     @staticmethod
     def get_auto_token():
-        return Helper.get_command_output("kubectl get secret auto-token -n automation -o jsonpath=\"{.data['auto-token']}\" | base64 --decode")
+        return Helper.get_command_output("kubectl get secret auto-token -n automation -o jsonpath=\"{.data['auto-token']}\" | base64 --decode", is_print_error=False)
 
     @staticmethod
     def get_storage_class():
-        return Helper.get_command_output("kubectl get sc | awk '/\\(default\\)/ {print $1}'")
+        return Helper.get_command_output("kubectl get sc | awk '/\\(default\\)/ {print $1}'", is_print_error=False)
 
     @staticmethod
     def get_app_file_fullpath(app_file_name):

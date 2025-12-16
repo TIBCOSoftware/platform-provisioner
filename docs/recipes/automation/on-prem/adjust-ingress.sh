@@ -55,10 +55,15 @@ function adjust_ingress() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_CLASS = env(TP_INGRESS_CLASS_NAME))' "$_recipe_file_name"
         fi
 
+        _recipe_file_name="07-tp-bw5-stack.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_CLASS = env(TP_INGRESS_CLASS_NAME))' "$_recipe_file_name"
+        fi
+
         break
         ;;
       2)
-        echo "Adjusting ingress for treafik..."
+        echo "Adjusting ingress for traefik..."
         _recipe_file_name="01-tp-on-prem.yaml"
         export TP_INGRESS_CLASS_NAME="traefik"
         if [[ -f "${_recipe_file_name}" ]]; then
@@ -91,6 +96,11 @@ function adjust_ingress() {
         fi
 
         _recipe_file_name="06-tp-o11y-stack.yaml"
+        if [[ -f "${_recipe_file_name}" ]]; then
+          yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_CLASS = env(TP_INGRESS_CLASS_NAME))' "$_recipe_file_name"
+        fi
+
+        _recipe_file_name="07-tp-bw5-stack.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_CLASS = env(TP_INGRESS_CLASS_NAME))' "$_recipe_file_name"
         fi

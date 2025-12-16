@@ -18,8 +18,8 @@ meta:
     GUI_TP_DNS_DOMAIN: localhost.dataplanes.pro
     GUI_TP_TLS_CERT: ""
     GUI_TP_TLS_KEY: ""
-    GUI_TP_INSTALL_NGINX_INGRESS: true
-    GUI_TP_INSTALL_TRAEFIK_INGRESS: false
+    GUI_TP_INSTALL_NGINX_INGRESS: false
+    GUI_TP_INSTALL_TRAEFIK_INGRESS: true
     GUI_TP_INGRESS_SERVICE_TYPE: LoadBalancer
 
     # storage
@@ -48,7 +48,7 @@ meta:
     GUI_TP_CONTAINER_REGISTRY_PASSWORD: ""
 
     # third party
-    GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME: nginx
+    GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME: traefik
     GUI_TP_PROVISIONER_UI_NAMESPACE: tekton-tasks
     GUI_TP_AUTOMATION_INSTALL: false
     GUI_TP_AUTOMATION_NAMESPACE: automation
@@ -69,7 +69,7 @@ meta:
 
     # CP automation
     GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
-    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.11-auto-on-prem-jammy
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.12-auto-on-prem-jammy
 
     # flow control
     GUI_TP_INSTALL_PROVISIONER_UI: false
@@ -96,8 +96,8 @@ meta:
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
 
     # domain
-    TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
-    TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"false"}
+    TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"false"}
+    TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"true"}
     TP_INGRESS_NAMESPACE: ingress-system
     TP_DNS_DOMAIN: ${GUI_TP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     TP_INGRESS_SERVICE_TYPE: ${GUI_TP_INGRESS_SERVICE_TYPE:-"ClusterIP"} # LoadBalancer used for minikube with tunel, NodePort used for kind, ClusterIP used for kubectl port-forward
@@ -124,7 +124,7 @@ meta:
     TP_EXT_NAMESPACE: tibco-ext
     TP_INSTALL_PROVISIONER_UI: ${GUI_TP_INSTALL_PROVISIONER_UI:-"false"}
     TP_PROVISIONER_UI_NAMESPACE: ${GUI_TP_PROVISIONER_UI_NAMESPACE:-"tekton-tasks"}
-    TP_PROVISIONER_UI_INGRESS_CLASSNAME: ${GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME:-"nginx"}
+    TP_PROVISIONER_UI_INGRESS_CLASSNAME: ${GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME:-"traefik"}
     TP_AUTOMATION_INSTALL: ${GUI_TP_AUTOMATION_INSTALL:-false}
     TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
 

@@ -10,7 +10,7 @@ meta:
     GUI_TP_CHART_REPO_TOKEN: ""
 
     # ingress
-    GUI_TP_INGRESS_CLASS: "nginx"
+    GUI_TP_INGRESS_CLASS: "traefik"
     GUI_TP_DOMAIN: "localhost.dataplanes.pro"
 
     # storage

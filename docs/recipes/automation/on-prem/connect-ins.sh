@@ -176,7 +176,7 @@ function connect_ins() {
   export INGRESS_SERVICE_NAMESPACE_LOCAL=${INGRESS_SERVICE_NAMESPACE_LOCAL:-"ingress-system"}
   export INGRESS_SERVICE_NAME_INSTANCE=${INGRESS_SERVICE_NAME_INSTANCE:-"ingress-nginx-controller"} # for nginx ingress use ingress-nginx-controller, for traefik ingress use traefik
   export INGRESS_SERVICE_NAMESPACE_INSTANCE=${INGRESS_SERVICE_NAMESPACE_INSTANCE:-"ingress-system"}
-  export INGRESS_SERVICE_PORT_INSTANCE=${INGRESS_SERVICE_PORT_INSTANCE:-"443:https"} # for nginx ingress use 443:https, for traefik ingress use 443:websecure
+  export INGRESS_SERVICE_PORT_INSTANCE=${INGRESS_SERVICE_PORT_INSTANCE:-"443:websecure"} # for nginx ingress use 443:https, for traefik ingress use 443:websecure
 
   if [ -z "$1" ]; then
     show_help
