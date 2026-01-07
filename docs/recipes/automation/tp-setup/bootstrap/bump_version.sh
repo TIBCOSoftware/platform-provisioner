@@ -10,51 +10,83 @@ cd "$PROJECT_ROOT" || { echo "❌ Failed to change to project root directory."; 
 
 echo "📂 Now in project root: $PROJECT_ROOT"
 
-# Define file paths
-CHART_FILE="charts/provisioner-config-local/Chart.yaml"
-VERSION_FILE="docs/recipes/automation/tp-setup/bootstrap/version.txt"
+get_current_version() {
+  local yaml_file="$1"
+  local yq_path="$2"
 
-# Ensure Chart.yaml exists
-if [ ! -f "$CHART_FILE" ]; then
-  echo "❌ Error: Chart file not found at $CHART_FILE"
-  exit 1
-fi
+  # Read raw value from YAML
+  local raw_value
+  raw_value=$(yq "$yq_path" "$yaml_file")
 
-# Read the current version from Chart.yaml
-current_version=$(grep '^version:' "$CHART_FILE" | awk '{print $2}' | tr -d '"')
+  if [[ -z "$raw_value" ]]; then
+    echo "ERROR: Cannot read path: $yq_path" >&2
+    return 1
+  fi
 
-# Validate version format (must be X.Y.Z)
-if ! [[ "$current_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "❌ Error: Current version ($current_version) is not in valid format (X.Y.Z)"
-  exit 1
-fi
+  # Extract full version string starting with X.Y.Z
+  # Example matches:
+  # 1.6.13
+  # 1.6.13-auto-on-prem-jammy
+  # 1.6.13_rc1
+  # 1.6.13+build45
+  local version
+  version=$(echo "$raw_value" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+.*')
 
-# Split prefix and patch
-prefix=$(echo "$current_version" | awk -F. '{print $1"."$2}')
-patch=$(echo "$current_version" | awk -F. '{print $3}')
+  if [[ -z "$version" ]]; then
+    echo "ERROR: Value does not contain valid version prefix (X.Y.Z): $raw_value" >&2
+    return 1
+  fi
 
-# Increment patch version
-new_patch=$((patch + 1))
-new_version="${prefix}.${new_patch}"
-# use current time for new_ui_version
-new_ui_version="$(date '+%m/%d/%Y %H:%M')"
-#new_ui_version="$(git log -1 --pretty=format:"%h" .)"
+  echo "$version"
+}
 
-echo "Current version: $current_version"
-echo "New version: $new_version"
+set_version() {
+  local yaml_file="$1"
+  local current_value="$2"
 
-# Update Chart.yaml safely
-# Use a temp file for compatibility across Linux, macOS, Git Bash
-tmp_file=$(mktemp)
-awk -v new_version="$new_version" '
-  /^version:/ {$0 = "version: \"" new_version "\""}
-  {print}
-' "$CHART_FILE" > "$tmp_file" && mv "$tmp_file" "$CHART_FILE"
+  # 1) Extract X.Y.Z
+  local base_version
+  base_version=$(echo "$current_value" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
 
-# Update version.txt
-mkdir -p "$(dirname "$VERSION_FILE")"
-echo "$new_ui_version" > "$VERSION_FILE"
+  if [[ -z "$base_version" ]]; then
+    echo "ERROR: failed to detect version in: $current_value" >&2
+    return 1
+  fi
 
-echo "✅ Successfully updated:"
-echo "- $CHART_FILE with version: $new_version"
-echo "- $VERSION_FILE with version: $new_ui_version"
+  # 2) bump patch version
+  local major minor patch
+  IFS='.' read -r major minor patch <<< "$base_version"
+  local new_version="${major}.${minor}.$((patch + 1))"
+
+  # 3) keep suffix
+  local suffix="${current_value#"$base_version"}"
+  local new_full="${new_version}${suffix}"
+
+  # 4) escape special chars for sed
+  local old_escaped new_escaped
+  old_escaped=$(printf '%s' "$current_value" | sed 's/[\/&]/\\&/g')
+  new_escaped=$(printf '%s' "$new_full" | sed 's/[\/&]/\\&/g')
+
+  # 5) replace ONLY this exact string (preserves all formatting)
+  sed -i.bak "s/$old_escaped/$new_escaped/" "$yaml_file"
+  rm -f "$yaml_file.bak"
+
+  echo "File: $yaml_file"
+  echo "✅  Change version: $current_value ➡️ $new_full"
+  echo ""
+}
+
+chart_version=$(get_current_version "charts/provisioner-config-local/Chart.yaml" ".version")
+set_version "charts/provisioner-config-local/Chart.yaml" "${chart_version}"
+
+BUILD_VERSION_FILE="docs/recipes/automation/tp-setup/bootstrap/version.txt"
+automation_version=$(head -n 1 "$BUILD_VERSION_FILE")
+
+set_version "$BUILD_VERSION_FILE" "${automation_version}"
+set_version "charts/provisioner-config-local/recipes/tp-base-on-prem.yaml" "${automation_version}"
+set_version "charts/provisioner-config-local/recipes/tp-base-on-prem-https.yaml" "${automation_version}"
+set_version "docs/recipes/tp-base/tp-base-on-prem.yaml" "${automation_version}"
+set_version "docs/recipes/tp-base/tp-base-on-prem-https.yaml" "${automation_version}"
+
+# add tips to add what you changed in CHANGELOG.md file
+echo "📝 Please remember to update CHANGELOG.md with the new version details."

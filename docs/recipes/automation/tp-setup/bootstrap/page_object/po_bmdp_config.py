@@ -36,6 +36,11 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             Util.exit_error(f"{product_name} Card is not visible.", self.page, "goto_Products.png")
 
     def dp_config_bw5_rvdm(self, domain_name):
+        if ReportYaml.get_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", domain_name) in ("Added", "Connected"):
+            ColorLogger.success(f"Dataplane '{ENV.TP_AUTO_K8S_BMDP_NAME}' capability 'BW5' domain '{domain_name}' is already added.")
+            self.check_domain_status(domain_name, "BW5")
+            return
+
         ColorLogger.info("Config BW5 RV domain...")
         if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 9, True):
             # add domain
@@ -56,6 +61,9 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             self.page.locator(".pl-button.pl-button--primary", has_text="Add Domain").click()
             self.page.wait_for_timeout(5000)
             domain_banner = self.page.locator(".pl-notification__message").inner_text()
+            #add domain to report no matter success or failed
+            ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5")
+            ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", domain_name, "Added")
             if self.page.locator(".pl-notification__message", has_text="successfully").is_visible():
                 ColorLogger.success(domain_banner)
             else:
@@ -63,6 +71,11 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         self.check_domain_status(domain_name, "BW5")
 
     def dp_config_bw5_emsdm(self, domain_name):
+        if ReportYaml.get_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", domain_name) in ("Added", "Connected"):
+            ColorLogger.success(f"Dataplane '{ENV.TP_AUTO_K8S_BMDP_NAME}' capability 'BW5' domain '{domain_name}' is already added.")
+            self.check_domain_status(domain_name, "BW5")
+            return
+
         ColorLogger.info("Config BW5 EMS domain...")
         if not Util.check_dom_visibility(self.page, self.page.locator(f"td.pl-table__cell:text('{domain_name}')"), 3, 9, True):
             # add domain
@@ -83,6 +96,9 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             self.page.locator(".pl-button.pl-button--primary", has_text="Add Domain").click()
             self.page.wait_for_timeout(5000)
             domain_banner = self.page.locator(".pl-notification__message").inner_text()
+            #add domain to report no matter success or failed
+            ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5")
+            ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", domain_name, "Added")
             if self.page.locator(".pl-notification__message", has_text="successfully").is_visible():
                 ColorLogger.success(domain_banner)
             else:
@@ -97,7 +113,6 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         if domain_row.is_visible():
             if Util.check_dom_visibility(self.page, domain_row.locator("td.pl-table__cell img[src*='/connected.svg']"), 10, max_retries):
                 ColorLogger.success(f"Domain '{domain_name}' is connected.")
-                ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, capability)
                 ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, capability, domain_name, "Connected")
                 return
             Util.exit_error(f"Domain '{domain_name}' status is disconnected.", self.page, "check_domain_status.png")
@@ -179,6 +194,10 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             Util.exit_error(f"'{app_name}' in domain '{domain_name}' instance is not running.", self.page, "check_bw6_app_status_by_app_name.png")
 
     def dp_config_bw6(self, agent_name):
+        if ReportYaml.get_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW6", agent_name) in ("Added", "Connected"):
+            ColorLogger.success(f"Dataplane '{ENV.TP_AUTO_K8S_BMDP_NAME}' capability 'BW6' domain '{agent_name}' is already added.")
+            return
+
         ColorLogger.info("Config BW6 domain...")
         # switch to BW6 Agents config page
         self.goto_dataplane_config_sub_menu("Agents")
@@ -200,13 +219,15 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
                 if Util.check_dom_visibility(self.page, self.page.locator(".test-connection-success"), 2, 6):
                     ColorLogger.success("BW6Agent connection is successful.")
                     self.page.locator("agent-config-modal button", has_text="Register").click()
+                    ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, "BW6")
+                    ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW6", agent_name, "Added")
                     print("Clicked 'Register' button")
                     self.page.wait_for_timeout(3000)
                     if self.page.locator(".pl-notification__message", has_text="successfully").is_visible():
                         agent_banner = self.page.locator(".pl-notification__message").inner_text()
                         ColorLogger.success(agent_banner)
                     else:
-                        Util.warning_screenshot(f"May failed to register RV domain", self.page, "dp_config_bw6dm.png")
+                        Util.warning_screenshot(f"May failed to register BW6 domain", self.page, "dp_config_bw6dm.png")
                 else:
                     Util.warning_screenshot(f"'{agent_name}' connection test failed.", self.page, "test_connection_bw6agent_error.png")
                     self.page.locator("agent-config-modal button", has_text="Cancel").click()
@@ -218,6 +239,9 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         self.check_domain_status(agent_name, "BW6")
 
     def dp_config_ems(self, server_group_name):
+        if ReportYaml.get_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer", server_group_name) in ("Added", "Connected"):
+            ColorLogger.success(f"Dataplane '{ENV.TP_AUTO_K8S_BMDP_NAME}' capability EMSServer '{server_group_name}' is already added.")
+            return
         ColorLogger.info("Config EMS Instance...")
         # switch to EMS Agents config page
         self.goto_dataplane_config_sub_menu("Messaging")
@@ -265,6 +289,8 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
                 Util.exit_error(f"'{server_group_name}' is not registered successfully or not reachable", self.page, "ems_register_error.png")
         else:
             ColorLogger.info(f"Domain '{server_group_name}' is already registered.")
+        ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer")
+        ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer", server_group_name, "Connected")
         self.check_ems_server_status(server_group_name)
 
     def check_ems_server_status(self, server_group_name):
@@ -275,7 +301,6 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         if ems_server_row.is_visible():
             if ems_health_svg and "serverGroupTable_healthIcon" in ems_health_svg:
                 ColorLogger.success(f"EMS Server '{server_group_name}' is connected.")
-                ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer")
                 ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer", server_group_name, "Connected")
                 return
             ColorLogger.warning(f"EMS Server '{server_group_name}' is not connected.")

@@ -117,7 +117,7 @@ meta:
     TP_TLS_KEY: ${GUI_TP_TLS_KEY:-""}
     TP_GENERATE_CERTIFICATES: ${GUI_TP_GENERATE_CERTIFICATES:-true} # if true, will create cluster issuer and certificate for tp-certificate using cert-manager. For local use set to false
     TP_GENERATE_CERTIFICATE_NAME: tp-certificate-${CP_INSTANCE_ID}
-    TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
+    TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"cic-cert-subscription-scope-production-main"} # the cluster issuer for tp-certificate
     TP_TLS_SECRET_NAME_ROUTER: ${GUI_TP_TLS_SECRET_NAME_ROUTER:-""} # the secret name for router ingress
     TP_TLS_CERT_ROUTER: ${GUI_TP_TLS_CERT_ROUTER:-""} # the tls.crt for router ingress
     TP_TLS_KEY_ROUTER: ${GUI_TP_TLS_KEY_ROUTER:-""} # the tls.key for router ingress
@@ -126,12 +126,12 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.13.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.13.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.13.0} # use ^1.0.0 for latest
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.13.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.14.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.14.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.14.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.14.0} # use ^1.0.0 for latest
     CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.13.15} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.13.15} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.14.4} # use ^1.0.0 for latest
     CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.12.0} # use ^1.0.0 for latest
     
     # CP AI MCP servers
@@ -932,7 +932,7 @@ helmCharts:
         enabled: true
         mcpserver:
           enabled: ${TP_AI_ENABLE_FLOGO_MCP_SERVER}
-      flogoce-utilities:
+      flogo-utilities:
         enabled: true
   cluster:
     names:
