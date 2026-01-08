@@ -1,3 +1,11 @@
+## [1.6.13-auto-on-prem-jammy]
+### Changed
+- Change version from update time to semantic versioning format.
+- Update toolkit script `bump_version.sh` to support semantic versioning format update.
+  * change `version` in `charts/provisioner-config-local/Chart.yaml` file
+  * change `1.x.x-auto-on-prem-jammy` in `docs/recipes/automation/tp-setup/bootstrap/version.txt` file
+  * search `-auto-on-prem-jammy` in the specified file, then update it.
+
 ## [12/08/2025 22:30]
 ### Added
 - Support for config MCP Server in settings page before creating OAuth Token
