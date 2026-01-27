@@ -202,11 +202,6 @@ python page_dp.py
 
 ## Build and push docker image to GHCR Public repo (Publish a new version)
 1. Go to [github Actions page](https://github.com/tibco/platform-provisioner/actions/workflows/docker-image-ghcr-build-push-public.yml)
-2. Run the workflow manually
-   1. update image tag: 1.x.x-auto-on-prem-jammy
-   2. git branch name: your_branch_name
-   3. click "Run workflow" button
-3. After the workflow is done
    Run change version script to update all related files
    ```shell
    ./docs/recipes/automation/tp-setup/bootstrap/bump_version.sh
@@ -218,6 +213,13 @@ python page_dp.py
      * in `charts/provisioner-config-local/recipes/tp-base-on-prem.yaml` file
      * in `docs/recipes/tp-base/tp-base-on-prem-https.yaml` file
      * in `docs/recipes/tp-base/tp-base-on-prem.yaml` file
+2. Commit and push the `version.txt` file changes to your branch.
+3. Run the workflow manually
+   1. update image tag: 1.x.x-auto-on-prem-jammy
+   2. git branch name: your_branch_name
+   3. click "Run workflow" button
+4. After the workflow is done
+   * Commit and push the `*.yaml` file changes to your branch.
 
 ## FAQ
 1. If pod `dp-config-es-es-default-0` is pending.

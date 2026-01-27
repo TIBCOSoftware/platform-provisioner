@@ -4,19 +4,10 @@
 # in the license file that is distributed with this file.
 #
 
-# This recipe is used to test the container binaries
+# This recipe is used to test the on-prem container binaries
 # It dynamically discovers and displays all available versions
 #
 # Example output:
-#
-# === Cloud Provider CLIs ===
-# Binary                              Version
-# ------                              -------
-# aws                                 aws-cli/2.32.31 Python/3.12.11
-# az                                  2.81.0
-# gcloud                              Google Cloud SDK 551.0.0
-# eksctl                              0.221.0
-# docker-credential-ecr-login         0.11.0
 #
 # === Utility Tools ===
 # Binary                              Version
@@ -24,7 +15,6 @@
 # cue                                 cue version v0.15.3
 # yq                                  yq (https://github.com/mikefarah/yq/) version v4.50.1
 # vcluster                            vcluster version 0.30.4
-# oc                                  Client Version: 4.18.20
 #
 # === Helm Versions ===
 # Binary                              Version
@@ -45,7 +35,6 @@ meta:
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: false
-    PIPELINE_INITIAL_ASSUME_ROLE: true
     PIPELINE_CHECK_DOCKER_STATUS: false
     RUN1: true
   tools:
@@ -64,34 +53,19 @@ tasks:
         get_version() {
           local cmd="$1"
           case "$cmd" in
-            aws) aws --version 2>&1 | awk '{print $1 " " $2}' ;;
-            az) az version 2>&1 | sed -n 's/.*"azure-cli": "\(.*\)",/\1/p' ;;
-            gcloud) gcloud --version 2>&1 | head -n 1 ;;
-            eksctl) eksctl version 2>&1 ;;
-            docker-credential-ecr-login) docker-credential-ecr-login -v 2>&1 ;;
             cue) cue version 2>&1 | head -n 1 ;;
             yq) yq --version 2>&1 ;;
             vcluster) vcluster version 2>&1 ;;
-            oc) oc version --client=true 2>&1 | head -n 1 ;;
             helm|helm-*) $cmd version --short 2>&1 ;;
             kubectl|kubectl-*) $cmd version --client 2>&1 | head -n 1 ;;
             *) echo "Unknown command" ;;
           esac
         }
         
-        echo "=== Cloud Provider CLIs ==="
-        printf "%-35s %-50s\n" "Binary" "Version"
-        printf "%-35s %-50s\n" "------" "-------"
-        for binary in aws az gcloud eksctl docker-credential-ecr-login; do
-          version=$(get_version "$binary")
-          printf "%-35s %-50s\n" "$binary" "$version"
-        done
-        
-        echo ""
         echo "=== Utility Tools ==="
         printf "%-35s %-50s\n" "Binary" "Version"
         printf "%-35s %-50s\n" "------" "-------"
-        for binary in cue yq vcluster oc; do
+        for binary in cue yq vcluster; do
           version=$(get_version "$binary")
           printf "%-35s %-50s\n" "$binary" "$version"
         done

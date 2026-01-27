@@ -54,6 +54,30 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.po_dp_config = PageObjectDataPlaneConfiguration(page)
         self.set_capability(capability)
 
+    def selector_header_dp_name(self):
+        selector = super().selector_header_dp_name()
+        if not self.is_fresco:
+            selector = "#capabilityHeader-lbl-dpname"
+        return selector
+
+    def selector_header_app_name(self):
+        selector = super().selector_header_app_name()
+        if not self.is_fresco:
+            selector = ".app-name"
+        return selector
+
+    def selector_header_app_scale_input(self):
+        selector = super().selector_header_app_scale_input()
+        if not self.is_fresco:
+            selector = "#appDtls-appName-cont input.input-scale"
+        return selector
+
+    def selector_header_app_action_btn(self):
+        selector = super().selector_header_app_action_btn()
+        if not self.is_fresco:
+            selector = ".start_stop"
+        return selector
+
     def set_capability(self, capability):
         key = capability.strip().lower()
         if key not in self.CONFIGS:
@@ -146,11 +170,26 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             print(f"Clicked {self.capability_upper} 'EUA' checkbox")
             self.page.wait_for_timeout(500)
             self.page.locator("#btnNextCapabilityProvision").click()
+
+            # for bw5ce dom selector
+            if Util.check_dom_visibility(self.page, self.page.locator("#btnProvCapabilityProvision"), 2, 2):
+                self.page.locator("#btnProvCapabilityProvision").click()
+                print(f"Preview/Customize Recipe page is loaded, clicked '{self.capability_upper} (Containers) Provision Capability' button")
+
+            # for bwce dom selector
+            if Util.check_dom_visibility(self.page, self.page.locator("#btnCapabilityProvision"), 2, 2):
+                self.page.locator("#btnCapabilityProvision").click()
+                print(f"Preview/Customize Recipe page is loaded, clicked '{self.capability_upper} (Containers) Provision Capability' button")
+
             print(f"Clicked '{self.capability_upper} Provision Capability' button, waiting for {self.capability_upper} Capability Provision Request Completed")
             if Util.check_dom_visibility(self.page, self.page.locator(".resource-success .title", has_text="Capability Provision Request Completed"), 5, 120):
                 ColorLogger.success(f"Provision {self.capability_upper} capability successful.")
-            self.page.locator("#capProvBackToDPBtn").click()
-            print("Clicked 'Go Back To Data Plane Details' button")
+            if self.page.locator("#capProvBackToDPBtn").is_visible():
+                self.page.locator("#capProvBackToDPBtn").click()
+                print("Clicked 'Go Back To Data Plane Details' button")
+            else:
+                ColorLogger.warning(f"Can not find 'Go Back To Data Plane Details' button, click left menu navigator to Data Plane '{dp_name}'")
+                self.goto_dataplane(dp_name)
         else:
             Util.exit_error("'Provision a capability' button is not visible.", self.page, f"{self.capability}_provision_capability.png")
 
@@ -211,7 +250,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         if required_connectors.issubset(set(plugins)) or (mapped_name and {mapped_name}.issubset(set(plugins))):
             ColorLogger.success(f"{self.capability_upper} Plugins are already provisioned.")
             ReportYaml.set_capability_info(dp_name, self.capability, "provisionConnector", True)
-            self.page.locator("#capabilityHeader-lbl-dpname", has_text=dp_name).click()
+            self.page.locator(self.selector_header_dp_name(), has_text=dp_name).click()
             print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
             return
 
@@ -229,7 +268,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         if required_connectors.issubset(set(plugins)):
             ColorLogger.success("Provision successful.")
             ReportYaml.set_capability_info(dp_name, self.capability, "provisionConnector", True)
-        self.page.locator("#capabilityHeader-lbl-dpname", has_text=dp_name).click()
+        self.page.locator(self.selector_header_dp_name(), has_text=dp_name).click()
         print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
 
     def bwce_app_build_and_deploy(self, dp_name, app_file_name = None, app_name = None):
@@ -265,6 +304,9 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             return
 
         print(f"Start Create {self.capability_upper} app build...")
+
+        if not self.page.locator(self.create_app_build_button_selector, has_text="Create New App Build & Deploy").is_visible():
+            Util.exit_error(f"{self.capability_upper} 'Create New App Build & Deploy' button is not visible, check {self.capability_upper} provision page.", self.page, f"{self.capability}_app_build_and_deploy.png")
 
         self.page.locator(self.create_app_build_button_selector, has_text="Create New App Build & Deploy").click()
         print("Clicked 'Create New App Build & Deploy' button")
@@ -427,7 +469,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         app_name = app_name or self.app_name
 
         ColorLogger.info(f"{self.capability_upper} Config app '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name, ".app-name")
+        self.goto_app_detail(dp_name, app_name, self.selector_header_app_name())
 
         if ReportYaml.get_capability_app_info(dp_name, self.capability, app_name, "endpointPublic") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' Endpoints is already Public in DataPlane '{dp_name}'.")
@@ -446,10 +488,10 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "endpointPublic", True)
             else:
                 print("No 'Test' button, will set Endpoint Visibility to Public")
-                self.page.locator("#app-details-menu-dropdown-label").wait_for(state="visible")
-                self.page.locator("#app-details-menu-dropdown-label").click()
-                self.page.locator(".pl-dropdown-menu__action", has_text="Set Endpoint Visibility").wait_for(state="visible")
-                self.page.locator(".pl-dropdown-menu__action", has_text="Set Endpoint Visibility").click()
+                self.page.locator(self.selector_header_action_menu()).wait_for(state="visible")
+                self.page.locator(self.selector_header_action_menu()).click()
+                self.page.locator(self.selector_header_action_menu_item(), has_text="Set Endpoint Visibility").wait_for(state="visible")
+                self.page.locator(self.selector_header_action_menu_item(), has_text="Set Endpoint Visibility").click()
                 print("Clicked 'Set Endpoint Visibility' menu item")
                 self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").wait_for(state="visible")
                 print("Dialog 'Set Endpoint Visibility' popup")
@@ -512,22 +554,19 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' App '{app_name}' is Running in DataPlane '{dp_name}'.")
             return
         ColorLogger.info(f"{self.capability_upper} Start app '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name, ".app-name")
+        self.goto_app_detail(dp_name, app_name, self.selector_header_app_name())
 
         print("Waiting to see if app status is Running...")
-        self.page.locator("#appDtls-appName-cont .status_label").wait_for(state="visible")
-        # when app status is Running, or the action button is 'Stop', it means the app is already running
-        is_app_running = self.page.locator("#appDtls-appName-cont .status_label", has_text="Running").is_visible() or self.page.locator(".start_stop", has_text="Stop").is_visible()
-        if is_app_running:
+        if self.get_app_instance_number() > 0:
             ColorLogger.success(f"{self.capability_upper} app '{app_name}' is already running.")
             ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "status", "Running")
         else:
-            self.page.locator(".start_stop", has_text="Start").click()
+            self.page.locator(self.selector_header_app_action_btn(), has_text="Start").click()
             print("Clicked 'Start' app button")
 
             print(f"Waiting for app '{app_name}' status is Running...")
-            if Util.check_dom_visibility(self.page, self.page.locator("#appDtls-appName-cont .status_label", has_not_text="Scaling"), 15, 240, True):
-                app_status = self.page.locator("#appDtls-appName-cont .status_label").inner_text()
+            if Util.check_dom_visibility(self.page, self.page.locator(self.selector_header_app_action_btn(), has_text="Stop"), 15, 240, True):
+                app_status = self.get_app_status()
                 ColorLogger.success(f"{self.capability_upper} app '{app_name}' status is '{app_status}' now.")
                 ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "status", app_status)
             else:
@@ -544,7 +583,7 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, has tested '{self.capability}' App '{app_name}' endpoint in DataPlane '{dp_name}'.")
             return
         ColorLogger.info(f"{self.capability_upper} Test app endpoint '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name, ".app-name")
+        self.goto_app_detail(dp_name, app_name, self.selector_header_app_name())
 
         print("Navigating to 'Endpoints' tab menu")
         self.page.locator("#tab-endpoints").click()
@@ -553,9 +592,8 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         print("Endpoint tab is loaded.")
         self.page.wait_for_timeout(1000)
 
-        is_app_running = self.page.locator("#appDtls-appName-cont .status_label", has_text="Running").is_visible()
-        if not is_app_running:
-            app_status = self.page.locator("#appDtls-appName-cont .status_label").inner_text()
+        if self.get_app_instance_number() == 0:
+            app_status = self.get_app_status()
             Util.warning_screenshot(f"Current {self.capability_upper} app '{app_name}' status is not Running, it is {app_status}, will skip test app endpoint.", self.page, f"{self.capability}_app_test_endpoint.png")
             return
 

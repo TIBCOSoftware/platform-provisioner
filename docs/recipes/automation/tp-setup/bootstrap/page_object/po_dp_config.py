@@ -13,8 +13,8 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
     def goto_dataplane_config(self):
         ColorLogger.info(f"Going to Data plane Configuration page...")
-        self.page.locator("#ct-dp-config-link").wait_for(state="visible")
-        self.page.locator("#ct-dp-config-link").click()
+        self.page.locator("button", has_text="Data Plane configuration").wait_for(state="visible")
+        self.page.locator("button", has_text="Data Plane configuration").click()
         print("Clicked 'Data Plane configuration' button")
         self.page.wait_for_timeout(500)
 
@@ -60,7 +60,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
         self.goto_left_navbar_dataplane()
         if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
-            self.page.locator(".global-configuration button", has_text="Global configuration").click()
+            self.page.locator("button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")
 
             # This is new for 1.9+ version, to set global activation url
@@ -88,7 +88,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
             ReportYaml.set_dataplane(dp_name)
             self.goto_left_navbar_dataplane()
-            self.page.locator(".global-configuration button", has_text="Global configuration").click()
+            self.page.locator("button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")
 
             o11y_selector = ".pl-leftnav-layout .pl-leftnav-menu__link"         # for 1.4 version

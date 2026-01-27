@@ -52,8 +52,8 @@ meta:
     GUI_TP_AUTOMATION_NAMESPACE: automation
 
     # third party tools version
-    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.13.2
-    GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 37.1.0
+    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.14.1
+    GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 37.4.0
 
     # CNI
     GUI_TP_INSTALL_CALICO_CNI: false
@@ -67,7 +67,7 @@ meta:
 
     # CP automation
     GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
-    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.13-auto-on-prem-jammy
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.7.3-auto-on-prem-jammy
 
     # flow control
     GUI_TP_INSTALL_PROVISIONER_UI: false
@@ -124,8 +124,8 @@ meta:
     TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
 
     # third party tools version
-    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.13.2"} # release: https://github.com/kubernetes/ingress-nginx/releases
-    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"37.2.0"} # release: https://github.com/traefik/traefik-helm-chart/releases
+    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.14.1"} # release: https://github.com/kubernetes/ingress-nginx/releases
+    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"37.4.0"} # release: https://github.com/traefik/traefik-helm-chart/releases
 
     # CNI
     TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
@@ -148,7 +148,7 @@ meta:
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager
-  version: v1.19.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.19.2 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
@@ -490,7 +490,7 @@ helmCharts:
   name: tigera-operator
   namespace: ${TP_NAMESPACE_CALICO}
   releaseName: calico
-  version: "v3.29.3" # release: https://docs.tigera.io/calico/charts
+  version: "v3.31.3" # release: https://docs.tigera.io/calico/charts
   repo:
     helm:
       url: https://docs.tigera.io/calico/charts

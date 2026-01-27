@@ -1,12 +1,13 @@
 #  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
-
+from page_object.po_global import PageObjectGlobal
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.env import ENV
 from utils.report import ReportYaml
 
-class PageObjectAuth:
+class PageObjectAuth(PageObjectGlobal):
     def __init__(self, page):
+        super().__init__(page)
         self.page = page
         self.env = ENV
 
@@ -199,7 +200,7 @@ class PageObjectAuth:
         ColorLogger.info(f"Provision user {email} with Host prefix: {host_prefix}...")
         self.login_admin_user()
 
-        self.page.locator("#nav-bar-menu-list-subscriptions", has_text="Subscriptions").click()
+        self.goto_left_navbar("Subscriptions")
         print("Clicked 'Subscriptions' left sidebar menu")
         self.page.wait_for_timeout(200)
         if self.page.locator(".subscription-card-header .name", has_text=host_prefix).is_visible():
@@ -218,9 +219,11 @@ class PageObjectAuth:
             self.page.fill("#lastName", last_name)
             self.page.locator("input#country").click()
             self.page.locator(".pl-select-menu li", has_text=country).nth(0).click()
-            self.page.locator("input#state").clear()
-            self.page.locator("input#state").click()
-            self.page.locator(".pl-select-menu li", has_text=state).click()
+            self.page.wait_for_timeout(500)
+            if not self.page.locator("input#state").input_value():
+                self.page.locator("input#state").clear()
+                self.page.locator("input#state").click()
+                self.page.locator(".pl-select-menu li", has_text=state).click()
             self.page.locator(".footer button", has_text="Next").click()
             print(f"Filled User Details: {email}, {first_name}, {last_name}, {country}, {state}")
 
@@ -333,7 +336,7 @@ class PageObjectAuth:
 
     def logout(self):
         ColorLogger.info(f"Logging out user {ENV.DP_USER_EMAIL}...")
-        self.page.locator("#nav-bar-menu-list-signout").click()
+        self.goto_left_navbar("Sign Out")
         self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").wait_for(state="visible")
         self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").click()
         ColorLogger.success(f"Clicked Sign Out button, User {ENV.DP_USER_EMAIL} logout.")

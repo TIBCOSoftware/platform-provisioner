@@ -13,6 +13,8 @@ from typing import Dict
 from utils.streaming_runner import StreamingRunner
 from utils.tibcop_cli import TibcopCliHandler
 from utils.util import Util
+from utils.env import ENV
+from utils.helper import Helper
 
 app = Flask(__name__, template_folder="templates")
 HEADER_ONE_CLICK_JOB_ID = "one_click_job_id"
@@ -55,6 +57,42 @@ def add_header(response):
 def home():
     """ Render the main HTML page """
     return render_template('index.html')
+
+@app.route('/cp_api')
+def call_cp_api():
+    api_path = request.args.get("api_path")
+    if not api_path:
+        return jsonify({"error": "Missing 'api_path' parameter"}), 400
+
+    api_method = request.args.get("api_method", "GET")
+    api_data = request.get_json(silent=True)
+    token = Helper.get_auto_token()
+
+    base_url = f"https://{ENV.DP_HOST_PREFIX}.{ENV.TP_AUTO_CP_SERVICE_DNS_DOMAIN}"
+    url = base_url + api_path
+    print(f"[INFO] Calling CP API: {api_method} {url}", api_data)
+    curl_cmd = [
+        "curl",
+        "--no-progress-meter",
+        "-X", api_method,
+        "-H", "Content-Type: application/json",
+        url
+    ]
+    if token:
+        curl_cmd.extend(["-H", f"Authorization: Bearer {token}"])
+    if api_data is not None and api_method.upper() in ["POST", "PUT", "PATCH"]:
+        curl_cmd.extend(["-d", api_data])
+
+    process = subprocess.Popen(
+        curl_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    stdout, stderr = process.communicate()
+    if stderr:
+        return jsonify({"error": stderr.decode()}), 500
+
+    return Response(stdout.decode(), mimetype="application/json")
 
 @app.route('/stop-script')
 def stop_script():
@@ -171,7 +209,6 @@ def run_cli_script():
 
 @app.route('/get_env')
 def get_env():
-    from utils.env import ENV
     env_vars = os.environ.copy()
     env_dict = {
         key: getattr(ENV, key)
@@ -191,14 +228,14 @@ def get_env():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     file = request.files.get('file')
-    UPLOAD_FOLDER = 'upload'
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    upload_folder = 'upload'
+    os.makedirs(upload_folder, exist_ok=True)
     if file:
         original_filename = os.path.splitext(file.filename)[0]
         ext = os.path.splitext(file.filename)[1]
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         safe_name = f"{original_filename}_{timestamp}{ext}"
-        save_path = os.path.join(UPLOAD_FOLDER, safe_name)
+        save_path = os.path.join(upload_folder, safe_name)
         file.save(save_path)
 
         return jsonify({

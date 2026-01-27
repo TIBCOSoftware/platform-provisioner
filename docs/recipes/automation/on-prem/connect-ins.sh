@@ -172,9 +172,9 @@ function connect_ins() {
   export INS_PORT=${INS_PORT:-6443}
   export KUBECONFIG=""
   export INS_KUBECONFIG="ins-${INSTANCE_IP}.yaml"
-  export INGRESS_SERVICE_NAME_LOCAL=${INGRESS_SERVICE_NAME_LOCAL:-"ingress-nginx-controller"}
+  export INGRESS_SERVICE_NAME_LOCAL=${INGRESS_SERVICE_NAME_LOCAL:-"traefik"}
   export INGRESS_SERVICE_NAMESPACE_LOCAL=${INGRESS_SERVICE_NAMESPACE_LOCAL:-"ingress-system"}
-  export INGRESS_SERVICE_NAME_INSTANCE=${INGRESS_SERVICE_NAME_INSTANCE:-"ingress-nginx-controller"} # for nginx ingress use ingress-nginx-controller, for traefik ingress use traefik
+  export INGRESS_SERVICE_NAME_INSTANCE=${INGRESS_SERVICE_NAME_INSTANCE:-"traefik"} # for nginx ingress use ingress-nginx-controller, for traefik ingress use traefik
   export INGRESS_SERVICE_NAMESPACE_INSTANCE=${INGRESS_SERVICE_NAMESPACE_INSTANCE:-"ingress-system"}
   export INGRESS_SERVICE_PORT_INSTANCE=${INGRESS_SERVICE_PORT_INSTANCE:-"443:websecure"} # for nginx ingress use 443:https, for traefik ingress use 443:websecure
 

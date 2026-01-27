@@ -107,6 +107,10 @@ class Helper:
         tp_auto_kubeconfig = os.environ.get("TP_AUTO_KUBECONFIG")
         if tp_auto_kubeconfig:
             tp_auto_kubeconfig = os.path.expanduser(tp_auto_kubeconfig)
+            if not os.path.exists(tp_auto_kubeconfig):
+                ColorLogger.error(f"TP_AUTO_KUBECONFIG does not exist: {tp_auto_kubeconfig}.")
+                sys.exit()
+
             env_vars["KUBECONFIG"] = tp_auto_kubeconfig
         return env_vars
 
@@ -140,13 +144,12 @@ class Helper:
 
     @staticmethod
     def get_node_ip():
-        # import requests
         # return requests.get("https://ifconfig.me").text
         return Helper.get_command_output("curl ifconfig.me", is_print_error=False)
 
     @staticmethod
     def get_deployment_images(namespace):
-        return Helper.get_command_output(f"kubectl get deployment -n {namespace} -o json | jq -r '.items[] | .metadata.name as $name | .spec.template.spec.containers[0].image | (split(\"/\")[-1])'", is_print_error=False)
+        return Helper.get_command_output(f"kubectl get deployment -n {namespace} -o json | jq -r '.items[] | .metadata.name as $name | .spec.template.spec.containers[0].image | (split(\"/\")[-1])' | sort", is_print_error=False)
 
     @staticmethod
     def get_auto_token_creation():
@@ -161,11 +164,15 @@ class Helper:
         return Helper.get_command_output("kubectl get sc | awk '/\\(default\\)/ {print $1}'", is_print_error=False)
 
     @staticmethod
+    def get_file_fullpath_in_upload_folder(file_name):
+        return os.path.join(os.path.dirname(__file__), "..", "upload", file_name)
+
+    @staticmethod
     def get_app_file_fullpath(app_file_name):
-        file_path = os.path.join(os.path.dirname(__file__), "..", "upload", app_file_name)
+        file_path = Helper.get_file_fullpath_in_upload_folder(app_file_name)
 
         if not os.path.isfile(file_path):
-            ColorLogger.error(f"The app name is empty in file {file_path}.")
+            ColorLogger.error(f"The app file does not exist in {file_path}.")
             sys.exit()
         return file_path
 

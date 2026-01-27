@@ -11,7 +11,7 @@ if [[ "$(uname -s)" =~ MINGW ]]; then
 fi
 
 export PIPELINE_INPUT_RECIPE=server-recipe.yaml
-export PIPELINE_DOCKER_IMAGE="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.6.1-tester-on-prem-jammy"
+export PIPELINE_DOCKER_IMAGE="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.2-tester-on-prem-jammy"
 
 export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="-v ${current_dir}:/tmp/auto"
 export PIPELINE_CONTAINER_RUN_NAME="automation"

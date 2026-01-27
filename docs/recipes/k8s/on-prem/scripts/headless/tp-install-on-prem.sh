@@ -48,6 +48,34 @@ function customize-tp() {
     echo "Update the platform base version to $TP_PLATFORM_BASE_VERSION"
     yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_BASE_VERSION = env(TP_PLATFORM_BASE_VERSION))' "$_recipe_file_name"
   fi
+  if [[ -n "$TP_PLATFORM_INTEGRATION_BW_VERSION" ]]; then
+    echo "Update the platform integration bw version to $TP_PLATFORM_INTEGRATION_BW_VERSION"
+    yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_BW_VERSION = env(TP_PLATFORM_INTEGRATION_BW_VERSION))' "$_recipe_file_name"
+  fi
+  if [[ -n "$TP_PLATFORM_INTEGRATION_FLOGO_VERSION" ]]; then
+    echo "Update the platform integration flogo version to $TP_PLATFORM_INTEGRATION_FLOGO_VERSION"
+    yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION = env(TP_PLATFORM_INTEGRATION_FLOGO_VERSION))' "$_recipe_file_name"
+  fi
+  if [[ -n "$TP_PLATFORM_HAWK_VERSION" ]]; then
+    echo "Update the platform hawk version to $TP_PLATFORM_HAWK_VERSION"
+    yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_HAWK_VERSION = env(TP_PLATFORM_HAWK_VERSION))' "$_recipe_file_name"
+  fi
+  if [[ -n "$TP_PLATFORM_TIBCOHUB_VERSION" ]]; then
+    echo "Update the platform tibcohub version to $TP_PLATFORM_TIBCOHUB_VERSION"
+    yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_TIBCOHUB_VERSION = env(TP_PLATFORM_TIBCOHUB_VERSION))' "$_recipe_file_name"
+  fi
+  if [[ -n "$TP_PLATFORM_MESSAGING_VERSION" ]]; then
+    echo "Update the platform messaging version to $TP_PLATFORM_MESSAGING_VERSION"
+    yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_MESSAGING_VERSION = env(TP_PLATFORM_MESSAGING_VERSION))' "$_recipe_file_name"
+  fi
+  if [[ -n "$TP_PLATFORM_EVENTPROCESSING_VERSION" ]]; then
+    echo "Update the platform eventprocessing version to $TP_PLATFORM_EVENTPROCESSING_VERSION"
+    yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION = env(TP_PLATFORM_EVENTPROCESSING_VERSION))' "$_recipe_file_name"
+  fi
+  if [[ -n "$TP_PLATFORM_AI_AGENT_VERSION" ]]; then
+    echo "Update the platform ai agent version to $TP_PLATFORM_AI_AGENT_VERSION"
+    yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_AI_AGENT_VERSION = env(TP_PLATFORM_AI_AGENT_VERSION))' "$_recipe_file_name"
+  fi
 
   _recipe_file_name="05-tp-auto-deploy-dp.yaml"
   yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_BWCE = env(TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"

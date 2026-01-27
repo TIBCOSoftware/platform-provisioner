@@ -50,12 +50,24 @@ meta:
     GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi"
     GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: true
     GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE: true
+    GUI_CP_ENABLE_HYBRID_CONNECTIVITY: true
 
     # CP AI MCP servers
     GUI_TP_AI_ENABLE_CP_MCP_SERVER: true
     GUI_TP_AI_ENABLE_O11Y_MCP_SERVER: true
     GUI_TP_AI_ENABLE_BW_MCP_SERVER: true
     GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER: true
+
+    # CP AI Agent env
+    GUI_TP_AI_MCP_TRANSPORT: "streamable-http"
+    GUI_TP_AI_LANGSMITH_TRACING: false
+    GUI_TP_AI_LANGSMITH_ENDPOINT: ""
+    GUI_TP_AI_LANGSMITH_API_KEY: ""
+    GUI_TP_AI_LANGSMITH_PROJECT: ""
+    GUI_TP_AI_LANGFUSE_ENABLED: false
+    GUI_TP_AI_LANGFUSE_SECRET_KEY: ""
+    GUI_TP_AI_LANGFUSE_PUBLIC_KEY: ""
+    GUI_TP_AI_LANGFUSE_HOST: ""
 
     # network policy
     GUI_TP_CREATE_NETWORK_POLICIES: false
@@ -170,6 +182,7 @@ meta:
     CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # 37 pods * 50Mi = 1850Mi
     CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: ${GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS:-true}
     CP_GLOBAL_USE_SINGLE_NAMESPACE: ${GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE:-true}
+    CP_ENABLE_HYBRID_CONNECTIVITY: ${GUI_CP_ENABLE_HYBRID_CONNECTIVITY:-true}
 
     # domain
     CP_DNS_DOMAIN: ${GUI_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
@@ -261,6 +274,17 @@ meta:
     TP_AI_ENABLE_O11Y_MCP_SERVER: ${GUI_TP_AI_ENABLE_O11Y_MCP_SERVER:-false}
     TP_AI_ENABLE_BW_MCP_SERVER: ${GUI_TP_AI_ENABLE_BW_MCP_SERVER:-false}
     TP_AI_ENABLE_FLOGO_MCP_SERVER: ${GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER:-false}
+
+    # CP AI Agent env
+    TP_AI_MCP_TRANSPORT: ${GUI_TP_AI_MCP_TRANSPORT:-"streamable-http"}
+    TP_AI_LANGSMITH_TRACING: ${GUI_TP_AI_LANGSMITH_TRACING:-false}
+    TP_AI_LANGSMITH_ENDPOINT: ${GUI_TP_AI_LANGSMITH_ENDPOINT:-""}
+    TP_AI_LANGSMITH_API_KEY: ${GUI_TP_AI_LANGSMITH_API_KEY:-""}
+    TP_AI_LANGSMITH_PROJECT: ${GUI_TP_AI_LANGSMITH_PROJECT:-""}
+    TP_AI_LANGFUSE_ENABLED: ${GUI_TP_AI_LANGFUSE_ENABLED:-false}
+    TP_AI_LANGFUSE_SECRET_KEY: ${GUI_TP_AI_LANGFUSE_SECRET_KEY:-""}
+    TP_AI_LANGFUSE_PUBLIC_KEY: ${GUI_TP_AI_LANGFUSE_PUBLIC_KEY:-""}
+    TP_AI_LANGFUSE_HOST: ${GUI_TP_AI_LANGFUSE_HOST:-""}
 
     # flow control
     CP_VALIDATE_CLUSTER_RESOURCE: ${GUI_CP_VALIDATE_CLUSTER_RESOURCE:-true}
@@ -568,6 +592,9 @@ helmCharts:
           manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
           db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
           db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
+          # Enable or disable hybrid connectivity
+          hybridConnectivity:
+            enabled: ${CP_ENABLE_HYBRID_CONNECTIVITY}
           helm:
             url: "${DP_CHART_REPO_HOST}"
             repo: "${DP_CHART_REPO_PATH}"
@@ -1209,10 +1236,18 @@ helmCharts:
             url: ${CP_CONTAINER_REGISTRY}
         external:
           environment: "${CP_EXTERNAL_ENVIRONMENT}"
-          dnsAgentDomain: agent-cp-only.${CP_DNS_DOMAIN}
-          dnsAgentUIDomain: agent-cp-ui.${CP_DNS_DOMAIN}
-      ingress:
-        className: ${CP_INGRESS_CLASSNAME}
+      env:
+        mcpTransport: ${TP_AI_MCP_TRANSPORT}
+        langsmith:
+          tracing: ${TP_AI_LANGSMITH_TRACING}
+          endpoint: "${TP_AI_LANGSMITH_ENDPOINT}"
+          apiKey: "${TP_AI_LANGSMITH_API_KEY}"
+          project: "${TP_AI_LANGSMITH_PROJECT}"
+        langfuse:
+          enabled: ${TP_AI_LANGFUSE_ENABLED}
+          secretKey: "${TP_AI_LANGFUSE_SECRET_KEY}"
+          publicKey: "${TP_AI_LANGFUSE_PUBLIC_KEY}"
+          host: "${TP_AI_LANGFUSE_HOST}"
   cluster:
     names:
       - ${CP_CLUSTER_NAME}

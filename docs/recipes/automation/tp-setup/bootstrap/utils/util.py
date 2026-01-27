@@ -403,7 +403,16 @@ class Util:
         timeout = interval if interval < 5 else 5
         print(f"Check dom visibility, wait {timeout} seconds first, then loop to check for {max_wait} seconds.")
         page.wait_for_timeout(timeout * 1000)
+        selector = None
+        try:
+            m = re.search(r"selector=(['\"])(.*?)\1", repr(dom_selector))
+            selector = m.group(2) if m else None
+        except Exception as e:
+            print(f"Error extracting selector: {e}")
+
         for attempt in range(total_attempts):
+            if selector: print(f"Checking dom: {selector}")
+
             if dom_selector.is_visible():
                 print("Dom is now visible.")
                 return True

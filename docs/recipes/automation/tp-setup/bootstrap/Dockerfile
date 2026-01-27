@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.6.1-tester-on-prem-jammy
+FROM ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.2-tester-on-prem-jammy
 
 ENV TP_AUTO_SCRIPT_PY_ENV_FOLDER=/tmp/auto-py-env
 ENV UV_PROJECT_ENVIRONMENT=${TP_AUTO_SCRIPT_PY_ENV_FOLDER}
