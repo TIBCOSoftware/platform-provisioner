@@ -370,6 +370,20 @@ entries:
   platform-provisioner-ui:
   - apiVersion: v2
     appVersion: 2.0.0
+    created: "2026-01-27T18:12:45.326014225Z"
+    description: A Helm chart for platform-provisioner-ui
+    digest: c3dd482274e0b856cbd76eca33913cf5bec66569ce963d4b5f2d3415caf39c63
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: platform-provisioner-ui
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/platform-provisioner-ui-1.0.10/platform-provisioner-ui-1.0.10.tgz
+    version: 1.0.10
+  - apiVersion: v2
+    appVersion: 2.0.0
     created: "2025-12-03T02:30:15.086972187Z"
     description: A Helm chart for platform-provisioner-ui
     digest: 866e3e049ca4fda40c27c86e7ab528790e98ed10c07cd75b4f0683f00ed3c6c8
@@ -439,6 +453,20 @@ entries:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/platform-provisioner-ui-1.0.1/platform-provisioner-ui-1.0.1.tgz
     version: 1.0.1
   provisioner-config-local:
+  - apiVersion: v2
+    appVersion: 2.0.1
+    created: "2026-01-27T18:12:45.541155053Z"
+    description: Platform Provisioner local config
+    digest: 3699adf0eda7b6bdc8b70d02e716ead422d6e0fdb2dcc8ca03497b7fd27e4f7b
+    home: https://github.com/TIBCOSoftware/tp-helm-charts
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.14.8/provisioner-config-local-1.14.8.tgz
+    version: 1.14.8
   - apiVersion: v2
     appVersion: 2.0.1
     created: "2026-01-08T16:25:46.534087804Z"
@@ -1405,4 +1433,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
     version: 1.0.25
-generated: "2026-01-08T16:25:46.534401478Z"
+generated: "2026-01-27T18:12:45.541417997Z"
