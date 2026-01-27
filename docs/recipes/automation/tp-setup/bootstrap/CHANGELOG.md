@@ -1,3 +1,44 @@
+## [1.7.3-auto-on-prem-jammy]
+### Fixed
+- Add new version of tibcop
+
+## [1.7.2-auto-on-prem-jammy]
+### Fixed
+- Fixed provision user issue when select "State" in dropdown list.
+- When "Create New App Build & Deploy" app button is not visible, exit automation with error message.
+
+## [1.7.1-auto-on-prem-jammy]
+### Added
+- Added tibcop binary
+
+## [1.6.19-auto-on-prem-jammy]
+### Fixed
+- Fixed automation issue BWCE and BW5CE support for load 'Preview/Customize Recipe page' during provisioning.
+
+## [1.6.18-auto-on-prem-jammy]
+### Fixed
+- Fixed automation issue after O11y upgrade to PrimeNG 18
+
+## [1.6.17-auto-on-prem-jammy]
+### Fixed
+- Fixed automation issue after BW/Flogo app use new Fresco header
+
+## [1.6.16-auto-on-prem-jammy]
+### Added
+- Added an API `/cp_api` for calling CP API directly from One-Click Setup CP UI.
+  - api_path: The CP API path, e.g. `/cp/v1/dataplanes`
+  - api_method: HTTP method, e.g. GET, POST, DELETE
+  - api_data: Request body for POST/PUT methods
+- Will prefilled activation Server fields when select automation case: "Deploy BW5 domain"
+### Fixed
+- Fix config BMDP app issue: BMDP app required to set up user permission before accessing the app.
+- The automation support for o11y new dataplane dropdown, after it changes to PrimeNG auto complete component.
+- Fixed issue if checked "Is Using O11y System Config"
+
+## [1.6.15-auto-on-prem-jammy]
+### Fixed
+- Automaton Support for CP WebServer Fresco header change
+
 ## [1.6.13-auto-on-prem-jammy]
 ### Changed
 - Change version from update time to semantic versioning format.

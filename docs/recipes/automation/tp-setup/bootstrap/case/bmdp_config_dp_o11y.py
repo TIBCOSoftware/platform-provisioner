@@ -20,7 +20,11 @@ if __name__ == "__main__":
         po_bmdp_config = PageObjectBMDPConfiguration(page)
         po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
         po_bmdp_config.goto_dataplane_config()
-        po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_BMDP_NAME)
+        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG:
+            po_bmdp_config.goto_dataplane_config_sub_menu("Observability")
+            po_bmdp_config.switch_to_global_config(ENV.TP_AUTO_K8S_BMDP_NAME)
+        else:
+            po_bmdp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_BMDP_NAME)
 
         po_auth.logout()
     except Exception as e:

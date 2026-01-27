@@ -11,33 +11,26 @@ class PageObjectDataPlane(PageObjectGlobal):
     def __init__(self, page):
         super().__init__(page)
 
-    def goto_left_navbar(self, item_name):
-        ColorLogger.info(f"Going to left side menu ...")
-        self.page.locator(".nav-bar-pointer", has_text=item_name).wait_for(state="visible")
-        self.page.locator(".nav-bar-pointer", has_text=item_name).click()
-        print(f"Clicked left side menu '{item_name}'")
-        self.page.wait_for_timeout(500)
-
     def goto_left_navbar_dataplane(self):
         self.goto_left_navbar("Data Planes")
         self.page.locator(".data-planes-content").wait_for(state="visible")
         print(f"Waiting for Data Planes page is loaded")
+        self.detect_fresco_ui()
 
     def goto_global_dataplane(self):
         ColorLogger.info(f"Going to Global Data Plane...")
-        self.page.click("#nav-bar-menu-list-dataPlanes")
+        self.goto_left_navbar_dataplane()
         # wait for 1 second
         self.page.wait_for_timeout(1000)
 
-        self.page.locator(".global-configuration button").click()
+        self.page.locator("button", has_text="Global configuration").click()
         print("Clicked 'Global configuration' button")
-        self.page.locator('.global-configuration breadcrumbs a', has_text="Global configuration").wait_for(state="visible")
+        self.page.locator('breadcrumbs a', has_text="Global configuration").wait_for(state="visible")
         print(f"Navigated to Global Data Plane page")
 
     def goto_dataplane(self, dp_name):
         ColorLogger.info(f"Going to k8s Data Plane '{dp_name}'...")
-        self.page.click("#nav-bar-menu-list-dataPlanes")
-        self.page.wait_for_timeout(2000)
+        self.goto_left_navbar_dataplane()
         is_dataplane_visible = Util.refresh_until_success(self.page,
                                                           self.page.locator('.data-plane-name', has_text=dp_name),
                                                           self.page.locator(".data-planes-content"),
@@ -47,9 +40,13 @@ class PageObjectDataPlane(PageObjectGlobal):
             self.page.locator('data-plane-card', has=self.page.locator('.data-plane-name', has_text=dp_name)).locator('button', has_text="Go to Data Plane").click()
             print("Clicked 'Go to Data Plane' button")
             self.page.wait_for_timeout(2000)
+            nav_dp_selector = ".domain-data-title"
+            if self.is_fresco:
+                nav_dp_selector = "tibco-header .header-title-readonly-text"
+
             is_dataplane_detail_visible = Util.refresh_until_success(self.page,
-                                                                     self.page.locator('.domain-data-title', has_text=dp_name),
-                                                                     self.page.locator('.domain-data-title', has_text=dp_name),
+                                                                     self.page.locator(nav_dp_selector, has_text=dp_name),
+                                                                     self.page.locator(nav_dp_selector, has_text=dp_name),
                                                                      f"DataPlane '{dp_name}' detail page is load.")
             if is_dataplane_detail_visible:
                 print(f"Navigated to Data Plane '{dp_name}' detail page")
@@ -492,6 +489,16 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         file_name = f"{dp_name}_{step}.sh"
         file_path = Util.download_file(download_info.value, file_name)
+        if step_name == "1. Helm Repository configuration":
+            # read the file content
+            with open(file_path, "r", encoding="utf-8") as f:
+                file_content = f.read()
+                # get name "tibco-platform-public" from "helm repo add tibco-platform-public https://"
+                repo_name = file_content.split("helm repo add ")[1].split(" ")[0]
+                if repo_name:
+                    # remove the repo first
+                    print(f"Removing existing helm repo: {repo_name}")
+                    Helper.get_command_output(f"helm repo remove {repo_name}", True)
 
         # add network_policies if ENV.TP_CREATE_NETWORK_POLICIES is true
         if step_name == "3. Service Account creation":
@@ -516,8 +523,8 @@ class PageObjectDataPlane(PageObjectGlobal):
 
     def k8s_wait_bmdp_ready(self, dp_name):
         ColorLogger.info(f"Wait for '{dp_name}' getting ready...")
-        self.goto_dataplane(dp_name)
-        if not Util.check_dom_visibility(self.page, self.page.locator(".domain-data-status__text.green"), 20, 300, True):
+        data_plane_card = self.page.locator(".data-plane-card", has=self.page.locator('.data-plane-name', has_text=dp_name))
+        if not Util.check_dom_visibility(self.page, data_plane_card.locator('.data-plane-status svg.green'), 20, 300, True):
             Util.exit_error(f"Data Plane '{dp_name}' is not ready.", self.page, "dp_config_bmdp_status.png")
 
         ColorLogger.success(f"Data Plane '{dp_name}' is ready.")

@@ -55,17 +55,17 @@ recipe: |
         fileName: script.sh
         content: |
           #!/bin/bash
-          REGEX_PATTERN=$(echo $REGEX_PATTERN_BASE64 | base64 --decode)
+          REGEX_PATTERN=$(echo "$REGEX_PATTERN_BASE64" | base64 --decode | tr -d '\n')
           kubectl get configmap coredns -n kube-system -o json | jq --arg regex "$REGEX_PATTERN" --arg target "$TARGET_SERVICE" '
             .data.Corefile |=
-            if (. | test("rewrite name regex \\Q" + $regex + "\\E " + $target)) then
+            if (. | test("rewrite name regex \\Q" + $regex + "\\E " + $target + " answer auto")) then
               # If the rewrite rule already exists, leave the Corefile unchanged
               .
             else
               # If the rewrite rule does not exist, insert it after the "ready" line
               (split("\n") | map(
-                if test("^\\s*ready") then
-                  . + "\n    rewrite name regex " + $regex + " " + $target
+                if test("^\\s*ready\\s*$") then
+                  . + "\n    rewrite name regex " + $regex + " " + $target + " answer auto"
                 else
                   .
                 end

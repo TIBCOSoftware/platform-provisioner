@@ -15,6 +15,36 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.po_dp_config = PageObjectDataPlaneConfiguration(page)
         super().__init__(page)
 
+    def selector_header_dp_name(self):
+        selector = super().selector_header_dp_name()
+        if not self.is_fresco:
+            selector = "flogo-capability-header .dp-sec-name"
+        return selector
+
+    def selector_header_app_name(self):
+        selector = super().selector_header_app_name()
+        if not self.is_fresco:
+            selector = ".app-name-section .name"
+        return selector
+
+    def selector_header_app_scale_input(self):
+        selector = super().selector_header_app_scale_input()
+        if not self.is_fresco:
+            selector = "flogo-app-run-status input.scale-field"
+        return selector
+
+    def selector_header_app_action_btn(self):
+        selector = super().selector_header_app_action_btn()
+        if not self.is_fresco:
+            selector = "flogo-app-run-status button:not([disabled])"
+        return selector
+
+    def selector_dialog_header(self):
+        selector = ".modal-header"
+        if self.is_fresco:
+            selector = ".pl-modal__header"
+        return selector
+
     def flogo_provision_capability(self, dp_name):
         capability = self.capability
         if ReportYaml.is_capability_for_dataplane_created(dp_name, capability):
@@ -151,7 +181,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         if required_connectors.issubset(set(connectors)):
             ColorLogger.success("Flogo connectors are already provisioned.")
             ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
-            self.page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
+            self.page.locator(self.selector_header_dp_name(), has_text=dp_name).click()
             print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
             return
     
@@ -173,7 +203,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         if required_connectors.issubset(set(connectors)):
             ColorLogger.success("Provision Flogo & Connectors successful.")
             ReportYaml.set_capability_info(dp_name, capability, "provisionConnector", True)
-        self.page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
+        self.page.locator(self.selector_header_dp_name(), has_text=dp_name).click()
         print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
     
     def flogo_app_build_and_deploy(self, dp_name, app_file_name, app_name):
@@ -218,6 +248,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             return
     
         print("Start Create Flogo app build...")
+
+        if not self.page.locator(".capability-buttons", has_text="Create New App Build And Deploy").is_visible():
+            Util.exit_error(f"{self.capability} 'Create New App Build And Deploy' button is not visible, check {self.capability} provision page.", self.page, f"{self.capability}_app_build_and_deploy.png")
     
         self.page.locator(".capability-buttons", has_text="Create New App Build And Deploy").click()
         print("Clicked 'Create New App Build And Deploy' button")
@@ -408,7 +441,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             print("Clicked 'Deploy App Build' button")
             self.page.wait_for_timeout(1000)
     
-            self.page.locator("flogo-capability-header .dp-sec-name", has_text=dp_name).click()
+            self.page.locator(self.selector_header_dp_name(), has_text=dp_name).click()
             print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
     
         print(f"Waiting for Flogo app '{app_name}' is deployed...")
@@ -421,7 +454,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
     def flogo_app_config(self, dp_name, app_name):
         capability = self.capability
         ColorLogger.info(f"Flogo Config app '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name, ".app-name-section .name")
+        self.goto_app_detail(dp_name, app_name, self.selector_header_app_name())
 
         if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "endpointPublic") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' Endpoints is already Public in DataPlane '{dp_name}'.")
@@ -438,12 +471,12 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 ReportYaml.set_capability_app_info(dp_name, capability, app_name, "endpointPublic", True)
             else:
                 print("No 'Public URL' button, will set Endpoint Visibility to Public")
-                self.page.locator("#app-details-menu-dropdown-label").wait_for(state="visible")
-                self.page.locator("#app-details-menu-dropdown-label").click()
-                self.page.locator(".pl-dropdown-menu__action", has_text="Set Endpoint Visibility").wait_for(state="visible")
-                self.page.locator(".pl-dropdown-menu__action", has_text="Set Endpoint Visibility").click()
+                self.page.locator(self.selector_header_action_menu()).wait_for(state="visible")
+                self.page.locator(self.selector_header_action_menu()).click()
+                self.page.locator(self.selector_header_action_menu_item(), has_text="Set Endpoint Visibility").wait_for(state="visible")
+                self.page.locator(self.selector_header_action_menu_item(), has_text="Set Endpoint Visibility").click()
                 print("Clicked 'Set Endpoint Visibility' menu item")
-                if Util.check_dom_visibility(self.page, self.page.locator(".modal-header", has_text="Set Endpoint Visibility"), 2, 4):
+                if Util.check_dom_visibility(self.page, self.page.locator(self.selector_dialog_header(), has_text="Set Endpoint Visibility"), 2, 4):
                     print("Dialog 'Set Endpoint Visibility' popup")
                     if self.page.locator(".pl-table__row label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).is_visible():
                         self.page.locator(".pl-table__row label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).click()
@@ -458,7 +491,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                     else:
                         self.page.locator(".pl-modal__footer button", has_text="Cancel").click()
                         Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' is not available.", self.page, "flogo_app_config-endpoint.png")
-                elif Util.check_dom_visibility(self.page, self.page.locator(".modal-header", has_text="Update Endpoint visibility to Public"), 2, 4):
+                elif Util.check_dom_visibility(self.page, self.page.locator(self.selector_dialog_header(), has_text="Update Endpoint visibility to Public"), 2, 4):
                     print("Dialog 'Update Endpoint visibility to Public' popup")
                     if self.page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).is_visible():
                         self.page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).click()
@@ -497,29 +530,26 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 if Util.wait_for_success_message(self.page, 5):
                     ColorLogger.success("Set FLOGO_OTEL_TRACE to true successfully.")
                     ReportYaml.set_capability_app_info(dp_name, capability, app_name, "enableTrace", True)
-    
+
     def flogo_app_start(self, dp_name, app_name):
         capability = self.capability
         if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "status") == "Running" or self.is_app_running(dp_name, capability, app_name):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' App '{app_name}' is Running in DataPlane '{dp_name}'.")
             return
         ColorLogger.info(f"Flogo Start app '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name, ".app-name-section .name")
+        self.goto_app_detail(dp_name, app_name, self.selector_header_app_name())
 
         print("Waiting to see if app status is Running...")
-        self.page.locator("flogo-app-run-status .scale-status-text").wait_for(state="visible")
-        # when app status is Running, or the action button is 'Stop', it means app is already running
-        is_app_running = self.page.locator("flogo-app-run-status .scale-status-text", has_text="Running").is_visible() or self.page.locator("flogo-app-run-status button", has_text="Stop").is_visible()
-        if is_app_running:
+        if self.get_app_instance_number() > 0:
             ColorLogger.success(f"Flogo app '{app_name}' is already running.")
             ReportYaml.set_capability_app_info(dp_name, capability, app_name, "status", "Running")
         else:
-            self.page.locator("flogo-app-run-status button", has_text="Start").click()
+            self.page.locator(self.selector_header_app_action_btn(), has_text="Start").click()
             print("Clicked 'Start' app button")
     
             print(f"Waiting for app '{app_name}' status is Running...")
-            if Util.check_dom_visibility(self.page, self.page.locator("flogo-app-run-status .scale-status-text", has_not_text="Scaling"), 15, 180, True):
-                app_status = self.page.locator("flogo-app-run-status .scale-status-text").inner_text()
+            if Util.check_dom_visibility(self.page, self.page.locator(self.selector_header_app_action_btn(), has_text="Stop"), 15, 180, True):
+                app_status = self.get_app_status()
                 ColorLogger.success(f"Flogo app '{app_name}' status is '{app_status}' now.")
                 ReportYaml.set_capability_app_info(dp_name, capability, app_name, "status", app_status)
             else:
@@ -531,7 +561,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, has tested '{capability}' App '{app_name}' endpoint in DataPlane '{dp_name}'.")
             return
         ColorLogger.info(f"Flogo Test app endpoint '{app_name}'...")
-        self.goto_app_detail(dp_name, app_name, ".app-name-section .name")
+        self.goto_app_detail(dp_name, app_name, self.selector_header_app_name())
 
         print("Navigating to 'Endpoints' tab menu")
         self.page.locator(".pl-primarynav__menu .pl-primarynav__item", has_text="Endpoints").click()
@@ -540,9 +570,8 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.locator(".endpoints-container td.action-button").wait_for(state="visible")
         print("Endpoint action button is loaded.")
 
-        is_app_running = self.page.locator("flogo-app-run-status .scale-status-text", has_text="Running").is_visible()
-        if not is_app_running:
-            app_status = self.page.locator("flogo-app-run-status .scale-status-text").inner_text()
+        if self.get_app_instance_number() == 0:
+            app_status = self.get_app_status()
             Util.warning_screenshot(f"Current {capability} app '{app_name}' status is not Running, it is {app_status}, will skip test app endpoint.", self.page, "flogo_app_test_endpoint.png")
             return
 

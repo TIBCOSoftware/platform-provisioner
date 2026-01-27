@@ -1,5 +1,7 @@
 #  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+import re
 
+from page_object.po_user_management import PageObjectUserManagement
 from utils.color_logger import ColorLogger
 from utils.util import Util
 from utils.helper import Helper
@@ -14,8 +16,8 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
 
     def goto_dataplane_config(self):
         ColorLogger.info(f"Going to Data plane Configuration page...")
-        self.page.locator("#ct-dp-config-link").wait_for(state="visible")
-        self.page.locator("#ct-dp-config-link").click()
+        self.page.locator("button", has_text="Data Plane configuration").wait_for(state="visible")
+        self.page.locator("button", has_text="Data Plane configuration").click()
         print("Clicked 'BMDP configuration' button")
         self.page.wait_for_timeout(500)
 
@@ -29,6 +31,20 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         ColorLogger.info("Going to Products page...")
         # "BW5" for BW5, "BE" for be, "BW6" for BW6
         print(f"Checking if {product_name} Card is Available.")
+
+        if self.page.locator(f".product-card.disabled-card", has=self.page.locator(f".product-card__title", has_text=product_name)).is_visible():
+            print(f"{product_name} Card is Disabled, need to set user permission first.")
+            self.page.locator(f".product-card.disabled-card", has=self.page.locator(f".product-card__title", has_text=product_name)).hover()
+            print(f"Hovered on Disabled {product_name} Card to check tooltip message.")
+            if self.page.locator(".pl-tooltip__content", has_text="You need Product permission to perform this action.").is_visible():
+                print("Tooltip message is visible, proceed to set user permission.")
+                po_user_management = PageObjectUserManagement(self.page)
+                po_user_management.grant_product_permission(ENV.TP_AUTO_K8S_BMDP_NAME, product_name)
+
+                print("Go back to Dataplane Products page after setting user permission.")
+                self.goto_left_navbar_dataplane()
+                self.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
+
         if Util.check_dom_visibility(self.page, self.page.locator(f".product-card:not(.disabled-card)", has=self.page.locator(f".product-card__title", has_text=product_name)), 30, 180, True):
             self.page.locator(f".product-card:not(.disabled-card)", has=self.page.locator(f".product-card__title", has_text=product_name)).click()
             print(f"Clicked '{product_name}' Card")
@@ -126,11 +142,11 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         # check bw5 application status
         if product_name == "BW5":
             print("Checking if new domain card layout is available...")
-            if self.page.locator(".domains-grid").is_visible():
+            if Util.check_dom_visibility(self.page, self.page.locator(".domains-grid"), 2, 4):
                 print("New domain card layout detected.")
                 domain_card = self.page.locator(".domain-card", has=self.page.locator('.pl-card__header', has_text=domain_name))
                 if domain_card.is_visible():
-                    domain_card.locator(".pl-card__footer", has_text="Go into Domain").click()
+                    domain_card.locator(".pl-card__footer", has_text=re.compile(r"Go (into|to) Domain")).click()
                     print(f"'{domain_name}' is deployed and checking application instance status.")
                     app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=app_name))
                     if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/pl-icon-success.svg']"), 5, 120, True):
@@ -156,7 +172,8 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         # check bw6 application status
         if product_name == "BW6":
             if Util.check_dom_visibility(self.page, self.page.locator(".pl-card--standard"), 2, 10):
-                self.page.locator(".pl-card--standard").click()
+                if not self.is_fresco:
+                    self.page.locator(".pl-card--standard").click()
                 print(f"'{domain_name}' is deployed and checking application instance status.")
             else:
                 Util.exit_error(f"'{domain_name}' is not deployed successfully or cannot be discovered by CT.", self.page, "check_bmdp_bw6_app_status.png")
@@ -182,9 +199,12 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
     def check_bw6_app_status(self, domain_name, app_type, app_name):
         ColorLogger.info(f"Checking BW6 application - {app_type} status")
         # hover over the app type icon to click it
-        self.page.locator(f".bw6-icons .pl-tooltip__trigger", has=self.page.locator(f"img[alt='{app_type}']")).hover()
-        self.page.wait_for_timeout(500)
-        self.page.locator(f".bw6-icons .pl-tooltip__trigger", has=self.page.locator(f"img[alt='{app_type}']")).click()
+        if self.is_fresco:
+            self.page.locator(f"#tab-{app_type.lower()}").click()
+        else:
+            self.page.locator(f".bw6-icons .pl-tooltip__trigger", has=self.page.locator(f"img[alt='{app_type}']")).hover()
+            self.page.wait_for_timeout(500)
+            self.page.locator(f".bw6-icons .pl-tooltip__trigger", has=self.page.locator(f"img[alt='{app_type}']")).click()
         app_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=app_name))
         if Util.check_dom_visibility(self.page, app_row.locator("td.pl-table__cell img[src*='/running.svg']"), 2, 5):
             ColorLogger.success(f"'{app_type}':'{app_name}' in domain '{domain_name}' is running.")
@@ -345,7 +365,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         # dp_name is 'Global', it means global data plane
         if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
             self.goto_left_navbar_dataplane()
-            self.page.locator(".global-configuration button", has_text="Global configuration").click()
+            self.page.locator("button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")
             o11y_selector = ".pl-leftnav-layout .pl-leftnav-menu__link"         # for 1.4 version
             if Util.check_dom_visibility(self.page, self.page.locator(".pl-leftnav-layout .pl-tooltip__trigger", has_text="Observability"), 3, 6):

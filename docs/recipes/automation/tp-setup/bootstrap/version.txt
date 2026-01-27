@@ -1,1 +1,1 @@
-1.6.13-auto-on-prem-jammy
+1.7.3-auto-on-prem-jammy

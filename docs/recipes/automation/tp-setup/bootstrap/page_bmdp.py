@@ -57,7 +57,7 @@ if __name__ == "__main__":
                 po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
                 po_bmdp_config.goto_products("BW6")
                 po_bmdp_config.check_bmdp_app_status_by_app_name("BW6", ENV.TP_AUTO_K8S_BMDP_BW6DM, "mySleep.application")
-            
+
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)
             po_bmdp_config.goto_dataplane_config()
             # Note: Will switch to global dataplane configuration, remove config dataplane level o11y

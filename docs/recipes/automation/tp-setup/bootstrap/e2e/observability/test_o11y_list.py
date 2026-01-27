@@ -42,7 +42,7 @@ def test_widget_action_buttons_functionality(setup_refresh_o11y):
     expect(page.locator("p-confirmdialog .p-confirm-dialog-message").nth(0)).to_be_visible()
     ColorLogger.success(f"Clicked 'Revert to Snapshot' button, expected the confirmation dialog is visible")
 
-    page.locator("p-confirmdialog button", has_text="Yes").click()
+    page.locator(".p-dialog-footer button", has_text="Yes").click()
     expect(page.locator('shared-item-chart .highcharts-title', has_text=card_name)).to_be_visible()
     ColorLogger.success(f"Clicked 'Yes' button, expected to revert to the last snapshot")
 

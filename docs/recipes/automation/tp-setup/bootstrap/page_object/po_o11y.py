@@ -29,20 +29,58 @@ class PageObjectO11y(PageObjectGlobal):
             ColorLogger.warning("Add Card button not found or not visible")
             return False
 
+    def selector_data_plane_dropdown(self):
+        # after dataplane dropdown list changed to autocomplete, the dataplane selector also need to be updated
+        selector = ".widget-list-header .dataplane-list p-autocomplete .p-autocomplete-dropdown"
+        if not self.page.locator(selector).is_visible():
+            # if not found, use old selector, for CP 1.14 and earlier versions
+            selector = ".widget-list-header p-dropdown"
+        return selector
+
+    def selector_none_disabled_data_plane(self, dp_name):
+        # after dataplane dropdown list changed to autocomplete, the none disabled item selector also need to be updated
+        selector = ".widget-list-header .dataplane-list .dd-item:not(.dd-item-disabled) .dd-item-label span"
+        if not self.page.locator(selector, has_text=dp_name).is_visible():
+            # if not found, use old selector, for CP 1.14 and earlier versions
+            selector = ".p-dropdown-item .dp-item:not(.dp-item-disabled)"
+        return selector
+
+    def selector_data_plane_item(self, dp_name):
+        # after dataplane dropdown list changed to autocomplete, the none disabled item selector also need to be updated
+        selector = ".widget-list-header .dataplane-list .dd-item-label span"
+        if not self.page.locator(selector, has_text=dp_name).is_visible():
+            # if not found, use old selector, for CP 1.14 and earlier versions
+            selector = ".p-dropdown-item .dp-item-label span"
+        return selector
+
+    def selector_dialog_footer_btn(self, btn_text):
+        selector = ".p-dialog-footer button"
+        if not self.page.locator(selector, has_text=btn_text).is_visible():
+            # if not found, use old selector, before upgrade to PrimeNG 18
+            selector = "p-confirmdialog button"
+        return selector
+
+    def selector_dialog_left_menu(self, menu_text):
+        selector = ".categories-menu-panel .p-tree-node-label"
+        if not self.page.locator(selector, has_text=menu_text).is_visible():
+            # if not found, use old selector, before upgrade to PrimeNG 18
+            selector = ".categories-menu-panel .p-treenode-label"
+        return selector
+
     def is_data_plane_in_list(self, dp_name):
-        self.page.locator(".widget-list-header p-dropdown").click()
-        is_available = self.page.locator(".p-dropdown-item .dp-item:not(.dp-item-disabled)", has_text=dp_name).count() > 0
+        self.page.locator(self.selector_data_plane_dropdown()).click()
+        is_available = self.page.locator(self.selector_none_disabled_data_plane(dp_name), has_text=dp_name).count() > 0
         print(f"Check 'Data Plane' dropdown '{dp_name}' is is_available: {is_available}")
         if is_available:
-            self.page.locator(".p-dropdown-item .dp-item-label span", has_text=dp_name).click()
+            self.page.locator(self.selector_data_plane_item(dp_name), has_text=dp_name).click()
             print(f"Selected '{dp_name}' in 'Data Plane' dropdown")
         return is_available
 
     def select_data_plane(self, dp_name):
-        self.page.locator(".widget-list-header p-dropdown").click()
+        self.page.locator(self.selector_data_plane_dropdown()).click()
         print(f"Clicked 'Data Plane' dropdown")
-        self.page.locator(".p-dropdown-item .dp-item-label span", has_text=dp_name).wait_for(state="visible")
-        self.page.locator(".p-dropdown-item .dp-item-label span", has_text=dp_name).click()
+        self.page.locator(self.selector_data_plane_item(dp_name), has_text=dp_name).wait_for(state="visible")
+        self.page.locator(self.selector_data_plane_item(dp_name), has_text=dp_name).click()
         print(f"Selected '{dp_name}' in 'Data Plane' dropdown")
 
     def get_chart_card(self, card_name):
@@ -53,11 +91,11 @@ class PageObjectO11y(PageObjectGlobal):
         self.page.locator(".dashboard-actions-row button.test-reset-layout").wait_for(state="visible")
         self.page.locator(".dashboard-actions-row button.test-reset-layout").click()
         print(f"Clicked '...' icon")
-        self.page.locator(".dashboard-actions-row .p-menuitem-link span", has_text=action_item).wait_for(state="visible")
-        self.page.locator(".dashboard-actions-row .p-menuitem-link span", has_text=action_item).click()
+        self.page.locator(".p-menu-list li span", has_text=action_item).wait_for(state="visible")
+        self.page.locator(".p-menu-list li span", has_text=action_item).click()
         print(f"Clicked '{action_item}' Button")
         if confirmation:
-            self.page.locator("p-confirmdialog button", has_text="Yes").click()
+            self.page.locator(self.selector_dialog_footer_btn("Yes"), has_text="Yes").click()
             print(f"Clicked 'Yes' button in '{action_item}' confirmation dialog")
         self.page.wait_for_timeout(500)
 
@@ -68,13 +106,13 @@ class PageObjectO11y(PageObjectGlobal):
         print(f"'Select card to add' dialog is visible")
 
     def click_widget_dialog_left_menu(self, level1_menu, level2_menu = None):
-        self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level1_menu).wait_for(state="visible")
-        self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level1_menu).click()
+        self.page.locator(self.selector_dialog_left_menu(level1_menu), has_text=level1_menu).wait_for(state="visible")
+        self.page.locator(self.selector_dialog_left_menu(level1_menu), has_text=level1_menu).click()
         print(f"Clicked 'Left side bar' -> '{level1_menu}' menu")
 
         if level2_menu:
-            self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level2_menu).wait_for(state="visible")
-            self.page.locator(".categories-menu-panel .p-treenode-label", has_text=level2_menu).click()
+            self.page.locator(self.selector_dialog_left_menu(level2_menu), has_text=level2_menu).wait_for(state="visible")
+            self.page.locator(self.selector_dialog_left_menu(level2_menu), has_text=level2_menu).click()
             print(f"Clicked 'Left side bar' -> '{level1_menu}' -> '{level2_menu}' menu")
 
     def click_widget_dialog_middle_menu(self, middle_menu, data_plane_type=None):

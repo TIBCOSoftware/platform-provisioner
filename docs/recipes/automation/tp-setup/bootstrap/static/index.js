@@ -27,6 +27,24 @@ async function loadData() {
   }
 }
 
+async function loadCPAPI(url, data= "", method = 'GET') {
+  try {
+    const options = {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+    if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.body = JSON.stringify(data);
+    }
+    const response = await fetch('/cp_api?api_path=' + encodeURIComponent(url), options);
+    return await response.json();
+  } catch (error) {
+    console.error("Error loading config:", error);
+  }
+}
+
 async function handleFileUpload() {
   const fileInput = document.getElementById("app_file");
   if (!fileInput.value) return;
@@ -321,6 +339,7 @@ function handleFieldsAction() {
           ".TP_BMDP_IMAGE_TAG_BW5RVDM",
           ".TP_BMDP_IMAGE_TAG_BW6DM"
         ], true);
+        preLoadBMDPCreateBW5DMData();
         break;
       case "case.bmdp_provision_capability":
         toggleField([".TP_AUTO_K8S_BMDP_NAME"], true);
@@ -371,6 +390,22 @@ function handleFieldsAction() {
       }
     }
   });
+}
+
+function preLoadBMDPCreateBW5DMData() {
+  loadCPAPI("/cp/api/v1/resources/instances?webui=true&type=ACTIVATION_SERVER")
+    .then(res => {
+      const activationUrl = res.response?.[0]?.name;
+      if (activationUrl) {
+        const urlObj = new URL(activationUrl);
+        const data = {
+          "TP_ACTIVATION_SERVER_PORT": urlObj.port,
+          "TP_ACTIVATION_SERVER_CERT_HOSTNAME": urlObj.hostname,
+          "TP_ACTIVATION_SERVER_FINGER_PRINT": urlObj.searchParams.get("fp") || "",
+        }
+        initInputValue(data);
+      }
+    })
 }
 
 // Clean the app_file input and reset the app name to default value from ENV
