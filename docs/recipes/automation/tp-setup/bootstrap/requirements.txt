@@ -34,7 +34,7 @@ click==8.2.1
     #   uvicorn
 colorama==0.4.6
     # via tp-automation (pyproject.toml)
-cryptography==45.0.7
+cryptography==46.0.5
     # via authlib
 cyclopts==3.23.1
     # via fastmcp
