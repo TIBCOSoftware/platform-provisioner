@@ -1,10 +1,11 @@
 #  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
-
+import base64
 import subprocess
 import os
 import sys
 import json
 import platform
+import zipfile
 from pathlib import Path
 
 from utils.color_logger import ColorLogger
@@ -168,6 +169,43 @@ class Helper:
         return os.path.join(os.path.dirname(__file__), "..", "upload", file_name)
 
     @staticmethod
+    def save_activation_file(base64_string, filename):
+        if not base64_string or not filename:
+            return False
+
+        # remove whitespaces/newlines
+        b64 = "".join(base64_string.split())
+
+        # handle "data:application/zip;base64,xxxx"
+        if "base64," in b64:
+            b64 = b64.split("base64,", 1)[1]
+
+        zip_bytes = base64.b64decode(b64, validate=True)
+
+        out_path = os.path.join(os.path.dirname(__file__), "..", "upload", filename)
+        with open(out_path, "wb") as f:
+            f.write(zip_bytes)
+
+        # Unzip the file and rename .bin file to license-file.bin
+        upload_dir = os.path.dirname(out_path)
+        try:
+            with zipfile.ZipFile(out_path, 'r') as zip_ref:
+                zip_ref.extractall(upload_dir)
+            
+            # Find and rename .bin file to license-file.bin
+            for item in os.listdir(upload_dir):
+                if item.endswith('.bin'):
+                    old_path = os.path.join(upload_dir, item)
+                    new_path = os.path.join(upload_dir, 'license-file.bin')
+                    os.rename(old_path, new_path)
+                    break
+        except Exception as e:
+            ColorLogger.error(f"Failed to unzip or process license file: {e}")
+            return False
+
+        return True
+
+    @staticmethod
     def get_app_file_fullpath(app_file_name):
         file_path = Helper.get_file_fullpath_in_upload_folder(app_file_name)
 
@@ -202,3 +240,4 @@ class Helper:
         else:
             name_input = f"{dp_name}-{menu_name}-{tab}-{index}".lower()
         return name_input
+    

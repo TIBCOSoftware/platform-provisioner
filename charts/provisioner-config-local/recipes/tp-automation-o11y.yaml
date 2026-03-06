@@ -41,6 +41,7 @@ meta:
     GUI_TP_AUTO_IS_ENABLE_BW6DM: true
     GUI_TP_AUTO_ENABLE_O11Y_WIDGET: true
     GUI_TP_AUTO_ENABLE_E2E_TEST: false
+    GUI_TP_AUTO_USE_CLI: false
 
     # start app or not
     GUI_TP_AUTO_START_FLOGO_APP: true
@@ -110,6 +111,7 @@ meta:
     GUI_TP_ACTIVATION_SERVER_PORT: "7070"
     GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
     GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
+    GUI_TP_ACTIVATION_ZIP_FILE_BASE64: ""
 
     # flow control
     GUI_TP_PORT_FORWARD: true
@@ -154,6 +156,7 @@ meta:
     TP_AUTO_IS_ENABLE_BW6DM: ${GUI_TP_AUTO_IS_ENABLE_BW6DM:-true}
     TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-true}
     TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-false}
+    TP_AUTO_USE_CLI: ${GUI_TP_AUTO_USE_CLI:-false}
 
     # start app or not
     TP_AUTO_START_FLOGO_APP: ${GUI_TP_AUTO_START_FLOGO_APP:-true}
@@ -230,10 +233,11 @@ meta:
     TP_ACTIVATION_SERVER_PORT: ${GUI_TP_ACTIVATION_SERVER_PORT:-"7070"}
     TP_ACTIVATION_SERVER_CERT_HOSTNAME: ${GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME:-""}
     TP_ACTIVATION_SERVER_FINGER_PRINT: ${GUI_TP_ACTIVATION_SERVER_FINGER_PRINT:-""}
-
+    TP_ACTIVATION_ZIP_FILE_BASE64: ${GUI_TP_ACTIVATION_ZIP_FILE_BASE64:-""}
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
     PYTHON_FILE_ENTRY_POINT: page_dp.py
+    PYTHON_FILE_ENTRY_POINT_CLI: page_cli.py
     PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
     PYTHON_FILE_ENTRY_POINT_O11Y: page_o11y.py
     PYTHON_FILE_ENTRY_POINT_SETTING: page_setting.py
@@ -345,6 +349,27 @@ tasks:
   name: "activation-server-dns-config"
   script:
     content: |
+      # create the secret for activation file
+      create_activation_file() {
+
+        # get the base64 encoded activation zip file from env first
+        echo "$PIPELINE_INPUT_RECIPE_CONTENT" > /tmp/activation-zip-base64.yaml
+        ACTIVATION_ZIP_BASE64="$(
+            yq e '.meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64' /tmp/activation-zip-base64.yaml
+          )"
+        if [ -z "$ACTIVATION_ZIP_BASE64" ]; then
+          echo "❌ Activation zip file base64 content is empty. Will use Activation Server."
+          return 0
+        fi
+        echo "$ACTIVATION_ZIP_BASE64" | base64 -d > /tmp/activation.zip
+        unzip /tmp/activation.zip -d /tmp
+        mv /tmp/*.bin /tmp/auto/upload/license-file.bin
+
+        echo "✅ 'activation-file' created successfully."
+      }
+
+      create_activation_file
+
       add_static_dns_record_to_coredns() {
         local namespace="kube-system"
         local configmap_name="coredns"
@@ -446,6 +471,39 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit 0
+- condition: ${TP_AUTO_USE_CLI} # CLI-based full automation: DP + BMDP + all capabilities
+  name: cli-full-automation
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+
+      # Map TP_AUTO_ENABLE_* to TP_AUTO_IS_PROVISION_* for Python code
+      export TP_AUTO_IS_CONFIG_O11Y=${TP_AUTO_ENABLE_CONFIG_O11Y}
+      export TP_AUTO_IS_PROVISION_FLOGO=${TP_AUTO_ENABLE_FLOGO}
+      export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
+      export TP_AUTO_IS_PROVISION_BW5CE=${TP_AUTO_ENABLE_BW5CE}
+      export TP_AUTO_IS_PROVISION_TIBCOHUB=${TP_AUTO_ENABLE_TIBCOHUB}
+      export TP_AUTO_IS_PROVISION_EMS=${TP_AUTO_ENABLE_EMS}
+      export TP_AUTO_IS_CREATE_BMDP=${TP_AUTO_ENABLE_BMDP}
+      export TP_AUTO_START_FLOGO_APP=${TP_AUTO_START_FLOGO_APP}
+      export TP_AUTO_START_BWCE_APP=${TP_AUTO_START_BWCE_APP}
+      export TP_AUTO_START_BW5CE_APP=${TP_AUTO_START_BW5CE_APP}
+
+      echo "===== Task Name: cli-full-automation, Running file ${PYTHON_FILE_ENTRY_POINT_CLI} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run --active ${PYTHON_FILE_ENTRY_POINT_CLI}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT_CLI}
+      fi
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
 - condition: ${TP_AUTO_ENABLE_DP} # only create DP
   name: create-dp
   clusters:
@@ -610,7 +668,7 @@ tasks:
       
       export dp_name=${TP_AUTO_K8S_DP_NAME}
       export capability="bw5ce"
-      export app_name="bw5ce-dynamicHeaders"
+      export app_name="bw5ce-dynamicheaders"
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
         app_status="$(

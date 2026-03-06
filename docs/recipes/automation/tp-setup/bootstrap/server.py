@@ -7,11 +7,11 @@ import time
 import shutil
 import uuid
 from flask_cors import CORS
-from flask import Flask, render_template, Response, request, jsonify, stream_with_context
+from flask import Flask, render_template, Response, request, jsonify, stream_with_context, send_from_directory
 from typing import Dict
 
 from utils.streaming_runner import StreamingRunner
-from utils.tibcop_cli import TibcopCliHandler
+from cli_object.facade import TibcopCLI
 from utils.util import Util
 from utils.env import ENV
 from utils.helper import Helper
@@ -33,17 +33,10 @@ def set_env_vars_from_request(request_args, include_system_env=True):
     env_vars["PYTHONIOENCODING"] = "utf-8"
     for key, value in request_args.items():
         if key != "case":
-            env_vars[key] = value
+            # Only override if the value is not empty (preserve system env vars)
+            if value:
+                env_vars[key] = value
 
-    env_vars_to_print = {}
-    for key in request_args:
-        if key in os.environ:
-            env_vars_to_print[key] = os.environ[key]
-
-    if env_vars_to_print:
-        print("Environment Variables Set:")
-        for key, value in env_vars_to_print.items():
-            print(f"{key} = {value}")
     return env_vars
 
 @app.after_request
@@ -57,6 +50,12 @@ def add_header(response):
 def home():
     """ Render the main HTML page """
     return render_template('index.html')
+
+@app.route('/upload/<path:filename>')
+def serve_upload_file(filename):
+    """ Serve files from upload folder """
+    upload_folder = Util.get_upload_folder()
+    return send_from_directory(upload_folder, filename)
 
 @app.route('/cp_api')
 def call_cp_api():
@@ -176,17 +175,107 @@ def run_gui_script():
 def run_cli_script():
     auto_case = request.args.get('case')
     dp_name = request.args.get('TIBCOP_CLI_DP_NAME')
+    app_id = request.args.get('TIBCOP_CLI_APP_ID')
+    capability_id = request.args.get('TIBCOP_CLI_CAPABILITY_ID')
+    storage_resource_id = request.args.get('TIBCOP_CLI_STORAGE_RESOURCE_ID')
+    ingress_resource_id = request.args.get('TIBCOP_CLI_INGRESS_RESOURCE_ID')
+    devhub_name = request.args.get('TIBCOP_CLI_DEVHUB_NAME')
+    k8s_secret = request.args.get('TIBCOP_CLI_K8S_SECRET')
+    resource_name = request.args.get('TIBCOP_CLI_RESOURCE_NAME')
+    activation_server_url = request.args.get('TIBCOP_CLI_ACTIVATION_SERVER_URL')
+    resource_instance_id = request.args.get('TIBCOP_CLI_RESOURCE_INSTANCE_ID')
+    fqdn = request.args.get('TIBCOP_CLI_FQDN')
+    storage_class_name = request.args.get('TIBCOP_CLI_STORAGE_CLASS_NAME')
+    ingress_class_name = request.args.get('TIBCOP_CLI_INGRESS_CLASS_NAME')
+    ingress_controller = request.args.get('TIBCOP_CLI_INGRESS_CONTROLLER')
+    ear_file_path = request.args.get('TIBCOP_CLI_EAR_FILE_PATH')
+    deploy_config_file = request.args.get('TIBCOP_CLI_DEPLOY_CONFIG_FILE')
+    bwce_version = request.args.get('TIBCOP_CLI_BWCE_VERSION')
+    flogo_version = request.args.get('TIBCOP_CLI_FLOGO_VERSION')
+    base_image_tag = request.args.get('TIBCOP_CLI_BASE_IMAGE_TAG')
+    # Use default namespace pattern if not provided
+    dp_namespace = request.args.get('TIBCOP_CLI_DP_NAMESPACE') or (f"{dp_name}ns" if dp_name else None)
+    dp_service_account_name = request.args.get('TIBCOP_CLI_DP_SERVICE_ACCOUNT_NAME') or (f"{dp_name}sa" if dp_name else None)
+    storage_resource_name = request.args.get('TIBCOP_CLI_STORAGE_RESOURCE_NAME')
+    storage_resource_description = request.args.get('TIBCOP_CLI_STORAGE_RESOURCE_DESCRIPTION')
+    ingress_resource_name = request.args.get('TIBCOP_CLI_INGRESS_RESOURCE_NAME')
+    ingress_resource_description = request.args.get('TIBCOP_CLI_INGRESS_RESOURCE_DESCRIPTION')
     other_args = request.args.get('TIBCOP_CLI_OTHER_ARGS')
+
     if not auto_case:
         return "Missing 'case' parameter", 400
 
-    env_vars = set_env_vars_from_request(request.args, False)
-    cli_handler = TibcopCliHandler(env_vars)
+    # Include system environment variables to get TIBCOP_CLI_CPURL and TIBCOP_CLI_OAUTH_TOKEN
+    env_vars = set_env_vars_from_request(request.args, True)
+    cli_handler = TibcopCLI(env_vars)
 
     case_function_map = {
-        "tplatform:list-dataplanes": lambda: cli_handler.tplatform_list_dataplane(other_args=other_args),
-        "tplatform:register-k8s-dataplane": lambda: cli_handler.tplatform_register_k8s_dataplane(dp_name, other_args=other_args),
-        "tplatform:unregister-dataplane": lambda: cli_handler.tplatform_unregister_dataplane(dp_name, other_args=other_args),
+        "kubectl:list-cluster-resources": lambda: cli_handler.kubectl.list_cluster_resources(),
+        "tplatform:list-dataplanes": lambda: cli_handler.dataplane.list_dataplanes(other_args=other_args),
+        "tplatform:register-k8s-dataplane": lambda: cli_handler.dataplane.register_k8s_dataplane(dp_name, other_args=other_args),
+        "tplatform:register-control-tower-dataplane": lambda: cli_handler.dataplane.register_control_tower_dataplane(
+            dp_name, dp_namespace, dp_service_account_name,
+            storage_resource_name, storage_class_name, storage_resource_description,
+            ingress_resource_name, ingress_controller, ingress_class_name,
+            ingress_resource_description, fqdn, other_args
+        ),
+        "tplatform:unregister-dataplane": lambda: cli_handler.dataplane.unregister_dataplane(dp_name, other_args=other_args),
+        "tplatform:list-apps": lambda: cli_handler.app.list_apps(dp_name, other_args=other_args),
+        "tplatform:list-capabilities": lambda: cli_handler.capability.list_capabilities(dp_name, other_args=other_args),
+        "tplatform:list-resource-instances": lambda: cli_handler.resource.list_resource_instances(dp_name, other_args=other_args),
+        "delete-app": lambda: cli_handler.app.delete_app(dp_name, capability_id, app_id, other_args=other_args),
+        "provision-capability": lambda: cli_handler.capability.provision_capability(
+            dp_name, capability_id, storage_resource_id, ingress_resource_id,
+            None, devhub_name, k8s_secret, False, other_args
+        ),
+        "delete-capability-instance": lambda: cli_handler.capability.delete_capability_instance(
+            dp_name, capability_id, other_args
+        ),
+        "create-storage-resource": lambda: cli_handler.resource.create_storage_resource(
+            dp_name, resource_name, storage_class_name, "Storage_For_Integration", other_args
+        ),
+        "create-ingress-resource": lambda: cli_handler.resource.create_ingress_resource(
+            dp_name, resource_name, fqdn, ingress_class_name, ingress_controller, other_args
+        ),
+        "delete-resource-instance": lambda: cli_handler.resource.delete_resource(
+            dp_name, resource_instance_id, other_args
+        ),
+        "create-activation-server": lambda: cli_handler.resource.create_activation_server(
+            dp_name, resource_name, activation_server_url or None, "DATAPLANE", None, None, other_args
+        ),
+        "bwce:list-versions": lambda: cli_handler.bwce.list_versions(dp_name, other_args),
+        "bwce:provision-version": lambda: cli_handler.bwce.provision_version(dp_name, bwce_version, other_args),
+        "bwce:create-build": lambda: cli_handler.bwce.create_build(
+            dp_name, ear_file_path, bwce_version or None, base_image_tag or None, other_args
+        ),
+        "bwce:deploy-app": lambda: cli_handler.bwce.deploy_app(
+            dp_name, dp_namespace or f"{dp_name}ns", deploy_config_file, other_args
+        ),
+        "bwce-build-and-deploy": lambda: cli_handler.bwce.build_and_deploy_app(
+            dp_name, ear_file_path, deploy_config_file, dp_namespace, other_args
+        ),
+        "flogo:list-versions": lambda: cli_handler.flogo.list_versions(dp_name, other_args),
+        "flogo:provision-version": lambda: cli_handler.flogo.provision_version(dp_name, flogo_version, other_args),
+        "flogo:create-build": lambda: cli_handler.flogo.create_build(
+            dp_name, ear_file_path, bwce_version or None, "linux", "amd64", other_args
+        ),
+        "flogo:deploy-app": lambda: cli_handler.flogo.deploy_app(
+            dp_name, dp_namespace or f"{dp_name}ns", deploy_config_file, None, other_args
+        ),
+        "flogo-build-and-deploy": lambda: cli_handler.flogo.build_and_deploy_app(
+            dp_name, ear_file_path, deploy_config_file, dp_namespace, other_args
+        ),
+        "bw5ce:list-versions": lambda: cli_handler.bw5ce.list_versions(dp_name, other_args),
+        "bw5ce:provision-version": lambda: cli_handler.bw5ce.provision_version(dp_name, bwce_version, other_args),
+        "bw5ce:create-build": lambda: cli_handler.bw5ce.create_build(
+            dp_name, ear_file_path, bwce_version or None, base_image_tag or None, other_args
+        ),
+        "bw5ce:deploy-app": lambda: cli_handler.bw5ce.deploy_app(
+            dp_name, dp_namespace or f"{dp_name}ns", deploy_config_file, other_args
+        ),
+        "bw5ce-build-and-deploy": lambda: cli_handler.bw5ce.build_and_deploy_app(
+            dp_name, ear_file_path, deploy_config_file, dp_namespace, other_args
+        )
     }
     case_func = case_function_map.get(auto_case)
 
@@ -221,6 +310,26 @@ def get_env():
         with open(version_file, "r") as f:
             version = f.read().strip()
         env_dict["TP_AUTOMATION_TASK_RELEASE_VERSION"] = version
+    # Add CLI default values (only if not already set in environment)
+    # Priority: 1) Environment variable, 2) k8s secret/TP_AUTO_LOGIN_URL fallback
+    if not env_vars.get("TIBCOP_CLI_OAUTH_TOKEN"):
+        try:
+            # Get OAuth token from k8s secret as fallback
+            token = Helper.get_auto_token()
+            if token:
+                env_dict["TIBCOP_CLI_OAUTH_TOKEN"] = token
+        except Exception as e:
+            print(f"[WARN] Failed to get auto token: {e}")
+
+    if not env_vars.get("TIBCOP_CLI_CPURL"):
+        # Extract domain from TP_AUTO_LOGIN_URL for TIBCOP_CLI_CPURL as fallback
+        cp_url = env_dict.get("TP_AUTO_LOGIN_URL", "")
+        if cp_url:
+            # Extract protocol and domain (e.g., "https://cp.example.com/path" -> "https://cp.example.com")
+            import re
+            match = re.match(r'^(https?://[^/]+)', cp_url)
+            if match:
+                env_dict["TIBCOP_CLI_CPURL"] = match.group(1)
 
     merged = {**env_vars, **env_dict}
     return jsonify(merged)
@@ -228,7 +337,7 @@ def get_env():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     file = request.files.get('file')
-    upload_folder = 'upload'
+    upload_folder = Util.get_upload_folder()
     os.makedirs(upload_folder, exist_ok=True)
     if file:
         original_filename = os.path.splitext(file.filename)[0]
@@ -238,13 +347,155 @@ def upload_file():
         save_path = os.path.join(upload_folder, safe_name)
         file.save(save_path)
 
+        # Determine file type based on extension
+        if ext == '.ear':
+            filetype = 'BWCE'
+        elif ext in ['.json', '.flogo']:
+            filetype = 'FLOGO'
+        else:
+            filetype = 'UNKNOWN'
+
         return jsonify({
             'message': 'Upload successful',
             'filename': safe_name,
-            'filetype': 'BWCE' if ext == '.ear' else 'FLOGO'
+            'filetype': filetype
         })
     else:
         return jsonify({'message': 'No file uploaded'})
+
+@app.route('/save-deploy-config', methods=['POST'])
+def save_deploy_config():
+    try:
+        data = request.get_json()
+        config_content = data.get('config')
+
+        if not config_content:
+            return jsonify({'error': 'No config provided'}), 400
+
+        upload_folder = Util.get_upload_folder()
+        os.makedirs(upload_folder, exist_ok=True)
+
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        filename = f"deploy_config_{timestamp}.json"
+        save_path = os.path.join(upload_folder, filename)
+
+        with open(save_path, 'w') as f:
+            f.write(config_content)
+
+        return jsonify({
+            'message': 'Config saved successfully',
+            'filename': save_path
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/save-bwce-payload', methods=['POST'])
+def save_bwce_payload():
+    """Save user-edited JSON content to bwce-payload.json"""
+    try:
+        data = request.get_json()
+        config_content = data.get('config')
+
+        if not config_content:
+            return jsonify({'success': False, 'message': 'No config provided'}), 400
+
+        # Validate JSON format
+        try:
+            import json
+            json.loads(config_content)
+        except json.JSONDecodeError as e:
+            return jsonify({'success': False, 'message': f'Invalid JSON: {str(e)}'}), 400
+
+        upload_folder = Util.get_upload_folder()
+        os.makedirs(upload_folder, exist_ok=True)
+
+        # Save to bwce-payload.json (overwrite)
+        payload_file = os.path.join(upload_folder, 'bwce-payload.json')
+        with open(payload_file, 'w') as f:
+            f.write(config_content)
+
+        print(f"[INFO] Updated {payload_file} with user edits")
+
+        return jsonify({
+            'success': True,
+            'message': 'BWCE payload saved successfully',
+            'filename': payload_file
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to save bwce-payload.json: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/save-flogo-payload', methods=['POST'])
+def save_flogo_payload():
+    """Save user-edited JSON content to flogo-payload.json"""
+    try:
+        data = request.get_json()
+        config_content = data.get('config')
+
+        if not config_content:
+            return jsonify({'success': False, 'message': 'No config provided'}), 400
+
+        # Validate JSON format
+        try:
+            import json
+            json.loads(config_content)
+        except json.JSONDecodeError as e:
+            return jsonify({'success': False, 'message': f'Invalid JSON: {str(e)}'}), 400
+
+        upload_folder = Util.get_upload_folder()
+        os.makedirs(upload_folder, exist_ok=True)
+
+        # Save to flogo-payload.json (overwrite)
+        payload_file = os.path.join(upload_folder, 'flogo-payload.json')
+        with open(payload_file, 'w') as f:
+            f.write(config_content)
+
+        print(f"[INFO] Updated {payload_file} with user edits")
+
+        return jsonify({
+            'success': True,
+            'message': 'Flogo payload saved successfully',
+            'filename': payload_file
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to save flogo-payload.json: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/save-bw5ce-payload', methods=['POST'])
+def save_bw5ce_payload():
+    """Save user-edited JSON content to bw5ce-payload.json"""
+    try:
+        data = request.get_json()
+        config_content = data.get('config')
+
+        if not config_content:
+            return jsonify({'success': False, 'message': 'No config provided'}), 400
+
+        # Validate JSON format
+        try:
+            import json
+            json.loads(config_content)
+        except json.JSONDecodeError as e:
+            return jsonify({'success': False, 'message': f'Invalid JSON: {str(e)}'}), 400
+
+        upload_folder = Util.get_upload_folder()
+        os.makedirs(upload_folder, exist_ok=True)
+
+        # Save to bw5ce-payload.json (overwrite)
+        payload_file = os.path.join(upload_folder, 'bw5ce-payload.json')
+        with open(payload_file, 'w') as f:
+            f.write(config_content)
+
+        print(f"[INFO] Updated {payload_file} with user edits")
+
+        return jsonify({
+            'success': True,
+            'message': 'BW5CE payload saved successfully',
+            'filename': payload_file
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to save bw5ce-payload.json: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3120)

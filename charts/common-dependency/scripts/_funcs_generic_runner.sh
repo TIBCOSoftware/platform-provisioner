@@ -250,6 +250,14 @@ function generic-runner::run_task() {
   local _task_ignore_error=""
   _task_ignore_error=$(echo "${_task_script_section}" | common::yq4-get '.ignoreErrors')
 
+  local _task_retry_count=""
+  _task_retry_count=$(echo "${_task_script_section}" | common::yq4-get '.retryCount')
+  _task_retry_count="${_task_retry_count:-0}"
+
+  local _task_retry_delay=""
+  _task_retry_delay=$(echo "${_task_script_section}" | common::yq4-get '.retryDelay')
+  _task_retry_delay="${_task_retry_delay:-10}"
+
   # get default script file name
   local _task_file_name=""
   _task_file_name=$(echo "${_task_script_section}" | common::yq4-get '.fileName')
@@ -322,13 +330,42 @@ function generic-runner::run_task() {
 
       common::debug "============= running script ${_task_file_name} for task #${_task_index} ================="
       common::info "running task file ${_task_file_name} for task #${_task_index}"
-      ./"${_task_file_name}"
-      _res=$?
-      if [[ "${_task_ignore_error}" == "true" ]] && [[ ${_res} -ne 0 ]]; then
-        common::debug "Detect ignore error is true, skipping error: ${_res} for task #${_task_index}"
-      fi
-      if [[ "${_task_ignore_error}" != "true" ]] && [[ ${_res} -ne 0 ]]; then
-        common::err "Run task #${_task_index} error"
+
+      # Retry logic: attempt = 0 is the first run, then retry up to _task_retry_count times
+      local _max_attempts=$(( _task_retry_count + 1 ))
+      local _attempt=0
+      local _success=false
+
+      while (( _attempt < _max_attempts )); do
+        (( _attempt++ ))
+        if (( _attempt > 1 )); then
+          common::info "Retry $((_attempt - 1)) of ${_task_retry_count} for task #${_task_index}"
+        fi
+
+        ./"${_task_file_name}"
+        _res=$?
+
+        if [[ ${_res} -eq 0 ]]; then
+          _success=true
+          break
+        fi
+
+        # Handle failure
+        if [[ "${_task_ignore_error}" == "true" ]]; then
+          common::debug "Detect ignore error is true, skipping error: ${_res} for task #${_task_index}"
+          _success=true
+          break
+        fi
+
+        # If we have retries left, wait and continue
+        if (( _attempt < _max_attempts )); then
+          common::info "Task #${_task_index} failed with exit code ${_res}. Retrying in ${_task_retry_delay} seconds..."
+          sleep "${_task_retry_delay}"
+        fi
+      done
+
+      if [[ "${_success}" != "true" ]]; then
+        common::err "Run task #${_task_index} failed after ${_task_retry_count} retry/retries"
         exit ${_res}
       fi
       common::debug "=========================== task #${_task_index} done ===================================="

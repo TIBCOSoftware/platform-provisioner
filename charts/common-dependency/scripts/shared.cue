@@ -48,6 +48,10 @@ package recipe
 		// The pipeline will run the script with this file name
 		fileName?: string | *"script.sh"
 		content?: string  // if the content is empty, we will use the fileName as script name
+		// Number of retry attempts after first failure (0 = no retry, run once only)
+		retryCount?: int & >=0 | *0
+		// Delay in seconds between retry attempts
+		retryDelay?: int & >=0 | *10
 	}
 	clusters?: [...#clusters]
 	// This will save content to a given file name in the pipeline container

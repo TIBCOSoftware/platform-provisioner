@@ -9,11 +9,14 @@ window.onload = function () {
     ENV = res;
     $(".is_loading").hide();
     hideFields();
+    // Load deploy config after ENV is loaded
+    loadDefaultDeployConfig();
   });
   handleFieldsAction();
 
   initTab();
-  loadCliSetting()
+  loadCliSetting();
+  initAdvancedModeToggle();
 };
 
 async function loadData() {
@@ -21,6 +24,16 @@ async function loadData() {
     let response = await fetch('/get_env');
     let data = await response.json();
     initInputValue(data);
+
+    // Update EAR file default hint with actual defaults from ENV
+    const defaultBwceFile = data.BWCE_APP_FILE_NAME || 'rest-bwce-1.ear';
+    const defaultFlogoFile = data.FLOGO_APP_FILE_NAME || 'rest-flogo-1.json';
+    const defaultBw5ceFile = data.BW5CE_APP_FILE_NAME || 'bw5ce-dynamicheaders.ear';
+    const hintElement = document.getElementById('TIBCOP_CLI_EAR_FILE_DEFAULT_HINT');
+    if (hintElement) {
+      hintElement.textContent = `Upload a file or leave empty to use default (BWCE: upload/${defaultBwceFile}, Flogo: upload/${defaultFlogoFile}, BW5CE: upload/${defaultBw5ceFile})`;
+    }
+
     return data;
   } catch (error) {
     console.error("Error loading config:", error);
@@ -119,8 +132,105 @@ async function runGuiScript(currentElement) {
   runScript(`/run-gui-script?${params.toString()}`, formElement);
 }
 
+function getSelectedCapabilities() {
+  const capabilities = [];
+  if (document.getElementById("capability_bwce")?.checked) capabilities.push("BWCE");
+  if (document.getElementById("capability_bw5ce")?.checked) capabilities.push("BW5CE");
+  if (document.getElementById("capability_flogo")?.checked) capabilities.push("FLOGO");
+  if (document.getElementById("capability_devhub")?.checked) capabilities.push("DEVHUB");
+  return capabilities.join(",");
+}
+
 async function runCliScript(currentElement) {
   const formElement = $(currentElement).closest('form');
+
+  // Handle EAR file upload if file is selected
+  const earFileInput = document.getElementById("TIBCOP_CLI_EAR_FILE_UPLOAD");
+  let earFilePath = document.getElementById("TIBCOP_CLI_EAR_FILE_PATH").value.trim();
+
+  if (earFileInput && earFileInput.files && earFileInput.files.length > 0) {
+    const file = earFileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      if (result.filename) {
+        earFilePath = `upload/${result.filename}`;
+        document.getElementById("TIBCOP_CLI_EAR_FILE_PATH").value = earFilePath;
+        console.log(`File uploaded: ${earFilePath}`);
+      } else {
+        alert('File upload failed: ' + (result.message || 'Unknown error'));
+        return;
+      }
+    } catch (error) {
+      alert('File upload error: ' + error.message);
+      return;
+    }
+  }
+
+  // If no file uploaded and path is empty, use default from ENV
+  if (!earFilePath) {
+    // Determine which default file to use based on selected case
+    const selectedCase = document.getElementById("cliAutoCase").value;
+    const isFlogoCase = selectedCase.includes('flogo');
+    const isBw5ceCase = selectedCase.includes('bw5ce');
+
+    const defaultFile = isFlogoCase
+      ? (ENV?.FLOGO_APP_FILE_NAME || 'rest-flogo-1.json')
+      : isBw5ceCase
+        ? (ENV?.BW5CE_APP_FILE_NAME || 'bw5ce-dynamicHeaders.ear')
+        : (ENV?.BWCE_APP_FILE_NAME || 'rest-bwce-1.ear');
+    earFilePath = `upload/${defaultFile}`;
+  }
+
+  // Handle deploy config - save textarea content to bwce-payload.json or flogo-payload.json
+  const deployConfigTextarea = document.getElementById("TIBCOP_CLI_DEPLOY_CONFIG_FILE");
+  const selectedCase = document.getElementById("cliAutoCase").value;
+
+  // Determine which payload file to save based on selected case
+  const isBwceOperation = selectedCase === 'bwce:deploy-app' || selectedCase === 'bwce-build-and-deploy';
+  const isFlogoOperation = selectedCase === 'flogo:deploy-app' || selectedCase === 'flogo-build-and-deploy';
+  const isBw5ceOperation = selectedCase === 'bw5ce:deploy-app' || selectedCase === 'bw5ce-build-and-deploy';
+
+  // Only save when running deploy operations
+  if (deployConfigTextarea && deployConfigTextarea.value.trim() && (isBwceOperation || isFlogoOperation || isBw5ceOperation)) {
+    try {
+      // Validate JSON
+      JSON.parse(deployConfigTextarea.value);
+
+      // Show saving message
+      const outputElement = formElement.find('.output')[0];
+      const payloadType = isBwceOperation ? 'bwce' : (isFlogoOperation ? 'flogo' : 'bw5ce');
+      const payloadFile = `upload/${payloadType}-payload.json`;
+      outputElement.innerHTML = `[INFO] Saving deploy config to ${payloadFile}...\n`;
+
+      // Save to appropriate payload file
+      const endpoint = isBwceOperation ? '/save-bwce-payload' : (isFlogoOperation ? '/save-flogo-payload' : '/save-bw5ce-payload');
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: deployConfigTextarea.value })
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        alert('Failed to save deploy config: ' + (result.message || 'Unknown error'));
+        return;
+      }
+      console.log(`Deploy config saved to ${payloadFile}`);
+      outputElement.innerHTML += "[SUCCESS] Deploy config saved successfully\n\n";
+    } catch (error) {
+      alert('Invalid JSON in Deploy Config File: ' + error.message);
+      return;
+    }
+  }
+
   const additionalParams = {
     TP_AUTO_IS_CONFIG_O11Y: true,
     case: document.getElementById("cliAutoCase").value,
@@ -128,7 +238,26 @@ async function runCliScript(currentElement) {
     TIBCOP_CLI_CPURL: document.getElementById("TIBCOP_CLI_CPURL").value,
     TIBCOP_CLI_OAUTH_TOKEN: document.getElementById("TIBCOP_CLI_OAUTH_TOKEN").value,
     TIBCOP_CLI_DP_NAME: document.getElementById("TIBCOP_CLI_DP_NAME").value,
+    TIBCOP_CLI_CAPABILITY_ID: document.getElementById("TIBCOP_CLI_CAPABILITY_ID").value,
+    TIBCOP_CLI_APP_ID: document.getElementById("TIBCOP_CLI_APP_ID").value,
+    TIBCOP_CLI_STORAGE_RESOURCE_ID: document.getElementById("TIBCOP_CLI_STORAGE_RESOURCE_ID").value,
+    TIBCOP_CLI_INGRESS_RESOURCE_ID: document.getElementById("TIBCOP_CLI_INGRESS_RESOURCE_ID").value,
+    TIBCOP_CLI_DEVHUB_NAME: document.getElementById("TIBCOP_CLI_DEVHUB_NAME").value,
+    TIBCOP_CLI_K8S_SECRET: document.getElementById("TIBCOP_CLI_K8S_SECRET").value,
+    TIBCOP_CLI_RESOURCE_NAME: document.getElementById("TIBCOP_CLI_RESOURCE_NAME").value,
+    TIBCOP_CLI_ACTIVATION_SERVER_URL: document.getElementById("TIBCOP_CLI_ACTIVATION_SERVER_URL").value,
+    TIBCOP_CLI_STORAGE_CLASS_NAME: document.getElementById("TIBCOP_CLI_STORAGE_CLASS_NAME").value,
+    TIBCOP_CLI_INGRESS_CLASS_NAME: document.getElementById("TIBCOP_CLI_INGRESS_CLASS_NAME").value,
+    TIBCOP_CLI_INGRESS_CONTROLLER: document.getElementById("TIBCOP_CLI_INGRESS_CONTROLLER").value,
+    TIBCOP_CLI_FQDN: document.getElementById("TIBCOP_CLI_FQDN").value,
+    TIBCOP_CLI_RESOURCE_INSTANCE_ID: document.getElementById("TIBCOP_CLI_RESOURCE_INSTANCE_ID").value,
+    TIBCOP_CLI_EAR_FILE_PATH: earFilePath || '',
+    TIBCOP_CLI_DEPLOY_CONFIG_FILE: isFlogoOperation ? 'upload/flogo-payload.json' : (isBw5ceOperation ? 'upload/bw5ce-payload.json' : 'upload/bwce-payload.json'),  // Use appropriate payload file
+    TIBCOP_CLI_BWCE_VERSION: document.getElementById("TIBCOP_CLI_BWCE_VERSION").value,
+    TIBCOP_CLI_FLOGO_VERSION: document.getElementById("TIBCOP_CLI_FLOGO_VERSION").value,
+    TIBCOP_CLI_BASE_IMAGE_TAG: document.getElementById("TIBCOP_CLI_BASE_IMAGE_TAG").value,
     TIBCOP_CLI_OTHER_ARGS: document.getElementById("TIBCOP_CLI_OTHER_ARGS").value,
+    TIBCOP_CLI_CAPABILITIES: getSelectedCapabilities(),
   };
 
   const params = new URLSearchParams({ ...handleCliSpecialCase(additionalParams) });
@@ -145,6 +274,8 @@ function runScript(apiUrl, formElement) {
 
   runButton.disabled = true;
   stopButton.disabled = false;
+  toggleProgress(formElement, true);  // Show progress indicator
+
   fetch(apiUrl)
     .then(response => {
       window.currentJobId = response.headers.get("one_click_job_id");
@@ -156,6 +287,7 @@ function runScript(apiUrl, formElement) {
             Prism.highlightElement(outputElement);
             runButton.disabled = false;
             stopButton.disabled = true;
+            toggleProgress(formElement, false);  // Hide progress indicator
             return
           }
           outputElement.innerHTML += decoder.decode(value, { stream: true });
@@ -169,12 +301,16 @@ function runScript(apiUrl, formElement) {
       }
       readStream();
     })
-    .catch(error => console.error('Error:', error));
+    .catch(error => {
+      console.error('Error:', error);
+      toggleProgress(formElement, false);  // Hide progress indicator on error
+    });
 }
 
 function stopScript(currentElement) {
   const formElement = $(currentElement).closest('form');
 
+  const outputElement = formElement.find('.output')[0];
   const preElement = formElement.find('.logs')[0];
   const runButton = formElement.find('.runBtn')[0];
   const stopButton = formElement.find('.stopBtn')[0];
@@ -182,12 +318,22 @@ function stopScript(currentElement) {
   fetch('/stop-script' + (window.currentJobId ? `?jobId=${window.currentJobId}` : ""))
     .then(response => response.json())
     .then(data => {
-      document.getElementById("output").innerHTML += `\n[INFO] ${data.message}\n`;
+      outputElement.innerHTML += `\n[INFO] ${data.message}\n`;
       preElement.scrollTop = preElement.scrollHeight;
 
       runButton.disabled = false;
       stopButton.disabled = true;
+      toggleProgress(formElement, false);  // Hide progress indicator
     })
+    .catch(error => {
+      console.error('Error stopping script:', error);
+      outputElement.innerHTML += `\n[ERROR] Failed to stop script: ${error.message}\n`;
+      preElement.scrollTop = preElement.scrollHeight;
+
+      runButton.disabled = false;
+      stopButton.disabled = true;
+      toggleProgress(formElement, false);  // Hide progress indicator
+    });
 }
 
 function handleGuiSpecialCase(params) {
@@ -351,6 +497,251 @@ function handleFieldsAction() {
     }
   });
 
+  // Handle CLI automation case selection
+  $("#cliAutoCase").on("change", function (e) {
+    const selectedValue = e.target.value;
+    // Hide all optional fields by default
+    toggleField([
+      '.TIBCOP_CLI_CAPABILITY_ID',
+      '.TIBCOP_CLI_APP_ID',
+      '.TIBCOP_CLI_STORAGE_RESOURCE_ID',
+      '.TIBCOP_CLI_INGRESS_RESOURCE_ID',
+      '.TIBCOP_CLI_DEVHUB_NAME',
+      '.TIBCOP_CLI_K8S_SECRET',
+      '.TIBCOP_CLI_RESOURCE_NAME',
+      '.TIBCOP_CLI_ACTIVATION_SERVER_URL',
+      '.TIBCOP_CLI_STORAGE_CLASS_NAME',
+      '.TIBCOP_CLI_INGRESS_CLASS_NAME',
+      '.TIBCOP_CLI_INGRESS_CONTROLLER',
+      '.TIBCOP_CLI_FQDN',
+      '.TIBCOP_CLI_RESOURCE_INSTANCE_ID',
+      '.TIBCOP_CLI_EAR_FILE_PATH',
+      '.TIBCOP_CLI_DEPLOY_CONFIG_FILE',
+      '.TIBCOP_CLI_BWCE_VERSION',
+      '.TIBCOP_CLI_FLOGO_VERSION',
+      '.TIBCOP_CLI_BASE_IMAGE_TAG',
+      '.TIBCOP_CLI_CAPABILITIES',
+      '.build-and-deploy-note'
+    ], false);
+
+    // Show fields for tplatform:list-apps operation
+    if (selectedValue === "tplatform:list-apps") {
+
+    }
+
+    // Show CAPABILITY_ID and APP_ID fields for delete operation
+    if (selectedValue === "delete-app") {
+      toggleField(['.TIBCOP_CLI_CAPABILITY_ID', '.TIBCOP_CLI_APP_ID'], true);
+    }
+
+    // Show fields for tplatform:list-capabilities operation
+    if (selectedValue === "tplatform:list-capabilities") {
+
+    }
+
+    // Show fields for provision-capability operation
+    if (selectedValue === "provision-capability") {
+      toggleField(['.TIBCOP_CLI_CAPABILITY_ID'], true);
+      // Fields will be shown/hidden based on capability selection (handled by capability change event)
+    }
+
+    // Show fields for delete-capability-instance operation
+    if (selectedValue === "delete-capability-instance") {
+      toggleField(['.TIBCOP_CLI_CAPABILITY_ID'], true);
+    }
+
+    // Show fields for tplatform:list-resource-instances operation
+    if (selectedValue === "tplatform:list-resource-instances") {
+
+    }
+
+    // Show fields for create-storage-resource operation
+    if (selectedValue === "create-storage-resource") {
+      toggleField(['.TIBCOP_CLI_RESOURCE_NAME', '.TIBCOP_CLI_STORAGE_CLASS_NAME'], true);
+    }
+
+    // Show fields for create-ingress-resource operation
+    if (selectedValue === "create-ingress-resource") {
+      toggleField([
+        '.TIBCOP_CLI_RESOURCE_NAME',
+        '.TIBCOP_CLI_FQDN',
+        '.TIBCOP_CLI_INGRESS_CLASS_NAME',
+        '.TIBCOP_CLI_INGRESS_CONTROLLER'
+      ], true);
+    }
+
+    // Show fields for create-activation-server operation
+    if (selectedValue === "create-activation-server") {
+      toggleField(['.TIBCOP_CLI_RESOURCE_NAME', '.TIBCOP_CLI_ACTIVATION_SERVER_URL'], true);
+    }
+
+    // Show fields for delete-resource-instance operation
+    if (selectedValue === "delete-resource-instance") {
+      toggleField(['.TIBCOP_CLI_RESOURCE_INSTANCE_ID'], true);
+    }
+
+    // Show fields for register-control-tower-dataplane operation (only in advanced mode)
+    if (selectedValue === "tplatform:register-control-tower-dataplane") {
+      const isAdvancedMode = document.getElementById('advancedModeToggle')?.checked || false;
+      if (isAdvancedMode) {
+        toggleField([
+          '.TIBCOP_CLI_STORAGE_CLASS_NAME',
+          '.TIBCOP_CLI_INGRESS_CLASS_NAME',
+          '.TIBCOP_CLI_FQDN'
+        ], true);
+      }
+    }
+
+    // Show fields for bwce:list-versions operation
+    if (selectedValue === "bwce:list-versions") {
+
+    }
+
+    // Show fields for bwce:provision-version operation
+    if (selectedValue === "bwce:provision-version") {
+      toggleField(['.TIBCOP_CLI_BWCE_VERSION'], true);
+    }
+
+    // Show fields for bwce:create-build operation
+    // Note: BWCE version and base image tag are auto-fetched, so not shown
+    if (selectedValue === "bwce:create-build") {
+      toggleField([
+        '.TIBCOP_CLI_EAR_FILE_PATH'
+      ], true);
+      updateFileUploadLabel('BWCE EAR File (.ear)');
+    }
+
+    // Show fields for bwce:deploy-app operation
+    if (selectedValue === "bwce:deploy-app") {
+      toggleField([
+        '.TIBCOP_CLI_DEPLOY_CONFIG_FILE'
+      ], true);
+      loadPayloadConfig('bwce');
+    }
+
+    // Show fields for bwce-build-and-deploy operation (all fields)
+    if (selectedValue === "bwce-build-and-deploy") {
+      toggleField([
+        '.TIBCOP_CLI_EAR_FILE_PATH',
+        '.TIBCOP_CLI_DEPLOY_CONFIG_FILE',
+          '.build-and-deploy-note'
+      ], true);
+      loadPayloadConfig('bwce');
+      updateFileUploadLabel('BWCE EAR File (.ear)');
+    }
+
+    // Show fields for flogo:list-versions operation
+    if (selectedValue === "flogo:list-versions") {
+
+    }
+
+    // Show fields for flogo:provision-version operation
+    if (selectedValue === "flogo:provision-version") {
+      toggleField(['.TIBCOP_CLI_FLOGO_VERSION'], true);
+    }
+
+    // Show fields for flogo:create-build operation
+    if (selectedValue === "flogo:create-build") {
+      toggleField([
+        '.TIBCOP_CLI_EAR_FILE_PATH'
+      ], true);
+      updateFileUploadLabel('Flogo App File (.json, .flogo)');
+    }
+
+    // Show fields for flogo:deploy-app operation
+    if (selectedValue === "flogo:deploy-app") {
+      toggleField([
+        '.TIBCOP_CLI_DEPLOY_CONFIG_FILE'
+      ], true);
+      loadPayloadConfig('flogo');
+    }
+
+    // Show fields for flogo-build-and-deploy operation (all fields)
+    if (selectedValue === "flogo-build-and-deploy") {
+      toggleField([
+        '.TIBCOP_CLI_EAR_FILE_PATH',
+        '.TIBCOP_CLI_DEPLOY_CONFIG_FILE',
+          '.build-and-deploy-note'
+      ], true);
+      loadPayloadConfig('flogo');
+      updateFileUploadLabel('Flogo App File (.json, .flogo)');
+    }
+
+    // ========== BW5CE Operations ==========
+    // Show fields for bw5ce:list-versions operation
+    if (selectedValue === "bw5ce:list-versions") {
+
+    }
+
+    // Show fields for bw5ce:provision-version operation
+    if (selectedValue === "bw5ce:provision-version") {
+      toggleField(['.TIBCOP_CLI_BWCE_VERSION'], true);
+    }
+
+    // Show fields for bw5ce:create-build operation
+    if (selectedValue === "bw5ce:create-build") {
+      toggleField([
+        '.TIBCOP_CLI_EAR_FILE_PATH'
+      ], true);
+      updateFileUploadLabel('BW5CE EAR File');
+    }
+
+    // Show fields for bw5ce:deploy-app operation
+    if (selectedValue === "bw5ce:deploy-app") {
+      toggleField([
+        '.TIBCOP_CLI_DEPLOY_CONFIG_FILE'
+      ], true);
+      loadPayloadConfig('bw5ce');
+    }
+
+    // Show fields for bw5ce-build-and-deploy operation (all fields)
+    if (selectedValue === "bw5ce-build-and-deploy") {
+      toggleField([
+        '.TIBCOP_CLI_EAR_FILE_PATH',
+        '.TIBCOP_CLI_DEPLOY_CONFIG_FILE',
+          '.build-and-deploy-note'
+      ], true);
+      loadPayloadConfig('bw5ce');
+      updateFileUploadLabel('BW5CE EAR File');
+    }
+  });
+
+  // Handle capability selection for provision-capability
+  $("#TIBCOP_CLI_CAPABILITY_ID").on("change", function (e) {
+    const capability = e.target.value;
+    const selectedCase = document.getElementById("cliAutoCase").value;
+
+    // Only handle field visibility if we're in provision-capability mode
+    if (selectedCase !== "provision-capability") {
+      return;
+    }
+
+    // Hide all provision fields first
+    toggleField([
+      '.TIBCOP_CLI_STORAGE_RESOURCE_ID',
+      '.TIBCOP_CLI_INGRESS_RESOURCE_ID',
+      '.TIBCOP_CLI_DEVHUB_NAME',
+      '.TIBCOP_CLI_K8S_SECRET'
+    ], false);
+
+    if (capability === "TIBCOHUB") {
+      // Show TIBCOHUB-specific fields
+      toggleField([
+        '.TIBCOP_CLI_STORAGE_RESOURCE_ID',
+        '.TIBCOP_CLI_INGRESS_RESOURCE_ID',
+        '.TIBCOP_CLI_DEVHUB_NAME',
+        '.TIBCOP_CLI_K8S_SECRET'
+      ], true);
+    } else if (capability === "BWCE" || capability === "BW5CE" || capability === "FLOGO") {
+      // Show BWCE/BW5CE/FLOGO-specific fields
+      // Note: Path prefix is now auto-calculated as /tibco/{capability}/{dataplane_id}
+      toggleField([
+        '.TIBCOP_CLI_STORAGE_RESOURCE_ID',
+        '.TIBCOP_CLI_INGRESS_RESOURCE_ID'
+      ], true);
+    }
+  });
+
   $('#DP_HOST_PREFIX').on('input', function () {
     const value = $(this).val();
     if (value) {
@@ -367,6 +758,17 @@ function handleFieldsAction() {
       if (match) {
         $(this).val(match[1]);
       }
+    }
+  });
+
+  // Handle EAR file upload - show filename when selected
+  $('#TIBCOP_CLI_EAR_FILE_UPLOAD').on('change', function () {
+    const files = this.files;
+    if (files && files.length > 0) {
+      const filename = files[0].name;
+      $('#TIBCOP_CLI_EAR_FILE_PATH').val(`${filename}`);
+    } else {
+      $('#TIBCOP_CLI_EAR_FILE_PATH').val('');
     }
   });
 
@@ -528,24 +930,20 @@ function activateTab(tabId) {
 
 const cliSettingKeys = [
   "TIBCOP_CLI_CPURL",
-  "TIBCOP_CLI_OAUTH_TOKEN",
-  "SAVE_CLI_SETTING"
+  "TIBCOP_CLI_OAUTH_TOKEN"
 ];
 const CLI_SETTING_KEY = "tibcoCliSettings";
 
 function saveCliSetting(currentElement) {
   let settings = {};
-  if (currentElement.checked) {
-    settings = Object.fromEntries(
-      cliSettingKeys.map(key => {
-        const element = document.getElementById(key);
-        if (!element) return [key, ''];
+  settings = Object.fromEntries(
+    cliSettingKeys.map(key => {
+      const element = document.getElementById(key);
+      if (!element) return [key, ''];
 
-        const value = element.type === 'checkbox' ? element.checked : element.value || '';
-        return [key, value];
-      })
-    );
-  }
+      return [key, element.value || ''];
+    })
+  );
 
   localStorage.setItem(CLI_SETTING_KEY, JSON.stringify(settings));
 }
@@ -555,4 +953,160 @@ function loadCliSetting() {
     const parsedSettings = JSON.parse(settings);
     initInputValue(parsedSettings);
   }
+}
+
+// Show/hide progress indicator
+function toggleProgress(formElement, show) {
+  const progressContainer = formElement.find('.progress-container')[0];
+  if (progressContainer) {
+    if (show) {
+      progressContainer.classList.add('active');
+    } else {
+      progressContainer.classList.remove('active');
+    }
+  }
+}
+
+// Load default deploy config from bwce-payload.json on page load
+async function loadDefaultDeployConfig() {
+  // Load BWCE config by default
+  await loadPayloadConfig('bwce');
+}
+
+async function loadPayloadConfig(type) {
+  try {
+    // Determine which payload file to load
+    const payloadFile = type === 'flogo' ? 'flogo-payload.json' : (type === 'bw5ce' ? 'bw5ce-payload.json' : 'bwce-payload.json');
+    const jsonPath = `/upload/${payloadFile}`;
+
+    console.log(`Loading ${type.toUpperCase()} deploy config from: ${jsonPath}`);
+
+    const response = await fetch(jsonPath);
+    if (response.ok) {
+      const jsonContent = await response.text();
+      // Pretty print JSON with 2-space indentation
+      const jsonObject = JSON.parse(jsonContent);
+      const formattedJson = JSON.stringify(jsonObject, null, 2);
+      const textarea = document.getElementById("TIBCOP_CLI_DEPLOY_CONFIG_FILE");
+      if (textarea) {
+        textarea.value = formattedJson;
+        console.log(`${type.toUpperCase()} deploy config loaded successfully`);
+
+        // Add simple syntax highlighting on input (only once)
+        textarea.removeEventListener('input', handleJSONInput);
+        textarea.addEventListener('input', handleJSONInput);
+      } else {
+        console.warn('TIBCOP_CLI_DEPLOY_CONFIG_FILE textarea not found');
+      }
+    } else {
+      console.warn(`Could not load ${payloadFile}, status: ${response.status}`);
+    }
+  } catch (error) {
+    console.error(`Error loading ${type} deploy config:`, error);
+  }
+}
+
+function handleJSONInput() {
+  highlightJSON(this);
+}
+
+// Simple JSON syntax highlighting
+function highlightJSON(textarea) {
+  try {
+    // Validate JSON
+    const jsonObject = JSON.parse(textarea.value);
+    // If valid, remove any error styling
+    textarea.classList.remove('invalid');
+  } catch (e) {
+    // If invalid, add error styling
+    textarea.classList.add('invalid');
+  }
+}
+
+// Update file upload label based on operation type
+function updateFileUploadLabel(labelText) {
+  const labelElement = document.getElementById('TIBCOP_CLI_FILE_UPLOAD_LABEL');
+  if (labelElement) {
+    labelElement.textContent = labelText;
+  }
+}
+
+// Initialize Advanced Mode Toggle
+// Uses DOM removal/insertion instead of CSS display:none because
+// browsers do not reliably support hiding <optgroup>/<option> via CSS.
+function initAdvancedModeToggle() {
+  const advancedModeToggle = document.getElementById('advancedModeToggle');
+  if (!advancedModeToggle) return;
+
+  const cliSelect = document.getElementById('cliAutoCase');
+  if (!cliSelect) return;
+
+  // Snapshot elements and create comment markers so we know where to re-insert.
+  const advancedGroups = [];  // { element, marker }
+  const simpleModeOpts = [];  // { element, marker }
+
+  cliSelect.querySelectorAll('.advanced-optgroup').forEach(el => {
+    const marker = document.createComment('advanced-optgroup:' + el.label);
+    el.parentNode.insertBefore(marker, el);
+    advancedGroups.push({ element: el, marker });
+  });
+
+  cliSelect.querySelectorAll('.simple-mode-option').forEach(el => {
+    const marker = document.createComment('simple-mode-option:' + el.value);
+    el.parentNode.insertBefore(marker, el);
+    simpleModeOpts.push({ element: el, marker });
+  });
+
+  let isInitialLoad = true;
+
+  advancedModeToggle.addEventListener('change', function () {
+    const isAdvancedMode = this.checked;
+
+    // Visual feedback (skip on initial load)
+    if (!isInitialLoad) {
+      cliSelect.classList.add('mode-switching');
+      setTimeout(() => cliSelect.classList.remove('mode-switching'), 600);
+    }
+    cliSelect.classList.toggle('advanced-mode-active', isAdvancedMode);
+    isInitialLoad = false;
+
+    // Toggle advanced optgroups via DOM removal/insertion
+    advancedGroups.forEach(({ element, marker }) => {
+      if (isAdvancedMode) {
+        // Re-insert after its marker
+        marker.parentNode.insertBefore(element, marker.nextSibling);
+      } else {
+        // Remove from DOM; reset selection if needed
+        if (element.parentNode) {
+          element.querySelectorAll('option').forEach(opt => {
+            if (cliSelect.value === opt.value) {
+              cliSelect.value = '--Select Case--';
+            }
+          });
+          element.remove();
+        }
+      }
+    });
+
+    // Toggle simple-mode options (visible in simple mode, hidden in advanced)
+    simpleModeOpts.forEach(({ element, marker }) => {
+      if (isAdvancedMode) {
+        if (element.parentNode) {
+          if (cliSelect.value === element.value) {
+            cliSelect.value = '--Select Case--';
+          }
+          element.remove();
+        }
+      } else {
+        marker.parentNode.insertBefore(element, marker.nextSibling);
+      }
+    });
+
+    // Re-trigger case selection change to update field visibility
+    $(cliSelect).trigger('change');
+  });
+
+  // Set initial state: advanced mode OFF
+  advancedModeToggle.checked = false;
+  advancedModeToggle.dispatchEvent(new Event('change'));
 }

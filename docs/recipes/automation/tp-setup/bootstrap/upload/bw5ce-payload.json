@@ -1,0 +1,45 @@
+{
+  "buildId": "359235fc1be44cbcbef6cd90bc1844ce",
+  "appName": "bw5ce-dynamicheaders",
+  "replicas": 1,
+  "enableAutoscaling": false,
+  "enableServiceMesh": false,
+  "enableExecutionHistory": false,
+  "eula": true,
+  "profile": "default.substvar",
+  "systemProperties": [
+    {
+      "name": "BW_ENGINE_STEPCOUNT",
+      "value": "-1",
+      "type": "integer"
+    },
+    {
+      "name": "BW_ENGINE_THREADCOUNT",
+      "value": "8",
+      "type": "integer"
+    },
+    {
+      "name": "BW_OTEL_METRICS_ENABLED",
+      "value": "TRUE",
+      "type": "boolean"
+    },
+    {
+      "name": "BW_OTEL_TRACES_ENABLED",
+      "value": "TRUE",
+      "type": "boolean"
+    }
+  ],
+  "resourceLimits": {
+    "limits": {
+      "cpu": "1",
+      "memory": "4Gi"
+    },
+    "requests": {
+      "cpu": "1",
+      "memory": "4Gi"
+    }
+  },
+  "tags": [
+    "cli-created"
+  ]
+}

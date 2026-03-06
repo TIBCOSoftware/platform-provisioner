@@ -6,7 +6,7 @@
 #
 
 #######################################
-# create-eks will create eks cluster
+# clean-up-tp-eks will clean up and delete eks cluster
 # Globals:
 #   TP_CLUSTER_NAME: The cluster name
 # Arguments:
@@ -28,21 +28,57 @@ function remove-ingress() {
     sleep 120
 }
 
+function remove-lb-service() {
+    echo "deleting all LoadBalancer services"
+    
+    # delete only services that actually create AWS Load Balancers
+    # this prevents accidentally deleting internal ClusterIP services
+    kubectl get svc -A -o yaml | yq -o=j -I=0 '.items[] | select(.spec.type == "LoadBalancer")' |
+    while read -r svc; do
+        [[ -z "$svc" ]] && continue
+        name=$(echo "$svc" | yq '.metadata.name')
+        namespace=$(echo "$svc" | yq '.metadata.namespace')
+        echo "deleting Service: $name in Namespace: $namespace"
+        kubectl delete svc "$name" -n "$namespace" --wait=false
+    done
+
+    echo "sleep 3 minutes"
+    sleep 180
+}
+
 function remove-charts() {
+  # separate base charts to delete last
+  local base_chart=""
+  local base_namespace=""
   echo "deleting all installed charts with no layer labels"
   readarray arr < <(helm ls -a -A -l '!layer' -o yaml | yq -o=j -I=0 '.[]')
   for a in "${arr[@]}"; do
+      [[ -z "$a" ]] && continue
       # identity mapping is a single json snippet representing a single entry
       release=$(echo "$a" | yq '.name')
       namespace=$(echo "$a" | yq '.namespace')
+
+      # skip base charts for now, delete them last
+      if [[ "$release" == "tibco-cp-base" || "$release" == "platform-base" ]]; then
+          base_chart="$release"
+          base_namespace="$namespace"
+          continue
+      fi
       helm uninstall -n "$namespace" "$release"
   done
+  
+  # delete base chart last if it exists
+  if [[ -n "$base_chart" ]]; then
+      echo "deleting base chart last: $base_chart"
+      helm uninstall -n "$base_namespace" "$base_chart"
+  fi
 
   for (( _chart_layer=2 ; _chart_layer>=0 ; _chart_layer-- ));
   do
     echo "deleting all installed charts with layer ${_chart_layer} labels"
     readarray arr < <(helm ls --selector "layer=${_chart_layer}" -a -A -o yaml | yq -o=j -I=0 '.[]')
     for a in "${arr[@]}"; do
+        [[ -z "$a" ]] && continue
         # identity mapping is a single json snippet representing a single entry
         release=$(echo "$a" | yq '.name')
         namespace=$(echo "$a" | yq '.namespace')
@@ -93,6 +129,7 @@ function main() {
   fi
 
   remove-ingress
+  remove-lb-service
   remove-charts
   remove-efs
   remove-efs-sg

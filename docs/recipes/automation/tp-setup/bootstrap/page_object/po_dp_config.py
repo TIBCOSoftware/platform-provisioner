@@ -1,4 +1,6 @@
 #  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+import os
+import re
 
 from utils.color_logger import ColorLogger
 from utils.util import Util
@@ -53,9 +55,9 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         self.switch_to_global_config(dp_name)
 
     def o11y_config_activation(self, dp_name):
-        ColorLogger.info("Start to config Activation URL...")
-        if ReportYaml.get_dataplane_info(dp_name, "ActivationUrl") == "true":
-            ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, ActivationUrl is already set in DataPlane '{dp_name}'.")
+        ColorLogger.info("Start to config Activation Service...")
+        if ReportYaml.get_dataplane_info(dp_name, "activation"):
+            ColorLogger.success(f"Activation already set for '{dp_name}', skipping.")
             return
 
         self.goto_left_navbar_dataplane()
@@ -63,14 +65,14 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator("button", has_text="Global configuration").click()
             print("Clicked 'Global configuration' button")
 
-            # This is new for 1.9+ version, to set global activation url
-            print("Start to set Global Activation URL...")
+            # This is new for 1.9+ version, to set global activation service
+            print("Start to set Global Activation Service...")
             self.dp_config_activation(dp_name)
         else:
             self.goto_dataplane(dp_name)
             self.goto_dataplane_config()
-            # This is new for 1.9+ version, link to global activation url
-            print("Start to link to Global Activation URL...")
+            # This is new for 1.9+ version, link to global activation service
+            print("Start to link to Global Activation Service...")
             self.dp_config_activation(dp_name, True)
 
     def o11y_config_dataplane_resource(self, dp_name):
@@ -151,7 +153,23 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             print(f"Clicked '{tab_name}' toggle button")
         if self.page.locator("label[for='services-exporter-toggle']", has_text=f"{tab_name} enabled").is_visible():
             self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Services Exporter", "#add-services-exporter-btn")
-    
+
+        # Add or Select Logs -> Business Activities -> Query Service configurations
+        tab_name = "Query Service"
+        if self.page.locator("label[for='auditsafe-proxy']", has_text=f"{tab_name} disabled").is_visible():
+            self.page.locator("label[for='auditsafe-proxy']").click()
+            print(f"Clicked '{tab_name}' toggle button")
+        if self.page.locator("label[for='auditsafe-proxy']", has_text=f"{tab_name} enabled").is_visible():
+            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Business Activities Query Service", "#add-auditsafe-query-service-btn")
+
+        # Add or Select Logs -> Business Activities -> Exporter configurations
+        tab_name = "Exporter"
+        if self.page.locator("label[for='auditsafe-services-exporter']", has_text=f"{tab_name} disabled").is_visible():
+            self.page.locator("label[for='auditsafe-services-exporter']").click()
+            print(f"Clicked '{tab_name}' toggle button")
+        if self.page.locator("label[for='auditsafe-services-exporter']", has_text=f"{tab_name} enabled").is_visible():
+            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Business Activities Exporter", "#add-auditsafe-services-exporter-btn")
+
         self.page.wait_for_timeout(500)
         self.page.locator("#go-to-metrics-server-configuration").click()
         print("Clicked 'Next' button")
@@ -236,7 +254,8 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         ReportYaml.set_dataplane_info(dp_name, "o11yConfig", True)
         print(f"Wait 5 seconds for Data plane '{dp_title}' configuration page redirect.")
         self.page.wait_for_timeout(5000)
-    
+
+    # tab_sub_name: this parameter is just for distinction, it will not be used in the UI operation
     def o11y_config_table_add_or_select_item(self, dp_name, menu_name, tab_name, tab_sub_name, add_button_selector):
         ColorLogger.info("O11y start to add or select item...")
         name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
@@ -275,6 +294,9 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
                 log_index = name_input
                 if tab_sub_name == "Query Service" or tab_sub_name == "User Apps Exporter":
                     log_index = f"{dp_title.lower()}-log-index"
+                # for PCP-16998
+                elif tab_sub_name == "Business Activities Query Service" or tab_sub_name == "Business Activities Exporter":
+                    log_index = f"{dp_title.lower()}-ba-log-index"
                 self.page.fill("#log-index-input", log_index)
                 print(f"Fill Log Index: {log_index}")
 
@@ -419,15 +441,39 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print("Clicked 'Add' button in 'Add Ingress Controller' dialog")
 
     def dp_config_activation(self, dp_name, use_global = False):
+        activation_menu_item = self.page.locator(".menu-item-list .menu-item-text", has_text="Activation")
+        if not Util.check_dom_visibility(self.page, activation_menu_item, 3, 6):
+            ColorLogger.warning("Activation menu item is not visible, skip config Activation Service.")
+            return
+        activation_menu_item.click()
+        print("Clicked 'Activation' left side menu")
+
+        if use_global:
+            # DP level: read Global report to determine link method
+            global_activation = ReportYaml.get_dataplane_info(ENV.TP_AUTO_DP_NAME_GLOBAL, "activation")
+            if global_activation == "file":
+                print("Global activation is file, linking DP to Global license file...")
+                self.dp_config_activation_file(dp_name, use_global, "")
+            elif global_activation == "server":
+                print("Global activation is server, linking DP to Global activation URL...")
+                self.dp_config_activation_url(dp_name, use_global)
+            else:
+                ColorLogger.warning("No Global activation configured, skipping DP activation link.")
+        else:
+            # Global level: check file existence to determine upload vs URL
+            activation_file_path = Helper.get_file_fullpath_in_upload_folder(ENV.TP_ACTIVATION_FILENAME)
+            if os.path.isfile(activation_file_path):
+                print("activation file is found, start to upload...")
+                self.dp_config_activation_file(dp_name, use_global, activation_file_path)
+            else:
+                print("activation file is not found, try to config Activation url...")
+                self.dp_config_activation_url(dp_name, use_global)
+
+    def dp_config_activation_url(self, dp_name, use_global = False):
         activation_url = ENV.TP_ACTIVATION_URL
         # If not using global activation URL and activation URL is empty, skip config as there is no URL to configure
         if not activation_url and use_global == False:
             ColorLogger.warning("TP_ACTIVATION_URL is not set, skip config Activation url.")
-            return
-
-        activation_menu_item = self.page.locator(".menu-item-list .menu-item-text", has_text="Activation")
-        if not Util.check_dom_visibility(self.page, activation_menu_item, 3, 6):
-            ColorLogger.warning("Activation menu item is not visible, skip config Activation url.")
             return
 
         if activation_url:
@@ -435,24 +481,28 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         else:
             ColorLogger.info(f"Current Activation Url is empty, will link Data Plane '{dp_name}' to use Global Activation Url")
 
-        activation_menu_item.click()
-        print("Clicked 'Activation' left side menu")
         if activation_url and Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
             ColorLogger.success(f"Activation URL '{activation_url}' is already exist for Data Plane '{dp_name}'.")
+            if use_global:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+            else:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "server")
             return
 
         if use_global:
+            # for dp level
             self.page.locator(".dp-activation").wait_for(state="visible")
             print(f"Checking if dataplane {dp_name} is able to use global activation url...")
 
             # for 1.13+ version, need select 'TIBCO Activation Service' option
-            if self.page.locator("label", has_text="TIBCO Activation Service").is_visible():
-                self.page.locator("label", has_text="TIBCO Activation Service").click()
-                print("Selected 'TIBCO Activation Service' option")
+            if not self.select_tibco_activation_service():
+                ColorLogger.warning("TIBCO Activation Service option is disabled, skip config Activation.")
+                return
 
             if self.page.locator(".activation-server-url").is_visible():
                 current_activation_url = self.page.locator(".activation-server-url").inner_text()
                 ColorLogger.success(f"ENV.TP_ACTIVATION_URL is empty, but Activation URL '{current_activation_url}' is already exist for Data Plane '{dp_name}'.")
+                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
                 return
             # if "Use Global Activation URL" button is visible but not enabled, skip config
             if self.page.locator("#use-global-activation-on-dp").is_visible() and "pcp-disabled" in (self.page.locator("#use-global-activation-on-dp").get_attribute("class") or ""):
@@ -469,10 +519,11 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator("#confirm-button", has_text="Link").click()
             print("Clicked 'Link' button in 'Use Global Activation URL' modal dialog")
         else:
+            # for global level
             # for 1.13+ version, need select 'TIBCO Activation Service' option
-            if self.page.locator("label", has_text="TIBCO Activation Service").is_visible():
-                self.page.locator("label", has_text="TIBCO Activation Service").click()
-                print("Selected 'TIBCO Activation Service' option")
+            if not self.select_tibco_activation_service():
+                ColorLogger.warning("TIBCO Activation Service option is disabled, skip config Activation.")
+                return
 
             print("Waiting for 'Add Global Activation URL' button is visible...")
             self.page.locator("#add-global-activation-server").wait_for(state="visible")
@@ -487,6 +538,92 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
         if Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
             ColorLogger.success(f"Add Activation URL '{activation_url}' successfully.")
-            ReportYaml.set_dataplane_info(dp_name, "ActivationUrl", True)
+            if use_global:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+            else:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "server")
         else:
             ColorLogger.warning(f"Add Activation URL '{activation_url}' failed.")
+
+    def select_in_product_activation(self):
+        # global level and dp level are using different label "for" value, so just check by label text
+        label_dom = self.page.locator(".pl-form-field--radio-button:has(input:not([disabled]))").locator("label", has_text="In-Product Activation (Recommended)")
+        if label_dom.is_visible():
+            label_dom.click()
+            print("Selected 'In-Product Activation (Recommended)' option")
+            return True
+        else:
+            return False
+
+
+    def select_tibco_activation_service(self):
+        # global level and dp level are using different label "for" value, so just check by label text
+        label_dom = self.page.locator(".pl-form-field--radio-button:has(input:not([disabled]))").locator("label", has_text="TIBCO Activation Service")
+        if label_dom.is_visible():
+            label_dom.click()
+            print("Selected 'TIBCO Activation Service' option")
+            return True
+        else:
+            return False
+
+    def dp_config_activation_file(self, dp_name, use_global, activation_file_path):
+        # ColorLogger.info(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Global Data Plane...")
+        if Util.check_dom_visibility(self.page, self.page.locator("span", has_text=re.compile(r"Currently linked to the|View License", re.IGNORECASE)), 2, 4):
+            ColorLogger.success(f"Activation file is already exist for Data Plane '{dp_name}'.")
+            if use_global:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+            else:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "file")
+            return
+
+        if use_global:
+            # for dp level
+            if not self.select_in_product_activation():
+                ColorLogger.warning("In-Product Activation option is disabled, skip config Activation.")
+                return
+            if self.page.locator(".dp-activation-content__license-file-item-details").is_visible():
+                ColorLogger.success(f"In-Product Activation is already exist for Data Plane '{dp_name}'.")
+                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+                return
+            # if "Use Global License File" button is visible but not enabled, skip config
+            if self.page.locator("#use-global-license-file-on-dp").is_visible() and "pcp-disabled" in (self.page.locator("#use-global-license-file-on-dp").get_attribute("class") or ""):
+                ColorLogger.warning("'Use Global License File' button is not enabled, skip config Activation url.")
+                return
+
+            ColorLogger.info(f"Link to Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Data Plane...")
+            self.page.locator('#use-global-license-file-on-dp').click()
+            print("Clicked 'Use Global License File' option")
+
+            print("Waiting for 'Use Global License File' modal dialog is visible...")
+            self.page.locator("confirmation-modal .pl-modal__heading", has_text="Use Global License File").wait_for(state="visible")
+            self.page.locator("#confirm-button", has_text="Link").click()
+            print("Clicked 'Link' button in 'Use Global License File' modal dialog")
+        else:
+            # for global level
+            if not self.select_in_product_activation():
+                ColorLogger.warning("In-Product Activation option is disabled, skip config Activation.")
+                return
+            ColorLogger.info(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Global Data Plane...")
+            if self.page.locator('#add-global-license-file').is_visible():
+                self.page.locator('#add-global-license-file').click()
+                print("Clicked 'Upload' option")
+
+            if self.page.locator('.license-file-drop-zone').is_visible():
+                print("Popping up 'Add New License File' dialog")
+
+                self.page.locator('input[type="file"]').evaluate("(input) => input.style.display = 'block'")
+                self.page.locator('input[type="file"]').set_input_files(activation_file_path)
+                print(f"Selected file: {activation_file_path}")
+
+            if Util.check_dom_visibility(self.page, self.page.locator("#add-activation-url-btn:not([disabled])"), 2, 4):
+                self.page.locator('#add-activation-url-btn').click()
+                print("Clicked 'Add' button in 'Add New License File' dialog")
+
+        if Util.check_dom_visibility(self.page, self.page.locator("span", has_text=re.compile(r"Currently linked to the|View License", re.IGNORECASE)), 2, 4):
+            ColorLogger.success(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' successfully for Data Plane '{dp_name}'.")
+            if use_global:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+            else:
+                ReportYaml.set_dataplane_info(dp_name, "activation", "file")
+        else:
+            ColorLogger.warning(f"Add Activation file '{activation_file_path}' failed.")

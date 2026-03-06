@@ -1,0 +1,50 @@
+{
+  "buildId": "3d9eb6b19be94f83a7a755c399445445",
+  "appName": "rest-bwce-1",
+  "eula": true,
+  "profile": "default.substvar",
+  "systemProperties": [
+    {
+      "name": "BW_ENGINE_STEPCOUNT",
+      "value": "-1",
+      "type": "integer"
+    },
+    {
+      "name": "BW_ENGINE_THREADCOUNT",
+      "value": "8",
+      "type": "integer"
+    },
+    {
+      "name": "BW_LOGGER_OVERRIDES",
+      "value": "ROOT=ERROR",
+      "type": "string"
+    },
+    {
+      "name": "BW_OTEL_TRACES_ENABLED",
+      "value": "true",
+      "type": "boolean"
+    },
+    {
+      "name": "BW_OTEL_METRICS_ENABLED",
+      "value": "true",
+      "type": "boolean"
+    }
+  ],
+  "resourceLimits": {
+    "limits": {
+      "cpu": "1",
+      "memory": "4Gi"
+    },
+    "requests": {
+      "cpu": "1",
+      "memory": "4Gi"
+    }
+  },
+  "replicas": 1,
+  "enableAutoscaling": false,
+  "enableServiceMesh": false,
+  "enableExecutionHistory": false,
+  "tags": [
+    "cli-created"
+  ]
+}

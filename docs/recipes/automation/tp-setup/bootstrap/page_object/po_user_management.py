@@ -14,15 +14,21 @@ class PageObjectUserManagement(PageObjectGlobal):
     def grant_permission(self, permission, checked="true"):
         ColorLogger.info(f"Granting permission for {permission}...")
         self.page.locator(".policy-description", has_text=permission).click()
-        input_selectors = self.page.locator('.dp-selector-container input').all()
-        for input_selector in input_selectors:
+        input_selectors = self.page.locator('.dp-selector-container input[type="checkbox"]').all()
+        if len(input_selectors) == 1:
+            input_selector = input_selectors[0]
             # check if input aria-checked="true" does not exist, then click
             is_selected = input_selector.get_attribute("aria-checked")
-            print(f"Permission {permission} is selected: {is_selected}")
             if is_selected != checked:
                 input_selector.locator("xpath=..").locator("label").click()
-
-                print("Grant permission for " + permission)
+                print("Granted permission for " + permission)
+        else:
+            selectors = self.page.locator('label', has_text="All current and future").all()
+            for selector in selectors:
+                is_selected = self.page.locator(f"#{selector.get_attribute("for")}").get_attribute("aria-checked")
+                if is_selected != checked:
+                    selector.click()
+                    print(f"Granted permission for {permission} -> {selector.inner_text()}")
 
     def goto_assign_permissions(self):
         print("Start set user permission...")

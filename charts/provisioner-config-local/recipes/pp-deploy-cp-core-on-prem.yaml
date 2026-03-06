@@ -31,14 +31,14 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.14.0
-    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.14.0
-    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.14.0
-    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.14.0
-    GUI_CP_PLATFORM_MESSAGING_VERSION: 1.13.15
-    GUI_CP_PLATFORM_HAWK_VERSION: 1.14.4
-    GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.12.0
-    GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.14.0-0"
+    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.15.0
+    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.15.0
+    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.15.0
+    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.15.0
+    GUI_CP_PLATFORM_MESSAGING_VERSION: 1.15.31
+    GUI_CP_PLATFORM_HAWK_VERSION: 1.15.31
+    GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.15.0
+    GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.16.0-0"
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -103,6 +103,10 @@ meta:
     GUI_CP_LOG_USERNAME: "" # optional logserver username, if using ELK stack
     GUI_CP_LOG_PASSWORD: "" # optional logserver password, if using ELK stack
     GUI_CP_LOG_INDEX: "tibco-cp-logs" # optional logserver index, default is tibco-cp-logs
+    GUI_CP_AUDITSERVER_ENDPOINT: "" # optional auditserver endpoint, if you have ELK stack or other logging solution
+    GUI_CP_AUDITSERVER_USERNAME: "" # optional auditserver username, if using ELK stack
+    GUI_CP_AUDITSERVER_PASSWORD: "" # optional auditserver password, if using ELK stack
+    GUI_CP_AUDITSERVER_INDEX: "audittrail" # optional auditserver index, default is audittrail
 
     # email
     GUI_CP_MAIL_SERVER_TYPE: "smtp" # smtp, ses, sendgrid, graph
@@ -201,6 +205,10 @@ meta:
     CP_LOG_USERNAME: ${GUI_CP_LOG_USERNAME:-"elastic"} # optional logserver username
     CP_LOG_PASSWORD: ${GUI_CP_LOG_PASSWORD:-""} # optional logserver password
     CP_LOG_INDEX: ${GUI_CP_LOG_INDEX:-"tibco-cp-logs"} # optional logserver index, default is tibco-cp-logs
+    CP_AUDITSERVER_ENDPOINT: ${GUI_CP_AUDITSERVER_ENDPOINT:-"https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200"} # optional auditserver endpoint
+    CP_AUDITSERVER_USERNAME: ${GUI_CP_AUDITSERVER_USERNAME:-"elastic"} # optional auditserver username
+    CP_AUDITSERVER_PASSWORD: ${GUI_CP_AUDITSERVER_PASSWORD:-""} # optional auditserver password
+    CP_AUDITSERVER_INDEX: ${GUI_CP_AUDITSERVER_INDEX:-"audittrail"} # optional auditserver index, default is audittrail
 
     # network policies
     TP_CREATE_NETWORK_POLICIES: ${GUI_TP_CREATE_NETWORK_POLICIES:-false}
@@ -260,14 +268,14 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.13.15} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.14.4} # use ^1.0.0 for latest
-    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.12.0} # use ^1.0.0 for latest
-    CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.14.0-0"} # use ~1.14.0-0 for latest alpha/stable
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.15.31} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.15.31} # use ^1.0.0 for latest
+    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.16.0-0"} # use ~1.16.0-0 for latest alpha/stable
     
     # CP AI MCP servers
     TP_AI_ENABLE_CP_MCP_SERVER: ${GUI_TP_AI_ENABLE_CP_MCP_SERVER:-false}
@@ -580,10 +588,6 @@ helmCharts:
             password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
             username: "${CP_CONTAINER_REGISTRY_USERNAME}"
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
-          proxy:
-            httpProxy: "${CP_PROXY_HTTP_PROXY}"
-            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
-            noProxy: "${CP_PROXY_NO_PROXY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
           createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
@@ -617,6 +621,11 @@ helmCharts:
               requests:
                 storage: ${CP_STORAGE_PV_SIZE}
             storageClassName: ${CP_STORAGE_CLASS}
+          auditserver:
+            endpoint: "${CP_AUDITSERVER_ENDPOINT}" # optional auditserver endpoint, if you have ELK stack or other logging solution
+            username: "${CP_AUDITSERVER_USERNAME}" # optional auditserver username
+            password: "${CP_AUDITSERVER_PASSWORD}" # optional auditserver password
+            index: "${CP_AUDITSERVER_INDEX}" # optional auditserver index, default is audittrail
           logserver:
             endpoint: "${CP_LOG_ENDPOINT}" # optional logserver endpoint, if you have ELK stack or other logging solution
             username: "${CP_LOG_USERNAME}" # optional logserver username
@@ -629,7 +638,6 @@ helmCharts:
           db_port: "${CP_DB_PORT}"
           db_secret_name: ${CP_DB_SECRET_NAME}
           db_ssl_mode: ${CP_DB_SSL_MODE}
-          db_ssl_root_cert: "${CP_DB_SSL_ROOT_CERT}"
           db_username: ${CP_DB_USER_NAME}
           emailServerType: ${CP_MAIL_SERVER_TYPE}
           emailServer:
@@ -654,7 +662,6 @@ helmCharts:
           enableLogging: false
           IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD: "${CP_IDM_IDENTITY_MANAGEMENT_JWT_KEY_STORE_PASSWORD}"
       hybrid-proxy:
-        enabled: true
         resources:
           requests:
             cpu: ${CP_RESOURCES_REQUEST_CPU}
@@ -675,7 +682,6 @@ helmCharts:
                   pathType: Prefix
                   port: 105
       router-operator:
-        enabled: true
         resources:
           requests:
             cpu: ${CP_RESOURCES_REQUEST_CPU}
@@ -697,7 +703,6 @@ helmCharts:
                   pathType: Prefix
                   port: 100
       resource-set-operator:
-        enabled: true
         resources:
           requests:
             cpu: ${CP_RESOURCES_REQUEST_CPU}
@@ -708,7 +713,6 @@ helmCharts:
       otel-collector:
         enabled: ${CP_LOG_ENABLE}
       tp-cp-infra:
-        enabled: true
         resources:
           infra-compute-services:
             requests:
@@ -717,8 +721,6 @@ helmCharts:
             limits:
               cpu: 1250m
               memory: 1000Mi
-      tp-cp-auditsafe:
-        enabled: true
       tp-cp-core:
         admin-webserver:
           replicaCount: 1
@@ -756,7 +758,7 @@ helmCharts:
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 400m
-                memory: 400Mi
+                memory: 800Mi
         identity-provider:
           replicaCount: 1
           tp-cp-identity-provider:
@@ -1206,7 +1208,7 @@ helmCharts:
   cluster:
     names:
       - ${CP_CLUSTER_NAME}
-  releaseName: tibco-cp-addon-eventprocessing
+  releaseName: platform-addon-eventprocessing
   namespace: ${CP_NAMESPACE}
   flags:
     wait: true
@@ -1231,11 +1233,17 @@ helmCharts:
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
           manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
           containerRegistry:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
             url: ${CP_CONTAINER_REGISTRY}
         external:
           environment: "${CP_EXTERNAL_ENVIRONMENT}"
+          # ai-agent DB resource names, to use same DB as CP Base, use the same name provider-cp-database-config
+          db_config_name: "provider-cp-database-config"
+          db_secret_name: "provider-cp-database-credentials"
       env:
         mcpTransport: ${TP_AI_MCP_TRANSPORT}
         langsmith:

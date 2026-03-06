@@ -27,9 +27,12 @@ class StreamingRunner(io.TextIOBase):
         with contextlib.redirect_stdout(cast(IO[str], self)):
             try:
                 result = func(*args, **kwargs)
-                if result:
-                    self.q.put(f"=== Return Value ===")
-                    self.q.put(str(result))
+                if result is not None:
+                    # Only show return value if it's not empty/whitespace
+                    result_str = str(result).strip()
+                    if result_str:
+                        self.q.put(f"=== Return Value ===")
+                        self.q.put(result_str)
             except Exception as e:
                 self.q.put(f"[ERROR]: {repr(e)}")
             finally:

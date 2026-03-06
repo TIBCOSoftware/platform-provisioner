@@ -49,10 +49,28 @@ meta:
     # grafana
     GUI_TP_GRAFANA_ADMIN_PASSWORD: ""
 
+    # opensearch
+    GUI_TP_OPENSEARCH_NAMESPACE: "opensearch-system"
+    GUI_TP_CONFIG_OPENSEARCH_CHART_VERSION: "^1.0.0"
+    GUI_TP_DEPLOY_OPENSEARCH_INGRESS: "true"
+    GUI_TP_OPENSEARCH_MEMORY_REQUEST: "2Gi"
+    GUI_TP_OPENSEARCH_CPU_REQUEST: "500m"
+    GUI_TP_OPENSEARCH_MEMORY_LIMIT: "4Gi"
+    GUI_TP_OPENSEARCH_CPU_LIMIT: "1"
+    GUI_TP_OPENSEARCH_DASHBOARDS_MEMORY_REQUEST: "512Mi"
+    GUI_TP_OPENSEARCH_DASHBOARDS_CPU_REQUEST: "200m"
+    GUI_TP_OPENSEARCH_DASHBOARDS_MEMORY_LIMIT: "1Gi"
+    GUI_TP_OPENSEARCH_DASHBOARDS_CPU_LIMIT: "500m"
+    GUI_TP_OPENSEARCH_REPLICAS: 1
+    GUI_TP_OPENSEARCH_SINGLE_NODE: true
+    GUI_TP_OPENSEARCH_STORAGE_SIZE: "30Gi"
+    GUI_TP_OPENSEARCH_ADMIN_PASSWORD: ""
+
     # flow control
     GUI_TP_DEPLOY_ECK: true
     GUI_TP_DEPLOY_PROMETHEUS_STACK: true
     GUI_TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR: true
+    GUI_TP_DEPLOY_OPENSEARCH: false
     GUI_PIPELINE_LOG_DEBUG: false
   globalEnvVariable:
     REPLACE_RECIPE: true
@@ -104,10 +122,28 @@ meta:
     # grafana
     TP_GRAFANA_ADMIN_PASSWORD: "${GUI_TP_GRAFANA_ADMIN_PASSWORD:-$(openssl rand -base64 16)}" # set grafana admin password
 
+    # opensearch
+    TP_OPENSEARCH_NAMESPACE: "${GUI_TP_OPENSEARCH_NAMESPACE}"
+    TP_CONFIG_OPENSEARCH_CHART_VERSION: "${GUI_TP_CONFIG_OPENSEARCH_CHART_VERSION}"
+    TP_DEPLOY_OPENSEARCH_INGRESS: ${GUI_TP_DEPLOY_OPENSEARCH_INGRESS:-true}
+    TP_OPENSEARCH_MEMORY_REQUEST: "${GUI_TP_OPENSEARCH_MEMORY_REQUEST}"
+    TP_OPENSEARCH_CPU_REQUEST: "${GUI_TP_OPENSEARCH_CPU_REQUEST}"
+    TP_OPENSEARCH_MEMORY_LIMIT: "${GUI_TP_OPENSEARCH_MEMORY_LIMIT}"
+    TP_OPENSEARCH_CPU_LIMIT: "${GUI_TP_OPENSEARCH_CPU_LIMIT}"
+    TP_OPENSEARCH_DASHBOARDS_MEMORY_REQUEST: "${GUI_TP_OPENSEARCH_DASHBOARDS_MEMORY_REQUEST}"
+    TP_OPENSEARCH_DASHBOARDS_CPU_REQUEST: "${GUI_TP_OPENSEARCH_DASHBOARDS_CPU_REQUEST}"
+    TP_OPENSEARCH_DASHBOARDS_MEMORY_LIMIT: "${GUI_TP_OPENSEARCH_DASHBOARDS_MEMORY_LIMIT}"
+    TP_OPENSEARCH_DASHBOARDS_CPU_LIMIT: "${GUI_TP_OPENSEARCH_DASHBOARDS_CPU_LIMIT}"
+    TP_OPENSEARCH_REPLICAS: ${GUI_TP_OPENSEARCH_REPLICAS:-1}
+    TP_OPENSEARCH_SINGLE_NODE: ${GUI_TP_OPENSEARCH_SINGLE_NODE:-true}
+    TP_OPENSEARCH_STORAGE_SIZE: "${GUI_TP_OPENSEARCH_STORAGE_SIZE}"
+    TP_OPENSEARCH_ADMIN_PASSWORD: "${GUI_TP_OPENSEARCH_ADMIN_PASSWORD}"
+
     # flow control
     TP_DEPLOY_ECK: ${GUI_TP_DEPLOY_ECK:-true}
     TP_DEPLOY_PROMETHEUS_STACK: ${GUI_TP_DEPLOY_PROMETHEUS_STACK:-true}
     TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR: ${GUI_TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR:-true}
+    TP_DEPLOY_OPENSEARCH: ${GUI_TP_DEPLOY_OPENSEARCH:-false}
   tools:
     yq: "4.40"
 helmCharts:
@@ -275,3 +311,87 @@ helmCharts:
         kubectl label namespace prometheus-system networking.platform.tibco.com/non-cp-ns=enable
         GRAFANA_ADMIN_PASSWORD=$(kubectl get secret -n prometheus-system kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode)
         echo "Grafana admin password: $GRAFANA_ADMIN_PASSWORD"
+- name: dp-config-opensearch
+  version: ${TP_CONFIG_OPENSEARCH_CHART_VERSION}
+  condition: ${TP_DEPLOY_OPENSEARCH}
+  namespace: ${TP_OPENSEARCH_NAMESPACE}
+  releaseName: dp-config-opensearch
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: true
+    content: |
+      domain: ${TP_DOMAIN}
+      opensearch:
+        enabled: "true"
+        replicas: ${TP_OPENSEARCH_REPLICAS}
+        singleNode: ${TP_OPENSEARCH_SINGLE_NODE}
+        opensearchJavaOpts: "-Xmx1g -Xms1g"
+        extraEnvs:
+          - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+            value: "${TP_OPENSEARCH_ADMIN_PASSWORD}"
+        persistence:
+          enabled: "true"
+          storageClass: ${TP_STORAGE_CLASS}
+          size: ${TP_OPENSEARCH_STORAGE_SIZE}
+        resources:
+          requests:
+            memory: ${TP_OPENSEARCH_MEMORY_REQUEST}
+            cpu: ${TP_OPENSEARCH_CPU_REQUEST}
+          limits:
+            memory: ${TP_OPENSEARCH_MEMORY_LIMIT}
+            cpu: ${TP_OPENSEARCH_CPU_LIMIT}
+        config:
+          opensearch.yml: |
+            cluster.name: opensearch-cluster
+            network.host: 0.0.0.0
+        service:
+          httpPortName: https
+      opensearch-dashboards:
+        enabled: "${TP_DEPLOY_OPENSEARCH}"
+        opensearchHosts: "https://opensearch-cluster-master:9200"
+        replicaCount: 1
+        resources:
+          requests:
+            memory: ${TP_OPENSEARCH_DASHBOARDS_MEMORY_REQUEST}
+            cpu: ${TP_OPENSEARCH_DASHBOARDS_CPU_REQUEST}
+          limits:
+            memory: ${TP_OPENSEARCH_DASHBOARDS_MEMORY_LIMIT}
+            cpu: ${TP_OPENSEARCH_DASHBOARDS_CPU_LIMIT}
+      opensearchIngress:
+        ingress:
+          enabled: "${TP_DEPLOY_OPENSEARCH_INGRESS}"
+          ingressClassName: ${TP_INGRESS_CLASS}
+          host: opensearch
+      dashboardsIngress:
+        ingress:
+          enabled: "${TP_DEPLOY_OPENSEARCH_INGRESS}"
+          ingressClassName: ${TP_INGRESS_CLASS}
+          host: opensearch-dashboards
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_OPENSEARCH_NAMESPACE}
+        kubectl label namespace ${TP_OPENSEARCH_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_OPENSEARCH_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        echo "Waiting for OpenSearch statefulsets to be ready..."
+        kubectl rollout status statefulset -n ${TP_OPENSEARCH_NAMESPACE} -l app.kubernetes.io/name=opensearch --timeout=10m
+        echo "OpenSearch statefulsets are ready"

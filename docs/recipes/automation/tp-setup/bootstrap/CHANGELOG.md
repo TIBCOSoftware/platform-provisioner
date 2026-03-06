@@ -1,3 +1,59 @@
+
+## [1.7.15-auto-on-prem-jammy]
+### Fixed
+- Handle domain card layout changes for CP versions after 1.16: added fallback click on domain card when "Go to Domain" footer link is not visible
+- Guard BW6 app status checks with visibility detection to avoid failures when the application card layout is absent
+
+## [1.7.14-auto-on-prem-jammy]
+### Fixed
+- Use regex to match both "Currently linked to the" and "View License" text variants when checking activation file status, as the UI text may vary across CP versions
+- Replace direct `is_visible()` with `check_dom_visibility` retry pattern for the activation file Add button to improve reliability
+- Standardize DOM visibility check timeouts for activation file upload flow
+
+## [1.7.13-auto-on-prem-jammy]
+### Added
+- [PCP-16940] Added support for "Use CLI" option in Platform Automation Hub. When this option is enabled, the automation will run CLI commands instead of GUI cases.
+
+## [1.7.12-auto-on-prem-jammy]
+### Fixed
+- [PCP-16998] Business Activities Query Service/Exporter now use the same index name as other BA services (`{dp_title}-ba-log-index`)
+- Improved `grant_permission()` to handle both single and multiple permission checkbox scenarios. Added logic to detect and click "All current and future" labels when multiple selectors are present.
+- Added debug logging for BMDP machine host name input
+- Fixed log message from "Input Ingress Description" to "Input Ingress Resource Name"
+
+## [1.7.11-auto-on-prem-jammy]
+### Added
+- Add a method can get the storage class and ingress class from the cluster
+### Changed
+- In advance mode, exposed storage class and ingress class and FQDN with register control tower dataplane
+### Certified
+- Certified CLI cases with SaaS CP. All cases are working with SaaS CP.
+
+## [1.7.10-auto-on-prem-jammy]
+### Added
+- Support for Dataplane listing/registration/unregistration via tibcop CLI
+- Support for Resources, Capabilities(EMS not included) add/list/delete via tibcop CLI
+- Support for apps(Flogo/BWCE/BW5CE) listing/creation/deletion via tibcop CLI
+
+- Add AI skill ui-ux-pro-max to update UI style
+- Added "About" tab with platform feature overview
+- Added custom SVG icon for page and favicon
+
+### Changed
+- Renamed project to "Platform Automation Hub"
+- Rewrote DESCRIPTION.md with comprehensive platform overview
+- Removed TIBCO branding from user-facing text
+
+### Fixed
+- Fixed tab button and link text color visibility
+- Fixed select dropdown duplicate arrow icons
+
+## [1.7.4-auto-on-prem-jammy]
+### Added
+- Support for config Business Activities in o11y configuration automation.
+- Support for In-Product activation
+
+
 ## [1.7.3-auto-on-prem-jammy]
 ### Fixed
 - Add new version of tibcop
@@ -25,7 +81,7 @@
 
 ## [1.6.16-auto-on-prem-jammy]
 ### Added
-- Added an API `/cp_api` for calling CP API directly from One-Click Setup CP UI.
+- Added an API `/cp_api` for calling CP API directly from Platform Automation Hub.
   - api_path: The CP API path, e.g. `/cp/v1/dataplanes`
   - api_method: HTTP method, e.g. GET, POST, DELETE
   - api_data: Request body for POST/PUT methods
@@ -86,7 +142,7 @@
 ## [09/27/2025 21:30]
 ### Fixed
 - Fixed deploy flogo issue after flogo UI is changed
-- Do not cache UI for One-Click Setup CP index.html file
+- Do not cache UI for Platform Automation Hub index.html file
 - Change "Automation Case" dropdown list will reset input file field and filename field to default value
 ### Changed
 - Will switch to global dataplane configuration, remove config dataplane level o11y
@@ -99,7 +155,7 @@
 
 ## [09/19/2025 14:30]
 ### Fixed
-- Select "Force Run Automation" in One-Click Setup UI
+- Select "Force Run Automation" in Platform Automation Hub
   - will automatically switch dataplane to use global activation url.
   - will automatically switch dataplane to use global dataplane configuration.
 
@@ -115,7 +171,7 @@
 
 ## [09/09/2025 21:14]
 ### Added
-- Add new automation case in One-Click Setup CP UI
+- Add new automation case in Platform Automation Hub
   - For K8s Dataplane
     - Support for provision BW5(BW5CE) Capability
     - Support for create and start BW5(BW5CE), include upload app file
@@ -155,13 +211,13 @@
 
 ## [06/12/2025 11:57]
 ### Added
-- Add tooltips for CP URL and CLI Token input field in One-Click Setup CP UI
+- Add tooltips for CP URL and CLI Token input field in Platform Automation Hub
 - Remove everything after the domain in the CP URL input field
 
 ## [06/11/2025 13:59]
 ### Added
-- Add CLI tab for One-Click Setup CP UI (Only need to provide CP URL and Token)
-- One-Click Setup CP UI supports for listing/creating/deleting Dataplane via CLI
+- Add CLI tab for Platform Automation Hub (Only need to provide CP URL and Token)
+- Platform Automation Hub supports for listing/creating/deleting Dataplane via CLI
 
 ## [06/03/2025 14:01]
 
@@ -178,10 +234,10 @@
 ## [05/15/2025 16:54]
 
 ### Added
-- One-Click UI supports running multiple tasks in parallel or stopping tasks in multi browser window tab.
+- Platform Automation Hub supports running multiple tasks in parallel or stopping tasks in multi browser window tab.
 
 ### Changed
-- Do not show "Run in Browser" option if One-Click UI is not started from the source code
+- Do not show "Run in Browser" option if Platform Automation Hub is not started from the source code
 
 ### Fixed
 - Fix the o11y configuration item that has been added when configuring o11y, and wait for the data to be displayed before configuring

@@ -343,7 +343,7 @@ recipe: |
     cluster:
       names:
         - ${CP_CLUSTER_NAME}
-    releaseName: tibco-cp-addon-eventprocessing
+    releaseName: platform-addon-eventprocessing
     namespace: ${CP_NAMESPACE}
     flags:
       wait: true

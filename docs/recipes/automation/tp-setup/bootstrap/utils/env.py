@@ -31,8 +31,11 @@ class EnvConfig:
     TP_CLUSTER_POD_CIDR = os.environ.get("TP_CLUSTER_POD_CIDR") or ""
     TP_CLUSTER_SERVICE_CIDR = os.environ.get("TP_CLUSTER_SERVICE_CIDR") or ""
 
+    # CLI mode: when true, use tibcop CLI instead of GUI (Playwright) for DP operations
+    TP_AUTO_USE_CLI = os.environ.get("TP_AUTO_USE_CLI", "false").lower() == "true"
+
     # automation setup
-    TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or "1.4"
+    TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or ""
     TP_AUTO_REPORT_PATH = os.environ.get("TP_AUTO_REPORT_PATH") or os.path.join(os.getcwd(), "report")
     TP_AUTO_REPORT_YAML_FILE = os.environ.get("TP_AUTO_REPORT_YAML_FILE") or "report.yaml"  # automation script will create this file
     TP_AUTO_REPORT_TXT_FILE = os.environ.get("TP_AUTO_REPORT_TXT_FILE") or "report.txt"    # this is the final report file for user to view
@@ -54,7 +57,7 @@ class EnvConfig:
     # OAuth token
     TP_AUTO_TOKEN_NAMESPACE = os.environ.get("TP_AUTO_TOKEN_NAMESPACE") or "automation"
     TP_AUTO_TOKEN_NAME = os.environ.get("TP_AUTO_TOKEN_NAME") or "auto-token"
-    TP_AUTO_TOKEN_DURATION = os.environ.get("TP_AUTO_TOKEN_DURATION") or "3"
+    TP_AUTO_TOKEN_DURATION = os.environ.get("TP_AUTO_TOKEN_DURATION") or "12"
     TP_AUTO_TOKEN_DURATION_UNIT = os.environ.get("TP_AUTO_TOKEN_DURATION_UNIT") or "Months"
 
     # start app or not
@@ -70,6 +73,10 @@ class EnvConfig:
     TIBCOP_CLI_DP_NAME = os.environ.get("TIBCOP_CLI_DP_NAME") or "k8s-cli-dp1"
     TIBCOP_CLI_DP_NAMESPACE = os.environ.get("TIBCOP_CLI_DP_NAMESPACE") or f"{TIBCOP_CLI_DP_NAME}ns"
     TIBCOP_CLI_DP_SERVICE_ACCOUNT = os.environ.get("TIBCOP_CLI_DP_SERVICE_ACCOUNT") or f"{TIBCOP_CLI_DP_NAME}sa"
+
+    # activation sever file
+    TP_ACTIVATION_ZIP_FILE_BASE64 = os.environ.get("TP_ACTIVATION_ZIP_FILE_BASE64") or ""
+    TP_ACTIVATION_FILENAME = "license-file.bin"
 
     # activation url
     TP_ACTIVATION_SERVER_IP = os.environ.get("TP_ACTIVATION_SERVER_IP") or ""
@@ -125,7 +132,8 @@ class EnvConfig:
     TP_AUTO_KIBANA_URL = f"https://kibana.{TP_AUTO_CP_DNS_DOMAIN}/"
     TP_AUTO_ELASTIC_USER = os.environ.get("TP_AUTO_ELASTIC_USER") or "elastic"
     TP_AUTO_ELASTIC_PASSWORD = os.environ.get("TP_AUTO_ELASTIC_PASSWORD") or Helper.get_elastic_password()
-    TP_AUTO_PROMETHEUS_URL = os.environ.get("TP_AUTO_PROMETHEUS_URL") or f"https://prometheus-internal.{TP_AUTO_CP_DNS_DOMAIN}/"
+    # PCP-16998
+    TP_AUTO_PROMETHEUS_URL = os.environ.get("TP_AUTO_PROMETHEUS_URL") or f"http://kube-prometheus-stack-prometheus.prometheus-system.svc.cluster.local:9090"
     TP_AUTO_PROMETHEUS_USER = os.environ.get("TP_AUTO_PROMETHEUS_USER") or ""
     TP_AUTO_PROMETHEUS_PASSWORD = os.environ.get("TP_AUTO_PROMETHEUS_PASSWORD") or ""
 
@@ -157,9 +165,10 @@ class EnvConfig:
 
     # apps: bwce, bw5ce, flogo
     BWCE_APP_FILE_NAME = os.environ.get("TP_AUTO_BWCE_APP_FILE_NAME") or "rest-bwce-1.ear"
+    BWCE_APP_PAYLOAD_JSON = os.environ.get("TP_AUTO_BWCE_APP_PAYLOAD_JSON") or "bwce-payload.json"
     BWCE_APP_NAME = os.environ.get("BWCE_APP_NAME") or BWCE_APP_FILE_NAME.removesuffix(".ear")
-    BW5CE_APP_FILE_NAME = os.environ.get("TP_AUTO_BW5CE_APP_FILE_NAME") or "bw5ce-dynamicHeaders.ear"
-    BW5CE_APP_NAME = os.environ.get("BW5CE_APP_NAME") or BW5CE_APP_FILE_NAME.removesuffix(".ear")
+    BW5CE_APP_FILE_NAME = os.environ.get("TP_AUTO_BW5CE_APP_FILE_NAME") or "bw5ce-dynamicheaders.ear"
+    BW5CE_APP_NAME = os.environ.get("BW5CE_APP_NAME") or BW5CE_APP_FILE_NAME.removesuffix(".ear").lower()
     FLOGO_APP_FILE_NAME = os.environ.get("TP_AUTO_FLOGO_APP_FILE_NAME") or "rest-flogo-1.json"
     # need to make sure the flogo app name is unique and lower case in the above JSON file
     FLOGO_APP_NAME = os.environ.get("FLOGO_APP_NAME") or Helper.get_app_name(FLOGO_APP_FILE_NAME)
@@ -169,6 +178,7 @@ class EnvConfig:
         ColorLogger.info(f"Current Retry time at '{current_time}'")
         ColorLogger.info(f"Current CP version is '{self.TP_AUTO_CP_VERSION}'")
         ColorLogger.info(f"Headless mode is {self.IS_HEADLESS}")
+        ColorLogger.info(f"CLI mode is {self.TP_AUTO_USE_CLI}")
         if not self.TP_AUTO_CP_VERSION:
             ColorLogger.warning("CP version GUI_TP_AUTO_CP_VERSION is not set")
         if not self.TP_AUTO_IS_CREATE_DP:
@@ -198,5 +208,14 @@ class EnvConfig:
             ColorLogger.warning(f"CP_ADMIN_EMAIL is not set, will use default: {self.CP_ADMIN_EMAIL}")
         if not os.environ.get("CP_ADMIN_PASSWORD"):
             ColorLogger.warning(f"CP_ADMIN_PASSWORD is not set, will use default: {self.CP_ADMIN_PASSWORD}")
+
+        if self.TP_ACTIVATION_ZIP_FILE_BASE64:
+            activation_file = Helper.get_file_fullpath_in_upload_folder(self.TP_ACTIVATION_FILENAME)
+            if os.path.isfile(activation_file):
+                ColorLogger.info(f"Activation file '{self.TP_ACTIVATION_FILENAME}' already exists in {activation_file}.")
+            elif Helper.save_activation_file(self.TP_ACTIVATION_ZIP_FILE_BASE64, f"{activation_file}.zip"):
+                ColorLogger.info(f"Saved activation file to '{activation_file}'.")
+            else:
+                ColorLogger.error("Failed to save activation file from base64 string.")
 
 ENV = EnvConfig()

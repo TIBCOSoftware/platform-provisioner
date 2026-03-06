@@ -1,0 +1,116 @@
+{
+  "appId": "",
+  "buildId": "",
+  "appName": "appname",
+  "eula": true,
+  "profile": "default.substvar",
+  "appProperties": [
+    {
+      "name": "",
+      "value": "",
+      "type": "password"
+    }
+  ],
+  "systemProperties": [
+    {
+      "name": "",
+      "value": "",
+      "type": "password"
+    }
+  ],
+  "resourceLimits": {
+    "limits": {
+      "cpu": "1",
+      "memory": "1Gi"
+    },
+    "requests": {
+      "cpu": "1",
+      "memory": "1Gi"
+    }
+  },
+  "replicas": 1,
+  "enableAutoscaling": true,
+  "autoscalingConfig": {
+    "minReplicas": 1,
+    "maxReplicas": 3,
+    "hpaMetrics": {
+      "cpuUtilization": {
+        "enabled": true,
+        "averageCpuUtilization": 70
+      },
+      "memoryUtilization": {
+        "enabled": true,
+        "averageMemoryUtilization": 70
+      }
+    }
+  },
+  "networkPolicies": {
+    "egressNetworkPolicies": {
+      "internetWeb": "enable",
+      "internetAll": "enable",
+      "databaseEgress": "enable",
+      "msgInfra": "enable",
+      "proxyEgress": "enable",
+      "userApps": "enable",
+      "clusterEgress": "enable"
+    },
+    "ingressNetworkPolicies": {}
+  },
+  "enableServiceMesh": true,
+  "enableExecutionHistory": true,
+  "volumeMounts": [
+    {
+      "name": "string",
+      "mountPath": "string",
+      "subPath": "string",
+      "readOnly": true
+    }
+  ],
+  "volumes": [
+    {
+      "name": "string",
+      "persistentVolumeClaimVolume": {
+        "claimName": "string"
+      },
+      "configMapVolume": {
+        "name": "string",
+        "defaultMode": 0,
+        "items": [
+          {
+            "key": "string",
+            "path": "string"
+          }
+        ],
+        "optional": true
+      },
+      "secretVolume": {
+        "secretName": "string",
+        "defaultMode": 0,
+        "items": [
+          {
+            "key": "string",
+            "path": "string"
+          }
+        ],
+        "optional": true
+      },
+      "emptyDirVolume": {
+        "sizeLimit": "string"
+      }
+    }
+  ],
+  "persistentVolumeClaims": [
+    {
+      "name": "string",
+      "storageClassName": "string",
+      "storageRequestsSize": "string",
+      "accessModes": [
+        "string"
+      ],
+      "volumeMode": "string"
+    }
+  ],
+  "tags": [
+    "tag1"
+  ]
+}

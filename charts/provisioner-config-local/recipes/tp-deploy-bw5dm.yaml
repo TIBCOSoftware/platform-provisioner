@@ -21,7 +21,7 @@ meta:
     GUI_TP_ACTIVATION_SERVER_PORT: "7070"
     GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
     GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
-
+    GUI_TP_ACTIVATION_ZIP_FILE_BASE64: ""
     # ingress
     GUI_TP_INGRESS_CLASS: "traefik"
     GUI_TP_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
@@ -130,6 +130,16 @@ helmCharts:
             env:
               - name: TIBEMS_LICENSE
                 value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
+            volumeMounts:
+              - name: license-secret
+                mountPath: /opt/tibco/license-file.bin
+                subPath: license-file.bin
+                readyOnly: true
+            volumes:
+              - name: license-secret
+                secret:
+                  secretName: activation-file-secret
+                  optional: true
         bw5emsdm:
           enabled: ${TP_DEPLOY_EMSDM}
           deployment:
@@ -156,6 +166,16 @@ helmCharts:
               #   value: "admin"
               # - name: EMS_PASSWORD
               #   value: "abc"
+            volumeMounts:
+              - name: license-secret
+                mountPath: /opt/tibco/license-file.bin
+                subPath: license-file.bin
+                readyOnly: true
+            volumes:
+              - name: license-secret
+                secret:
+                  secretName: activation-file-secret
+                  optional: true
         bw5rvdm:
           enabled: ${TP_DEPLOY_RVDM}
           deployment:
@@ -175,6 +195,16 @@ helmCharts:
                 value: "${TP_ACTIVATION_SERVER_IP}"
               - name: ACTIVATION_SERVER_HOSTNAME
                 value: "${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
+            volumeMounts:
+                - name: license-secret
+                  mountPath: /opt/tibco/license-file.bin
+                  subPath: license-file.bin
+                  readyOnly: true
+            volumes:
+              - name: license-secret
+                secret:
+                  secretName: activation-file-secret
+                  optional: true
         hawkconsole:
           enabled: ${TP_DEPLOY_HAWKCONSOLE}
           deployment:
@@ -203,6 +233,38 @@ helmCharts:
           kubectl create ns ${TP_BWDM_NAMESPACE}
           # add label for bmdp to connect to this namespace
           kubectl label namespace ${TP_BWDM_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+
+          # create the secret for activation file
+          create_secret_for_activation_file() {
+            local namespace="${TP_BWDM_NAMESPACE}"
+            local secret_name="activation-file-secret"
+
+            echo "🔍 Checking if secret '$secret_name' exists in namespace '$namespace'..."
+            if kubectl get secret "$secret_name" -n "$namespace" &> /dev/null; then
+              echo "✅ Secret '$secret_name' already exists in namespace '$namespace'. Skipping creation."
+              return 0
+            fi
+
+            echo "➕ Creating secret '$secret_name' in namespace '$namespace'..."
+            # get the base64 encoded activation zip file from env first
+            echo "$INPUT" > /tmp/activation-zip-base64.yaml
+            ACTIVATION_ZIP_BASE64="$(
+                yq e '.meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64' /tmp/activation-zip-base64.yaml
+              )"
+            if [ -z "$ACTIVATION_ZIP_BASE64" ]; then
+              echo "❌ Activation zip file base64 content is empty. Will use Activation Server."
+              return 0
+            fi
+            echo "$ACTIVATION_ZIP_BASE64" | base64 -d > /tmp/activation.zip
+            unzip /tmp/activation.zip -d /tmp
+            mv /tmp/*.bin /tmp/license-file.bin
+
+            kubectl create secret generic "$secret_name" -n "$namespace" --from-file=/tmp/license-file.bin
+
+            echo "✅ Secret '$secret_name' created successfully."
+          }
+
+          create_secret_for_activation_file
 
           # BW, EMS also need to add the activation server otherwise the pod will not ready
           add_static_dns_record_to_coredns() {

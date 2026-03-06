@@ -1,0 +1,69 @@
+#
+# Copyright © 2024. Cloud Software Group, Inc.
+# This file is subject to the license terms contained
+# in the license file that is distributed with this file.
+#
+
+# Test recipe for verifying retryCount and retryDelay functionality
+# Run with: PIPELINE_INPUT_RECIPE=../docs/recipes/tests/test-retry.yaml ./platform-provisioner-test.sh
+apiVersion: v1
+kind: generic-runner
+meta:
+  globalEnvVariable:
+    REPLACE_RECIPE: true
+    PIPELINE_LOG_DEBUG: true
+    PIPELINE_CHECK_DOCKER_STATUS: false
+tasks:
+  # Task 1: Verify retryCount=0 (default) - no retry
+  - name: "Test default no retry"
+    script:
+      ignoreErrors: false
+      content: |
+        echo "Task with default retryCount (0) - should run once"
+        echo "SUCCESS"
+
+  # Task 2: Verify retryCount works - script succeeds on 2nd attempt
+  - name: "Test retry succeeds on 2nd attempt"
+    script:
+      retryCount: 2
+      retryDelay: 2
+      ignoreErrors: false
+      content: |
+        ATTEMPT_FILE="/tmp/retry_test_attempt"
+        if [ -f "$ATTEMPT_FILE" ]; then
+          ATTEMPT=$(cat "$ATTEMPT_FILE")
+        else
+          ATTEMPT=0
+        fi
+        ATTEMPT=$((ATTEMPT + 1))
+        echo "$ATTEMPT" > "$ATTEMPT_FILE"
+        echo "Attempt $ATTEMPT"
+        if [ "$ATTEMPT" -lt 2 ]; then
+          echo "Simulating failure on attempt $ATTEMPT"
+          exit 1
+        fi
+        echo "SUCCESS on attempt $ATTEMPT"
+        rm -f "$ATTEMPT_FILE"
+
+  # Task 3: Verify retryDelay - observable delay between retries
+  # ignoreErrors must be false to trigger retry logic; succeeds on 2nd attempt
+  - name: "Test retry delay (3 seconds)"
+    script:
+      retryCount: 1
+      retryDelay: 3
+      ignoreErrors: false
+      content: |
+        ATTEMPT_FILE="/tmp/retry_delay_test"
+        if [ -f "$ATTEMPT_FILE" ]; then
+          ATTEMPT=$(cat "$ATTEMPT_FILE")
+        else
+          ATTEMPT=0
+        fi
+        ATTEMPT=$((ATTEMPT + 1))
+        echo "$ATTEMPT" > "$ATTEMPT_FILE"
+        echo "$(date): Attempt $ATTEMPT (retryDelay=3s)"
+        if [ "$ATTEMPT" -lt 2 ]; then
+          exit 1
+        fi
+        echo "SUCCESS on attempt $ATTEMPT"
+        rm -f "$ATTEMPT_FILE"
