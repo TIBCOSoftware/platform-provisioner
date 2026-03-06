@@ -31,6 +31,7 @@ groups:
     * Activation server hostname
     * Activation server port
     * Activation server fingerprint
+    * Activation file in zip format
 
     ---
 - title: "TP Automation Config"
@@ -96,6 +97,15 @@ options:
   required: false
   description: |
     The fingerprint of activation server.
+- name: "Upload Activation file in zip"
+  groupIndex: 3
+  type: string
+  accept: ".zip"
+  fileSize: 100
+  guiType: file
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64"
+  description: |
+    License file will be used prior to activation server if you configured both.
 # groupIndex: 6 TP Automation Config
 - name: "Deploy RVDM"
   groupIndex: 6

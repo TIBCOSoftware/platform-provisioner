@@ -1,17 +1,18 @@
 #!/bin/bash
 
 #
-# Copyright (c) 2022 - 2024 TIBCO Software Inc.
+# Copyright (c) 2022 - 2026 TIBCO Software Inc.
 # All Rights Reserved. Confidential & Proprietary.
 #
 
 #######################################
-# create-eks will create eks cluster
+# create-efs will create EFS for EKS cluster
 # Globals:
 #   TP_CLUSTER_NAME: The cluster name
 #   TP_STORAGE_CLASS_EFS: The storage class name for EFS
 #   TP_INSTALL_RESOURCE_FOLDER: The shared folder to store all generated resource files
 #   TP_INSTALL_EFS_VALUES_FILE: The shared file to store chart values for EFS. (full path)
+#   TP_EFS_KMS_KEY_ID: The KMS key ID for EFS encryption (optional)
 # Arguments:
 #   None
 # Returns:
@@ -27,6 +28,11 @@ echo "TP_CLUSTER_NAME: ${TP_CLUSTER_NAME}"
 echo "TP_STORAGE_CLASS_EFS: ${TP_STORAGE_CLASS_EFS}"
 echo "TP_INSTALL_RESOURCE_FOLDER: ${TP_INSTALL_RESOURCE_FOLDER}"
 echo "TP_INSTALL_EFS_VALUES_FILE: ${TP_INSTALL_EFS_VALUES_FILE}"
+if [ -n "${TP_EFS_KMS_KEY_ID}" ]; then
+  echo "TP_EFS_KMS_KEY_ID: ${TP_EFS_KMS_KEY_ID}"
+else
+  echo "TP_EFS_KMS_KEY_ID: (not provided, using default AWS EFS KMS key)"
+fi
 
 EFS_ID=$(kubectl get sc "${TP_STORAGE_CLASS_EFS}" -oyaml | yq eval '.parameters.fileSystemId // ""')
 if [ "${EFS_ID}" != "" ]; then
@@ -54,7 +60,14 @@ fi
 
 echo "create EFS"
 export FILE_SYSTEM_ID=""
-FILE_SYSTEM_ID=$(aws efs create-file-system | jq --raw-output '.FileSystemId')
+# Use custom KMS key if provided, otherwise use default AWS EFS key
+if [ -n "${TP_EFS_KMS_KEY_ID}" ]; then
+  echo "TP_EFS_KMS_KEY_ID: ${TP_EFS_KMS_KEY_ID}"
+  FILE_SYSTEM_ID=$(aws efs create-file-system --encrypted --kms-key-id "${TP_EFS_KMS_KEY_ID}" | jq --raw-output '.FileSystemId')
+else
+  echo "TP_EFS_KMS_KEY_ID: (not provided, using default AWS EFS KMS key)"
+  FILE_SYSTEM_ID=$(aws efs create-file-system --encrypted --kms-key-id "alias/aws/elasticfilesystem" | jq --raw-output '.FileSystemId')
+fi
 _res=$?
 if [ ${_res} -ne 0 ]; then
   echo "create efs error"

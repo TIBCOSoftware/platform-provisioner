@@ -22,8 +22,105 @@ class Util:
     _page = None
     _browser = None
     _context = None
+    _playwright = None
     _run_start_time = None
     _is_trace = False
+
+    @staticmethod
+    def get_upload_folder():
+        """
+        Get the absolute path to the upload folder.
+        This method returns the upload folder path relative to the bootstrap directory,
+        so it works regardless of where the server is running.
+
+        :return: Absolute path to the upload folder
+        """
+        return os.path.join(os.path.dirname(os.path.dirname(__file__)), "upload")
+
+    @staticmethod
+    def convert_to_absolute_path(file_path):
+        """
+        Convert relative path to absolute path, handling upload folder paths.
+
+        :param file_path: File path (can be relative or absolute)
+        :return: Absolute file path
+        """
+        if not file_path or os.path.isabs(file_path):
+            return file_path
+
+        # If path starts with 'upload/', extract filename and get full path
+        if file_path.startswith('upload/'):
+            filename = file_path.replace('upload/', '')
+            return Helper.get_file_fullpath_in_upload_folder(filename)
+        else:
+            # Otherwise, assume it's already in upload folder
+            return Helper.get_file_fullpath_in_upload_folder(file_path)
+
+    @staticmethod
+    def extract_response_array(json_data, key='response'):
+        """
+        Extract array from JSON response, handling both dict and list formats.
+
+        :param json_data: Parsed JSON data (dict or list)
+        :param key: Key to extract from dict (default: 'response')
+        :return: Array extracted from the data
+        """
+        if isinstance(json_data, dict):
+            return json_data.get(key, [])
+        elif isinstance(json_data, list):
+            return json_data
+        else:
+            return []
+
+    @staticmethod
+    def append_common_args(command, debug=False, other_args=None):
+        """
+        Append common command arguments (debug flag and other_args).
+
+        :param command: Base command string
+        :param debug: Enable debug mode
+        :param other_args: Additional CLI arguments
+        :return: Command with appended arguments
+        """
+        if debug:
+            command += '--debug '
+        command += f'{other_args or ""}'
+        return command
+
+    @staticmethod
+    def print_box(content, width=60, style='single'):
+        """
+        Print content in a complete box with borders.
+
+        :param content: Content to display (can be string or list of strings)
+        :param width: Width of the box (default: 60)
+        :param style: Box style - 'single', 'double', or 'bold' (default: 'single')
+        """
+        # Box drawing characters
+        if style == 'double':
+            chars = {'tl': '╔', 'tr': '╗', 'bl': '╚', 'br': '╝', 'h': '═', 'v': '║'}
+        elif style == 'bold':
+            chars = {'tl': '┏', 'tr': '┓', 'bl': '┗', 'br': '┛', 'h': '━', 'v': '┃'}
+        else:  # single
+            chars = {'tl': '┌', 'tr': '┐', 'bl': '└', 'br': '┘', 'h': '─', 'v': '│'}
+
+        # Convert content to list if it's a string
+        if isinstance(content, str):
+            content_lines = [content]
+        else:
+            content_lines = content
+
+        # Print top border
+        print(f"{chars['tl']}{chars['h'] * width}{chars['tr']}")
+
+        # Print content lines
+        for line in content_lines:
+            # Pad line to width
+            padded_line = line.ljust(width - 2)
+            print(f"{chars['v']} {padded_line} {chars['v']}")
+
+        # Print bottom border
+        print(f"{chars['bl']}{chars['h'] * width}{chars['br']}")
 
     @staticmethod
     def get_dns_ip():
@@ -42,8 +139,8 @@ class Util:
             if dns_ip:
                 args.append(f"--host-resolver-rules=MAP *.{ENV.TP_AUTO_CP_DNS_DOMAIN} {dns_ip}")
             Util._run_start_time = time.time()
-            playwright = sync_playwright().start()
-            Util._browser = playwright.chromium.launch(
+            Util._playwright = sync_playwright().start()
+            Util._browser = Util._playwright.chromium.launch(
                 headless=is_headless,
                 args=args
             )
@@ -82,6 +179,10 @@ class Util:
             Util._browser = None
             ColorLogger.success("Browser Closed Successfully.")
 
+        if Util._playwright is not None:
+            Util._playwright.stop()
+            Util._playwright = None
+
         if Util._run_start_time is not None:
             chicago_time = datetime.now(pytz.timezone(ENV.TIME_ZONE)).strftime('%m/%d/%Y %H:%M:%S')
             total_seconds = time.time() - Util._run_start_time
@@ -99,6 +200,7 @@ class Util:
                 "trace.zip"
             )
             Util._context.tracing.stop(path=trace_path)
+            Util._is_trace = False
             ColorLogger.info(f"Save tracing to file: {trace_path}")
 
     @staticmethod
@@ -318,18 +420,19 @@ class Util:
                 print(f"{'User Password:':<{col_space}}{ENV.TP_AUTO_PROMETHEUS_PASSWORD}")
             print("-" * str_num)
 
-            dataplane_fields = [
-                ("o11yConfig", "DataPlane O11y Configured", "true"),
-                ("o11yWidget", "Observability Widget", "true"),
-                ("storage", "DataPlane storage", ENV.TP_AUTO_STORAGE_CLASS),
-                (ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE),
-                (ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO),
-                (ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB, "DataPlane ingress", ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB),
-            ]
-            capability_fields = [
-                ("provisionConnector", "Provision connector"),
-                ("appBuild", "Create App Build"),
-            ]
+            # Label overrides for known dataplane fields (key -> (label, display_value))
+            dp_field_labels = {
+                "o11yConfig": ("DataPlane O11y Configured", "true"),
+                "o11yWidget": ("Observability Widget", "true"),
+                "ActivationFile": ("Activation Service", "true"),
+                "ActivationUrl": ("Activation Service", "true"),
+                "storage": ("DataPlane storage", ENV.TP_AUTO_STORAGE_CLASS),
+            }
+            # Label overrides for known capability fields
+            cap_field_labels = {
+                "provisionConnector": "Provision connector",
+                "appBuild": "Create App Build",
+            }
             app_fields = [
                 ("status", "Status"),
                 ("endpointPublic", "Set endpoint to Public"),
@@ -343,9 +446,16 @@ class Util:
                 for dp_name in dp_names:
                     print(f"{'DataPlane Name':<{col_space}}{dp_name}")
 
-                    for field_key, field_label, field_value in dataplane_fields:
-                        if ReportYaml.get_dataplane_info(dp_name, field_key) == "true":
-                            print(f"{field_label:<{col_space}}{field_value}")
+                    for field_key in ReportYaml.get_dataplane_field_keys(dp_name):
+                        stored_value = ReportYaml.get_dataplane_info(dp_name, field_key)
+                        if not stored_value:
+                            continue
+                        if field_key in dp_field_labels:
+                            if stored_value == "true":
+                                label, display_value = dp_field_labels[field_key]
+                                print(f"{label:<{col_space}}{display_value}")
+                        else:
+                            print(f"{field_key:<{col_space}}{stored_value}")
 
                     dp_capabilities = ReportYaml.get_capabilities(dp_name)
                     if len(dp_capabilities) > 0:
@@ -355,15 +465,15 @@ class Util:
 
                     for dp_capability in dp_capabilities:
                         app_names = ReportYaml.get_capability_apps(dp_name, dp_capability)
-                        provision_connector = ReportYaml.get_capability_info(dp_name, dp_capability, "provisionConnector")
-                        app_build = ReportYaml.get_capability_info(dp_name, dp_capability, "appBuild")
-                        if len(app_names) > 0 or provision_connector or app_build:
+                        cap_keys = ReportYaml.get_capability_field_keys(dp_name, dp_capability)
+                        if len(app_names) > 0 or len(cap_keys) > 0:
                             print(f"{dp_capability.capitalize()}")
 
-                        for field_key, field_label in capability_fields:
+                        for field_key in cap_keys:
                             field_value = ReportYaml.get_capability_info(dp_name, dp_capability, field_key)
                             if field_value:
-                                print(f"    {field_label:<{col_space}}{field_value}")
+                                label = cap_field_labels.get(field_key, field_key)
+                                print(f"    {label:<{col_space}}{field_value}")
 
                         for app_name in app_names:
                             print(f"{'  App Name':<{col_space}}{app_name}")
@@ -458,6 +568,9 @@ class Util:
 
     @staticmethod
     def parse_json_result(result_str):
+        if not result_str or result_str.strip() == "":
+            print("Error: Empty JSON output.")
+            return None
         try:
             return json.loads(result_str)
         except json.JSONDecodeError:

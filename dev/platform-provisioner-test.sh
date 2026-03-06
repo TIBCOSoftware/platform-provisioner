@@ -137,6 +137,8 @@ export PIPELINE_INPUT_RECIPE_CONTENT=""
 
 echo "Using platform provisioner docker image: ${PIPELINE_DOCKER_IMAGE}"
 
+# PCP-15538: Windows Docker + Git Bash need double slash for mounting local folder
+# double / also works for linux and Mac
 # is used to export functions; so subshell can use it
 docker run "${PIPELINE_CONTAINER_TTY}" --rm \
   --name "${PIPELINE_CONTAINER_RUN_NAME}" \
@@ -167,8 +169,8 @@ docker run "${PIPELINE_CONTAINER_TTY}" --rm \
   -e PIPELINE_CHART_REPO \
   -e PIPELINE_NAME \
   "${_DOCKER_FOR_MAC_ADD_HOST}" ${_OPTIONAL_ENV} \
-  -v `pwd`:/tmp/dev \
-  -v "${PIPELINE_PATH}"/charts:/tmp/charts \
+  -v /"${DEV_PATH}":/tmp/dev \
+  -v /"${PIPELINE_PATH}"/charts:/tmp/charts \
   "${PIPELINE_DOCKER_IMAGE}" bash -c '
 export REGION=${REGION:-"us-west-2"}
 declare -xr WORKING_PATH=/workspace

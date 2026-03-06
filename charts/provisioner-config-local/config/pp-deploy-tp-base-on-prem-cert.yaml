@@ -287,6 +287,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_AUTOMATION_INSTALL"
   description: |
     Install Automation UI for TP Cluster. Default is `false`
+- name: "Install Langfuse"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_LANGFUSE"
+  description: |
+    Install Langfuse for LLM observability. Default is `false`
 - name: "Enable pipline debug logs"
   groupIndex: 10
   type: boolean

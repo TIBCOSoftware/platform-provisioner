@@ -75,8 +75,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             self.page.wait_for_timeout(3000)
 
             if self.page.locator('#storage-class-resource-table').is_visible():
+                storage_row_locator = self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS))
                 print(f"Checking Storage Class table has '{ENV.TP_AUTO_STORAGE_CLASS}' visible...")
-                if not Util.check_dom_visibility(self.page, self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)), 2, 4):
+                if not Util.check_dom_visibility(self.page, storage_row_locator, 2, 4):
                     ColorLogger.info(f"Adding Storage Class: {ENV.TP_AUTO_STORAGE_CLASS} for {self.capability} capability")
                     if self.page.locator("#add-storage-resource-storage-class-btn").is_visible():
                         self.page.locator("#add-storage-resource-storage-class-btn").click()
@@ -84,8 +85,8 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                         # Adding Storage Class dialog popup
                         self.po_dp_config.add_storage(ENV.TP_AUTO_STORAGE_CLASS)
 
-                if Util.check_dom_visibility(self.page, self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)), 3, 6):
-                    self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
+                if Util.check_dom_visibility(self.page, storage_row_locator, 3, 6):
+                    storage_row_locator.first.locator('label').click()
                     print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for {self.capability} capability")
                 else:
                     Util.exit_error(f"'{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")

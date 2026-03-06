@@ -37,15 +37,22 @@ groups:
     ## Change the Open Telemetry options.
     * Open Telemetry Collector is used to collect metrics and logs. [link](https://github.com/open-telemetry/opentelemetry-helm-charts/releases?q=opentelemetry-collector&expanded=true)
     ---
-- title: "Ingress"
+- title: "OpenSearch"
   index: 6
+  description: |
+    ## Change the OpenSearch options.
+    * OpenSearch is used to store logs and metrics. [link](https://opensearch.org/docs/latest/)
+    * OpenSearch Dashboards is used to visualize logs and metrics.
+    ---
+- title: "Ingress"
+  index: 7
   description: |
     ## O11y ingress specific configurations. 
     * Normally we use localhost.dataplanes.pro or localhost as on-prem domain.
     * The service will be like: https://kibana.localhost.dataplanes.pro/ or http://kibana.localhost/
     ---
 - title: "Cluster storage"
-  index: 7
+  index: 8
   description: |
     ## Cluster storage specific configurations.
     * For the on-prem setup we have
@@ -135,16 +142,60 @@ options:
   reference: "helmCharts[2].values.content"
   lang: "yaml"
 
-# groupIndex: 6 Ingress
-- name: "O11y domain"
+# groupIndex: 6 OpenSearch
+- name: "OpenSearch namespace"
   groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_OPENSEARCH_NAMESPACE"
+  required: true
+  description: |
+    The namespace where OpenSearch will be deployed.
+- name: "dp-config-opensearch chart version"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_CONFIG_OPENSEARCH_CHART_VERSION"
+  required: true
+  description: |
+    The version of dp-config-opensearch helm chart.
+    Bundles OpenSearch and OpenSearch Dashboards (subchart version 3.4.0).
+    see: <a href='https://github.com/opensearch-project/helm-charts/releases' target='_blank'>link</a>
+- name: "OpenSearch replicas"
+  groupIndex: 6
+  type: number
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_OPENSEARCH_REPLICAS"
+  description: |
+    The number of OpenSearch replicas.
+- name: "OpenSearch storage size"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_OPENSEARCH_STORAGE_SIZE"
+  description: |
+    The storage size for OpenSearch persistent volume.
+- name: "OpenSearch admin password"
+  groupIndex: 6
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_OPENSEARCH_ADMIN_PASSWORD"
+  required: true
+  description: |
+    The admin password for OpenSearch.
+    Requirements: Min 8 chars, uppercase, lowercase, digit, special char (!@#$%^&*()_+-=)
+    Example: MyPassw0rd!
+
+# groupIndex: 7 Ingress
+- name: "O11y domain"
+  groupIndex: 7
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_DOMAIN"
   description: |
     The domain for o11y stack.
 - name: "O11y ingress class"
-  groupIndex: 6
+  groupIndex: 7
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_INGRESS_CLASS"
@@ -152,9 +203,9 @@ options:
   description: |
     The ingress class name for O11y. Default is nginx, you can use traefik too
 
-# groupIndex: 7 storage
+# groupIndex: 8 storage
 - name: "O11y storage class"
-  groupIndex: 7
+  groupIndex: 8
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_STORAGE_CLASS"
@@ -178,6 +229,11 @@ options:
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_DEPLOY_OPEN_TELEMETRY_COLLECTOR"
+- name: "Deploy OpenSearch"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_DEPLOY_OPENSEARCH"
 - name: "Enable pipeline debug logging"
   groupIndex: 10
   type: boolean

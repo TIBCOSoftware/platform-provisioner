@@ -1,0 +1,61 @@
+{
+  "appName": "string",
+  "appDescription": "string",
+  "appId": "string",
+  "appProperties": [
+    {
+      "name": "string",
+      "type": "string",
+      "value": {}
+    }
+  ],
+  "autoscalingConfig": {
+    "hpaMetrics": {
+      "cpuUtilization": {
+        "averageCpuUtilization": 0,
+        "enabled": true
+      },
+      "memoryUtilization": {
+        "averageMemoryUtilization": 0,
+        "enabled": true
+      }
+    },
+    "maxReplicas": 0,
+    "minReplicas": 0
+  },
+  "buildId": "string",
+  "enableAutoscaling": true,
+  "enableServiceMesh": true,
+  "eula": true,
+  "namespace": "string",
+  "networkPolicies": {
+    "egressNetworkPolicies": {
+      "internetAll": "string",
+      "internetWeb": "string"
+    },
+    "ingressNetworkPolicies": {}
+  },
+  "replicas": 0,
+  "resourceLimits": {
+    "limits": {
+      "cpu": "string",
+      "memory": "string"
+    },
+    "requests": {
+      "cpu": "string",
+      "memory": "string"
+    }
+  },
+  "systemProperties": [
+    {
+      "description": "string",
+      "label": "string",
+      "name": "string",
+      "type": "string",
+      "value": "string"
+    }
+  ],
+  "tags": [
+    "string"
+  ]
+}

@@ -11,7 +11,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner-ui
+  repository: ghcr.io/tibcosoftware/platform-provisioner-ui/platform-provisioner-ui
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"

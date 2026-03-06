@@ -64,6 +64,10 @@ meta:
     CP_LOG_USERNAME: ${GUI_CP_LOG_USERNAME:-"elastic"} # optional logserver username
     CP_LOG_PASSWORD: ${GUI_CP_LOG_PASSWORD:-""} # optional logserver password
     CP_LOG_INDEX: ${GUI_CP_LOG_INDEX:-"tibco-cp-logs"} # optional logserver index, default is tibco-cp-logs
+    CP_AUDITSERVER_ENDPOINT: ${GUI_CP_AUDITSERVER_ENDPOINT:-"https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200"} # optional auditserver endpoint
+    CP_AUDITSERVER_USERNAME: ${GUI_CP_AUDITSERVER_USERNAME:-"elastic"} # optional auditserver username
+    CP_AUDITSERVER_PASSWORD: ${GUI_CP_AUDITSERVER_PASSWORD:-""} # optional auditserver password
+    CP_AUDITSERVER_INDEX: ${GUI_CP_AUDITSERVER_INDEX:-"audittrail"} # optional auditserver index, default is audittrail
 
     # network policies
     TP_CREATE_NETWORK_POLICIES: ${GUI_TP_CREATE_NETWORK_POLICIES:-false}
@@ -126,13 +130,13 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.14.0} # use ^1.0.0 for latest
-    CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.13.15} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.14.4} # use ^1.0.0 for latest
-    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.12.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.15.31} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.15.31} # use ^1.0.0 for latest
+    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.15.0} # use ^1.0.0 for latest
     
     # CP AI MCP servers
     TP_AI_ENABLE_CP_MCP_SERVER: ${GUI_TP_AI_ENABLE_CP_MCP_SERVER:-false}
@@ -498,6 +502,11 @@ helmCharts:
               requests:
                 storage: ${CP_STORAGE_PV_SIZE}
             storageClassName: ${CP_STORAGE_CLASS}
+          auditserver:
+            endpoint: "${CP_AUDITSERVER_ENDPOINT}" # optional auditserver endpoint, if you have ELK stack or other logging solution
+            username: "${CP_AUDITSERVER_USERNAME}" # optional auditserver username
+            password: "${CP_AUDITSERVER_PASSWORD}" # optional auditserver password
+            index: "${CP_AUDITSERVER_INDEX}" # optional auditserver index, default is audittrail
           logserver:
             endpoint: "${CP_LOG_ENDPOINT}" # optional logserver endpoint, if you have ELK stack or other logging solution
             username: "${CP_LOG_USERNAME}" # optional logserver username

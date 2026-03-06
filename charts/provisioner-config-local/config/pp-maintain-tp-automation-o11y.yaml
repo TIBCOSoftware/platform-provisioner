@@ -36,6 +36,7 @@ groups:
     * Activation server hostname
     * Activation server port
     * Activation server fingerprint
+    * Activation file in zip format
 
     ---
 - title: "DP setup"
@@ -97,6 +98,12 @@ options:
     The GitHub token for DP to access private helm chart repo. If you deploy unreleased CP/DP; this GitHub token is a must.
 
 # groupIndex: 3 Activation Server
+- name: "Activation service configuration"
+  groupIndex: 3
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_CONFIG"
+  description: "Configure the activation server IP address with coreDNS."
 - name: "Activation server IP"
   groupIndex: 3
   type: string
@@ -129,6 +136,15 @@ options:
   required: false
   description: |
     The fingerprint of activation server.
+- name: "Upload Activation file in zip"
+  groupIndex: 3
+  type: string
+  accept: ".zip"
+  fileSize: 100
+  guiType: file
+  reference: "meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64"
+  description: |
+    License file will be used prior to activation server if you configured both.
 # groupIndex: 5 DP setup
 - name: "DP host prefix"
   groupIndex: 5
@@ -155,6 +171,13 @@ options:
   description: |
     The password of DP user
 # groupIndex: 6 TP Automation Config
+- name: "USE CLI"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_USE_CLI"
+  description: |
+    Set to true to use CLI mode for DP operations instead of GUI (Playwright)
 - name: "Active user"
   groupIndex: 6
   type: boolean

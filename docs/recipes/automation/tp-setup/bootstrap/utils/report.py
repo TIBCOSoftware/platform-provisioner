@@ -64,6 +64,11 @@ class ReportYamlHandler:
             )
         """)
 
+    def get_dataplane_field_keys(self, dp_name):
+        """Get all field keys for a dataplane entry, excluding internal fields."""
+        keys = self.get(f'(.dataPlane[] | select(.name == "{dp_name}") | keys | .[] | select(. != "name" and . != "capability" and . != "namespace" and . != "serviceAccount"))')
+        return keys.split("\n") if keys else []
+
     def set_capability(self, dp_name, capability):
         if capability in self.get_capabilities(dp_name):
             return
@@ -105,6 +110,11 @@ class ReportYamlHandler:
                 | select(.name == "{capability}").{capability_key}
             )
         """)
+
+    def get_capability_field_keys(self, dp_name, capability):
+        """Get all field keys for a capability entry, excluding 'name' and 'app'."""
+        keys = self.get(f'(.dataPlane[] | select(.name == "{dp_name}") | .capability[] | select(.name == "{capability}") | keys | .[] | select(. != "name" and . != "app"))')
+        return keys.split("\n") if keys else []
 
     def set_capability_app(self, dp_name, capability, app_name):
         if app_name in self.get_capability_apps(dp_name, capability):

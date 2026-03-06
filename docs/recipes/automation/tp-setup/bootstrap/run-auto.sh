@@ -13,7 +13,7 @@ if [ -d /app ]; then
   cd /app
 fi
 
-# by default, the TP_AUTO_TASK_FROM_LOCAL_SOURCE is empty, because of "One-Click Setup UI" should keep it empty
+# by default, the TP_AUTO_TASK_FROM_LOCAL_SOURCE is empty, because of "Platform Automation Hub" should keep it empty
 # for local testing, you can set TP_AUTO_TASK_FROM_LOCAL_SOURCE to "true" to load tasks from local source code
 export TP_AUTO_TASK_FROM_LOCAL_SOURCE=${TP_AUTO_TASK_FROM_LOCAL_SOURCE:-""}
 export TP_AUTO_KUBECONFIG=${TP_AUTO_KUBECONFIG:-""}

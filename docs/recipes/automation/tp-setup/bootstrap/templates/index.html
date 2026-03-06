@@ -1,17 +1,17 @@
-<!--
-  ~ Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
-  -->
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>One-Click Setup of the Control Plane</title>
+  <title>Platform Automation Hub</title>
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <!-- mini.css: https://minicss.us/docs.htm -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.1/mini-default.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/themes/prism-tomorrow.min.css" />
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/components/prism-core.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/plugins/autoloader/prism-autoloader.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"
@@ -22,27 +22,33 @@
 <body>
   <div class="container">
     <h1>
-      <span>One-Click Setup of the Control Plane</span>
+      <span><img src="{{ url_for('static', filename='icon.svg') }}" alt="" class="title-icon">Platform Automation Hub</span>
       <a href="https://github.com/TIBCOSoftware/platform-provisioner/tree/main/docs/recipes/automation/tp-setup/bootstrap/CHANGELOG.md"
         target="_blank" title="View supported features" class="release_version"
         id="TP_AUTOMATION_TASK_RELEASE_VERSION"></a>
     </h1>
-    <!-- Loading spinner begin -->
+
     <input type="checkbox" class="modal" checked="checked">
     <div class="is_loading">
       <div class="spinner"></div>
     </div>
-    <!-- Loading spinner end -->
 
     <div class="tabs">
-      <button class="button tab-button active" data-target="#tab1">GUI</button>
-      <button class="button tab-button" data-target="#tab2">CLI</button>
+      <button class="tab-button active" data-target="#tab1">
+        <i class="fas fa-desktop"></i> GUI Automation
+      </button>
+      <button class="tab-button" data-target="#tab2">
+        <i class="fas fa-terminal"></i> CLI Commands
+      </button>
+      <button class="tab-button" data-target="#tab3">
+        <i class="fas fa-info-circle"></i> About
+      </button>
     </div>
 
     <div id="tab1" class="tab-content active">
       <form>
         <fieldset>
-          <legend>Environment</legend>
+          <legend><i class="fas fa-cog"></i> Environment Configuration</legend>
           <div class="row">
             <div class="col-sm-6">
               <div class="row TP_AUTO_ADMIN_URL">
@@ -145,7 +151,7 @@
                       <option value="provision_bw5ce">Provision BW5(BW5CE)</option>
                       <option value="provision_ems">Provision EMS</option>
                       <option value="provision_flogo">Provision Flogo</option>
-                      <option value="provision_tibcohub">Provision TibcoHub</option>
+                      <option value="provision_tibcohub">Provision Hub</option>
                     </optgroup>
                     <optgroup label="Create And Start app">
                       <option value="case.k8s_create_and_start_bwce_app">Create And Start BW6(BWCE) App (Include set endpoint to public and Test swagger API)</option>
@@ -264,13 +270,26 @@
               <div class="row">
                 <div class="col-sm-3"></div>
                 <div class="col-sm-9">
-                  <button type="button" class="runBtn primary" onclick="runGuiScript(this)">Run</button>
-                  <button type="button" class="stopBtn secondary" onclick="stopScript(this)" disabled>Stop</button>
+                  <button type="button" class="runBtn primary" onclick="runGuiScript(this)">
+                    <i class="fas fa-play"></i> Run Automation
+                  </button>
+                  <button type="button" class="stopBtn secondary" onclick="stopScript(this)" disabled>
+                    <i class="fas fa-stop"></i> Stop
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </fieldset>
+
+        <!-- Progress Indicator -->
+        <div class="progress-container" id="gui-progress">
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+          <div class="progress-text">Running automation script...</div>
+        </div>
+
         <pre class="logs language-log"><code class="output"></code></pre>
       </form>
     </div>
@@ -278,7 +297,7 @@
     <div id="tab2" class="tab-content">
       <form>
         <fieldset>
-          <legend>Environment</legend>
+          <legend><i class="fas fa-terminal"></i> CLI Configuration</legend>
           <div class="row">
             <div class="col-sm-6">
               <div class="row TIBCOP_CLI_CPURL">
@@ -289,8 +308,14 @@
 
               <div class="row TIBCOP_CLI_OAUTH_TOKEN">
                 <div class="col-sm-3"><label for="TIBCOP_CLI_OAUTH_TOKEN">CLI Token</label></div>
-                <div class="col-sm-9"><input type="text" id="TIBCOP_CLI_OAUTH_TOKEN"
+                <div class="col-sm-6"><input type="text" id="TIBCOP_CLI_OAUTH_TOKEN"
                     title="Get it from 'CP' -> 'Settings' -> 'OAuth Token'" /></div>
+                <div class="col-sm-3" style="text-align: right;">
+                  <button type="button" class="button primary" onclick="saveCliSetting()"
+                    title="Save CP URL and TOKEN to browser local storage">
+                    <i class="fas fa-save"></i> Save to Local
+                  </button>
+                </div>
               </div>
 
               <div class="row TIBCOP_CLI_DP_NAME">
@@ -298,19 +323,190 @@
                 <div class="col-sm-9"><input type="text" id="TIBCOP_CLI_DP_NAME"></div>
               </div>
 
+              <div class="row TIBCOP_CLI_CAPABILITY_ID" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_CAPABILITY_ID">Capability</label></div>
+                <div class="col-sm-9">
+                  <select id="TIBCOP_CLI_CAPABILITY_ID">
+                    <option value="">--Select Capability--</option>
+                    <option value="BWCE">BW6(BWCE)</option>
+                    <option value="BW5CE">BW5(BW5CE)</option>
+                    <option value="FLOGO">Flogo</option>
+                    <option value="TIBCOHUB">Hub</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_APP_ID" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_APP_ID">App ID</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_APP_ID" placeholder="Get from 'List Apps' output">
+                  <small style="display: block; color: #666;">Run 'List Apps' first to get the app_id</small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_RESOURCE_NAME" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_RESOURCE_NAME">Resource Instance Name</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_RESOURCE_NAME" placeholder="e.g., my-storage or my-ingress">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_ACTIVATION_SERVER_URL" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_ACTIVATION_SERVER_URL">Activation Server URL (Optional)</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_ACTIVATION_SERVER_URL" placeholder="Leave empty to use ENV variables (TP_ACTIVATION_SERVER_*)">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_INGRESS_CONTROLLER" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_INGRESS_CONTROLLER">Ingress Controller</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_INGRESS_CONTROLLER" placeholder="Will use ENV default if empty">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_STORAGE_CLASS_NAME" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_STORAGE_CLASS_NAME">Storage Class Name</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_STORAGE_CLASS_NAME" placeholder="Will use ENV default if empty">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_INGRESS_CLASS_NAME" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_INGRESS_CLASS_NAME">Ingress Class Name</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_INGRESS_CLASS_NAME" placeholder="Will use ENV default if empty">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_RESOURCE_INSTANCE_ID" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_RESOURCE_INSTANCE_ID">Resource Instance ID</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_RESOURCE_INSTANCE_ID" placeholder="Get from 'List Resource Instances' output">
+                  <small style="display: block; color: #666;">Run 'List Resource Instances' first to get the resource_instance_id</small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_EAR_FILE_PATH" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_EAR_FILE_UPLOAD" id="TIBCOP_CLI_FILE_UPLOAD_LABEL">Upload App File</label></div>
+                <div class="col-sm-9">
+                  <div class="file-upload-wrapper">
+                    <input type="text" id="TIBCOP_CLI_EAR_FILE_PATH" value="" readonly class="file-upload-display" placeholder="Leave empty to use default">
+                    <label for="TIBCOP_CLI_EAR_FILE_UPLOAD" class="file-upload-button">Browse...</label>
+                    <input type="file" id="TIBCOP_CLI_EAR_FILE_UPLOAD" accept=".ear,.json,.flogo" class="file-upload-input">
+                  </div>
+                  <small style="display: block; color: #666; margin-top: 5px;" id="TIBCOP_CLI_EAR_FILE_DEFAULT_HINT">Upload a file or leave empty to use default</small>
+                  <!-- Note for build-and-deploy operations -->
+                  <div class="build-and-deploy-note" style="display: none; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 8px; margin-top: 8px;">
+                    <strong style="color: #856404;">⚠️ Note:</strong>
+                    <span style="color: #856404;">Only the latest version is available here. For older versions or additional plugins, please use CP WebUI.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_BWCE_VERSION" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_BWCE_VERSION">BWCE/BW5CE Version</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_BWCE_VERSION" placeholder="e.g., 6.12.0-HF1">
+                  <small style="display: block; color: #666;">Get from 'List BWCE/BW5CE Versions' output</small>
+                  <small style="display: block; color: #e67e22; margin-top: 4px;">
+                    <strong>Note:</strong> Only the latest version is available here. For older versions or additional plugins, please use CP WebUI.
+                  </small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_FLOGO_VERSION" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_FLOGO_VERSION">Flogo Version</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_FLOGO_VERSION" placeholder="e.g., 2.26.0-b352">
+                  <small style="display: block; color: #666;">Get from 'List Flogo Versions' output</small>
+                  <small style="display: block; color: #e67e22; margin-top: 4px;">
+                    <strong>Note:</strong> For connector-related plugins, please use CP WebUI.
+                  </small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_BASE_IMAGE_TAG" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_BASE_IMAGE_TAG">Base Image Tag</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_BASE_IMAGE_TAG" placeholder="e.g., 245-6.12.0-V49-HF-001-al">
+                  <small style="display: block; color: #666;">Get from 'List BWCE Versions' output</small>
+                </div>
+              </div>
+
             </div>
             <div class="col-sm-6">
               <div class="row">
-                <div class="col-sm-3"><label for="cliAutoCase">Automation Case</label></div>
+                <div class="col-sm-3">
+                  <label>
+                    <input type="checkbox" id="advancedModeToggle">
+                    <span>Advanced Mode</span>
+                  </label>
+                </div>
                 <div class="col-sm-9">
+                  <small>
+                    <i class="fas fa-info-circle"></i> Enable to show all individual CLI commands (list-versions, provision-version, create-build, deploy-app). Disable to show only all-in-one methods.
+                  </small>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-sm-3"><label for="cliAutoCase">Automation Case</label></div>
+                <div class="col-sm-6">
                   <select id="cliAutoCase">
                     <option>--Select Case--</option>
-                    <optgroup label="TIBCO Platform Commands">
+                    <optgroup label="Kubectl Commands" class="advanced-optgroup">
+                      <option value="kubectl:list-cluster-resources">kubectl:list-cluster-resources</option>
+                    </optgroup>
+                    <optgroup label="Platform Commands">
                       <option value="tplatform:list-dataplanes">tplatform:list-dataplanes</option>
                       <option value="tplatform:register-k8s-dataplane">tplatform:register-k8s-dataplane</option>
+                      <option value="tplatform:register-control-tower-dataplane">tplatform:register-control-tower-dataplane</option>
                       <option value="tplatform:unregister-dataplane">tplatform:unregister-dataplane</option>
                     </optgroup>
+                    <optgroup label="Resource Management">
+                      <option value="tplatform:list-resource-instances">tplatform:list-resource-instances</option>
+                      <option value="create-storage-resource">create-storage-resource</option>
+                      <option value="create-ingress-resource">create-ingress-resource</option>
+                      <option value="create-activation-server">create-activation-server</option>
+                      <option value="delete-resource-instance">delete-resource-instance</option>
+                    </optgroup>
+                    <optgroup label="Capability Management">
+                      <option value="tplatform:list-capabilities">tplatform:list-capabilities</option>
+                      <option value="provision-capability">provision-capability</option>
+                      <option value="delete-capability-instance">delete-capability-instance</option>
+                    </optgroup>
+                    <optgroup label="App Management">
+                      <option value="tplatform:list-apps">tplatform:list-apps</option>
+                      <option value="delete-app">delete-app</option>
+                      <option value="bwce-build-and-deploy" class="simple-mode-option">bwce-build-and-deploy (All Steps)</option>
+                      <option value="flogo-build-and-deploy" class="simple-mode-option">flogo-build-and-deploy (All Steps)</option>
+                      <option value="bw5ce-build-and-deploy" class="simple-mode-option">bw5ce-build-and-deploy (All Steps)</option>
+                    </optgroup>
+                    <optgroup label="BWCE Management" class="advanced-optgroup">
+                      <option value="bwce:list-versions">bwce:list-versions</option>
+                      <option value="bwce:provision-version">bwce:provision-version</option>
+                      <option value="bwce:create-build">bwce:create-build</option>
+                      <option value="bwce:deploy-app">bwce:deploy-app</option>
+                      <option value="bwce-build-and-deploy">bwce-build-and-deploy (All Steps)</option>
+                    </optgroup>
+                    <optgroup label="Flogo Management" class="advanced-optgroup">
+                      <option value="flogo:list-versions">flogo:list-versions</option>
+                      <option value="flogo:provision-version">flogo:provision-version</option>
+                      <option value="flogo:create-build">flogo:create-build</option>
+                      <option value="flogo:deploy-app">flogo:deploy-app</option>
+                      <option value="flogo-build-and-deploy">flogo-build-and-deploy (All Steps)</option>
+                    </optgroup>
+                    <optgroup label="BW5CE Management" class="advanced-optgroup">
+                      <option value="bw5ce:list-versions">bw5ce:list-versions</option>
+                      <option value="bw5ce:provision-version">bw5ce:provision-version</option>
+                      <option value="bw5ce:create-build">bw5ce:create-build</option>
+                      <option value="bw5ce:deploy-app">bw5ce:deploy-app</option>
+                      <option value="bw5ce-build-and-deploy">bw5ce-build-and-deploy (All Steps)</option>
+                    </optgroup>
                   </select>
+                </div>
+                <div class="col-sm-3">
                 </div>
               </div>
 
@@ -325,27 +521,273 @@
                 <div class="col-sm-9"><textarea type="text" id="TIBCOP_CLI_OTHER_ARGS"></textarea></div>
               </div>
 
+              <div class="row TIBCOP_CLI_FQDN" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_FQDN">FQDN</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_FQDN" placeholder="e.g., myapp.example.com">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_CAPABILITIES" style="display: none;">
+                <div class="col-sm-3"><label>Capabilities to Provision</label></div>
+                <div class="col-sm-9">
+                  <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center;">
+                      <input type="checkbox" id="capability_bwce" value="BWCE">
+                      <span style="margin-left: 5px;">BWCE</span>
+                    </label>
+                    <label style="display: flex; align-items: center;">
+                      <input type="checkbox" id="capability_bw5ce" value="BW5CE">
+                      <span style="margin-left: 5px;">BW5CE</span>
+                    </label>
+                    <label style="display: flex; align-items: center;">
+                      <input type="checkbox" id="capability_flogo" value="FLOGO">
+                      <span style="margin-left: 5px;">Flogo</span>
+                    </label>
+                    <label style="display: flex; align-items: center;">
+                      <input type="checkbox" id="capability_devhub" value="DEVHUB">
+                      <span style="margin-left: 5px;">Devhub</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_STORAGE_RESOURCE_ID" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_STORAGE_RESOURCE_ID">Storage Resource ID<span>(Optional)</span></label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_STORAGE_RESOURCE_ID" placeholder="Leave empty to auto-create" title="Will auto-create storage resource if not provided">
+                  <small style="display: block; color: #666;">Leave empty to auto-create {capability}-{storageclass}-storage</small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_INGRESS_RESOURCE_ID" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_INGRESS_RESOURCE_ID">Ingress Resource ID<span>(Optional)</span></label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_INGRESS_RESOURCE_ID" placeholder="Leave empty to auto-create" title="Will auto-create ingress resource if not provided">
+                  <small style="display: block; color: #666;">Leave empty to auto-create {capability}-{ingresscontroller}-ingress</small>
+                </div>
+              </div>
+
+
+              <div class="row TIBCOP_CLI_DEVHUB_NAME" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_DEVHUB_NAME">Developer Hub Name</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_DEVHUB_NAME" placeholder="e.g., my-devhub">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_K8S_SECRET" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_K8S_SECRET">Kubernetes Secret Object</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_K8S_SECRET" placeholder="">
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_DEPLOY_CONFIG_FILE" style="display: none;">
+                <div class="col-sm-12" style="margin-top: 15px;">
+                  <label for="TIBCOP_CLI_DEPLOY_CONFIG_FILE" style="font-weight: 600; margin-bottom: 8px; display: block;">Deploy Config File</label>
+                  <textarea id="TIBCOP_CLI_DEPLOY_CONFIG_FILE" rows="15" class="json-editor"></textarea>
+                  <small style="display: block; color: #666; margin-top: 5px;">
+                    <i class="fas fa-info-circle"></i> Edit the JSON configuration - changes will be saved to <code>upload/bwce-payload.json</code> when you run the command
+                  </small>
+                </div>
+              </div>
+
             </div>
           </div>
 
           <div class="row">
             <div class="col-sm-6">
               <div class="row">
-                <div class="col-sm-3">
-                  <label for="SAVE_CLI_SETTING" title="Uncheck, then check again to save settings.">
-                    <input type="checkbox" id="SAVE_CLI_SETTING" onclick="saveCliSetting(this)">Save Setting
-                  </label>
-                </div>
+                <div class="col-sm-3"></div>
                 <div class="col-sm-9">
-                  <button type="button" class="runBtn primary" onclick="runCliScript(this)">Run</button>
-                  <button type="button" class="stopBtn secondary" onclick="stopScript(this)" disabled>Stop</button>
+                  <button type="button" class="runBtn primary" onclick="runCliScript(this)">
+                    <i class="fas fa-play"></i> Run Command
+                  </button>
+                  <button type="button" class="stopBtn secondary" onclick="stopScript(this)" disabled>
+                    <i class="fas fa-stop"></i> Stop
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </fieldset>
+
+        <!-- Progress Indicator -->
+        <div class="progress-container" id="cli-progress">
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+          <div class="progress-text">Running CLI command...</div>
+        </div>
+
         <pre class="logs language-log"><code class="output"></code></pre>
       </form>
+    </div>
+
+    <div id="tab3" class="tab-content">
+      <div class="about-header">
+        <h2><i class="fas fa-info-circle"></i> Platform Automation Hub</h2>
+        <p class="about-tagline">Comprehensive automation platform for platform provisioning, configuration, deployment, and lifecycle management.</p>
+        <a href="https://github.com/TIBCOSoftware/platform-provisioner/tree/main/docs/recipes/automation/tp-setup/bootstrap/DESCRIPTION.md"
+           target="_blank" class="doc-link">
+          <i class="fas fa-book"></i> Full Documentation
+        </a>
+      </div>
+
+      <div class="about-grid">
+        <div class="about-card">
+          <div class="about-card-header">
+            <i class="fas fa-cloud"></i>
+            <h3>DataPlane Management</h3>
+          </div>
+          <ul>
+            <li>Create & configure Kubernetes DataPlanes</li>
+            <li>Control Tower (BMDP) deployment</li>
+            <li>Automated helm chart execution</li>
+            <li>Lifecycle management (create, update, delete)</li>
+          </ul>
+        </div>
+
+        <div class="about-card">
+          <div class="about-card-header">
+            <i class="fas fa-chart-line"></i>
+            <h3>Observability</h3>
+          </div>
+          <ul>
+            <li>Global observability setup (Logs, Metrics, Traces)</li>
+            <li>DataPlane-level configuration</li>
+            <li>Widget dashboard integration</li>
+            <li>Business Activities monitoring</li>
+            <li>In-Product activation support</li>
+          </ul>
+        </div>
+
+        <div class="about-card">
+          <div class="about-card-header">
+            <i class="fas fa-rocket"></i>
+            <h3>Capability Provisioning</h3>
+          </div>
+          <ul>
+            <li>BWCE / BW5CE (BusinessWorks)</li>
+            <li>Flogo (Lightweight microservices)</li>
+            <li>EMS (Enterprise Message Service)</li>
+            <li>Pulsar, Hub, and more</li>
+          </ul>
+        </div>
+
+        <div class="about-card">
+          <div class="about-card-header">
+            <i class="fas fa-cube"></i>
+            <h3>Application Deployment</h3>
+          </div>
+          <ul>
+            <li>Build & deploy BWCE/BW5CE/Flogo apps</li>
+            <li>Upload custom or use default app files</li>
+            <li>Environment configuration & endpoints</li>
+            <li>Automated testing with Swagger API</li>
+          </ul>
+        </div>
+
+        <div class="about-card">
+          <div class="about-card-header">
+            <i class="fas fa-user-shield"></i>
+            <h3>User Management</h3>
+          </div>
+          <ul>
+            <li>Automated user activation</li>
+            <li>Subscription creation</li>
+            <li>OAuth token generation</li>
+            <li>Permission assignment</li>
+          </ul>
+        </div>
+
+        <div class="about-card">
+          <div class="about-card-header">
+            <i class="fas fa-terminal"></i>
+            <h3>CLI Integration</h3>
+          </div>
+          <ul>
+            <li>DataPlane ops (list/register K8s & Control Tower/unregister)</li>
+            <li>Resource management (Storage/Ingress/Activation Server)</li>
+            <li>Capability provisioning with auto-resource creation</li>
+            <li>App lifecycle (list/build/deploy/delete)</li>
+            <li>Advanced Mode for granular control</li>
+            <li>One-click save to localStorage</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="about-benefits">
+        <h3><i class="fas fa-star"></i> Key Benefits</h3>
+        <div class="benefits-grid">
+          <div class="benefit-item">
+            <i class="fas fa-bolt"></i>
+            <div>
+              <strong>Save Time</strong>
+              <p>Transform hours of manual work into minutes</p>
+            </div>
+          </div>
+          <div class="benefit-item">
+            <i class="fas fa-check-circle"></i>
+            <div>
+              <strong>Reduce Errors</strong>
+              <p>Consistent, automated workflows</p>
+            </div>
+          </div>
+          <div class="benefit-item">
+            <i class="fas fa-sync-alt"></i>
+            <div>
+              <strong>Repeatable</strong>
+              <p>Use across dev, test, and production</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="about-features">
+        <h3><i class="fas fa-tools"></i> Advanced Features</h3>
+        <div class="features-list">
+          <div class="feature-item">
+            <i class="fas fa-robot"></i>
+            <span><strong>Intelligent Automation:</strong> Conditional field display, auto-population, multi-window support, Advanced Mode CLI workflows</span>
+          </div>
+          <div class="feature-item">
+            <i class="fas fa-bug"></i>
+            <span><strong>Debugging:</strong> Step-by-step logging, screenshot capture, Playwright trace recording</span>
+          </div>
+          <div class="feature-item">
+            <i class="fas fa-code-branch"></i>
+            <span><strong>Version Compatibility:</strong> CP 1.3, 1.4, 1.5, 1.6, 1.7+ support</span>
+          </div>
+          <div class="feature-item">
+            <i class="fas fa-server"></i>
+            <span><strong>Environment Flexibility:</strong> Custom KUBECONFIG, local/container deployment, cloud connectivity</span>
+          </div>
+          <div class="feature-item">
+            <i class="fas fa-layer-group"></i>
+            <span><strong>CLI Architecture:</strong> Object-oriented CLI wrapper with facade pattern, automatic resource creation, JSON payload editors</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="about-quickstart">
+        <h3><i class="fas fa-play-circle"></i> Quick Start</h3>
+        <ol>
+          <li>
+            <strong>Select your task</strong> from the GUI Automation or CLI Commands tab
+          </li>
+          <li>
+            <strong>Configure environment</strong> variables as needed (most have smart defaults)
+          </li>
+          <li>
+            <strong>Click "Run Automation"</strong> and monitor real-time progress
+          </li>
+          <li>
+            <strong>Review results</strong> with console output, screenshots, and traces
+          </li>
+        </ol>
+      </div>
     </div>
   </div>
 

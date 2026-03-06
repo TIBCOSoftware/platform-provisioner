@@ -47,32 +47,39 @@ uv sync
 uv run playwright install
 ```
 
-## One-Click Setup CP GUI - Supported Features
+## Platform Automation Hub - GUI Features
 
-| Category                                    | Supported Features                                                                                                                                                                                                                                                                                                |
-|:--------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Display Current Environment Information** | ✅ Show Control Plane `platform-bootstrap` version<br>✅ Show Control Plane `platform-base` version<br>✅ Display Mail Server URL<br>✅ Display CP Admin Server URL, Admin Email, and Password<br>✅ Display CP Server URL, User Email, and Password<br>✅ Display Elastic, Kibana, and Prometheus URLs and Credentials |
-| **Create a OAuth Token**                    | ✅ Support for creating OAuth Token and saving it to kubernetes secret.<br>✅ If the token only exists in the Kubernetes Secret or only in the UI, it will be deleted and a new one will be created. The token must exist in both places at the same time.                                                          |
-| **Create a New Subscription**               | ✅ Provision a new subscription using the User Email by an Admin<br>✅ Activate the user via the `maildev` server<br>✅ Set the user's password and complete the login process                                                                                                                                       |
-| **Configure Observability Widget**          | ✅ Automatically add widget cards for Kubernetes or Control Tower                                                                                                                                                                                                                                                  |
-| **Configure Global Observability**          | ✅ Automatically create global Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces<br>✅ Support for config activation url                                                                                                                                                     |
-| **Create K8S DataPlane**                    | ✅ Create the specified DataPlane<br>✅ Run `create dp` command                                                                                                                                                                                                                                                     |
-| **Configure DataPlane Observability**       | ✅ Automatically create DataPlane-level Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces<br>✅ Support for config activation url                                                                                                                                            |
-| **Delete DataPlane**                        | ✅ Delete the specified DataPlane<br>✅ Run `delete dp` command                                                                                                                                                                                                                                                     |
-| **Provision Capabilities**                  | ✅ Provision BW6(BWCE) / BW5 / EMS / Flogo / Pulsar / TibcoHub                                                                                                                                                                                                                                                     |
-| **Create and Start Applications**           | ✅ Create a BW6(BWCE)/BW5/Flogo application with a default file<br>✅ Upload a specified BW6(BWCE)/BW5/Flogo app file<br>✅ Set up application environment variables<br>✅ Configure app endpoint visibility to public<br>✅ Start the application<br>✅ Test application via Swagger API                               |
-| **Delete Applications**                     | ✅ Delete the specified application by name                                                                                                                                                                                                                                                                        |
-| **DataPlane(Control Tower)**                | ✅ Create Control Tower Data Plane<br> ✅ Config Control Tower DataPlane O11y<br>✅ Deploy BW5 domain(Include rvdm, emsdm, bw6dm, emsserver)<br>✅ Register BW5 domain<br>✅ Delete Control Tower Data Plane<br>✅ Delete BW5 domain(Include rvdm, emsdm, bw6dm, emsserver)                                             |
-## One-Click Setup CP CLI - Supported Features
+| Category                                    | Supported Features                                                                                                                                                                                                                                                                                                                                  |
+|:--------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Display Current Environment Information** | ✅ Show Control Plane `platform-bootstrap` version<br>✅ Show Control Plane `platform-base` version<br>✅ Display Mail Server URL<br>✅ Display CP Admin Server URL, Admin Email, and Password<br>✅ Display CP Server URL, User Email, and Password<br>✅ Display Elastic, Kibana, and Prometheus URLs and Credentials                                   |
+| **Create a OAuth Token**                    | ✅ Support for creating OAuth Token and saving it to kubernetes secret.<br>✅ If the token only exists in the Kubernetes Secret or only in the UI, it will be deleted and a new one will be created. The token must exist in both places at the same time.                                                                                            |
+| **Create a New Subscription**               | ✅ Provision a new subscription using the User Email by an Admin<br>✅ Activate the user via the `maildev` server<br>✅ Set the user's password and complete the login process                                                                                                                                                                         |
+| **Configure Observability Widget**          | ✅ Automatically add widget cards for Kubernetes or Control Tower                                                                                                                                                                                                                                                                                    |
+| **Configure Global Observability**          | ✅ Automatically create global Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces<br>✅ Support for config activation url                                                                                                                                                                                       |
+| **Create K8S DataPlane**                    | ✅ Create the specified DataPlane<br>✅ Run `create dp` command                                                                                                                                                                                                                                                                                       |
+| **Configure DataPlane Observability**       | ✅ Automatically create DataPlane-level Logs, Metrics, and Traces<br>✅ Support using system configuration for Metrics and Traces<br>✅ Support for config activation url                                                                                                                                                                              |
+| **Delete DataPlane**                        | ✅ Delete the specified DataPlane<br>✅ Run `delete dp` command                                                                                                                                                                                                                                                                                       |
+| **Provision Capabilities**                  | ✅ Provision BW6(BWCE) / BW5 / EMS / Flogo / Pulsar / TibcoHub                                                                                                                                                                                                                                                                                       |
+| **Create and Start Applications**           | ✅ Create a BW6(BWCE)/BW5/Flogo application with a default file<br>✅ Upload a specified BW6(BWCE)/BW5/Flogo app file<br>✅ Set up application environment variables<br>✅ Configure app endpoint visibility to public<br>✅ Start the application<br>✅ Test application via Swagger API                                                                 |
+| **Delete Applications**                     | ✅ Delete the specified application by name                                                                                                                                                                                                                                                                                                          |
+| **DataPlane(Control Tower)**                | ✅ Create Control Tower Data Plane<br> ✅ Config Control Tower DataPlane O11y<br>✅ Deploy BW5 domain(Include rvdm, emsdm, bw6dm, emsserver)<br>✅ Auto-prefill activation server fields when selecting "Deploy BW5 domain"<br>✅ Register BW5 domain<br>✅ Delete Control Tower Data Plane<br>✅ Delete BW5 domain(Include rvdm, emsdm, bw6dm, emsserver) |
+| **API Integration**                         | ✅ `/cp_api` endpoint for calling CP API directly from UI<br>✅ Supports GET, POST, DELETE methods<br>✅ Auto-handles authentication with Bearer token<br>✅ Parameters: `api_path` (e.g., `/cp/v1/dataplanes`), `api_method`, `api_data`                                                                                                               |
+## Platform Automation Hub - CLI Features
 
-| Category                    | Supported Features                                            |
-|:----------------------------|:--------------------------------------------------------------|
-| **List Current DataPlanes** | ✅ Show Current dataplane information(name, id, status)        |
-| **Create K8S DataPlane**    | ✅ Create the specified DataPlane<br>✅ Run `create dp` command |
-| **Delete DataPlane**        | ✅ Delete the specified DataPlane<br>✅ Run `delete dp` command |
+The CLI features are powered by the modular `cli_object/` architecture, providing comprehensive automation capabilities via the `tibcop` CLI since version **1.8.1-auto-on-prem-jammy**.
 
+| Category                     | Supported Features                                                                                                                                                                                              |
+|:-----------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **DataPlane Management**     | ✅ List all DataPlanes (name, id, status)<br>✅ Register K8S DataPlane<br>✅ Unregister/Delete DataPlane<br>✅ Register Control Tower DataPlane (CTDP)                                                              |
+| **Resource Management**      | ✅ List resource instances<br>✅ Create Storage resource<br>✅ Create Ingress resource<br>✅ Create Activation Server resource<br>✅ Delete resource instance                                                        |
+| **Capability Management**    | ✅ List capabilities<br>✅ Provision capabilities (BWCE, Flogo, BW5CE, EMS, Pulsar, TibcoHub)                                                                                                                      |
+| **Application Management**   | ✅ List applications<br>✅ Delete application by name                                                                                                                                                             |
+| **BWCE Operations**          | ✅ List BWCE versions<br>✅ Provision BWCE version<br>✅ Create BWCE build<br>✅ Deploy BWCE application<br>✅ Build and deploy BWCE app (all-in-one)                                                                 |
+| **Flogo Operations**         | ✅ List Flogo versions<br>✅ Provision Flogo version<br>✅ Create Flogo build<br>✅ Deploy Flogo application<br>✅ Build and deploy Flogo app (all-in-one)                                                           |
+| **BW5CE Operations**         | ✅ List BW5CE versions<br>✅ Provision BW5CE version<br>✅ Create BW5CE build<br>✅ Deploy BW5CE application<br>✅ Build and deploy BW5CE app (all-in-one)                                                           |
+| **CP REST API**              | ✅ Call Control Plane REST API directly<br>✅ Supports GET, POST, DELETE methods<br>✅ Auto-handles authentication with Bearer token                                                                              |
 
-## One-Click Setup of the Control Plane
+## Platform Automation Hub
 ### 1. Run from Source Code
 
 * Support for setting the KUBECONFIG path.
@@ -110,9 +117,9 @@ export TP_AUTO_KUBECONFIG=~/.kube/ins-{GCP_IP}.yaml
 python -m waitress --host=127.0.0.1 --port=3120 server:app
 open http://127.0.0.1:3120/
 ```
-### 2. Access the One-Click Setup of the CP System Server installed along with CP
+### 2. Access the Platform Automation Hub installed along with CP
 
-* [One-Click Setup of the CP System Server](https://automation.localhost.dataplanes.pro/)
+* [Platform Automation Hub](https://automation.localhost.dataplanes.pro/)
 * No configuration is required. You can access the URL directly.
 * Does not support for setting the KUBECONFIG path.
 
@@ -236,7 +243,7 @@ python page_dp.py
      4. Run CP installation command.
 2. If you want to use a different **KUBECONFIG** path for the automation task UI
    * Must run it from source code mode, then UI will share the same environment as your local settings.
-   * Follow the step: [One-Click Setup of the Control Plane](#One-Click-Setup-of-the-Control-Plane)
+   * Follow the step: [Platform Automation Hub](#Platform-Automation-Hub)
 3. Within customized **KUBECONFIG** path, if `Mail Server URL` can not be accessed.
    * port forwarding the `maildev` pod to your local machine.
    * put `http://localhost:YOUR_FORWARD_PORT` in the `Mail Server URL` field.

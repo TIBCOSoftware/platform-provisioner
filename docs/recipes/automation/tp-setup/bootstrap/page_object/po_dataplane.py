@@ -352,6 +352,7 @@ class PageObjectDataPlane(PageObjectGlobal):
             self.page.fill("#data-plane-name-text-input", dp_name)
             print(f"Input Data Plane Name: {dp_name}")
             self.page.fill("#data-plane-machine-host-name-text-input", ENV.TP_AUTO_FQDN_BMDP)
+            print(f"Input Machine Host Name: {ENV.TP_AUTO_FQDN_BMDP}")
             self.page.locator('label[for="terms-checkbox"]').click()
             self.page.locator(".pl-button.pl-button--no-border.big-button.big-button-secondary").click()
             print("Clicked Advanced Configuration button. Go with Advanced Configuration")
@@ -394,7 +395,7 @@ class PageObjectDataPlane(PageObjectGlobal):
                 print(f"Selected Ingress Controller: {select_ingress_controller}")
 
         self.page.fill("#ingress-resource-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER)
-        print(f"Input Ingress Description: ${ENV.TP_AUTO_INGRESS_CONTROLLER}")
+        print(f"Input Ingress Resource Name: {ENV.TP_AUTO_INGRESS_CONTROLLER}")
         self.page.fill("#ingress-class-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME)
         print(f"Input Ingress Class Name: {ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME}")
         self.page.fill("#ingress-fqdn-text-input", ENV.TP_AUTO_FQDN_BMDP)

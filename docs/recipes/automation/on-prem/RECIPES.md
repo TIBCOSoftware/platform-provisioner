@@ -147,13 +147,13 @@ The recipe deploys multiple Helm charts to install a complete Control Plane with
 The recipe provides extensive configuration options via environment variables:
 
 **Chart Versions** (lines 34-41):
-- `GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION`: Core platform version (default: 1.14.0)
-- `GUI_CP_PLATFORM_INTEGRATION_BW_VERSION`: BusinessWorks version (default: 1.14.0)
-- `GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION`: Flogo version (default: 1.14.0)
-- `GUI_CP_PLATFORM_TIBCOHUB_VERSION`: DevHub version (default: 1.14.0)
-- `GUI_CP_PLATFORM_MESSAGING_VERSION`: Messaging version (default: 1.13.15)
-- `GUI_CP_PLATFORM_HAWK_VERSION`: Hawk version (default: 1.14.4)
-- `GUI_CP_PLATFORM_EVENTPROCESSING_VERSION`: Event processing version (default: 1.12.0)
+- `GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION`: Core platform version (default: 1.15.0)
+- `GUI_CP_PLATFORM_INTEGRATION_BW_VERSION`: BusinessWorks version (default: 1.15.0)
+- `GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION`: Flogo version (default: 1.15.0)
+- `GUI_CP_PLATFORM_TIBCOHUB_VERSION`: DevHub version (default: 1.15.0)
+- `GUI_CP_PLATFORM_MESSAGING_VERSION`: Messaging version (default: 1.15.31)
+- `GUI_CP_PLATFORM_HAWK_VERSION`: Hawk version (default: 1.15.31)
+- `GUI_CP_PLATFORM_EVENTPROCESSING_VERSION`: Event processing version (default: 1.15.0)
 - `GUI_CP_PLATFORM_AI_AGENT_VERSION`: AI Agent version (default: ~1.14.0-0)
 
 **Control Plane Instance** (lines 44-52):

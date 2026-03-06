@@ -1,0 +1,39 @@
+{
+    "appName": "rest-flogo-1",
+    "appDescription": "created via cli",
+    "appId": "",
+    "buildId": "4470ba11301c4993ac9b1b32ac0f46db",
+    "enableAutoscaling": false,
+    "enableServiceMesh": false,
+    "eula": true,
+    "replicas": 1,
+    "systemProperties": [
+        {
+            "description": "set the log level for Flogo",
+            "label": "log",
+            "name": "FLOGO_LOG_LEVEL",
+            "type": "string",
+            "value": "ERROR"
+        },
+        {
+            "description": "enable or disable otel metrics, default is false",
+            "label": "o11y",
+            "name": "FLOGO_OTEL_TRACE",
+            "type": "boolean",
+            "value": "true"
+        }
+    ],
+    "resourceLimits": {
+        "limits": {
+            "cpu": "500m",
+            "memory": "1Gi"
+        },
+        "requests": {
+            "cpu": "150m",
+            "memory": "256Mi"
+        }
+    },
+    "tags": [
+        "cli-created"
+    ]
+}
