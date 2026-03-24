@@ -1,5 +1,21 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
+import json
+import re
 import subprocess
 import sys
 import os
@@ -226,7 +242,7 @@ def run_cli_script():
         "delete-app": lambda: cli_handler.app.delete_app(dp_name, capability_id, app_id, other_args=other_args),
         "provision-capability": lambda: cli_handler.capability.provision_capability(
             dp_name, capability_id, storage_resource_id, ingress_resource_id,
-            None, devhub_name, k8s_secret, False, other_args
+            None, devhub_name, k8s_secret, other_args
         ),
         "delete-capability-instance": lambda: cli_handler.capability.delete_capability_instance(
             dp_name, capability_id, other_args
@@ -310,6 +326,40 @@ def get_env():
         with open(version_file, "r") as f:
             version = f.read().strip()
         env_dict["TP_AUTOMATION_TASK_RELEASE_VERSION"] = version
+    # Re-detect CP DNS domain dynamically if the cached ENV value is the hardcoded default.
+    # This handles the case where Helper.get_cp_dns_domain() returned empty at server startup
+    # (e.g., k8s ingress not ready yet) and the default "localhost.dataplanes.pro" was cached.
+
+    cp_dns_domain = env_dict.get("TP_AUTO_CP_DNS_DOMAIN", "")
+    if not cp_dns_domain or cp_dns_domain == "localhost.dataplanes.pro":
+        detected = Helper.get_cp_dns_domain()
+        # Fallback: extract domain from request host (e.g., automation.dev.localhost -> dev.localhost)
+        if not detected:
+            request_host = request.host.split(':')[0]
+            parts = request_host.split('.', 1)
+            if len(parts) == 2 and parts[0] == 'automation':
+                detected = parts[1]
+        if detected:
+            cp_dns_domain = detected
+            cp_instance_id = env_dict.get("TP_AUTO_CP_INSTANCE_ID", "cp1")
+            dp_host_prefix = env_dict.get("DP_HOST_PREFIX", "cp-sub1")
+            service_dns = f"{cp_instance_id}-my.{cp_dns_domain}"
+            env_dict["TP_AUTO_CP_DNS_DOMAIN"] = cp_dns_domain
+            env_dict["TP_AUTO_CP_SERVICE_DNS_DOMAIN"] = service_dns
+            env_dict["TP_AUTO_LOGIN_URL"] = f"https://{dp_host_prefix}.{service_dns}/cp/login"
+            env_dict["TP_AUTO_ADMIN_URL"] = f"https://admin.{service_dns}/admin"
+            env_dict["TP_AUTO_MAIL_URL"] = f"https://mail.{cp_dns_domain}/#/"
+            # Update capability FQDNs
+            for prefix_key, fqdn_key in [
+                ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE", "TP_AUTO_FQDN_BWCE"),
+                ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE", "TP_AUTO_FQDN_BW5CE"),
+                ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO", "TP_AUTO_FQDN_FLOGO"),
+                ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB", "TP_AUTO_FQDN_TIBCOHUB"),
+            ]:
+                prefix = env_dict.get(prefix_key, "")
+                if prefix:
+                    env_dict[fqdn_key] = f"{prefix}.{cp_dns_domain}"
+
     # Add CLI default values (only if not already set in environment)
     # Priority: 1) Environment variable, 2) k8s secret/TP_AUTO_LOGIN_URL fallback
     if not env_vars.get("TIBCOP_CLI_OAUTH_TOKEN"):
@@ -322,11 +372,8 @@ def get_env():
             print(f"[WARN] Failed to get auto token: {e}")
 
     if not env_vars.get("TIBCOP_CLI_CPURL"):
-        # Extract domain from TP_AUTO_LOGIN_URL for TIBCOP_CLI_CPURL as fallback
         cp_url = env_dict.get("TP_AUTO_LOGIN_URL", "")
         if cp_url:
-            # Extract protocol and domain (e.g., "https://cp.example.com/path" -> "https://cp.example.com")
-            import re
             match = re.match(r'^(https?://[^/]+)', cp_url)
             if match:
                 env_dict["TIBCOP_CLI_CPURL"] = match.group(1)
@@ -401,7 +448,7 @@ def save_bwce_payload():
 
         # Validate JSON format
         try:
-            import json
+
             json.loads(config_content)
         except json.JSONDecodeError as e:
             return jsonify({'success': False, 'message': f'Invalid JSON: {str(e)}'}), 400
@@ -437,7 +484,7 @@ def save_flogo_payload():
 
         # Validate JSON format
         try:
-            import json
+
             json.loads(config_content)
         except json.JSONDecodeError as e:
             return jsonify({'success': False, 'message': f'Invalid JSON: {str(e)}'}), 400
@@ -473,7 +520,7 @@ def save_bw5ce_payload():
 
         # Validate JSON format
         try:
-            import json
+
             json.loads(config_content)
         except json.JSONDecodeError as e:
             return jsonify({'success': False, 'message': f'Invalid JSON: {str(e)}'}), 400

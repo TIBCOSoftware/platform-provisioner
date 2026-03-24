@@ -1,4 +1,18 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import socket
 import os
@@ -70,13 +84,16 @@ class EnvConfig:
     TP_AUTO_K8S_DP_NAME = os.environ.get("TP_AUTO_K8S_DP_NAME") or "k8s-auto-dp1"
     TP_AUTO_K8S_DP_NAMESPACE = os.environ.get("TP_AUTO_K8S_DP_NAMESPACE") or f"{TP_AUTO_K8S_DP_NAME}ns"
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_DP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_DP_NAME}sa"
-    TIBCOP_CLI_DP_NAME = os.environ.get("TIBCOP_CLI_DP_NAME") or "k8s-cli-dp1"
+    TIBCOP_CLI_DP_NAME = os.environ.get("TIBCOP_CLI_DP_NAME") or "k8s-auto-dp1"
     TIBCOP_CLI_DP_NAMESPACE = os.environ.get("TIBCOP_CLI_DP_NAMESPACE") or f"{TIBCOP_CLI_DP_NAME}ns"
     TIBCOP_CLI_DP_SERVICE_ACCOUNT = os.environ.get("TIBCOP_CLI_DP_SERVICE_ACCOUNT") or f"{TIBCOP_CLI_DP_NAME}sa"
 
     # activation sever file
     TP_ACTIVATION_ZIP_FILE_BASE64 = os.environ.get("TP_ACTIVATION_ZIP_FILE_BASE64") or ""
     TP_ACTIVATION_FILENAME = "license-file.bin"
+
+    # self-signed certificate
+    TP_IS_CERT_SELF_SIGNED = os.environ.get("TP_IS_CERT_SELF_SIGNED", "false").lower() == "true"
 
     # activation url
     TP_ACTIVATION_SERVER_IP = os.environ.get("TP_ACTIVATION_SERVER_IP") or ""

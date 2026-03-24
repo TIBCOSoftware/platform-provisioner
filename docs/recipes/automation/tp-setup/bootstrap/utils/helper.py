@@ -1,4 +1,18 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 import base64
 import subprocess
 import os
@@ -117,7 +131,7 @@ class Helper:
 
     @staticmethod
     def get_cp_dns_domain():
-        return Helper.get_command_output("kubectl get ingress -A | awk '$2 == \"router\" {print $4; exit}' | sed -E 's/^\\*?\\.//' | cut -d. -f2-", is_print_error=False)
+        return Helper.get_command_output("helm get values platform-base -n cp1-ns -o json 2>/dev/null | jq -r '.global.external.dnsDomain // empty' | cut -d. -f2-", is_print_error=False)
 
     @staticmethod
     def get_elastic_password():

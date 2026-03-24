@@ -1,4 +1,18 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 """
 CP REST API module.
 
@@ -119,8 +133,9 @@ class TibcopAPI:
         if headers:
             all_headers.update(headers)
 
-        # Build curl command
-        curl_cmd = f'curl -s -X {method} "{api_url}"'
+        # Build curl command (-k for self-signed certificates)
+        insecure_flag = '-k ' if ENV.TP_IS_CERT_SELF_SIGNED else ''
+        curl_cmd = f'curl -s {insecure_flag}-X {method} "{api_url}"'
 
         # Add Content-Type for POST/PUT before building header flags
         if data and method in ['POST', 'PUT']:
@@ -387,7 +402,8 @@ class TibcopAPI:
             # Get token for auth
             token = self.base.CUSTOM_ENV.get('TIBCOP_CLI_OAUTH_TOKEN') or os.environ.get('TIBCOP_CLI_OAUTH_TOKEN')
 
-            curl_cmd = f'curl -s -o /dev/stdout -w "\\n%{{http_code}}" -X {method} "{endpoint_url}" -H "Authorization: Bearer {token}" -H "accept: application/json"'
+            insecure_flag = '-k ' if ENV.TP_IS_CERT_SELF_SIGNED else ''
+            curl_cmd = f'curl -s {insecure_flag}-o /dev/stdout -w "\\n%{{http_code}}" -X {method} "{endpoint_url}" -H "Authorization: Bearer {token}" -H "accept: application/json"'
             if data is not None and method in ['POST', 'PUT']:
                 json_data = json.dumps(data)
                 curl_cmd += f" -H \"Content-Type: application/json\" -d '{json_data}'"

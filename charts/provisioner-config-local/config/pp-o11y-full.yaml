@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 pipelineName: "Deploy O11y Stack"
@@ -44,10 +54,10 @@ groups:
     * OpenSearch is used to store logs and metrics. [link](https://opensearch.org/docs/latest/)
     * OpenSearch Dashboards is used to visualize logs and metrics.
     ---
-- title: "Ingress"
+- title: "Ingress / Gateway"
   index: 7
   description: |
-    ## O11y ingress specific configurations. 
+    ## O11y ingress / gateway specific configurations. 
     * Normally we use localhost.dataplanes.pro or localhost as on-prem domain.
     * The service will be like: https://kibana.localhost.dataplanes.pro/ or http://kibana.localhost/
     ---
@@ -186,7 +196,7 @@ options:
     Requirements: Min 8 chars, uppercase, lowercase, digit, special char (!@#$%^&*()_+-=)
     Example: MyPassw0rd!
 
-# groupIndex: 7 Ingress
+# groupIndex: 7 Ingress / Gateway
 - name: "O11y domain"
   groupIndex: 7
   type: string
@@ -194,14 +204,32 @@ options:
   reference: "meta.guiEnv.GUI_TP_DOMAIN"
   description: |
     The domain for o11y stack.
-- name: "O11y ingress class"
+- name: "O11y ingress / gateway selection"
+  groupIndex: 7
+  type: boolean
+  guiType: radio
+  labels:
+    - "ingress"
+    - "gateway"
+  values:
+    - "ingress"
+    - "gateway"
+  reference: "meta.guiEnv.GUI_TP_O11Y_INGRESS_GATEWAY_SELECTION"
+- name: "O11y ingress / gateway class"
   groupIndex: 7
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_INGRESS_CLASS"
   required: true
   description: |
-    The ingress class name for O11y. Default is nginx, you can use traefik too
+    The ingress class name for O11y. Default is nginx, you can use traefik too and use nginx-gateway for nginx gateway fabric
+- name: "O11y ingress / gateway namespace"
+  groupIndex: 7
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_INGRESS_GATEWAY_NAMESPACE"
+  description: |
+    The ingress gateway namespace. Default is ingress-system
 
 # groupIndex: 8 storage
 - name: "O11y storage class"

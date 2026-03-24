@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import os
 import sys
@@ -64,8 +78,9 @@ async def run_automation_task(case: str, params: Optional[Dict[str, Any]] = None
     # Format parameters for URL
     query_params = urllib.parse.urlencode(request_params)
 
-    # Local flask server URL (using port 3120 as seen in server.py)
-    flask_url = f"https://automation.localhost.dataplanes.pro/run-gui-script?{query_params}"
+    # Local flask server URL - derive domain from TP_AUTO_CP_DNS_DOMAIN env var
+    cp_dns_domain = os.environ.get("TP_AUTO_CP_DNS_DOMAIN", "localhost.dataplanes.pro")
+    flask_url = f"https://automation.{cp_dns_domain}/run-gui-script?{query_params}"
 
     logger.info("Running automation task: %s", case)
     logger.info("API URL: %s", flask_url)

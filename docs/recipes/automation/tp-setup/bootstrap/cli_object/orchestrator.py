@@ -1,4 +1,18 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 """
 Orchestrator module for CLI-based DataPlane deployment.
 
@@ -69,11 +83,14 @@ class TibcopOrchestrator:
         ColorLogger.info("CLI Mode - Step 3: Register K8S DataPlane (CLI)")
         ColorLogger.info("=" * 60)
 
-        self.cli.dataplane.register_k8s_dataplane(
+        result = self.cli.dataplane.register_k8s_dataplane(
             dp_name,
             dp_namespace,
             ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT
         )
+        if result is None:
+            ColorLogger.error(f"DataPlane '{dp_name}' registration failed, aborting remaining steps")
+            return
         ReportYaml.set_dataplane(dp_name)
         ReportYaml.set_dataplane_info(dp_name, "namespace", dp_namespace)
         ReportYaml.set_dataplane_info(dp_name, "serviceAccount", ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT)
@@ -85,8 +102,7 @@ class TibcopOrchestrator:
             ColorLogger.success(f"DataPlane '{dp_name}' already green (from report), skipping wait")
         else:
             if not self.cli.dataplane.wait_for_dataplane_green(dp_name):
-                ColorLogger.error(f"DataPlane '{dp_name}' is not green, aborting remaining steps")
-                return
+                raise RuntimeError(f"DataPlane '{dp_name}' is not green after timeout, aborting")
             ReportYaml.set_dataplane_info(dp_name, "healthStatus", "green")
 
         # Step 4: Create storage resource and collect its ID
@@ -166,12 +182,15 @@ class TibcopOrchestrator:
         ColorLogger.info("CLI Mode - Register Control Tower DataPlane (CLI)")
         ColorLogger.info("=" * 60)
 
-        self.cli.dataplane.register_control_tower_dataplane(
+        result = self.cli.dataplane.register_control_tower_dataplane(
             bmdp_name,
             dp_namespace=namespace,
             dp_service_account_name=service_account,
             fqdn=fqdn
         )
+        if result is None:
+            ColorLogger.error(f"Control Tower DataPlane '{bmdp_name}' registration failed, aborting remaining steps")
+            return
         ReportYaml.set_dataplane(bmdp_name)
         ReportYaml.set_dataplane_info(bmdp_name, "namespace", namespace)
         ReportYaml.set_dataplane_info(bmdp_name, "serviceAccount", service_account)
@@ -183,8 +202,7 @@ class TibcopOrchestrator:
             ColorLogger.success(f"BMDP '{bmdp_name}' already green (from report), skipping wait")
         else:
             if not self.cli.dataplane.wait_for_dataplane_green(bmdp_name):
-                ColorLogger.error(f"BMDP '{bmdp_name}' is not green, skipping domain configuration")
-                return
+                raise RuntimeError(f"BMDP '{bmdp_name}' is not green after timeout, aborting")
             ReportYaml.set_dataplane_info(bmdp_name, "healthStatus", "green")
 
         # Domain configs and O11Y require GUI - invoke callback

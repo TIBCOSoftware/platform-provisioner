@@ -1,4 +1,18 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 from page_object.po_global import PageObjectGlobal
 from utils.color_logger import ColorLogger
@@ -271,6 +285,10 @@ class PageObjectDataPlane(PageObjectGlobal):
         #         page.fill("#password-input", ENV.GITHUB_TOKEN)
         #         print(f"Input Password: {ENV.GITHUB_TOKEN}")
 
+        if ENV.TP_IS_CERT_SELF_SIGNED:
+            self.page.fill("#custom-certificate-secret-name-text-input", "self-signed-cert")
+            print("Input Custom Certificate Secret Name: self-signed-cert")
+
         self.page.click("#data-plane-config-btn")
         print("Clicked Next button, Finish step 3 Configuration")
 
@@ -429,6 +447,10 @@ class PageObjectDataPlane(PageObjectGlobal):
         #         page.fill("#password-input", ENV.GITHUB_TOKEN)
         #         print(f"Input Password: {ENV.GITHUB_TOKEN}")
 
+        if ENV.TP_IS_CERT_SELF_SIGNED:
+            self.page.fill("#custom-certificate-secret-name-text-input", "self-signed-cert")
+            print("Input Custom Certificate Secret Name: self-signed-cert")
+
         self.page.click("#data-plane-preview-next-btn")
         print("Clicked Next button, Finish Configuration")
 
@@ -516,6 +538,26 @@ class PageObjectDataPlane(PageObjectGlobal):
                 with open(file_path, "a", encoding="utf-8") as f:
                     f.write(other_settings)
                     ColorLogger.info(f"Adding additional settings: {other_settings} for {step_name} to {file_name}")
+
+        if ENV.TP_IS_CERT_SELF_SIGNED:
+            with open(file_path, "r", encoding="utf-8") as f:
+                file_content = f.read()
+            if 'helm upgrade' in file_content:
+                modified = False
+                dp_namespace = f"{dp_name}ns"
+                if 'dp-configure-namespace' in file_content:
+                    # Create cert secret before the namespace configuration step
+                    secret_cmd = (
+                        f'kubectl get secret default-certificate -n ingress-system -o jsonpath="{{.data.tls\\.crt}}" | base64 --decode > /tmp/cp-cert.pem\n'
+                        f'kubectl create secret generic self-signed-cert -n {dp_namespace} --from-file=cert=/tmp/cp-cert.pem\n'
+                        f'rm -f /tmp/cp-cert.pem\n'
+                    )
+                    ColorLogger.info("Self-signed certificate detected, inserting cert secret creation...")
+                    file_content = file_content.replace('helm upgrade', secret_cmd + 'helm upgrade', 1)
+                    modified = True
+                if modified:
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(file_content)
 
         print(f"Run command for: {step_name}")
         Helper.run_shell_file(file_path)

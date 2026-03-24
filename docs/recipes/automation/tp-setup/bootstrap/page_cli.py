@@ -1,4 +1,17 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # CLI-based DP deployment orchestrator.
 #
@@ -22,6 +35,7 @@
 #   TIBCOP_CLI_OAUTH_TOKEN         - OAuth token (auto-read from k8s secret if not set)
 
 import os
+import sys
 import threading
 import traceback
 
@@ -244,7 +258,7 @@ def _run_gui_bmdp_config(bmdp_name):
             Util.browser_close()
 
 
-def _run_dp_setup(cli):
+def _run_dp_setup(cli, errors):
     """Thread target: run K8S DataPlane setup."""
     try:
         cli.orchestrator.run_dataplane_setup(
@@ -256,9 +270,10 @@ def _run_dp_setup(cli):
     except Exception as e:
         ColorLogger.error(f"[DP] Setup failed: {e}")
         traceback.print_exc()
+        errors.append(e)
 
 
-def _run_bmdp_setup(cli):
+def _run_bmdp_setup(cli, errors):
     """Thread target: run BMDP (Control Tower) setup."""
     try:
         cli.orchestrator.run_bmdp_setup(
@@ -271,6 +286,7 @@ def _run_bmdp_setup(cli):
     except Exception as e:
         ColorLogger.error(f"[BMDP] Setup failed: {e}")
         traceback.print_exc()
+        errors.append(e)
 
 
 def run():
@@ -317,11 +333,12 @@ def run():
 
     # Phase 2: Create DP and BMDP concurrently
     threads = []
+    errors = []
 
     if ENV.TP_AUTO_IS_CREATE_DP:
         t = threading.Thread(
             target=_run_dp_setup,
-            args=(cli,),
+            args=(cli, errors),
             name="DP-Setup"
         )
         threads.append(t)
@@ -329,7 +346,7 @@ def run():
     if ENV.TP_AUTO_IS_CREATE_BMDP:
         t = threading.Thread(
             target=_run_bmdp_setup,
-            args=(cli,),
+            args=(cli, errors),
             name="BMDP-Setup"
         )
         threads.append(t)
@@ -344,6 +361,12 @@ def run():
 
     # Phase 3: Print environment info
     Util.print_env_info(is_print_auth=False)
+
+    if errors:
+        ColorLogger.error("=" * 60)
+        ColorLogger.error(f"CLI-based DP deployment failed with {len(errors)} error(s)")
+        ColorLogger.error("=" * 60)
+        sys.exit(1)
 
     ColorLogger.info("=" * 60)
     ColorLogger.success("CLI-based DP deployment workflow completed")

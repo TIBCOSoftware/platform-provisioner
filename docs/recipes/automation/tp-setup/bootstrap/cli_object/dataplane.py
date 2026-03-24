@@ -1,4 +1,18 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 """
 DataPlane management module.
 
@@ -15,6 +29,7 @@ import json
 import os
 from utils.color_logger import ColorLogger
 from utils.env import ENV
+from utils.helper import Helper
 from utils.util import Util
 from .base import TibcopBase
 
@@ -135,16 +150,18 @@ class TibcopDataPlane:
         dp_namespace = dp_namespace or f"{dp_name}ns"
         dp_service_account_name = dp_service_account_name or f"{dp_name}sa"
 
+        cert_arg = '--custom-certificate-secret-name self-signed-cert ' if ENV.TP_IS_CERT_SELF_SIGNED else ''
         command = (
             f'{self.base.TIBCOP_CLI_PATH} tplatform:register-k8s-dataplane --onlyPrintScripts '
             f'--name="{dp_name}" '
             f'--namespace="{dp_namespace}" '
             f'--service-account-name="{dp_service_account_name}" '
+            f'{cert_arg}'
             f'{other_args or ""}'
         )
 
         script_path = os.path.join(ENV.TP_AUTO_REPORT_PATH, f"{inspect.currentframe().f_code.co_name}.sh")
-        return self.base.run_command_result_from_file(command, script_path)
+        return self._run_dp_registration_script(command, script_path, dp_namespace)
 
     def register_control_tower_dataplane(self,
                                          dp_name,
@@ -199,6 +216,7 @@ class TibcopDataPlane:
         ingress_resource_description = ingress_resource_description or "ingress for bmdp"
         fqdn = fqdn or ENV.TP_AUTO_FQDN_BMDP
 
+        cert_arg = '--custom-certificate-secret-name self-signed-cert ' if ENV.TP_IS_CERT_SELF_SIGNED else ''
         command = (
             f'{self.base.TIBCOP_CLI_PATH} tplatform:register-control-tower-dataplane --onlyPrintScripts '
             f'--name="{dp_name}" '
@@ -212,11 +230,48 @@ class TibcopDataPlane:
             f'--ingress-class-name="{ingress_class_name}" '
             f'--ingress-resource-description="{ingress_resource_description}" '
             f'--fqdn="{fqdn}" '
+            f'{cert_arg}'
             f'{other_args or ""}'
         )
 
         script_path = os.path.join(ENV.TP_AUTO_REPORT_PATH, f"{inspect.currentframe().f_code.co_name}.sh")
-        return self.base.run_command_result_from_file(command, script_path)
+        return self._run_dp_registration_script(command, script_path, dp_namespace)
+
+    def _run_dp_registration_script(self, command, script_path, dp_namespace):
+        """
+        Run a DP registration command, optionally creating a cert secret for self-signed certs.
+
+        When TP_IS_CERT_SELF_SIGNED is true, inserts a kubectl command to create the
+        certificate secret before the first helm upgrade command. The helm --set for
+        cpCertificateSecret is handled by the CLI via --custom-certificate-secret-name flag.
+
+        Args:
+            command: The tibcop CLI command to run
+            script_path: Path to save the generated script
+            dp_namespace: Namespace for the dataplane
+
+        Returns:
+            Command output, or empty string on failure
+        """
+        script_content = self.base.run_command(command)
+        if not script_content or self.base.is_cli_error(script_content):
+            ColorLogger.error(f"Failed to generate registration script")
+            return None
+
+        script_content = self.base.format_command(script_content)
+
+        if ENV.TP_IS_CERT_SELF_SIGNED:
+            ColorLogger.info("Self-signed certificate detected, inserting cert secret creation...")
+            secret_cmd = (
+                f'kubectl get secret default-certificate -n ingress-system -o jsonpath="{{.data.tls\\.crt}}" | base64 --decode > /tmp/cp-cert.pem\n'
+                f'kubectl create secret generic self-signed-cert -n {dp_namespace} --from-file=cert=/tmp/cp-cert.pem\n'
+                f'rm -f /tmp/cp-cert.pem\n'
+            )
+            script_content = script_content.replace('helm upgrade', secret_cmd + 'helm upgrade', 1)
+
+        with open(script_path, "w") as f:
+            f.write(script_content)
+        return Helper.run_shell_file(script_path)
 
     def unregister_dataplane(self, dp_name, other_args=None):
         """

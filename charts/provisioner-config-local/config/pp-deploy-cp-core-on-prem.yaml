@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 pipelineName: "Deploy Control Plane On-Prem Stack"
@@ -31,10 +41,10 @@ groups:
     * The CP chart version matrix: [link](https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm)
     * The CP chart config doc: [link](https://docs.tibco.com/pub/platform-cp/1.5.1/doc/html/Default.htm#Installation/configuration-reference.htm)
     ---
-- title: "CP ingress"
+- title: "CP Ingress / Gateway"
   index: 6
   description: |
-    ## CP ingress specific configurations. 
+    ## CP Ingress / Gateway specific configurations. 
     > If the main ingress for CP already config certificate; you can skip the certificate config for CP.
     ---
 - title: "Cluster storage"
@@ -337,24 +347,30 @@ options:
   reference: "meta.guiEnv.GUI_TP_TLS_KEY"
   description: |
     base64 encoding of validate certificate for the domain (optional)
-- name: "CP ingress classname"
+- name: "CP Ingress / Gateway Namespace"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_INGRESS_NAMESPACE"
+  description: "The ingress / gateway namespace for CP. Default is ingress-system"
+- name: "CP Ingress Class / Gateway name"
   groupIndex: 6
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_INGRESS_CLASSNAME"
-  description: "The ingress class name for CP. Default is nginx, you can use traefik too"
-- name: "Create Router ingress object"
+  description: "The ingress class name for CP. Default is traefik, you can use nginx too. Also if using gateway then use nginx-gateway"
+- name: "Create Router / Hybrid-Proxy ingress object"
   groupIndex: 6
   type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_BOOTSTRAP_INGRESS_ROUTER"
-  description: "Enable to create ingress object"
-- name: "Create Hybrid-Proxy ingress object"
-  groupIndex: 6
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY"
-  description: "Enable to create ingress object"
+  guiType: radio
+  labels:
+    - "ingress"
+    - "gateway"
+  values:
+    - "ingress"
+    - "gateway"
+  reference: "meta.guiEnv.GUI_CP_BOOTSTRAP_INGRESS_OBJECT"
+  description: "Enable to create ingress / http route object for router / hybrid-proxy"
 - name: "CP ingress use hostport"
   groupIndex: 6
   type: boolean
@@ -459,7 +475,7 @@ options:
   description: |
     Set to true to allow the CP installation create/manage DB schema. 
     Default is true. If set to false then the DB schema population will be handled out of the box.
-    Please refer to the github repo script for more information: <a href='https://github.com/tibco/tp-helm-charts/blob/main/scripts/database/postgres-helper.bash' target='_blank'>link</a>
+    Please refer to the github repo script for more information: <a href='https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/scripts/database/postgres-helper.bash' target='_blank'>link</a>
 - name: "CP DB ssl mode"
   groupIndex: 8
   type: string

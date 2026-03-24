@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 # Recipe for installing TIBCO Control Plane on-premises
@@ -44,7 +54,6 @@ meta:
     CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
     CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # 37 pods * 50Mi = 1850Mi
     CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: ${GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS:-true}
-    CP_GLOBAL_USE_SINGLE_NAMESPACE: ${GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE:-true}
     IS_AZURE_RED_HAT_OPENSHIFT_CLUSTER: ${GUI_IS_AZURE_RED_HAT_OPENSHIFT_CLUSTER:-false} # set to true if you are using Azure Red Hat OpenShift cluster
 
     # domain
@@ -476,7 +485,6 @@ helmCharts:
           serviceAccount: ${CP_INSTANCE_ID}-sa
           createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
           enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
           db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
           db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
@@ -878,7 +886,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           proxy:
             httpProxy: "${CP_PROXY_HTTP_PROXY}"
             httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
@@ -930,7 +937,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           proxy:
             httpProxy: "${CP_PROXY_HTTP_PROXY}"
             httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
@@ -980,7 +986,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           proxy:
             httpProxy: "${CP_PROXY_HTTP_PROXY}"
             httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
@@ -1030,7 +1035,6 @@ helmCharts:
             noProxy: "${CP_PROXY_NO_PROXY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
   cluster:
     names:
       - ${CP_CLUSTER_NAME}
@@ -1069,7 +1073,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
   cluster:
     names:
       - ${CP_CLUSTER_NAME}

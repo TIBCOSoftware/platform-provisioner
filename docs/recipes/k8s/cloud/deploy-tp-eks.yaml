@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 # Recipe for installing TIBCO Platform EKS
@@ -38,7 +48,7 @@ meta:
     TP_SECONDARY_DOMAIN: ${GUI_TP_SECONDARY_DOMAIN} # the star domain for the secondary ingress <cp/dp-env>-apps.${SANDBOX}.dataplanes.pro
     TP_INGRESS_RELEASE_NAME: dp-config-aws-ingress
     TP_SECONDARY_INGRESS_RELEASE_NAME: dp-config-aws-secondary-ingress
-    TP_INGRESS_NAMESPACE: ingress-system
+    TP_INGRESS_NAMESPACE: ${GUI_TP_INGRESS_NAMESPACE:-"ingress-system"}
     TP_CERTIFICATE_CLUSTER_ISSUER: ${GUI_TP_CERTIFICATE_CLUSTER_ISSUER:-"tp-prod"} # the cluster issuer for tp-certificate
     # network policy
     TP_CLUSTER_ENABLE_NETWORK_POLICY: ${GUI_TP_CLUSTER_ENABLE_NETWORK_POLICY:-true}
@@ -78,6 +88,10 @@ meta:
     # Do not change, variables to configure nginx/kong related resources based on ingressclass passed
     TP_ENABLE_NGINX: $([[ "$TP_INGRESS_CLASS" == "nginx" ]] && echo "true" || echo "false")
     TP_ENABLE_TRAEFIK: $([[ "$TP_INGRESS_CLASS" == "traefik" ]] && echo "true" || echo "false")
+    TP_ENABLE_NGINX_GATEWAY_FABRIC: $([[ "$TP_INGRESS_CLASS" == "nginx-gateway-fabric" ]] && echo "true" || echo "false")
+    TP_ENABLE_HAPROXY: $([[ "$TP_INGRESS_CLASS" == "haproxy" ]] && echo "true" || echo "false")
+    TP_ENABLE_INGRESS_CONTROLLER: $([[ "$TP_INGRESS_CLASS" == "nginx" || "$TP_INGRESS_CLASS" == "traefik" || "$TP_INGRESS_CLASS" == "haproxy" || "$TP_INGRESS_CLASS" == "nginx-gateway-fabric" ]] && echo "true" || echo "false")
+    TP_ENABLE_ISTIO_GATEWAY: $([[ "$TP_INGRESS_CLASS" == "istio-gateway" ]] && echo "true" || echo "false")
     TP_ENABLE_SECONDARY_KONG: $([[ "$TP_SECONDARY_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
     TP_DEPLOY_SECONDARY_INGRESS: $([[ "$TP_ENABLE_SECONDARY_KONG" == "true" ]] && echo "true" || echo "false")
     TP_HTTP_INGRESS_BACKEND_SERVICE: ${TP_INGRESS_RELEASE_NAME}-$( ( [[  "$TP_INGRESS_CLASS" == "nginx" ]] && echo "ingress-nginx-controller" ) || ( [[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "kong-proxy" ) )
@@ -172,7 +186,13 @@ helmCharts:
         name: external-dns 
       extraArgs:
         # only register DNS for these ingress classes
-        - "--ingress-class=${TP_INGRESS_CLASS}"
+        - --ingress-class=${TP_INGRESS_CLASS}
+        - --gateway-namespace=${TP_INGRESS_NAMESPACE}
+      gatewayNamespace: ${TP_INGRESS_NAMESPACE}
+      sources:
+      - ingress
+      - service
+      - gateway-httproute
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -229,6 +249,7 @@ helmCharts:
     createNamespace: true
     labels: "layer=0"
 - name: dp-config-aws
+  condition: ${TP_ENABLE_INGRESS_CONTROLLER}
   version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   repo:
     helm:
@@ -293,6 +314,35 @@ helmCharts:
           default:
             defaultCertificate:
               secretName: tp-certificate-main-ingress
+      haproxy:
+        enabled: ${TP_ENABLE_HAPROXY}
+        controller:
+          service:
+            type: LoadBalancer # use NLB for haproxy, set to ClusterIP when using ALB
+            loadBalancerClass: service.k8s.aws/nlb
+            externalTrafficPolicy: Local
+            annotations:
+              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+              service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+          config:
+            # This replaces the 'haproxy.org/frontend-config-snippet' annotation
+            # It injects these lines into the main HAProxy frontend section
+            frontend-config-snippet: |
+              # 1. Standard Forwarded Headers
+              http-request set-header X-Forwarded-Proto https if { ssl_fc }
+              http-request set-header X-Forwarded-Port 443 if { ssl_fc }
+              
+              # 2. THE FIX: Strip Port 80 from Host headers
+              # This takes the Host, finds the ":" and keeps only the first part (the domain)
+              http-request set-header Host %[hdr(host),field(1,:)]
+              http-request set-header X-Forwarded-Host %[hdr(host),field(1,:)]
+          ingressClass: haproxy
+          replicaCount: 1
+          defaultTLSSecret:
+            enabled: true
+            secretNamespace: ${TP_INGRESS_NAMESPACE}
+            secret: tp-certificate-main-ingress    
       kong:
         enabled: false
   cluster:
@@ -336,6 +386,270 @@ helmCharts:
           dnsNames:
             - '*.${TP_DOMAIN}'
         EOF
+# nginx-gateway-fabric installation with Gateway API resources
+- condition: ${TP_ENABLE_NGINX_GATEWAY_FABRIC}
+  name: dp-config-aws
+  namespace: ${TP_INGRESS_NAMESPACE}
+  version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: true
+    content: |
+      clusterIssuer:
+        create: false
+      httpIngress:
+        enabled: false
+      nginx-gateway-fabric:
+        enabled: true
+        nginxGateway:
+          gatewayClassName: nginx
+          gatewayControllerName: gateway.nginx.org/nginx-gateway-controller
+          config:
+            logging:
+              level: info
+        nginx:
+          service:
+            type: LoadBalancer # use NLB for nginx-gateway-fabric, set to ClusterIP when using ALB
+            loadBalancerClass: service.k8s.aws/nlb
+            externalTrafficPolicy: Local
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: dp-config-aws-nginx-gateway
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+    labels: "layer=1"
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # create a namespace for the main ingress
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: ${TP_INGRESS_NAMESPACE}
+          labels:
+            networking.platform.tibco.com/non-cp-ns: enable
+        EOF
+
+        # Install Gateway API CRDs for nginx-gateway-fabric
+        kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
+        
+        # create a certificate for the main ingress
+        kubectl apply -f - << EOF
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: tp-certificate-main-ingress
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          secretName: tp-certificate-main-ingress
+          issuerRef:
+            name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+            kind: ClusterIssuer
+          dnsNames:
+            - '*.${TP_DOMAIN}'
+        EOF
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # Create Gateway object for nginx-gateway-fabric
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: nginx-gateway
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          gatewayClassName: nginx
+          infrastructure:
+            annotations:
+              service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+              service.beta.kubernetes.io/aws-load-balancer-type: "external"
+              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+          listeners:
+          - allowedRoutes:
+              namespaces:
+                from: All
+            name: https
+            port: 443
+            protocol: HTTPS
+            tls:
+              certificateRefs:
+              - group: ""
+                kind: Secret
+                name: tp-certificate-main-ingress
+              mode: Terminate
+        EOF
+        
+        # Create clientSettingsPolicy for nginx-gateway-fabric to increase file upload size
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.nginx.org/v1alpha1
+        kind: ClientSettingsPolicy
+        metadata:
+          name: gateway-client-settings
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          targetRef:
+            group: gateway.networking.k8s.io
+            kind: Gateway
+            name: nginx-gateway
+          body:
+            maxSize: "200m"
+        EOF
+  # Istio installation: istio-base and istiod MUST be in istio-system namespace due to hardcoded references in CRDs, webhooks, and RBAC
+  # Gateway resource (data plane) is deployed to ingress-system via postDeploy hook
+- condition: ${TP_ENABLE_ISTIO_GATEWAY}
+  name: dp-config-aws
+  namespace: istio-system
+  version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: true
+    content: |
+      clusterIssuer:
+        create: false
+      httpIngress:
+        enabled: false
+      istio-base:
+        enabled: true
+      istiod:
+        enabled: true
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: istio
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+    labels: "layer=1"
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # Create ingress namespace
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        # Add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable --overwrite
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable --overwrite
+        # Install Gateway API CRDs for HTTPRoute support (only if not already present)
+        kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
+          { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.4.0" | kubectl apply -f -; }
+        # create a certificate for the main ingress
+        kubectl apply -f - << EOF
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: tp-certificate-main-ingress
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          secretName: tp-certificate-main-ingress
+          issuerRef:
+            name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+            kind: ClusterIssuer
+          dnsNames:
+            - '*.${TP_DOMAIN}'
+        EOF
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # Create Gateway using Kubernetes Gateway API for HTTPRoute compatibility
+        # Note: Gateway resource auto-provisions deployment and service (no gateway helm chart needed)
+        # GatewayClass 'istio' is automatically created by istiod
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: istio-gateway
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          gatewayClassName: istio
+          infrastructure:
+            annotations:
+              service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+              service.beta.kubernetes.io/aws-load-balancer-type: "external"
+              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+          listeners:
+          - name: https
+            hostname: "*.${TP_DOMAIN}"
+            port: 443
+            protocol: HTTPS
+            tls:
+              mode: Terminate
+              certificateRefs:
+              - kind: Secret
+                name: tp-certificate-main-ingress
+            allowedRoutes:
+              namespaces:
+                from: All
+        EOF
+        # Create EnvoyFilter to fix host headers and set X-Forwarded headers for proper HTTPS handling
+        kubectl apply -f - <<EOF
+        apiVersion: networking.istio.io/v1alpha3
+        kind: EnvoyFilter
+        metadata:
+          name: fix-host-headers
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          workloadSelector:
+            labels:
+              gateway.networking.k8s.io/gateway-name: istio-gateway
+          configPatches:
+          - applyTo: HTTP_FILTER
+            match:
+              context: GATEWAY
+              listener:
+                filterChain:
+                  filter:
+                    name: "envoy.filters.network.http_connection_manager"
+            patch:
+              operation: INSERT_BEFORE
+              value:
+                name: envoy.lua
+                typed_config:
+                  "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                  inlineCode: |
+                    function envoy_on_request(request_handle)
+                      local headers = request_handle:headers()
+                      headers:replace("X-Forwarded-Proto", "https")
+                      headers:replace("X-Forwarded-Port", "443")
+                      local authority = headers:get(":authority")
+                      if not authority then authority = headers:get("Host") end
+                      if authority then
+                        local s, e = string.find(authority, ":")
+                        if s then
+                          local clean_host = string.sub(authority, 1, s-1)
+                          headers:replace(":authority", clean_host)
+                          headers:replace("Host", clean_host)
+                          headers:replace("X-Forwarded-Host", clean_host)
+                        end
+                      end
+                    end
+        EOF
+        # Wait for Gateway to be programmed
+        kubectl wait --timeout=5m -n ${TP_INGRESS_NAMESPACE} gateway/istio-gateway --for=condition=Programmed
 - name: dp-config-aws
   version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   condition: ${TP_DEPLOY_SECONDARY_INGRESS}

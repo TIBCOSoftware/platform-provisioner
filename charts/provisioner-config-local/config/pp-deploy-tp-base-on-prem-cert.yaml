@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 pipelineName: "Deploy TIBCO Platform On-Prem Stack with certificate"
@@ -27,12 +37,13 @@ groups:
     * For this pipeline; Postgres image is pulled from TIBCO JFrog registry.
 
     ---
-- title: "Cluster Ingress"
+- title: "Cluster Ingress / Gateway"
   index: 6
   description: |
-    Cluster Ingress configurations.
+    Cluster Ingress / Gateway configurations.
     * domain: `*.localhost.dataplanes.pro` point to `127.0.0.1`.
     * ingress service type: We can only have `ONE` main ingress uses service type `LoadBalancer` for on-prem setup.
+    * Gateway service type: We can only have `ONE` main gateway uses service type `LoadBalancer` for on-prem setup. 
 - title: "Cluster storage"
   index: 7
   description: |
@@ -147,18 +158,44 @@ options:
   reference: "meta.guiEnv.GUI_TP_INGRESS_SERVICE_TYPE"
   description: |
     We suggest to use "LoadBalancer" for Docker Desktop. Use "ClusterIP" and use kubectl port-forward for other local cluster.
-- name: "Install Nginx Ingress"
+- name: "Install Nginx Ingress Controller"
   groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_NGINX_INGRESS"
-- name: "Install Traefik Ingress"
+- name: "Install Traefik Ingress Controller"
   groupIndex: 6
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_TRAEFIK_INGRESS"
   description: |
     Traefik dashboard will be available at: https://dashboard.localhost.dataplanes.pro/dashboard/#/
+- name: "Install HAProxy Ingress Controller"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_HAPROXY_INGRESS"
+- name: "Install Nginx Gateway"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_NGINX_GATEWAY"
+- name: "Install Traefik Gateway"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_TRAEFIK_GATEWAY"
+- name: "Install ISTIO Gateway"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_ISTIO_GATEWAY"
+- name: "Gateway Object Name"
+  groupIndex: 6
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_GATEWAY_NAME"
+  description: "The gateway obejct name for the TP Cluster. Default is nginx-gateway."
 
 # groupIndex: 7 Cluster storage
 - name: "TP Cluster storage class"
@@ -259,20 +296,21 @@ options:
   reference: "meta.guiEnv.GUI_TP_INSTALL_CALICO_CNI"
   description: |
     Enable Calico CNI for TP Cluster. Set to `true` for network policy testing.
-- name: "Install Provisioner UI Ingress object"
+- name: "Install Provisioner UI Ingress / HttpRoute object"
   groupIndex: 10
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI"
   description: |
     This will update Provisioner UI ingress
-- name: "Provisioner UI Ingress class name"
+- name: "Provisioner UI Ingress / gateway object name"
   groupIndex: 10
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME"
   description: |
-    Ingress class name for Provisioner UI. Default is `nginx`
+    Ingress class name for Provisioner UI. Default is `traefik`
+    Gateway name for Provisioner UI. Use `nginx-gateway` for Nginx Gateway.
 - name: "Provisioner UI namespace"
   groupIndex: 10
   type: string
