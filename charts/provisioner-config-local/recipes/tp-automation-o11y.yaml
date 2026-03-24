@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 apiVersion: v1
@@ -41,7 +51,7 @@ meta:
     GUI_TP_AUTO_IS_ENABLE_BW6DM: true
     GUI_TP_AUTO_ENABLE_O11Y_WIDGET: true
     GUI_TP_AUTO_ENABLE_E2E_TEST: false
-    GUI_TP_AUTO_USE_CLI: false
+    GUI_TP_AUTO_USE_CLI: true
 
     # start app or not
     GUI_TP_AUTO_START_FLOGO_APP: true
@@ -112,6 +122,9 @@ meta:
     GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
     GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
     GUI_TP_ACTIVATION_ZIP_FILE_BASE64: ""
+
+    # self-signed certificate
+    GUI_TP_IS_CERT_SELF_SIGNED: false
 
     # flow control
     GUI_TP_PORT_FORWARD: true
@@ -234,6 +247,10 @@ meta:
     TP_ACTIVATION_SERVER_CERT_HOSTNAME: ${GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME:-""}
     TP_ACTIVATION_SERVER_FINGER_PRINT: ${GUI_TP_ACTIVATION_SERVER_FINGER_PRINT:-""}
     TP_ACTIVATION_ZIP_FILE_BASE64: ${GUI_TP_ACTIVATION_ZIP_FILE_BASE64:-""}
+
+    # self-signed certificate
+    TP_IS_CERT_SELF_SIGNED: ${GUI_TP_IS_CERT_SELF_SIGNED:-"false"}
+
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
     PYTHON_FILE_ENTRY_POINT: page_dp.py
@@ -411,6 +428,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -444,6 +463,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -484,6 +505,7 @@ tasks:
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
 
       # Map TP_AUTO_ENABLE_* to TP_AUTO_IS_PROVISION_* for Python code
+      export TP_IS_CERT_SELF_SIGNED=${TP_IS_CERT_SELF_SIGNED}
       export TP_AUTO_IS_CONFIG_O11Y=${TP_AUTO_ENABLE_CONFIG_O11Y}
       export TP_AUTO_IS_PROVISION_FLOGO=${TP_AUTO_ENABLE_FLOGO}
       export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
@@ -510,6 +532,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -570,6 +594,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -615,6 +641,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -660,6 +688,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -705,6 +735,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -747,6 +779,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -789,6 +823,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
@@ -849,6 +885,8 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"

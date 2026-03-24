@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 # Recipe for installing TIBCO Control Plane on-premises
@@ -49,7 +59,6 @@ meta:
     GUI_CP_RESOURCES_REQUEST_CPU: "50m"
     GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi"
     GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: true
-    GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE: true
     GUI_CP_ENABLE_HYBRID_CONNECTIVITY: true
 
     # CP AI MCP servers
@@ -80,6 +89,8 @@ meta:
     GUI_TP_TLS_CERT: ""
     GUI_TP_TLS_KEY: ""
     GUI_CP_INGRESS_CLASSNAME: "traefik"
+    GUI_CP_INGRESS_NAMESPACE: "ingress-system"
+    GUI_TP_GATEWAY_NAME: "nginx-gateway"
     GUI_CP_BOOTSTRAP_INGRESS_ROUTER: true
     GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY: true
     GUI_TP_GENERATE_CERTIFICATES: false
@@ -185,7 +196,6 @@ meta:
     CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
     CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # 37 pods * 50Mi = 1850Mi
     CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: ${GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS:-true}
-    CP_GLOBAL_USE_SINGLE_NAMESPACE: ${GUI_CP_GLOBAL_USE_SINGLE_NAMESPACE:-true}
     CP_ENABLE_HYBRID_CONNECTIVITY: ${GUI_CP_ENABLE_HYBRID_CONNECTIVITY:-true}
 
     # domain
@@ -250,9 +260,13 @@ meta:
     CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER: ${GUI_CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER:-false}
 
     # CP ingress
-    CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-traefik} # the ingress for CP
-    CP_BOOTSTRAP_INGRESS_ROUTER: ${GUI_CP_BOOTSTRAP_INGRESS_ROUTER:-true} # set to false will create ingress for router and hybrid-proxy
-    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY: ${GUI_CP_BOOTSTRAP_INGRESS_HYBRID_PROXY:-true} # set to false will create ingress for router and hybrid-proxy
+    CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-"traefik"} # the ingress for CP
+    CP_INGRESS_NAMESPACE: ${GUI_CP_INGRESS_NAMESPACE:-"ingress-system"}
+    CP_BOOTSTRAP_INGRESS_OBJECT: ${GUI_CP_BOOTSTRAP_INGRESS_OBJECT:-"ingress"} # ingress|gateway, this will create ingress / httproute object for router
+    CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "ingress" ]]; then echo true; else echo false; fi)
+    CP_BOOTSTRAP_INGRESS_ROUTER_GATEWAY_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "gateway" ]]; then echo true; else echo false; fi)
+    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_INGRESS_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "ingress" ]]; then echo true; else echo false; fi)
+    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_GATEWAY_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "gateway" ]]; then echo true; else echo false; fi)
     CP_ALB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for ALB
     CP_NLB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for NLB
     TP_TLS_CERT: ${GUI_TP_TLS_CERT:-""} # if provided; will create secret tp-certificate with tls.crt and tls.key and create ingress
@@ -322,6 +336,7 @@ preTasks:
     content: |
       _STORAGE_CLASS=${CP_STORAGE_CLASS}
       _INGRESS_CLASS=${CP_INGRESS_CLASSNAME}
+      _BOOTSTRAP_INGRESS_OBJECT=${CP_BOOTSTRAP_INGRESS_OBJECT}
 
       # Function to check if a given k8s object exists
       check_k8s_object_exists() {
@@ -346,9 +361,21 @@ preTasks:
         exit 1
       fi
 
-      if  ! check_k8s_object_exists "ingressclass" "${_INGRESS_CLASS}"; then
-        echo "Ingress class is set as: ${_INGRESS_CLASS} but not exist"
-        exit 1
+      if [[ "${_BOOTSTRAP_INGRESS_OBJECT}" == "gateway" ]]; then
+        # Check for Gateway in ingress-system first, then istio-system
+        if kubectl get gateway "${_INGRESS_CLASS}" -n "${CP_INGRESS_NAMESPACE}" >/dev/null 2>&1; then
+          echo "Gateway ${_INGRESS_CLASS} found in namespace ${CP_INGRESS_NAMESPACE}"
+        elif kubectl get gateway "${_INGRESS_CLASS}" -n "istio-system" >/dev/null 2>&1; then
+          echo "Gateway ${_INGRESS_CLASS} found in namespace istio-system"
+        else
+          echo "Gateway is selected but Gateway ${_INGRESS_CLASS} does not exist in namespaces: ${CP_INGRESS_NAMESPACE} or istio-system"
+          exit 1
+        fi
+      else
+        if  ! check_k8s_object_exists "ingressclass" "${_INGRESS_CLASS}"; then
+          echo "Ingress is selected but IngressClass is set as: ${_INGRESS_CLASS} and does not exist"
+          exit 1
+        fi
       fi
 - condition: ${CP_CREATE_NAMESPACE}
   clusters:
@@ -567,6 +594,36 @@ helmCharts:
   flags:
     createNamespace: true
     timeout: 1h
+  # needs to be removed when we have support for httproute in the chart
+  hooks:
+    postDeploy:
+      ignoreErrors: true
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: maildev-generic-chart
+          namespace: ${CP_EXT_NAMESPACE}
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+        spec:
+          parentRefs:
+          - name: ${CP_INGRESS_CLASSNAME}
+            namespace: ${CP_INGRESS_NAMESPACE}
+          hostnames:
+          - "mail.${CP_DNS_DOMAIN}"
+          rules:
+          - matches:
+            - path:
+                type: PathPrefix
+                value: /
+            backendRefs:
+            - name: ${CP_MAIL_MAILDEV_SERVICE_NAME}
+              port: 1080
+        EOF
 - name: tibco-cp-base
   version: ${CP_PLATFORM_TIBCO_CP_BASE_VERSION}
   condition: ${CP_INSTALL_TIBCO_CP_BASE}
@@ -592,7 +649,6 @@ helmCharts:
           serviceAccount: ${CP_INSTANCE_ID}-sa
           createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
           enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
           db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
           db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
@@ -670,7 +726,7 @@ helmCharts:
             cpu: 1250m
             memory: 1000Mi
         ingress:
-          enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY}
+          enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_INGRESS_ENABLED}
           annotations:
             external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
@@ -681,6 +737,15 @@ helmCharts:
                 - path: /
                   pathType: Prefix
                   port: 105
+        gatewayRoute:
+          enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_GATEWAY_ENABLED}
+          parentRefs:
+            - name: ${CP_INGRESS_CLASSNAME}
+              namespace: ${CP_INGRESS_NAMESPACE}
+          hostnames:
+            - '*.${CP_TUNNEL_DNS_DOMAIN}'
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
       router-operator:
         resources:
           requests:
@@ -690,7 +755,7 @@ helmCharts:
             cpu: 3000m
             memory: 1000Mi
         ingress:
-          enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER}
+          enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED}
           annotations:
             external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
@@ -702,6 +767,15 @@ helmCharts:
                 - path: /
                   pathType: Prefix
                   port: 100
+        gatewayRoute:
+          enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_GATEWAY_ENABLED}
+          parentRefs:
+            - name: ${CP_INGRESS_CLASSNAME}
+              namespace: ${CP_INGRESS_NAMESPACE}
+          hostnames:
+            - '*.${CP_SERVICE_DNS_DOMAIN}'
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
       resource-set-operator:
         resources:
           requests:
@@ -990,7 +1064,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           proxy:
             httpProxy: "${CP_PROXY_HTTP_PROXY}"
             httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
@@ -1042,7 +1115,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           proxy:
             httpProxy: "${CP_PROXY_HTTP_PROXY}"
             httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
@@ -1092,7 +1164,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
           proxy:
             httpProxy: "${CP_PROXY_HTTP_PROXY}"
             httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
@@ -1142,7 +1213,6 @@ helmCharts:
             noProxy: "${CP_PROXY_NO_PROXY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
   cluster:
     names:
       - ${CP_CLUSTER_NAME}
@@ -1181,7 +1251,6 @@ helmCharts:
             repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
           controlPlaneInstanceId: ${CP_INSTANCE_ID}
           serviceAccount: ${CP_INSTANCE_ID}-sa
-          useSingleNamespace: ${CP_GLOBAL_USE_SINGLE_NAMESPACE}
   cluster:
     names:
       - ${CP_CLUSTER_NAME}

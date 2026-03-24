@@ -208,7 +208,7 @@ python page_dp.py
 ```
 
 ## Build and push docker image to GHCR Public repo (Publish a new version)
-1. Go to [github Actions page](https://github.com/tibco/platform-provisioner/actions/workflows/docker-image-ghcr-build-push-public.yml)
+1. Go to [github Actions page](https://github.com/TIBCOSoftware/platform-provisioner/actions/workflows/docker-image-ghcr-build-push-public.yml)
    Run change version script to update all related files
    ```shell
    ./docs/recipes/automation/tp-setup/bootstrap/bump_version.sh

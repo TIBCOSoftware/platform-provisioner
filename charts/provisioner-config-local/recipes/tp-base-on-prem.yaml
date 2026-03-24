@@ -1,7 +1,17 @@
 #
-# Copyright © 2024. Cloud Software Group, Inc.
-# This file is subject to the license terms contained
-# in the license file that is distributed with this file.
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 # Recipe for installing TIBCO Control Plane on-premises
@@ -18,6 +28,10 @@ meta:
     GUI_TP_DNS_DOMAIN: localhost.dataplanes.pro
     GUI_TP_INSTALL_NGINX_INGRESS: true
     GUI_TP_INSTALL_TRAEFIK_INGRESS: false
+    GUI_TP_INSTALL_TRAEFIK_GATEWAY: false
+    GUI_TP_INSTALL_HAPROXY_INGRESS: false
+    GUI_TP_INSTALL_NGINX_GATEWAY: false
+    GUI_TP_INSTALL_ISTIO_GATEWAY: false   
     GUI_TP_INGRESS_SERVICE_TYPE: LoadBalancer
 
     # storage
@@ -50,10 +64,14 @@ meta:
     GUI_TP_PROVISIONER_UI_NAMESPACE: tekton-tasks
     GUI_TP_AUTOMATION_INSTALL: false
     GUI_TP_AUTOMATION_NAMESPACE: automation
+    GUI_TP_IS_CERT_SELF_SIGNED: false
 
     # third party tools version
-    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.14.1
-    GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 39.0.2
+    GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX: 4.13.2
+    GUI_TP_THIRD_PARTY_VERSION_TRAEFIK: 37.1.0
+    GUI_TP_THIRD_PARTY_VERSION_HAPROXY: 1.47.3
+    GUI_TP_THIRD_PARTY_VERSION_NGINX_GATEWAY: 2.3.0
+    GUI_TP_THIRD_PARTY_VERSION_ISTIO: 1.28.2
 
     # CNI
     GUI_TP_INSTALL_CALICO_CNI: false
@@ -67,7 +85,10 @@ meta:
 
     # CP automation
     GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
-    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.7.15-auto-on-prem-jammy
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.6.13-auto-on-prem-jammy
+
+    # gateway name for Gateway API implementations
+    GUI_TP_GATEWAY_NAME: "tp-gateway"
 
     # langfuse
     GUI_TP_LANGFUSE_NAMESPACE: langfuse-system
@@ -104,6 +125,10 @@ meta:
     # domain
     TP_INSTALL_NGINX_INGRESS: ${GUI_TP_INSTALL_NGINX_INGRESS:-"true"}
     TP_INSTALL_TRAEFIK_INGRESS: ${GUI_TP_INSTALL_TRAEFIK_INGRESS:-"false"}
+    TP_INSTALL_TRAEFIK_GATEWAY: ${GUI_TP_INSTALL_TRAEFIK_GATEWAY:-"false"}
+    TP_INSTALL_HAPROXY_INGRESS: ${GUI_TP_INSTALL_HAPROXY_INGRESS:-"false"}
+    TP_INSTALL_NGINX_GATEWAY: ${GUI_TP_INSTALL_NGINX_GATEWAY:-"false"}
+    TP_INSTALL_ISTIO_GATEWAY: ${GUI_TP_INSTALL_ISTIO_GATEWAY:-"false"}
     TP_INGRESS_NAMESPACE: ingress-system
     TP_DNS_DOMAIN: ${GUI_TP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
     TP_INGRESS_SERVICE_TYPE: ${GUI_TP_INGRESS_SERVICE_TYPE:-"ClusterIP"} # LoadBalancer used for minikube with tunel, NodePort used for kind, ClusterIP used for kubectl port-forward
@@ -132,8 +157,11 @@ meta:
     TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
 
     # third party tools version
-    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.14.1"} # release: https://github.com/kubernetes/ingress-nginx/releases
-    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"37.4.0"} # release: https://github.com/traefik/traefik-helm-chart/releases
+    TP_THIRD_PARTY_VERSION_INGRESS_NGINX: ${GUI_TP_THIRD_PARTY_VERSION_INGRESS_NGINX:-"4.13.2"} # release: https://github.com/kubernetes/ingress-nginx/releases
+    TP_THIRD_PARTY_VERSION_TRAEFIK: ${GUI_TP_THIRD_PARTY_VERSION_TRAEFIK:-"37.2.0"} # release: https://github.com/traefik/traefik-helm-chart/releases
+    TP_THIRD_PARTY_VERSION_HAPROXY: ${GUI_TP_THIRD_PARTY_VERSION_HAPROXY:-"1.47.3"} # release: https://github.com/haproxytech/helm-charts/releases
+    TP_THIRD_PARTY_VERSION_NGINX_GATEWAY: ${GUI_TP_THIRD_PARTY_VERSION_NGINX_GATEWAY:-"2.3.0"} # release: https://github.com/nginx/nginx-gateway-fabric/releases
+    TP_THIRD_PARTY_VERSION_ISTIO: ${GUI_TP_THIRD_PARTY_VERSION_ISTIO:-"1.28.2"} # release: https://github.com/istio/istio/releases
 
     # CNI
     TP_INSTALL_CALICO_CNI: ${GUI_TP_INSTALL_CALICO_CNI:-"false"}
@@ -149,6 +177,10 @@ meta:
     # CP automation
     TP_AUTOMATION_DOCKER_IMAGE_REPO: ${GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO:-""}
     TP_AUTOMATION_DOCKER_IMAGE_TAG: ${GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG:-""}
+    TP_IS_CERT_SELF_SIGNED: ${GUI_TP_IS_CERT_SELF_SIGNED:-"false"}
+
+    # gateway name for Gateway API implementations
+    TP_GATEWAY_NAME: ${GUI_TP_GATEWAY_NAME:-"tp-gateway"}
 
     # langfuse
     TP_INSTALL_LANGFUSE: ${GUI_TP_INSTALL_LANGFUSE:-false}
@@ -286,6 +318,327 @@ helmCharts:
         # add label for tibtunnel to connect to the ingress controller
         kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
         kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+- condition: ${TP_INSTALL_TRAEFIK_GATEWAY}
+  name: traefik
+  namespace: ${TP_INGRESS_NAMESPACE}
+  version: ${TP_THIRD_PARTY_VERSION_TRAEFIK} # release: https://github.com/traefik/traefik-helm-chart/releases
+  repo:
+    helm:
+      url: https://traefik.github.io/charts
+  values:
+    keepPrevious: true
+    content: |
+      # traefik gateway doc: https://doc.traefik.io/traefik/gateway/
+      # release: https://github.com/traefik/traefik-helm-chart/releases
+      # chart values: https://github.com/traefik/traefik-helm-chart/blob/master/traefik/values.yaml
+      gateway:
+        enabled: false
+      providers:
+        kubernetesGateway:
+          enabled: true
+      service:
+        type: ${TP_INGRESS_SERVICE_TYPE}
+      ingressClass:
+        name: traefik
+      ports:
+        web:
+          port: 8000            # Keep 8000 (Safe for non-root users)
+          exposedPort: 80     # This is the port used by the LoadBalancer
+          protocol: TCP
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: traefik-gateway
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+    labels: "layer=1"
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # create namespace
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        
+        # add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+        
+        # Install Gateway API CRDs for HTTPRoute support
+        kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # wait for traefik gateway to be ready
+        kubectl wait --timeout=5m -n ${TP_INGRESS_NAMESPACE} deployment/traefik-gateway --for=condition=Available
+        
+        # create gateway object
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: ${TP_GATEWAY_NAME}
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          gatewayClassName: traefik
+          listeners:
+          - allowedRoutes:
+              namespaces:
+                from: All
+            name: http
+            port: 8000
+            protocol: HTTP
+        EOF
+- condition: ${TP_INSTALL_HAPROXY_INGRESS}
+  name: kubernetes-ingress
+  namespace: ${TP_INGRESS_NAMESPACE}
+  version: ${TP_THIRD_PARTY_VERSION_HAPROXY} # release: https://github.com/haproxytech/helm-charts/releases
+  repo:
+    helm:
+      url: https://haproxytech.github.io/helm-charts
+  values:
+    keepPrevious: true
+    content: |
+      # haproxy kubernetes-ingress doc: https://www.haproxy.com/documentation/kubernetes-ingress/
+      # chart values: https://github.com/haproxytech/helm-charts/blob/main/kubernetes-ingress/values.yaml
+      controller:
+        service:
+          type: ${TP_INGRESS_SERVICE_TYPE}
+        ingressClass: haproxy
+        replicaCount: 1
+        config:
+          # This replaces the 'haproxy.org/frontend-config-snippet' annotation
+          # It injects these lines into the main HAProxy frontend section
+          frontend-config-snippet: |
+            # 1. Standard Forwarded Headers for HTTP
+            http-request set-header X-Forwarded-Proto http
+            http-request set-header X-Forwarded-Port 80
+            # 2. THE FIX: Strip Port from Host headers
+            # This takes the Host, finds the ":" and keeps only the first part (the domain)
+            http-request set-header Host %[hdr(host),field(1,:)]
+            http-request set-header X-Forwarded-Host %[hdr(host),field(1,:)]
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: haproxy-ingress
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        # add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+# Istio installation: istio-base and istiod MUST be in istio-system namespace due to hardcoded references in CRDs, webhooks, and RBAC
+# Only the gateway (data plane) is deployed to ingress-system to keep all ingress controllers together
+- condition: ${TP_INSTALL_ISTIO_GATEWAY}
+  name: base
+  namespace: istio-system
+  version: ${TP_THIRD_PARTY_VERSION_ISTIO} # release: https://github.com/istio/istio/releases
+  repo:
+    helm:
+      url: https://istio-release.storage.googleapis.com/charts
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: istio-base
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+- condition: ${TP_INSTALL_ISTIO_GATEWAY}
+  name: istiod
+  namespace: istio-system
+  version: ${TP_THIRD_PARTY_VERSION_ISTIO} # release: https://github.com/istio/istio/releases
+  repo:
+    helm:
+      url: https://istio-release.storage.googleapis.com/charts
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: istiod
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        # add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+        # install gateway api crd
+        # Install Gateway API CRDs for HTTPRoute support (only if not already present)
+        kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
+          { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.4.0" | kubectl apply -f -; }
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # Create Gateway using Kubernetes Gateway API for HTTPRoute compatibility
+        # Note: Gateway resource auto-provisions deployment and service (no gateway helm chart needed)
+        # GatewayClass 'istio' is automatically created by istiod
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: ${TP_GATEWAY_NAME}
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          gatewayClassName: istio
+          listeners:
+          - name: http
+            hostname: "*.${TP_DNS_DOMAIN}"
+            port: 80
+            protocol: HTTP
+            allowedRoutes:
+              namespaces:
+                from: All
+        EOF
+        # Create EnvoyFilter to fix host headers (removes port from host header)
+        # Note: For HTTP, X-Forwarded-Proto is set to http and X-Forwarded-Port to 80
+        kubectl apply -f - <<EOF
+        apiVersion: networking.istio.io/v1alpha3
+        kind: EnvoyFilter
+        metadata:
+          name: fix-host-headers
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          workloadSelector:
+            labels:
+              gateway.networking.k8s.io/gateway-name: ${TP_GATEWAY_NAME}
+          configPatches:
+          - applyTo: HTTP_FILTER
+            match:
+              context: GATEWAY
+              listener:
+                filterChain:
+                  filter:
+                    name: "envoy.filters.network.http_connection_manager"
+            patch:
+              operation: INSERT_BEFORE
+              value:
+                name: envoy.lua
+                typed_config:
+                  "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                  inlineCode: |
+                    function envoy_on_request(request_handle)
+                      local headers = request_handle:headers()
+
+                      -- Set X-Forwarded headers for HTTP
+                      headers:replace("X-Forwarded-Proto", "http")
+                      headers:replace("X-Forwarded-Port", "80")
+
+                      local authority = headers:get(":authority")
+                      if not authority then authority = headers:get("Host") end
+
+                      if authority then
+                        -- Log check
+                        request_handle:logInfo("Checking Host: " .. authority)
+
+                        local s, e = string.find(authority, ":")
+                        if s then
+                          local clean_host = string.sub(authority, 1, s-1)
+                          headers:replace(":authority", clean_host)
+                          headers:replace("Host", clean_host)
+                          headers:replace("X-Forwarded-Host", clean_host)
+                          request_handle:logInfo("Cleaned Host to: " .. clean_host)
+                        end
+                      end
+                    end
+        EOF
+        # Wait for Gateway to be programmed
+        kubectl wait --timeout=5m -n ${TP_INGRESS_NAMESPACE} gateway/${TP_GATEWAY_NAME} --for=condition=Programmed
+- condition: ${TP_INSTALL_NGINX_GATEWAY}
+  name: nginx-gateway-fabric
+  namespace: ${TP_INGRESS_NAMESPACE}
+  version: ${TP_THIRD_PARTY_VERSION_NGINX_GATEWAY} # release: https://github.com/nginx/nginx-gateway-fabric/releases
+  repo:
+    helm:
+      url: oci://ghcr.io/nginx/charts
+  values:
+    keepPrevious: true
+    content: |
+      # nginx gateway fabric doc: https://docs.nginx.com/nginx-gateway-fabric/
+      # nginx gateway fabric chart values: https://github.com/nginx/nginx-gateway-fabric/blob/main/charts/nginx-gateway-fabric/values.yaml
+      controller:
+        service:
+          type: ${TP_INGRESS_SERVICE_TYPE} # NodePort for kind, LoadBalancer for others
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: nginx-gateway
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        # add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+        # install gateway api crd
+        kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # wait for nginx gateway to be ready
+        kubectl wait --timeout=5m -n ${TP_INGRESS_NAMESPACE} deployment/nginx-gateway-nginx-gateway-fabric --for=condition=Available
+        # create gateway object
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: ${TP_PROVISIONER_UI_INGRESS_CLASSNAME}
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          gatewayClassName: nginx
+          listeners:
+          - allowedRoutes:
+              namespaces:
+                from: All
+            name: http
+            port: 80
+            protocol: HTTP
+        EOF
+        # create clientSettingsPolicy to increase file upload size
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.nginx.org/v1alpha1
+        kind: ClientSettingsPolicy
+        metadata:
+          name: gateway-client-settings
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          targetRef:
+            group: gateway.networking.k8s.io
+            kind: Gateway
+            name: ${TP_GATEWAY_NAME}
+          body:
+            maxSize: "200m"
+        EOF
 - name: nfs-server-provisioner
   version: 1.8.0 # release: https://github.com/kubernetes-sigs/nfs-ganesha-server-and-external-provisioner/releases
   namespace: kube-system
@@ -454,6 +807,8 @@ helmCharts:
           value: "false"
         - name: TP_AUTO_TASK_FROM_LOCAL_SOURCE
           value: "false"
+        - name: TP_IS_CERT_SELF_SIGNED
+          value: "${TP_IS_CERT_SELF_SIGNED}"
         others:
           dnsPolicy: ClusterFirstWithHostNet
           # hostNetwork: true

@@ -1,8 +1,19 @@
-
+## [1.7.17-auto-on-prem-jammy]
+### Added
+- Updated /recipes/k8s/on-prem/scripts/headless/tp-install-on-prem.sh to support private repository
+### Fixed
+- Exit cli task when DP is RED for over 300s.
+- Fix one cli task issue in automation GUI option
+## [1.7.16-auto-on-prem-jammy]
+### Added
+- Support self-signed certificate. By default, the automation will use self-signed certificate for TP  with domain `dev.localhost`.
+- All users(TIBCO internal and customers) can use /recipes/k8s/on-prem/scripts/headless/tp-install-on-prem.sh to install TP.
 ## [1.7.15-auto-on-prem-jammy]
 ### Fixed
 - Handle domain card layout changes for CP versions after 1.16: added fallback click on domain card when "Go to Domain" footer link is not visible
 - Guard BW6 app status checks with visibility detection to avoid failures when the application card layout is absent
+### Added
+- Added retry logic to DP automation recipe at task level. Each task will retry up to 10 times with 10 seconds interval. 
 
 ## [1.7.14-auto-on-prem-jammy]
 ### Fixed

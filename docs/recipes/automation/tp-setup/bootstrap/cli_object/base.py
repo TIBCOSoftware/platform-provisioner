@@ -1,4 +1,18 @@
-#  Copyright (c) 2025. Cloud Software Group, Inc. All Rights Reserved. Confidential & Proprietary
+#
+# Copyright 2025 Cloud Software Group, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 """
 Base CLI handler with core command execution functionality.
 
@@ -10,6 +24,7 @@ This module provides the foundation for all tibcop CLI operations:
 
 import os
 import subprocess
+from utils.env import ENV
 from utils.helper import Helper
 
 
@@ -29,7 +44,7 @@ class TibcopBase:
             custom_env: Optional dictionary of custom environment variables
                        to merge with system environment when running commands
         """
-        self.TIBCOP_CLI_PATH = "tibcop"
+        self.TIBCOP_CLI_PATH = "export NODE_TLS_REJECT_UNAUTHORIZED=0 && tibcop"
         self.CUSTOM_ENV = custom_env or {}
 
     @staticmethod
@@ -68,6 +83,13 @@ class TibcopBase:
         """
         script_content = self.run_command(command)
         if not script_content:
+            return ""
+
+        # Check if the output contains CLI error indicators (e.g., ✖)
+        # The tibcop CLI may return exit code 0 but output error messages
+        # instead of the expected shell script content
+        if self.is_cli_error(script_content):
+            print(f"Command output contains error indicators, not saving as script: {script_content}")
             return ""
 
         script_content = self.format_command(script_content)
@@ -194,11 +216,38 @@ class TibcopBase:
         if not result:
             return False
 
-        result_lower = result.lower()
+        # Check for success indicator (✔) first - if the final status line
+        # contains a checkmark, the command succeeded regardless of other text
+        if '✔' in result:
+            # Find the last line with ✔ - tibcop shows progress with spinner
+            # then replaces with ✔ on success or ✖ on failure
+            lines = result.strip().split('\n')
+            last_check = None
+            last_cross = None
+            for i, line in enumerate(lines):
+                if '✔' in line:
+                    last_check = i
+                if '✖' in line:
+                    last_cross = i
+            # If the last status indicator is a checkmark, it's a success
+            if last_cross is None or (last_check is not None and last_check > last_cross):
+                return False
 
         # Check for the cross mark (✖) which indicates an actual error
         if '✖' in result:
             return True
+
+        # Filter out Node.js NODE_TLS_REJECT_UNAUTHORIZED warning lines
+        # before checking for error patterns. This warning is informational
+        # and not an actual CLI error.
+        filtered_lines = []
+        for line in result.split('\n'):
+            if 'NODE_TLS_REJECT_UNAUTHORIZED' in line:
+                continue
+            if 'trace-warnings' in line:
+                continue
+            filtered_lines.append(line)
+        filtered_result = '\n'.join(filtered_lines).lower()
 
         # Check for actual error patterns (not informational warnings)
         error_patterns = [
@@ -211,7 +260,7 @@ class TibcopBase:
             'forbidden',
         ]
         for pattern in error_patterns:
-            if pattern in result_lower:
+            if pattern in filtered_result:
                 return True
 
         return False

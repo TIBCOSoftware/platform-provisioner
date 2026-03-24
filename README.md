@@ -1,30 +1,32 @@
 # Platform Provisioner by TIBCO®
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Helm Charts](https://img.shields.io/badge/Helm%20Charts-published-green.svg)](https://tibcosoftware.github.io/platform-provisioner)
+
 Platform Provisioner by TIBCO® is a lightweight, extensible, and easy to use recipe based provisioning system for cloud native platforms.
 It consists of the following components:
-* Recipes: contains all the information to provision a platform infrastructure and applications. 
-* Pipelines: The script that run inside the Docker image to parse and run the recipe.
-* A runtime Docker image: The Docker image that contains all the supporting tools to run a pipeline with given recipe.
+* **Recipes**: YAML files containing all the information to provision platform infrastructure and applications.
+* **Pipelines**: Scripts that run inside a Docker image to parse and execute recipes.
+* **Runtime Docker Image**: A Docker image containing all the supporting tools (`bash`, `yq`, `helm`, `kubectl`, etc.) to run a pipeline with a given recipe.
 
 ## Why Platform Provisioner?
 
-The Platform Provisioner is designed the best fit for the following use cases:
-* Developer/DevOps engineer wants to provision a platform infrastructure and applications in both cloud and on-premises.
-* SRE/DevOps engineer has code snippets to run every 3 month or so for the operation tasks.
-* Platform team wants to provide a zero trust provisioning system for multi-cloud environment.
-* Platform team wants to dynamically provision a platform infrastructure and applications on demand. 
-* Platform team wants to provide a self-service provisioning system for the developers.
+The Platform Provisioner is designed for the following use cases:
+* Developer/DevOps engineer wants to provision platform infrastructure and applications in both cloud and on-premises.
+* SRE/DevOps engineer has code snippets to run periodically for operational tasks.
+* Platform team wants to provide a zero-trust provisioning system for multi-cloud environments.
+* Platform team wants to dynamically provision platform infrastructure and applications on demand.
+* Platform team wants to provide a self-service provisioning system for developers.
 
-The Platform Provisioner does not want to create another layer of abstraction on top of the existing tools. It provides 2 kinds of pipelines: generic-runner and helm-install. 
-The pipelines are focused on workflow orchestration and recipe parsing. So that the user can put their favorite tools in the docker image and use the recipe to manage their workflow.
-The pipelines are designed to be extensible and easy to use.
+The Platform Provisioner does not create another layer of abstraction on top of existing tools. It provides 2 kinds of pipelines: `generic-runner` and `helm-install`.
+The pipelines are focused on workflow orchestration and recipe parsing, so that users can put their favorite tools in the Docker image and use recipes to manage their workflow.
 
 ## Getting Started
 
-The platform-provisioner can be run in headless mode with Docker container as well as in the Cloud Kubernetes cluster with Tekton.
-For more information see: [README.md](docs/design/README.md)
+The platform-provisioner can be run in headless mode with a Docker container as well as in a Kubernetes cluster.
+For more information see: [Architecture Documentation](docs/design/README.md)
 
-### Prerequisite
+### Prerequisites
 
 * Docker installed
 * Bash shell
@@ -32,33 +34,42 @@ For more information see: [README.md](docs/design/README.md)
 
 ### Run the Platform Provisioner
 
-Go to the project root directory and run the following command.
+Go to the project root directory and run the following command:
 ```bash
 export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-container-binaries.yaml"
 ./dev/platform-provisioner.sh
 ```
 
-For this sample pipeline: 
+For this sample pipeline:
 * The recipe is `docs/recipes/tests/test-container-binaries.yaml`
 * The pipeline is called `generic-runner`
 * The runtime Docker image is `ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest`
 
-The platform provisioner script [platform-provisioner.sh](dev/platform-provisioner.sh) will 
-* Parse the recipe and copy the recipe to the Docker container
-* Load pipeline script `generic-runner` to the Docker container
+The platform provisioner script [platform-provisioner.sh](dev/platform-provisioner.sh) will:
+* Parse the recipe and copy it to the Docker container
+* Load the pipeline script `generic-runner` into the Docker container
 * Run the pipeline script with the recipe inside the Docker container
 
+## Documentation
+
+* [Architecture & Design](docs/design/README.md)
+* [On-Premises Deployment](docs/recipes/k8s/on-prem/README.md)
+* [Cloud Deployment Recipes](docs/recipes/k8s/cloud/)
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Security
+
+To report a security vulnerability, please see [SECURITY.md](SECURITY.md).
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/TIBCOSoftware/platform-provisioner/tags).
 
----
-Copyright 2024 Cloud Software Group, Inc.
+## License
 
-License. This project is Licensed under the Apache License, Version 2.0 (the "License").
-You may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and limitations under the License.
+Copyright 2025 Cloud Software Group, Inc.
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text.
