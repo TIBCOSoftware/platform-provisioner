@@ -271,7 +271,7 @@ options:
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_LOG_ENABLE"
-  description: "Enable CP log. Default is false."
+  description: "Enable CP log."
 - name: "Enable CP network policies"
   groupIndex: 5
   type: boolean

@@ -113,7 +113,7 @@ meta:
 
     # logging
     GUI_CP_ES_NAMESPACE: "elastic-system"
-    GUI_CP_LOG_ENABLE: false
+    GUI_CP_LOG_ENABLE: true
     GUI_CP_LOG_ENDPOINT: ""
     GUI_CP_LOG_USERNAME: "" # optional logserver username, if using ELK stack
     GUI_CP_LOG_PASSWORD: "" # optional logserver password, if using ELK stack
@@ -1020,7 +1020,6 @@ helmCharts:
             echo "Log server password not found, please set it in the recipe"
             echo "disable otel-collector"
             yq eval '.otel-collector.enabled = false' log_values.yaml > log_values.tmp.yaml
-            yq eval '.global.tibco.logging.fluentbit.enabled = false' log_values.tmp.yaml > log_values.yaml
           fi
           mv log_values.tmp.yaml log_values.yaml
           echo "Log values:"
