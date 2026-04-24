@@ -9,12 +9,16 @@ recipe: |
       note: "get-tp-info"
       GUI_TP_CLUSTER_NAME: ''
       GUI_AZURE_RESOURCE_GROUP: ""
+      GUI_TP_ES_NAMESPACE: "elastic-system"
+      GUI_TP_PROMETHEUS_NAMESPACE: "prometheus-system"
       GUI_PIPELINE_LOG_DEBUG: false
     globalEnvVariable:
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: ${GUI_PIPELINE_LOG_DEBUG}
       PIPELINE_CHECK_DOCKER_STATUS: false
       AZURE_RESOURCE_GROUP: ${GUI_AZURE_RESOURCE_GROUP}
+      TP_ES_NAMESPACE: ${GUI_TP_ES_NAMESPACE:-"elastic-system"}
+      TP_PROMETHEUS_NAMESPACE: ${GUI_TP_PROMETHEUS_NAMESPACE:-"prometheus-system"}
       TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME}
   tasks:
     - condition: true
@@ -37,13 +41,13 @@ recipe: |
           kubectl get ingress -n ingress-system nginx 2>/dev/null | awk 'NR==2 { print $3 }'
   
           echo "### Get elastic ingress if exists"
-          kubectl get ingress -n elastic-system dp-config-es-elastic 2>/dev/null | awk 'NR==2 { print $3 }' 
+          kubectl get ingress -n ${TP_ES_NAMESPACE} dp-config-es-elastic 2>/dev/null | awk 'NR==2 { print $3 }' 
           
           echo "### Get elastic user secret. The user is elastic"
-          kubectl get secret dp-config-es-es-elastic-user -n elastic-system -o jsonpath="{.data.elastic}" 2>/dev/null | base64 --decode; echo
+          kubectl get secret dp-config-es-es-elastic-user -n ${TP_ES_NAMESPACE} -o jsonpath="{.data.elastic}" 2>/dev/null | base64 --decode; echo
   
           echo "### Get Grafana ingress if exists"
-          kubectl get ingress -n prometheus-system kube-prometheus-stack-grafana 2>/dev/null | awk 'NR==2 { print $3 }'
+          kubectl get ingress -n ${TP_PROMETHEUS_NAMESPACE} kube-prometheus-stack-grafana 2>/dev/null | awk 'NR==2 { print $3 }'
 
           echo "### Get Grafana admin password if exists"
-          kubectl get secret -n prometheus-system kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode; echo
+          kubectl get secret -n ${TP_PROMETHEUS_NAMESPACE} kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode; echo

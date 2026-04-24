@@ -1,0 +1,61 @@
+#
+# helm-unittest tests for pipeline.yaml
+#
+suite: Pipeline
+templates:
+  - pipeline.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: should render a Tekton Pipeline
+    asserts:
+      - isKind:
+          of: Pipeline
+      - equal:
+          path: apiVersion
+          value: tekton.dev/v1
+
+  - it: should set pipeline name and namespace
+    asserts:
+      - equal:
+          path: metadata.name
+          value: generic-runner
+      - equal:
+          path: metadata.namespace
+          value: tekton-tasks
+
+  - it: should define three params matching task params
+    asserts:
+      - equal:
+          path: spec.params[0].name
+          value: awsAccount
+      - equal:
+          path: spec.params[1].name
+          value: awsRegion
+      - equal:
+          path: spec.params[1].default
+          value: "us-west-2"
+      - equal:
+          path: spec.params[2].name
+          value: input
+
+  - it: should reference the task by name
+    asserts:
+      - equal:
+          path: spec.tasks[0].taskRef.name
+          value: generic-runner
+
+  - it: should set timeout from values
+    asserts:
+      - equal:
+          path: spec.tasks[0].timeout
+          value: "1h55m0s"
+
+  - it: should use custom timeout
+    set:
+      taskRunTimeout: 30m
+    asserts:
+      - equal:
+          path: spec.tasks[0].timeout
+          value: "30m"

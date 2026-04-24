@@ -17,7 +17,7 @@ Thank you for your interest in contributing to Platform Provisioner by TIBCO®!
 3. Make your changes following the coding conventions below.
 4. Test your changes locally using the headless mode:
    ```bash
-   export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-container-binaries.yaml"
+   export PIPELINE_INPUT_RECIPE="tests/e2e/test-container-binaries.yaml"
    ./dev/platform-provisioner.sh
    ```
 5. Commit with a clear, descriptive message.

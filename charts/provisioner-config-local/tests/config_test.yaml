@@ -1,0 +1,43 @@
+#
+# helm-unittest tests for config.yaml
+#
+suite: Config ConfigMap
+templates:
+  - config.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: should render a ConfigMap
+    asserts:
+      - isKind:
+          of: ConfigMap
+
+  - it: should set name with -config suffix
+    asserts:
+      - equal:
+          path: metadata.name
+          value: provisioner-config-local-config
+
+  - it: should use release namespace
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: test-ns
+
+  - it: should include standard labels
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: platform-provisioner
+      - equal:
+          path: metadata.labels["app.cloud.tibco.com/created-by"]
+          value: generator-v2
+
+  - it: should use custom name from values
+    set:
+      name: my-config
+    asserts:
+      - equal:
+          path: metadata.name
+          value: my-config-config

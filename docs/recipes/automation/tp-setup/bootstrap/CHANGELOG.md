@@ -1,3 +1,29 @@
+## [1.7.23-auto-on-prem-jammy]
+### Fixed
+- [PCP-18853] Updated MCP Hub automation for CP 1.17.0: 3-step provisioning wizard, create storage class if missing, new Add MCP Server dialog selectors, Preview Changes confirmation dialog
+
+## [1.7.22-auto-on-prem-jammy]
+### Fixed
+- [PCP-18746] Added handling for 'Preview / Customize Recipe' step during Flogo capability provisioning
+
+## [1.7.21-auto-on-prem-jammy]
+### Added
+- [PCP-18427] Integrated MCP Hub automation into headless pipeline (deploy-mcp-hub task in tp-automation-o11y recipe)
+- Added `GUI_TP_AI_ENABLE_MCP_HUB` toggle to automation recipe and Provisioner UI config
+
+## [1.7.20-auto-on-prem-jammy]
+### Added
+- Added non-hybrid connectivity to bmdp in automation.
+## [1.7.19-auto-on-prem-jammy]
+### Added
+- [PCP-18427] Added MCP Hub Playwright automation: deploy MCP Gateway, add MCP Server with Bearer Token auth, push to gateway with tool discovery, and verify tools
+- Added "Deploy MCP Gateway" option in Automation Hub dropdown
+- Added `make automation-deploy-gcp` target for deploying code to remote GCP automation pod
+- Documented remote GCP instance connection workflow (connect-ins.sh) in CLAUDE.md
+
+## [1.7.18-auto-on-prem-jammy]
+### Added
+- Now supported to disable hybrid connectivity in automation. By default, the automation will enable hybrid connectivity for TP with tibtunnel. User can set `GUI_CP_ENABLE_HYBRID_CONNECTIVITY` to false to disable it if needed.
 ## [1.7.17-auto-on-prem-jammy]
 ### Added
 - Updated /recipes/k8s/on-prem/scripts/headless/tp-install-on-prem.sh to support private repository

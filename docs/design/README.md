@@ -37,11 +37,11 @@ Make sure the default kubeconfig (~/.kube/config) is pointing to the local kuber
 
 Go to the project root directory and run the following command.
 ```bash
-export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-local.yaml"
+export PIPELINE_INPUT_RECIPE="tests/e2e/test-local.yaml"
 ./dev/platform-provisioner.sh
 ```
 
-The above command will run the scripts defined on the recipe `docs/recipes/tests/test-local.yaml` with the pipeline `generic-runner` inside the Docker container `ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest`.
+The above command will run the scripts defined on the recipe `tests/e2e/test-local.yaml` with the pipeline `generic-runner` inside the Docker container `ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest`.
 
 This is fully customizable and can be extended to fit your needs.  Ideally user can create different recipes for different use cases.
 

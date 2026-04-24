@@ -69,12 +69,9 @@ meta:
     TP_DEPLOY_ES: "true" # set to true to deploy elasticsearch
     TP_CONFIG_ES_VERSION: "8.17.3" # version of elasticsearch
     TP_CONFIG_ES_KIBANA_COUNT: "0" # number of kibana instances
-    TP_DEPLOY_ES_INGRESS: "true" # set to true to deploy elasticsearch ingress
     TP_DEPLOY_KIBANA: "true" # set to true to deploy kibana
-    TP_DEPLOY_KIBANA_INGRESS: "true" # set to true to deploy kibana ingress
     # apm
     TP_DEPLOY_APM: "true" # set to true to deploy apm
-    TP_DEPLOY_APM_INGRESS: "true" # set to true to deploy apm ingress
     # grafana
     TP_GRAFANA_ADMIN_PASSWORD: "${GUI_TP_GRAFANA_ADMIN_PASSWORD:-$(openssl rand -base64 16)}" # set grafana admin password
     # flow control
@@ -92,6 +89,10 @@ meta:
     TP_ENABLE_HAPROXY: $([[ "$TP_INGRESS_CLASS" == "haproxy" ]] && echo "true" || echo "false")
     TP_ENABLE_INGRESS_CONTROLLER: $([[ "$TP_INGRESS_CLASS" == "nginx" || "$TP_INGRESS_CLASS" == "traefik" || "$TP_INGRESS_CLASS" == "haproxy" || "$TP_INGRESS_CLASS" == "nginx-gateway-fabric" ]] && echo "true" || echo "false")
     TP_ENABLE_ISTIO_GATEWAY: $([[ "$TP_INGRESS_CLASS" == "istio-gateway" ]] && echo "true" || echo "false")
+    TP_ENABLE_TRAEFIK_GATEWAY: $([[ "$TP_INGRESS_CLASS" == "traefik-gateway" ]] && echo "true" || echo "false")
+    # computed: ingress vs gateway API routing
+    TP_ENABLE_INGRESS: $([[ "$TP_INGRESS_CLASS" == "nginx" || "$TP_INGRESS_CLASS" == "traefik" || "$TP_INGRESS_CLASS" == "haproxy" ]] && echo "true" || echo "false")
+    TP_ENABLE_HTTP_ROUTE: $([[ "$TP_INGRESS_CLASS" == "nginx-gateway-fabric" || "$TP_INGRESS_CLASS" == "istio-gateway" || "$TP_INGRESS_CLASS" == "traefik-gateway" ]] && echo "true" || echo "false")
     TP_ENABLE_SECONDARY_KONG: $([[ "$TP_SECONDARY_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
     TP_DEPLOY_SECONDARY_INGRESS: $([[ "$TP_ENABLE_SECONDARY_KONG" == "true" ]] && echo "true" || echo "false")
     TP_HTTP_INGRESS_BACKEND_SERVICE: ${TP_INGRESS_RELEASE_NAME}-$( ( [[  "$TP_INGRESS_CLASS" == "nginx" ]] && echo "ingress-nginx-controller" ) || ( [[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "kong-proxy" ) )
@@ -511,6 +512,7 @@ helmCharts:
         EOF
   # Istio installation: istio-base and istiod MUST be in istio-system namespace due to hardcoded references in CRDs, webhooks, and RBAC
   # Gateway resource (data plane) is deployed to ingress-system via postDeploy hook
+# istio gateway
 - condition: ${TP_ENABLE_ISTIO_GATEWAY}
   name: dp-config-aws
   namespace: istio-system
@@ -650,6 +652,128 @@ helmCharts:
         EOF
         # Wait for Gateway to be programmed
         kubectl wait --timeout=5m -n ${TP_INGRESS_NAMESPACE} gateway/istio-gateway --for=condition=Programmed
+# traefik gateway
+- name: dp-config-aws
+  condition: ${TP_ENABLE_TRAEFIK_GATEWAY}
+  version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      dns:
+        domain: "${TP_DOMAIN}"
+      traefik:
+        enabled: true
+        additionalArguments:
+          - '--entryPoints.websecure.forwardedHeaders.insecure'
+          - '--serversTransport.insecureSkipVerify=true'
+          - '--providers.kubernetesingress.ingressendpoint.publishedservice=${TP_INGRESS_NAMESPACE}/${TP_INGRESS_RELEASE_NAME}-traefik'
+        ingressRoute:
+          dashboard:
+            enabled: false
+        ingressClass:
+          enabled: false
+        providers:
+          kubernetesIngress:
+            enabled: false
+          kubernetesGateway:
+            enabled: true
+        gateway:
+          enabled: false
+        ports:
+          traefik:
+            port: 9000
+            expose:
+              default: false
+          web:
+            port: 8080
+            expose:
+              default: true
+            exposedPort: 80
+          websecure:
+            port: 8443
+            expose:
+              default: true
+            exposedPort: 443
+        tlsStore:
+          default:
+            defaultCertificate:
+              secretName: tp-certificate-main-ingress
+        service:
+          type: LoadBalancer # use NLB for traefik, set to ClusterIP when using ALB
+          loadBalancerClass: service.k8s.aws/nlb # used for aws-load-balancer-controller to create NLB
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "external"
+            service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+            external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: ${TP_INGRESS_RELEASE_NAME}
+  namespace: ${TP_INGRESS_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: true
+    labels: "layer=1"
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: ${TP_SKIP_GENERATE_CLUSTER_ISSUER}
+      content: |
+        # create a namespace for the main ingress
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: ${TP_INGRESS_NAMESPACE}
+          labels:
+            networking.platform.tibco.com/non-cp-ns: enable
+        EOF
+        
+        # create a certificate for the main ingress
+        kubectl apply -f - << EOF
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: tp-certificate-main-ingress
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          secretName: tp-certificate-main-ingress
+          issuerRef:
+            name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+            kind: ClusterIssuer
+          dnsNames:
+            - '*.${TP_DOMAIN}'
+        EOF
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # Create Gateway object for nginx-gateway-fabric
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: traefik-gateway
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          gatewayClassName: traefik
+          listeners:
+          - name: http
+            port: 8080
+            protocol: HTTP
+            allowedRoutes:
+              namespaces:
+                from: All
+        EOF
 - name: dp-config-aws
   version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   condition: ${TP_DEPLOY_SECONDARY_INGRESS}
@@ -838,9 +962,16 @@ helmCharts:
         enabled: "${TP_DEPLOY_ES}"
         version: "${TP_CONFIG_ES_VERSION}"
         ingress:
-          enabled: "${TP_DEPLOY_ES_INGRESS}"
+          enabled: ${TP_ENABLE_INGRESS}
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-es-http
+        httpRoute:
+          enabled: ${TP_ENABLE_HTTP_ROUTE}
+          gatewayName: ${TP_INGRESS_CLASS}
+          gatewayNamespace: "${TP_INGRESS_NAMESPACE}"
+          host: elastic
+          service: ${TP_ES_RELEASE_NAME}-es-http
+          annotations: {}
         storage:
           name: ${TP_STORAGE_CLASS}
       kibana:
@@ -848,16 +979,30 @@ helmCharts:
         count: ${TP_CONFIG_ES_KIBANA_COUNT}
         version: "${TP_CONFIG_ES_VERSION}"
         ingress:
-          enabeld: "${TP_DEPLOY_KIBANA_INGRESS}"
+          enabled: ${TP_ENABLE_INGRESS}
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-kb-http
+        httpRoute:
+          enabled: ${TP_ENABLE_HTTP_ROUTE}
+          gatewayName: ${TP_INGRESS_CLASS}
+          gatewayNamespace: "${TP_INGRESS_NAMESPACE}"
+          host: kibana
+          service: ${TP_ES_RELEASE_NAME}-kb-http
+          annotations: {}
       apm:
         enabled: "${TP_DEPLOY_APM}"
         version: "${TP_CONFIG_ES_VERSION}"
         ingress:
-          enabled: "${TP_DEPLOY_APM_INGRESS}"
+          enabled: ${TP_ENABLE_INGRESS}
           ingressClassName: ${TP_INGRESS_CLASS}
           service: ${TP_ES_RELEASE_NAME}-apm-http
+        httpRoute:
+          enabled: ${TP_ENABLE_HTTP_ROUTE}
+          gatewayName: ${TP_INGRESS_CLASS}
+          gatewayNamespace: "${TP_INGRESS_NAMESPACE}"
+          host: apm
+          service: ${TP_ES_RELEASE_NAME}-apm-http
+          annotations: {}
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -881,7 +1026,7 @@ helmCharts:
         plugins:
           - grafana-piechart-panel
         ingress:
-          enabled: true
+          enabled: ${TP_ENABLE_INGRESS}
           ingressClassName: ${TP_INGRESS_CLASS}
           hosts:
           - grafana.${TP_DOMAIN}

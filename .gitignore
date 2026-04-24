@@ -66,3 +66,5 @@ docs/recipes/automation/tp-setup/bootstrap/test_example.py
 /.gemini/skills
 /.github/copilot-instructions.md
 docs/recipes/automation/tp-setup/bootstrap/upload/license-file.bin
+.chrome-profile-test/
+.run/

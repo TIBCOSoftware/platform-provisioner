@@ -35,7 +35,7 @@ In this case, the recipe and pipeline will be scheduled by Tekton and run in the
 
 * Docker installed
 * Bash shell
-* yq version 4 installed
+* yq version 4.40+ installed
 
 #### Install Tekton with Tekton dashboard
 ```bash

@@ -229,6 +229,13 @@ options:
   dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-ai-agent"
   reference: "meta.guiEnv.GUI_CP_PLATFORM_AI_AGENT_VERSION"
   description: "The version of CP platform AI agent. Use ^1.0.0 for latest"
+- name: "tibco-cp-mcp-hub version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-mcp-hub"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_MCP_HUB_VERSION"
+  description: "The version of CP platform MCP hub. Use ^1.0.0 for latest"
 - name: "CP instance ID"
   groupIndex: 5
   type: string
@@ -264,7 +271,7 @@ options:
   type: boolean
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_LOG_ENABLE"
-  description: "Enable CP log"
+  description: "Enable CP log."
 - name: "Enable CP network policies"
   groupIndex: 5
   type: boolean
@@ -606,6 +613,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER"
   description: |
     Enable/Disable CP FLOGO MCP server.
+- name: "Enable MCP Hub"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AI_ENABLE_MCP_HUB"
+  description: |
+    Enable/Disable MCP Hub in CP base.
 
 # groupIndex: 11 Flow control
 - name: "Validate Cluster Resource"
@@ -682,6 +696,12 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_AI_AGENT"
   description: "Install platform AI agent"
+- name: "Install tibco-cp-mcp-hub"
+  groupIndex: 11
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_MCP_HUB"
+  description: "Install platform MCP hub"
 - name: "Enable debug log"
   groupIndex: 11
   type: boolean

@@ -135,6 +135,11 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 self.page.locator(".eula-container input").click()
                 print("Clicked Flogo 'EUA' checkbox")
                 self.page.wait_for_timeout(500)
+                # for 'Preview / Customize Recipe' step
+                if Util.check_dom_visibility(self.page, self.page.locator("#qaNextToRecipe"), 2, 2):
+                    self.page.locator("#qaNextToRecipe").click()
+                    print(f"Clicked Flogo 'Next' button, finished step 2, 'Preview / Customize Recipe' step page is loaded")
+
                 self.page.locator("#qaProvisionFlogo").click()
                 print("Clicked 'Flogo Provision Capability' button, waiting for Flogo Capability Provision Request Completed")
                 # TODO: success message may not pop up, need to handle this case

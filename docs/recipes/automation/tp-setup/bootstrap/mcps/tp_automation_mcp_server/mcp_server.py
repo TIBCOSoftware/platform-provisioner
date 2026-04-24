@@ -27,6 +27,7 @@ from .environment_tools import show_environment, create_subscription, config_o11
 from .dataplane_tools import create_k8s_dataplane, config_dataplane_o11y, delete_dataplane
 from .capability_tools import provision_bwce, provision_ems, provision_flogo, provision_pulsar, provision_tibcohub
 from .application_tools import create_start_bwce_app, create_start_flogo_app, delete_bwce_app, delete_flogo_app
+from .mcp_hub_tools import deploy_mcp_hub
 from .auth_middleware import BearerTokenMiddleware
 
 logger = logging.getLogger('tibco-platform-provisioner-mcp')
@@ -306,6 +307,20 @@ async def delete_flogo_application(app_name: str = "", dp_name: str = "") -> str
         Result of the Flogo app deletion process
     """
     return await delete_flogo_app(app_name, dp_name)
+
+# MCP Hub Actions
+@mcp.tool()
+async def deploy_mcp_hub_chart(dp_name: str = "", chart_version: str = "") -> str:
+    """Deploy MCP Hub (helm install tibco-cp-mcp-hub)
+
+    Args:
+        dp_name: Data Plane name for context (MCP Hub deploys to CP namespace).
+        chart_version: Specific chart version to deploy (optional).
+
+    Returns:
+        Result of the MCP Hub deployment process
+    """
+    return await deploy_mcp_hub(dp_name, chart_version)
 
 @mcp.tool()
 async def status() -> str:

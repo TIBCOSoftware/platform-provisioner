@@ -27,7 +27,8 @@
 #   PIPELINE_GUI_SERVICE_TYPE: the service type for the provisioner GUI
 #   PIPELINE_GUI_SERVICE_PORT: the service port for the provisioner GUI
 #   PIPELINE_NAMESPACE: the namespace to deploy the pipeline and provisioner GUI
-#   PLATFORM_PROVISIONER_PIPELINE_REPO: the repo to pull the pipeline and provisioner GUI helm charts
+#   PLATFORM_PROVISIONER_PIPELINE_REPO: the repo to pull the pipeline helm charts
+#   PLATFORM_PROVISIONER_UI_REPO: the repo to pull the platform-provisioner-ui helm chart
 #   PIPELINE_DOCKER_IMAGE: the docker image for the pipeline
 #   PIPELINE_SKIP_PROVISIONER_UI: true or other string if true, will skip installing platform-provisioner GUI
 #   PIPELINE_SKIP_TEKTON_DASHBOARD: true or other string if true, will skip installing tekton dashboard
@@ -95,6 +96,7 @@ if [[ ${PIPELINE_SKIP_TEKTON_DASHBOARD} != "true" ]]; then
 fi
 
 export PLATFORM_PROVISIONER_PIPELINE_REPO=${PLATFORM_PROVISIONER_PIPELINE_REPO:-"https://tibcosoftware.github.io/platform-provisioner"}
+export PLATFORM_PROVISIONER_UI_REPO=${PLATFORM_PROVISIONER_UI_REPO:-"https://tibcosoftware.github.io/platform-provisioner-ui"}
 export PIPELINE_NAMESPACE=${PIPELINE_NAMESPACE:-"tekton-tasks"}
 
 kubectl create namespace "${PIPELINE_NAMESPACE}"
@@ -211,7 +213,7 @@ fi
 
 # install provisioner web ui
 # --set will handle the empty secret name
-helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_PIPELINE_REPO}" \
+helm upgrade --install -n "${PIPELINE_NAMESPACE}" platform-provisioner-ui platform-provisioner-ui --repo "${PLATFORM_PROVISIONER_UI_REPO}" \
   --version "${PIPELINE_CHART_VERSION_PROVISIONER_UI}" \
   --set "imagePullSecrets[0].name=${_image_pull_secret_name}" -f - <<EOF
 guiConfig:

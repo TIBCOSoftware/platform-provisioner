@@ -248,7 +248,7 @@ function platform_provisioner_verify_access() {
 
     cd ${HOME}/platform-provisioner
     echo "########## Verify Azure Account Access ##########"
-    export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-azure.yaml"
+    export PIPELINE_INPUT_RECIPE="tests/e2e/test-azure.yaml"
     ./dev/platform-provisioner.sh 
     platform_provisioner_update_deploy_recipe
 

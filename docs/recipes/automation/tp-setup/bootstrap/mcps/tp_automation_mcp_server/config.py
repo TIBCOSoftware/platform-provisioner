@@ -136,7 +136,10 @@ DEFAULT_VALUES = {
     "TP_AUTO_IS_PROVISION_EMS": False,
     "TP_AUTO_IS_PROVISION_FLOGO": False,
     "TP_AUTO_IS_PROVISION_PULSAR": False,
-    "TP_AUTO_IS_PROVISION_TIBCOHUB": False
+    "TP_AUTO_IS_PROVISION_TIBCOHUB": False,
+    # MCP Hub
+    "TP_AI_ENABLE_MCP_HUB": False,
+    "CP_PLATFORM_MCP_HUB_VERSION": "~1.17.0-0",
 }
 
 # Map case values to Python modules (not shell scripts)
@@ -157,5 +160,6 @@ CASE_TO_MODULE = {
     "case.k8s_create_and_start_bwce_app": "case.k8s_create_and_start_bwce_app",
     "case.k8s_create_and_start_flogo_app": "case.k8s_create_and_start_flogo_app",
     "delete_bwce_app": "delete_bwce_app",
-    "delete_flogo_app": "delete_flogo_app"
+    "delete_flogo_app": "delete_flogo_app",
+    "case.k8s_deploy_mcp_hub": "case.k8s_deploy_mcp_hub"
 }

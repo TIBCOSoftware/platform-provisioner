@@ -1,0 +1,38 @@
+#
+# helm-unittest tests for pipeline.yaml
+#
+suite: Pipeline
+templates:
+  - pipeline.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: should render a Tekton Pipeline
+    asserts:
+      - isKind:
+          of: Pipeline
+      - equal:
+          path: apiVersion
+          value: tekton.dev/v1
+
+  - it: should set pipeline name and namespace
+    asserts:
+      - equal:
+          path: metadata.name
+          value: helm-install
+      - equal:
+          path: metadata.namespace
+          value: tekton-tasks
+
+  - it: should reference the task by name
+    asserts:
+      - equal:
+          path: spec.tasks[0].taskRef.name
+          value: helm-install
+
+  - it: should pass all params to the task
+    asserts:
+      - lengthEqual:
+          path: spec.tasks[0].params
+          count: 3

@@ -22,3 +22,5 @@
 *.tmproj
 .vscode/
 .venv/
+# Test files (helm-unittest)
+tests/

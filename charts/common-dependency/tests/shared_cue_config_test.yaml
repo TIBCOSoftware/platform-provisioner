@@ -1,0 +1,32 @@
+#
+# helm-unittest tests for sharedcueConfig.yaml
+#
+suite: Shared CUE ConfigMap
+templates:
+  - sharedcueConfig.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: should render a ConfigMap
+    asserts:
+      - isKind:
+          of: ConfigMap
+
+  - it: should set name with -shared-cue suffix
+    asserts:
+      - equal:
+          path: metadata.name
+          value: common-dependency-shared-cue
+      - equal:
+          path: metadata.namespace
+          value: tekton-tasks
+
+  - it: should include standard labels
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: platform-provisioner
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: common-dependency-shared-cue
