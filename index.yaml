@@ -3,6 +3,20 @@ entries:
   common-dependency:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-04-24T18:36:34.276274746Z"
+    description: common-dependency
+    digest: 0c4299c82c34e048e776a50ff1d787bc54d1d3bd33fe741c115c7db1fb663aa1
+    home: https://github.com/TIBCOSoftware/platform-provisioner
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: common-dependency
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/common-dependency-1.0.20/common-dependency-1.0.20.tgz
+    version: 1.0.20
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-03-24T20:40:27.734399458Z"
     description: common-dependency
     digest: 49df989e9eb7c29c713c130a96a040dc63ce7302cbb930c41cb6fe1e53a2fd15
@@ -186,6 +200,20 @@ entries:
   generic-runner:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-04-24T18:36:34.442475087Z"
+    description: generic-runner
+    digest: 5226836578df18541fdd5c431116227d528b8e65ddfe1268922d5bf52c90d8be
+    home: https://github.com/TIBCOSoftware/platform-provisioner
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: generic-runner
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/generic-runner-1.0.10/generic-runner-1.0.10.tgz
+    version: 1.0.10
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-03-24T20:40:27.916491139Z"
     description: generic-runner
     digest: 149bb09d61229cea3640a88e20a5818f55ddc874a45d9606e07bcab980436353
@@ -255,6 +283,20 @@ entries:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/generic-runner-1.0.5/generic-runner-1.0.5.tgz
     version: 1.0.5
   helm-install:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-24T18:36:34.582830166Z"
+    description: helm-install
+    digest: 66a4fbdf9f04e99bff1f8843a33b495f03e40e69fdd0749e46331621049c2c69
+    home: https://github.com/TIBCOSoftware/platform-provisioner
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: helm-install
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/helm-install-1.0.17/helm-install-1.0.17.tgz
+    version: 1.0.17
   - apiVersion: v2
     appVersion: 1.0.0
     created: "2026-03-24T20:40:28.048699147Z"
@@ -537,6 +579,20 @@ entries:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/platform-provisioner-ui-1.0.1/platform-provisioner-ui-1.0.1.tgz
     version: 1.0.1
   provisioner-config-local:
+  - apiVersion: v2
+    appVersion: 2.0.1
+    created: "2026-04-24T18:36:34.787182317Z"
+    description: Platform Provisioner local config
+    digest: 1a5875179cd73ffb6265929009b56f6bf44d75d8acd2ce35b98c0e1c2e6a6ccc
+    home: https://github.com/TIBCOSoftware/platform-provisioner
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.16.11/provisioner-config-local-1.16.11.tgz
+    version: 1.16.11
   - apiVersion: v2
     appVersion: 2.0.1
     created: "2026-03-24T20:40:28.346311749Z"
@@ -1545,4 +1601,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
     version: 1.0.25
-generated: "2026-03-24T20:40:28.346744249Z"
+generated: "2026-04-24T18:36:34.787938444Z"
