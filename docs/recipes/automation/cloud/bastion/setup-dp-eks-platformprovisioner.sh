@@ -273,7 +273,7 @@ function platform_provisioner_verify_access() {
 
     cd ${HOME}/platform-provisioner
     echo "########## Verify AWS Account Access ##########"
-    export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-aws.yaml"
+    export PIPELINE_INPUT_RECIPE="tests/e2e/test-aws.yaml"
     ./dev/platform-provisioner.sh 
     platform_provisioner_update_deploy_recipe
 

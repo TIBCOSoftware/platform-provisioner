@@ -45,6 +45,7 @@ meta:
     GUI_TP_APM_CPU_LIMIT: "250m"
 
     # prometheus
+    GUI_TP_PROMETHEUS_NAMESPACE: "prometheus-system"
     GUI_TP_KUBE_PROMETHEUS_STACK_VERSION: "80.13.3"
     GUI_TP_KUBE_PROMETHEUS_STACK_ENABLE_GRAFANA: false
 
@@ -123,6 +124,7 @@ meta:
     TP_APM_MEMORY_REQUEST: "${GUI_TP_APM_MEMORY_REQUEST}"
 
     # prometheus
+    TP_PROMETHEUS_NAMESPACE: "${GUI_TP_PROMETHEUS_NAMESPACE:-prometheus-system}"
     TP_KUBE_PROMETHEUS_STACK_VERSION: "${GUI_TP_KUBE_PROMETHEUS_STACK_VERSION}" # https://github.com/prometheus-community/helm-charts/releases?q=kube-prometheus-stack&expanded=true
     TP_KUBE_PROMETHEUS_STACK_ENABLE_GRAFANA: ${GUI_TP_KUBE_PROMETHEUS_STACK_ENABLE_GRAFANA:-false}
 
@@ -157,7 +159,7 @@ helmCharts:
 - name: eck-operator
   version: ${TP_ECK_VERSION}
   condition: ${TP_DEPLOY_ECK}
-  namespace: elastic-system
+  namespace: ${TP_CONFIG_ES_NAMESPACE}
   releaseName: eck-operator
   repo:
     helm:
@@ -172,7 +174,7 @@ helmCharts:
 - name: dp-config-es
   version: ${TP_CONFIG_CHART_VERSION}
   condition: ${TP_DEPLOY_ECK}
-  namespace: elastic-system
+  namespace: ${TP_CONFIG_ES_NAMESPACE}
   releaseName: ${TP_ES_RELEASE_NAME}
   repo:
     helm:
@@ -255,35 +257,35 @@ helmCharts:
   flags:
     wait: true
     timeout: 1h
-    createNamespace: true
+    createNamespace: false
   hooks:
     preDeploy:
       ignoreErrors: false
       base64Encoded: false
       skip: false
       content: |
-        kubectl create ns elastic-system
-        kubectl label namespace elastic-system networking.platform.tibco.com/non-dp-ns=enable
-        kubectl label namespace elastic-system networking.platform.tibco.com/non-cp-ns=enable
+        kubectl create ns ${TP_CONFIG_ES_NAMESPACE}
+        kubectl label namespace ${TP_CONFIG_ES_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_CONFIG_ES_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
     postDeploy:
       ignoreErrors: false
       base64Encoded: false
       skip: false
       content: |
         # elastic
-        kubectl get secret ${TP_ES_RELEASE_NAME}-es-http-ca-internal -n elastic-system -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
-        kubectl get configmap es-ca-cert -n elastic-system || kubectl create configmap es-ca-cert --from-file=ca.crt=ca.crt -n elastic-system
+        kubectl get secret ${TP_ES_RELEASE_NAME}-es-http-ca-internal -n ${TP_CONFIG_ES_NAMESPACE} -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
+        kubectl get configmap es-ca-cert -n ${TP_CONFIG_ES_NAMESPACE} || kubectl create configmap es-ca-cert --from-file=ca.crt=ca.crt -n ${TP_CONFIG_ES_NAMESPACE}
         # kibana
-        kubectl get secret ${TP_ES_RELEASE_NAME}-kb-http-ca-internal -n elastic-system -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
-        kubectl get configmap kb-ca-cert -n elastic-system || kubectl create configmap kb-ca-cert --from-file=ca.crt=ca.crt -n elastic-system
+        kubectl get secret ${TP_ES_RELEASE_NAME}-kb-http-ca-internal -n ${TP_CONFIG_ES_NAMESPACE} -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
+        kubectl get configmap kb-ca-cert -n ${TP_CONFIG_ES_NAMESPACE} || kubectl create configmap kb-ca-cert --from-file=ca.crt=ca.crt -n ${TP_CONFIG_ES_NAMESPACE}
         # apm
-        kubectl get secret ${TP_ES_RELEASE_NAME}-apm-http-ca-internal -n elastic-system -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
-        kubectl get configmap apm-ca-cert -n elastic-system || kubectl create configmap apm-ca-cert --from-file=ca.crt=ca.crt -n elastic-system
+        kubectl get secret ${TP_ES_RELEASE_NAME}-apm-http-ca-internal -n ${TP_CONFIG_ES_NAMESPACE} -o jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
+        kubectl get configmap apm-ca-cert -n ${TP_CONFIG_ES_NAMESPACE} || kubectl create configmap apm-ca-cert --from-file=ca.crt=ca.crt -n ${TP_CONFIG_ES_NAMESPACE}
 - name: kube-prometheus-stack
   version: "${TP_KUBE_PROMETHEUS_STACK_VERSION}"
   condition: ${TP_DEPLOY_PROMETHEUS_STACK}
   releaseName: kube-prometheus-stack
-  namespace: prometheus-system
+  namespace: ${TP_PROMETHEUS_NAMESPACE}
   repo:
     helm:
       url: https://prometheus-community.github.io/helm-charts
@@ -341,17 +343,17 @@ helmCharts:
   flags:
     wait: true
     timeout: 1h
-    createNamespace: true
+    createNamespace: false
   hooks:
     preDeploy:
       ignoreErrors: false
       base64Encoded: false
       skip: false
       content: |
-        kubectl create ns prometheus-system
-        kubectl label namespace prometheus-system networking.platform.tibco.com/non-dp-ns=enable
-        kubectl label namespace prometheus-system networking.platform.tibco.com/non-cp-ns=enable
-        GRAFANA_ADMIN_PASSWORD=$(kubectl get secret -n prometheus-system kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode)
+        kubectl create ns ${TP_PROMETHEUS_NAMESPACE}
+        kubectl label namespace ${TP_PROMETHEUS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_PROMETHEUS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+        GRAFANA_ADMIN_PASSWORD=$(kubectl get secret -n ${TP_PROMETHEUS_NAMESPACE} kube-prometheus-stack-grafana -o=jsonpath='{.data.admin-password}' 2> /dev/null | base64 --decode)
         echo "Grafana admin password: $GRAFANA_ADMIN_PASSWORD"
 - name: dp-config-opensearch
   version: ${TP_CONFIG_OPENSEARCH_CHART_VERSION}
@@ -419,7 +421,7 @@ helmCharts:
   flags:
     wait: true
     timeout: 1h
-    createNamespace: true
+    createNamespace: false
   hooks:
     preDeploy:
       ignoreErrors: false

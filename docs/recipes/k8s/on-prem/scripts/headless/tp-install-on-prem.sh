@@ -19,12 +19,13 @@
 #######################################
 # tp-install-on-prem.sh: this script will use docker to run the pipeline task
 # Globals:
-#   TP_TOP_DOMAIN: the top domain (default: dev.localhost)
+#   TP_TOP_DOMAIN: the top domain (default: tp.localhost)
 #   TP_K8S_CLUSTER_TYPE_CODE: the k8s cluster type code. 1 for k3s, 2 for OpenShift, 3 for Docker Desktop (default), 4 for miniKube, 5 for kind, 6 for MicroK8s
 #   TP_AUTOMATION_SCRIPT_OPTIONS: the automation script options. see: https://github.com/TIBCOSoftware/platform-provisioner/blob/main/docs/recipes/automation/on-prem/run.sh
 #   GUI_TP_LICENSE_FILE_PATH: the path to the .bin license file for file-based activation
 #   GUI_TP_TLS_CERT: (optional) the SSL Certificate in base64. If empty, a self-signed cert will be generated
 #   GUI_TP_TLS_KEY: (optional) the SSL key in base64. If empty, a self-signed cert will be generated
+#   GUI_TP_ENABLE_HYBRID_CONNECTIVITY: true to enable hybrid connectivity (use tibtunnel) for DP. Default is false, this is a new feature 1.15+. 
 #   GUI_TP_AUTO_USE_CLI: the flag to use CLI mode for DP operations. default is true
 #   GUI_TP_AUTO_ENABLE_BWCE: the flag to enable BWCE. default is true
 #   GUI_TP_AUTO_ACTIVE_USER: activate user automatically. default is true
@@ -48,73 +49,16 @@
 #   0 if thing was deleted, non-zero on error
 # Notes:
 #   This script will generate all TP recipes and customize them for public repo
-#   Requires: docker, yq (v4), helm, kubectl, mkcert
+#   Requires: docker, yq (v4.40+), helm, kubectl, mkcert
 # Samples:
 #   ./tp-install-on-prem.sh
 ########################################
 
-# Check if yq is installed
-function check-yq() {
-  if ! command -v yq &> /dev/null; then
-    echo "Error: yq is not installed. Please install yq before running this script."
-    echo "Installation instructions:"
-
-    case "$OSTYPE" in
-      darwin*)
-        echo "  - macOS: brew install yq"
-        ;;
-      linux*)
-        echo "  - Linux: wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq"
-        ;;
-      msys*|cygwin*|win32*)
-        echo "  - Windows: Install Scoop first (https://scoop.sh), then run:"
-        echo "      scoop install yq"
-        ;;
-      *)
-        echo "  - Unsupported OS. Please refer to the official documentation: https://github.com/mikefarah/yq"
-        ;;
-    esac
-
-    exit 1
-  fi
-
-  # Check yq version, which should be 4.x
-  yq_version=$(yq --version | awk '{print $4}' | cut -c 2)
-  if [ "$yq_version" != "4" ]; then
-    echo "Error: yq version 4 is required. Please check your yq version."
-    exit 1
-  fi
-}
-
-# Check if mkcert is installed
-function check-mkcert() {
-  if ! command -v mkcert &> /dev/null; then
-    echo "Error: mkcert is not installed. Please install mkcert before running this script."
-    echo "Installation instructions:"
-
-    case "$OSTYPE" in
-      darwin*)
-        echo "  - macOS: brew install mkcert"
-        ;;
-      linux*)
-        echo "  - Linux: curl -JLO https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-        echo "          chmod +x mkcert-v*-linux-amd64"
-        echo "          sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert"
-        echo "          See: https://github.com/FiloSottile/mkcert"
-        ;;
-      msys*|cygwin*|win32*)
-        echo "  - Windows: Install Scoop first (https://scoop.sh), then run:"
-        echo "     scoop bucket add extras"
-        echo "     scoop install extras/mkcert"
-        ;;
-      *)
-        echo "  - Unsupported OS. Please refer to: https://github.com/FiloSottile/mkcert"
-        ;;
-    esac
-
-    exit 1
-  fi
-}
+# Source shared tool checks (downloaded by install-tp, or available locally)
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${_SCRIPT_DIR}/_check-tools.sh" ]]; then
+  source "${_SCRIPT_DIR}/_check-tools.sh"
+fi
 
 #######################################
 # Generate locally-trusted certificate for *.${TP_TOP_DOMAIN} using mkcert
@@ -184,7 +128,7 @@ function convert-license-file-to-base64() {
 
 function customize-tp() {
   echo "Customize TP..."
-  export TP_TOP_DOMAIN=${TP_TOP_DOMAIN:-"dev.localhost"}
+  export TP_TOP_DOMAIN=${TP_TOP_DOMAIN:-"tp.localhost"}
   export GUI_CP_CONTAINER_REGISTRY=${GUI_CP_CONTAINER_REGISTRY:-"csgprduswrepoedge.jfrog.io"}
   export GUI_CP_CONTAINER_REGISTRY_REPOSITORY=${GUI_CP_CONTAINER_REGISTRY_REPOSITORY:-"tibco-platform-docker-prod"}
   export GUI_CP_CONTAINER_REGISTRY_USERNAME=${GUI_CP_CONTAINER_REGISTRY_USERNAME:-""}
@@ -215,16 +159,20 @@ function customize-tp() {
     fi
     # Private repo: set private chart repo and token for on-premises-third-party
     if [[ -n "${GITHUB_TOKEN}" ]]; then
-      yq eval -i '(.meta.guiEnv.GUI_TP_CHART_REPO = env(TP_CHART_REPO))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_TP_CHART_REPO = env(TP_PRIVATE_REPO))' "$_recipe_file_name"
       yq eval -i '(.meta.guiEnv.GUI_GITHUB_TOKEN = env(GITHUB_TOKEN))' "$_recipe_file_name"
       yq eval -i '(.meta.guiEnv.GUI_TP_CHART_REPO_TOKEN = env(GITHUB_TOKEN))' "$_recipe_file_name"
     fi
   fi
 
+  # Hybrid connectivity: default disabled; can be overridden via GUI_TP_ENABLE_HYBRID_CONNECTIVITY
+  export GUI_TP_ENABLE_HYBRID_CONNECTIVITY=${GUI_TP_ENABLE_HYBRID_CONNECTIVITY:-"true"}
   # Update 02-tp-cp-on-prem.yaml: domain, BWCE, platform versions
   _recipe_file_name="02-tp-cp-on-prem.yaml"
   if [[ -f "${_recipe_file_name}" ]]; then
     yq eval -i '(.meta.guiEnv.GUI_CP_DNS_DOMAIN = env(TP_TOP_DOMAIN))' "$_recipe_file_name"
+
+    yq eval -i '(.meta.guiEnv.GUI_CP_ENABLE_HYBRID_CONNECTIVITY = env(GUI_TP_ENABLE_HYBRID_CONNECTIVITY))' "$_recipe_file_name"
 
     # Enable BWCE by default for headless
     export GUI_TP_AUTO_ENABLE_BWCE=${GUI_TP_AUTO_ENABLE_BWCE:-"true"}
@@ -244,6 +192,10 @@ function customize-tp() {
     if [[ -n "$GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION" ]]; then
       echo "Update the platform integration flogo version to $GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION"
       yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION = env(GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION))' "$_recipe_file_name"
+    fi
+    if [[ -n "$GUI_CP_PLATFORM_INTEGRATION_SB_VERSION" ]]; then
+      echo "Update the platform integration sb version to $GUI_CP_PLATFORM_INTEGRATION_SB_VERSION"
+      yq eval -i '(.meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_SB_VERSION = env(GUI_CP_PLATFORM_INTEGRATION_SB_VERSION))' "$_recipe_file_name"
     fi
     if [[ -n "$GUI_CP_PLATFORM_HAWK_VERSION" ]]; then
       echo "Update the platform hawk version to $GUI_CP_PLATFORM_HAWK_VERSION"
@@ -267,10 +219,10 @@ function customize-tp() {
     fi
     # Private repo: set private CP/DP chart repos
     if [[ -n "${GITHUB_TOKEN}" ]]; then
-      yq eval -i '(.meta.guiEnv.GUI_CP_CHART_REPO = env(TP_CHART_REPO))' "$_recipe_file_name"
-      yq eval -i '(.meta.guiEnv.GUI_DP_CHART_REPO = env(TP_CHART_REPO))' "$_recipe_file_name"
-      yq eval -i '(.meta.guiEnv.GUI_DP_CHART_REPO_HOST = env(TP_CHART_REPO_HOST))' "$_recipe_file_name"
-      yq eval -i '(.meta.guiEnv.GUI_DP_CHART_REPO_PATH = env(TP_CHART_REPO_PATH))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_CP_CHART_REPO = env(TP_PRIVATE_REPO))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_DP_CHART_REPO_HOST = env(TP_PRIVATE_REPO_HOST))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_DP_CHART_REPO_PATH = env(TP_PRIVATE_REPO_PATH))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_DP_CHART_REPO_TOKEN = env(GITHUB_TOKEN))' "$_recipe_file_name"
     fi
   fi
 
@@ -344,11 +296,15 @@ function customize-tp() {
     # Self-signed certificate support for DP registration
     yq eval -i '(.meta.guiEnv.GUI_TP_IS_CERT_SELF_SIGNED = env(GUI_TP_IS_CERT_SELF_SIGNED))' "$_recipe_file_name"
 
+    # Non-hybrid connectivity: when CP disables hybrid (1.15+), tell automation to fill Reachable DP URL
+    # Note: non-hybrid DP registration is only supported by GUI (Playwright) automation, not CLI mode
+    yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY = env(GUI_TP_ENABLE_HYBRID_CONNECTIVITY))' "$_recipe_file_name"
+
     # Private repo: override automation code source; public mode keeps the chart defaults.
     if [[ -n "${GITHUB_TOKEN}" ]]; then
       yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GITHUB_REPO_NAME = env(GUI_TP_AUTO_GITHUB_REPO_NAME))' "$_recipe_file_name"
       yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GITHUB_REPO_PATH = env(GUI_TP_AUTO_GITHUB_REPO_PATH))' "$_recipe_file_name"
-      yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GITHUB_REPO_BRANCH = env(GITHUB_BRANCH))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GITHUB_REPO_BRANCH = env(GUI_TP_AUTO_GITHUB_REPO_BRANCH))' "$_recipe_file_name"
     fi
   fi
 
@@ -372,6 +328,11 @@ function customize-tp() {
 function install-tp() {
   export GITHUB_BRANCH=${GITHUB_BRANCH:-"main"}
   export GITHUB_PATH=${GITHUB_PATH:-"https://raw.githubusercontent.com/TIBCOSoftware/platform-provisioner/refs/heads/${GITHUB_BRANCH}/docs/recipes/automation/on-prem"}
+
+  curl -fsSL -o _check-tools.sh ${GITHUB_PATH}/_check-tools.sh
+  source ./_check-tools.sh
+  check_yq
+  check_mkcert
 
   curl -fsSL -o generate-recipe.sh ${GITHUB_PATH}/generate-recipe.sh
   _res=$?
@@ -419,8 +380,6 @@ function install-tp() {
 }
 
 function main() {
-  check-yq
-  check-mkcert
   install-tp
 }
 

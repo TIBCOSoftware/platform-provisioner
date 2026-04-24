@@ -262,28 +262,13 @@ class PageObjectDataPlane(PageObjectGlobal):
         # step 3 Configuration
         print("Waiting for Step 3: 'Configuration' page is loaded")
         self.page.locator(".pl-secondarynav a.is-active", has_text="Configuration").wait_for(state="visible")
-        # use global repository, no need below code
-        # if page.locator('label[for="helm-chart-repo-global"]').is_visible():
-        #     if ENV.GITHUB_TOKEN == "":
-        #         print("GITHUB_TOKEN is empty, choose 'Global Repository'")
-        #         page.locator('label[for="helm-chart-repo-global"]').click()
-        #     else:
-        #         print("GITHUB_TOKEN is set, choose 'Custom Helm Chart Repository'")
-        #         if page.locator('label[for="helm-chart-repo-custom"]').is_visible():
-        #             page.locator('label[for="helm-chart-repo-custom"]').click()
-        #             print("Choose 'Custom Helm Chart Repository'")
-        #
-        #
-        #         page.fill("#alias-input", f"tp-private-{dp_name}")
-        #         print(f"Input Repository Alias: tp-private-{dp_name}")
-        #         page.fill("#url-input", "https://raw.githubusercontent.com")
-        #         print("Input Registry URL: https://raw.githubusercontent.com")
-        #         page.fill("#repo-input", "tibco/tp-helm-charts/gh-pages")
-        #         print("Input Repository: tibco/tp-helm-charts/gh-pages")
-        #         page.fill("#username-input", "cp-test")
-        #         print("Input Username: cp-test")
-        #         page.fill("#password-input", ENV.GITHUB_TOKEN)
-        #         print(f"Input Password: {ENV.GITHUB_TOKEN}")
+
+        # Handle non-hybrid connectivity: fill the Reachable DP URL when hybrid is disabled
+        if Util.check_dom_visibility(self.page, self.page.locator("#hybrid-conn-url-host-input"), 2, 4):
+            reachable_dp_url = ENV.TP_AUTO_REACHABLE_DP_URL
+            self.page.fill("#hybrid-conn-url-host-input", reachable_dp_url)
+            self.page.locator("#hybrid-conn-url-host-input").press("Tab")
+            print(f"Hybrid connectivity disabled, Input Reachable DP URL: {reachable_dp_url}")
 
         if ENV.TP_IS_CERT_SELF_SIGNED:
             self.page.fill("#custom-certificate-secret-name-text-input", "self-signed-cert")
@@ -371,6 +356,14 @@ class PageObjectDataPlane(PageObjectGlobal):
             print(f"Input Data Plane Name: {dp_name}")
             self.page.fill("#data-plane-machine-host-name-text-input", ENV.TP_AUTO_FQDN_BMDP)
             print(f"Input Machine Host Name: {ENV.TP_AUTO_FQDN_BMDP}")
+
+            # Reachable DP URL is always required for BMDP registration (TP 1.15+)
+            reachable_url_field = self.page.locator("#reachable-dp-url-text-input")
+            if reachable_url_field.is_visible():
+                reachable_dp_url = ENV.TP_AUTO_REACHABLE_BMDP_URL
+                reachable_url_field.fill(reachable_dp_url)
+                print(f"Input Reachable DP URL: {reachable_dp_url}")
+
             self.page.locator('label[for="terms-checkbox"]').click()
             self.page.locator(".pl-button.pl-button--no-border.big-button.big-button-secondary").click()
             print("Clicked Advanced Configuration button. Go with Advanced Configuration")
@@ -424,28 +417,6 @@ class PageObjectDataPlane(PageObjectGlobal):
         # step 5 Configuration
         print("Waiting for 'Configuration' page is loaded")
         self.page.locator(".pl-secondarynav a.is-active", has_text="Configuration").wait_for(state="visible")
-        # use global repository, no need below code
-        # if page.locator('label[for="helm-chart-repo-global"]').is_visible():
-        #     if ENV.GITHUB_TOKEN == "":
-        #         print("GITHUB_TOKEN is empty, choose 'Global Repository'")
-        #         page.locator('label[for="helm-chart-repo-global"]').click()
-        #     else:
-        #         print("GITHUB_TOKEN is set, choose 'Custom Helm Chart Repository'")
-        #         if page.locator('label[for="helm-chart-repo-custom"]').is_visible():
-        #             page.locator('label[for="helm-chart-repo-custom"]').click()
-        #             print("Choose 'Custom Helm Chart Repository'")
-        #
-        #
-        #         page.fill("#alias-input", f"tp-private-{dp_name}")
-        #         print(f"Input Repository Alias: tp-private-{dp_name}")
-        #         page.fill("#url-input", "https://raw.githubusercontent.com")
-        #         print("Input Registry URL: https://raw.githubusercontent.com")
-        #         page.fill("#repo-input", "tibco/tp-helm-charts/gh-pages")
-        #         print("Input Repository: tibco/tp-helm-charts/gh-pages")
-        #         page.fill("#username-input", "cp-test")
-        #         print("Input Username: cp-test")
-        #         page.fill("#password-input", ENV.GITHUB_TOKEN)
-        #         print(f"Input Password: {ENV.GITHUB_TOKEN}")
 
         if ENV.TP_IS_CERT_SELF_SIGNED:
             self.page.fill("#custom-certificate-secret-name-text-input", "self-signed-cert")

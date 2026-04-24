@@ -230,6 +230,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_BWCE"
   description: |
     Set to true to deploy BWCE
+- name: "Deploy MCP Hub"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AI_ENABLE_MCP_HUB"
+  description: |
+    Set to true to deploy MCP Hub (MCP Gateway + CP MCP Server + push to gateway)
 - name: "Deploy TIBCO Hub"
   groupIndex: 6
   type: boolean
@@ -244,6 +251,14 @@ options:
   reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_EMS"
   description: |
     Set to true to deploy EMS
+- name: "Enable hybrid connectivity"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY"
+  description: |
+    Set to false when CP is deployed with hybrid connectivity disabled.
+    When disabled, automation will fill the Reachable DP URL instead of waiting for tunnel connection.
 
 # groupIndex: 7 DNS and Port Forward
 - name: "TP port forward"

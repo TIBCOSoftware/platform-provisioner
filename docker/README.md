@@ -46,7 +46,7 @@ This will build the Docker image called `<your Docker registry repo>/platform-pr
 To validate the Docker image, you can run the following command:
 
 ```bash
-export PIPELINE_INPUT_RECIPE="../docs/recipes/tests/test-container-binaries.yaml"
+export PIPELINE_INPUT_RECIPE="../tests/e2e/test-container-binaries.yaml"
 export PIPELINE_DOCKER_IMAGE="platform-provisioner:latest"
 ../dev/platform-provisioner.sh
 ```

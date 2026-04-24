@@ -1,0 +1,79 @@
+#
+# helm-unittest tests for task.yaml
+#
+suite: Task
+templates:
+  - task.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: should render a Tekton Task
+    asserts:
+      - isKind:
+          of: Task
+      - equal:
+          path: apiVersion
+          value: tekton.dev/v1
+
+  - it: should set task name and namespace from values
+    asserts:
+      - equal:
+          path: metadata.name
+          value: generic-runner
+      - equal:
+          path: metadata.namespace
+          value: tekton-tasks
+
+  - it: should define three params
+    asserts:
+      - equal:
+          path: spec.params[0].name
+          value: awsAccount
+      - equal:
+          path: spec.params[1].name
+          value: awsRegion
+      - equal:
+          path: spec.params[1].default
+          value: "us-west-2"
+      - equal:
+          path: spec.params[2].name
+          value: input
+
+  - it: should mount common scripts and task scripts volumes
+    asserts:
+      - contains:
+          path: spec.volumes
+          content:
+            name: common-dependency-scripts
+            configMap:
+              name: common-dependency-scripts
+      - contains:
+          path: spec.volumes
+          content:
+            name: task-scripts
+            configMap:
+              name: generic-runner-scripts
+
+  - it: should include dind sidecar
+    asserts:
+      - equal:
+          path: spec.sidecars[0].name
+          value: docker
+
+  - it: should set step image from values
+    set:
+      pipelineImage: my-registry/my-image:v1
+    asserts:
+      - equal:
+          path: spec.steps[0].image
+          value: my-registry/my-image:v1
+
+  - it: should apply security context from values
+    asserts:
+      - equal:
+          path: spec.steps[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.steps[0].securityContext.capabilities.drop[0]
+          value: ALL

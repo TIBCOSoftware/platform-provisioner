@@ -27,6 +27,8 @@
 #   TP_CLUSTER_DESIRED_CAPACITY: The desired capacity
 #   TP_ADDON_METRICS_SERVER_ENABLE: Enable metrics server
 #   TP_CLUSTER_ENABLE_NETWORK_POLICY: Use AWS CNI for network policy
+#   TP_ALLOW_EXTENDED_SUPPORT: Set to "I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS" to allow extended support versions
+#   _no_echo_messages: Set to "1" by caller to suppress informational echo output
 # Arguments:
 #   None
 # Returns:
@@ -46,6 +48,33 @@ export TP_CLUSTER_INSTANCE_TYPE=${TP_CLUSTER_INSTANCE_TYPE:-"m5a.xlarge"}
 export TP_CLUSTER_DESIRED_CAPACITY=${TP_CLUSTER_DESIRED_CAPACITY:-"2"}
 export TP_CLUSTER_ENABLE_NETWORK_POLICY=${TP_CLUSTER_ENABLE_NETWORK_POLICY:-"true"}
 
+# EKS Extended Support check: query the EKS API live for the support status of the requested version.
+# See: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html
+# To opt in to an extended support version, set: TP_ALLOW_EXTENDED_SUPPORT="I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS"
+_eks_support_type="STANDARD"
+_eks_version_support_status=$(aws eks describe-cluster-versions \
+  --cluster-versions "${TP_CLUSTER_VERSION}" \
+  --region "${TP_CLUSTER_REGION}" \
+  --query 'clusterVersions[0].status' \
+  --output text 2>/dev/null || echo "")
+if [ -z "${_eks_version_support_status}" ] || [ "${_eks_version_support_status}" == "None" ]; then
+  if [ "${TP_GENERATE_CONFIG_FILE_ONLY}" != "true" ]; then
+    echo "ERROR: EKS version ${TP_CLUSTER_VERSION} was not found in the supported versions list for region ${TP_CLUSTER_REGION}."
+    echo "  Run: aws eks describe-cluster-versions --region ${TP_CLUSTER_REGION}"
+    exit 1
+  fi
+  echo "WARNING: Could not verify EKS version ${TP_CLUSTER_VERSION} support status (no credentials?). Defaulting to STANDARD."
+elif [ "${_eks_version_support_status}" == "EXTENDED_SUPPORT" ]; then
+  if [ "${TP_ALLOW_EXTENDED_SUPPORT}" != "I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS" ]; then
+    echo "ERROR: EKS version ${TP_CLUSTER_VERSION} is in extended support, which incurs additional AWS charges."
+    echo "  To proceed anyway, set: TP_ALLOW_EXTENDED_SUPPORT=\"I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS\""
+    exit 1
+  fi
+  _eks_support_type="EXTENDED"
+  echo "WARNING: EKS version ${TP_CLUSTER_VERSION} is in extended support. Additional AWS charges will apply."
+fi
+echo "EKS version ${TP_CLUSTER_VERSION} support status: ${_eks_version_support_status}"
+
 cat >eksctl-config.yaml<<EOF
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
@@ -53,6 +82,8 @@ metadata:
   name: ${TP_CLUSTER_NAME}
   region: ${TP_CLUSTER_REGION}
   version: "${TP_CLUSTER_VERSION}"
+upgradePolicy:
+  supportType: "${_eks_support_type}"
 nodeGroups:
   - name: ${TP_CLUSTER_NAME}-ng-1
     instanceType: ${TP_CLUSTER_INSTANCE_TYPE}
@@ -144,7 +175,6 @@ fi
 cat eksctl-config.yaml
 
 echo "create cluster ${TP_CLUSTER_NAME} with eksctl-config.yaml"
-cat eksctl-config.yaml
 aws eks describe-cluster --name "${TP_CLUSTER_NAME}" &> /dev/null
 _res=$?
 if [ "${_res}" -ne 0 ]; then

@@ -12,7 +12,7 @@ This automation provides a complete, script-driven workflow to deploy a full TIB
 
 **Prerequisites:**
 - A running Kubernetes cluster (default target: Docker Desktop)
-- `yq` installed for YAML processing
+- `yq` (v4.40+) installed for YAML processing
 - `helm` installed for chart operations
 - Access to TIBCO container registries (jFrog)
 

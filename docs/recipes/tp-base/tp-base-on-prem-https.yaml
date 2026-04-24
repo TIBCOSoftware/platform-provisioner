@@ -368,7 +368,7 @@ helmCharts:
   condition: ${TP_INSTALL_PROVISIONER_UI}
   repo:
     helm:
-      url: https://tibcosoftware.github.io/platform-provisioner
+      url: https://tibcosoftware.github.io/platform-provisioner-ui
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -404,7 +404,7 @@ helmCharts:
         enabled: true
         image:
           repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.7.17-auto-on-prem-jammy
+          tag: 1.7.23-auto-on-prem-jammy
         ports:
           http:
             enabled: true

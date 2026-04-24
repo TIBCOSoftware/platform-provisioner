@@ -32,10 +32,43 @@ export TP_CLUSTER_VPC_CIDR=${TP_CLUSTER_VPC_CIDR:-"10.0.0.0/20"}
 export TP_CLUSTER_CIDR=${TP_CLUSTER_CIDR:-"10.1.0.0/16"}
 export TP_CLUSTER_SERVICE_CIDR=${TP_CLUSTER_SERVICE_CIDR:-"10.2.0.0/20"}
 export TP_CLUSTER_PROXY_SUBNET_CIDR=${TP_CLUSTER_PROXY_SUBNET_CIDR:-"10.129.0.0/23"}
-export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.33"}
+export TP_CLUSTER_VERSION=${TP_CLUSTER_VERSION:-"1.35"}
 export TP_CLUSTER_INSTANCE_TYPE=${TP_CLUSTER_INSTANCE_TYPE:-"e2-standard-4"}
 export TP_CLUSTER_DESIRED_CAPACITY=${TP_CLUSTER_DESIRED_CAPACITY:-"2"}
 export TP_GATEWAY_API=${TP_GATEWAY_API:-"disabled"}
+
+# GKE version check: query validMasterVersions from the GKE API for this region.
+# Versions in validMasterVersions = standard support, use release-channel "regular".
+# Versions NOT in validMasterVersions = extended support (extra cost), use release-channel "extended".
+# See: https://cloud.google.com/kubernetes-engine/versioning
+# To opt in to extended support, set: TP_ALLOW_EXTENDED_SUPPORT="I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS"
+_gke_valid_versions=$(gcloud container get-server-config \
+  --region "${GCP_REGION}" \
+  --project "${GCP_PROJECT_ID}" \
+  --format="value(validMasterVersions)" 2>/dev/null || echo "")
+_gke_valid_versions=$(echo "${_gke_valid_versions}" | tr ';' '\n')
+if [ -z "${_gke_valid_versions}" ]; then
+  echo "ERROR: Could not retrieve valid GKE versions for region ${GCP_REGION}."
+  echo "  Run: gcloud container get-server-config --region ${GCP_REGION} --project ${GCP_PROJECT_ID}"
+  exit 1
+fi
+# Match on minor version prefix (e.g. "1.33") to cover full patch versions like "1.33.4-gke.100"
+_cluster_minor=$(echo "${TP_CLUSTER_VERSION}" | grep -oE '^[0-9]+\.[0-9]+')
+_cluster_minor_re="${_cluster_minor//./\\.}"
+_gke_release_channel="regular"
+if ! echo "${_gke_valid_versions}" | grep -qE "^${_cluster_minor_re}\."; then
+  if [ "${TP_ALLOW_EXTENDED_SUPPORT}" != "I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS" ]; then
+    echo "ERROR: GKE version ${TP_CLUSTER_VERSION} (${_cluster_minor}) was not found in validMasterVersions for region ${GCP_REGION}."
+    echo "  It may require extended support (extra cost) via release-channel=extended."
+    echo "  Run: gcloud container get-server-config --region ${GCP_REGION} --project ${GCP_PROJECT_ID}"
+    echo "  To proceed with extended support, set: TP_ALLOW_EXTENDED_SUPPORT=\"I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS\""
+    exit 1
+  fi
+  _gke_release_channel="extended"
+  echo "WARNING: GKE version ${TP_CLUSTER_VERSION} is not in standard support. Using release-channel=extended. Additional charges will apply."
+else
+  echo "GKE version ${TP_CLUSTER_VERSION} found in validMasterVersions for region ${GCP_REGION}."
+fi
 
 # add your public ip
 # PIPELINE_OUTBOUND_IP_ADDRESS is the outbound ip address of the pipeline engine
@@ -102,7 +135,7 @@ gcloud beta container \
   --region "${GCP_REGION}" \
   --no-enable-basic-auth \
   --cluster-version "${TP_CLUSTER_VERSION}" \
-  --release-channel "regular" \
+  --release-channel "${_gke_release_channel}" \
   --machine-type "${TP_CLUSTER_INSTANCE_TYPE}" \
   --image-type "COS_CONTAINERD" \
   --disk-type "pd-balanced" \

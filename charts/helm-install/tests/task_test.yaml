@@ -1,0 +1,58 @@
+#
+# helm-unittest tests for task.yaml
+#
+suite: Task
+templates:
+  - task.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: should render a Tekton Task
+    asserts:
+      - isKind:
+          of: Task
+      - equal:
+          path: apiVersion
+          value: tekton.dev/v1
+
+  - it: should set task name and namespace from values
+    asserts:
+      - equal:
+          path: metadata.name
+          value: helm-install
+      - equal:
+          path: metadata.namespace
+          value: tekton-tasks
+
+  - it: should define three params
+    asserts:
+      - equal:
+          path: spec.params[0].name
+          value: awsAccount
+      - equal:
+          path: spec.params[1].name
+          value: awsRegion
+      - equal:
+          path: spec.params[2].name
+          value: input
+
+  - it: should not include dind sidecar (unlike generic-runner)
+    asserts:
+      - isNull:
+          path: spec.sidecars
+
+  - it: should mount secret volume as read-only
+    asserts:
+      - contains:
+          path: spec.steps[0].volumeMounts
+          content:
+            name: common-dependency-secret-github
+            mountPath: /tmp/secret-github
+            readOnly: true
+
+  - it: should apply security context from values
+    asserts:
+      - equal:
+          path: spec.steps[0].securityContext.allowPrivilegeEscalation
+          value: false

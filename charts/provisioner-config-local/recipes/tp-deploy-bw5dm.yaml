@@ -223,7 +223,7 @@ helmCharts:
     flags:
       wait: true
       timeout: 1h
-      createNamespace: true
+      createNamespace: false
     hooks:
       preDeploy:
         ignoreErrors: false

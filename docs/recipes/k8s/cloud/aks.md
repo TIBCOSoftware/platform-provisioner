@@ -7,7 +7,7 @@ You need to make sure that you have log in to your Azure account. The platform p
 It will mount `"${HOME}"/.azure` folder to the docker container to access the Azure config.
 
 ```bash
-export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-azure.yaml"
+export PIPELINE_INPUT_RECIPE="tests/e2e/test-azure.yaml"
 
 ./dev/platform-provisioner.sh
 ```

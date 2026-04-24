@@ -912,6 +912,7 @@ function common::replace_env_variables() {
     common::debug "$(cat "${_outputFile}")"
   else
     common::debug "Global environment REPLACE_RECIPE is not set to true; skip replace recipe with env variables"
+    echo "${_input}" > "${_outputFile}"
   fi
 }
 

@@ -7,7 +7,7 @@ We do have a Platform Provisioner UI which will open source soon. The UI will he
 
 ## Prerequisites
 
-- **Docker**, **yq (v4)**, **Helm**, **kubectl**, **mkcert**, **zip**
+- **Docker**, **yq (v4.40+)**, **Helm**, **kubectl**, **mkcert**, **zip**
 - A running Kubernetes cluster (Docker Desktop, minikube, kind, k3s, etc.) with `kubectl` configured
 
 ## Basic information and assumptions

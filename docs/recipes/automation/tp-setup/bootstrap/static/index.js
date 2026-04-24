@@ -383,6 +383,12 @@ function handleGuiSpecialCase(params) {
     params.CAPABILITY = deleteCaseMapping[params.case];
     params.case = "case.k8s_delete_app";
   }
+
+  // MCP Hub: set the flag so the case script knows it's explicitly requested
+  if (params.case === "case.k8s_deploy_mcp_hub") {
+    params.TP_AI_ENABLE_MCP_HUB = "true";
+  }
+
   return params;
 }
 

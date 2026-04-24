@@ -41,14 +41,16 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.15.0
-    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.15.0
-    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.15.0
-    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.15.0
+    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.16.0
+    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.16.0
+    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.16.0
+    GUI_CP_PLATFORM_INTEGRATION_SB_VERSION: 1.16.0
+    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.16.0
     GUI_CP_PLATFORM_MESSAGING_VERSION: 1.15.31
-    GUI_CP_PLATFORM_HAWK_VERSION: 1.15.31
-    GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.15.0
+    GUI_CP_PLATFORM_HAWK_VERSION: 1.16.6
+    GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.16.0
     GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.16.0-0"
+    GUI_CP_PLATFORM_MCP_HUB_VERSION: "~1.17.0-0"
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -66,6 +68,7 @@ meta:
     GUI_TP_AI_ENABLE_O11Y_MCP_SERVER: true
     GUI_TP_AI_ENABLE_BW_MCP_SERVER: true
     GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER: true
+    GUI_TP_AI_ENABLE_MCP_HUB: false
 
     # CP AI Agent env
     GUI_TP_AI_MCP_TRANSPORT: "streamable-http"
@@ -109,7 +112,8 @@ meta:
     GUI_CP_STORAGE_PVC_NAME: ""
 
     # logging
-    GUI_CP_LOG_ENABLE: true
+    GUI_CP_ES_NAMESPACE: "elastic-system"
+    GUI_CP_LOG_ENABLE: false
     GUI_CP_LOG_ENDPOINT: ""
     GUI_CP_LOG_USERNAME: "" # optional logserver username, if using ELK stack
     GUI_CP_LOG_PASSWORD: "" # optional logserver password, if using ELK stack
@@ -155,11 +159,13 @@ meta:
     GUI_CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES: true
     GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES: true
     GUI_CP_INSTALL_PLATFORM_INTEGRATION_FLOGO: true
+    GUI_CP_INSTALL_PLATFORM_INTEGRATION_SB: false
     GUI_CP_INSTALL_PLATFORM_TIBCOHUB: true
     GUI_CP_INSTALL_PLATFORM_MESSAGING: true
     GUI_CP_INSTALL_PLATFORM_HAWK: true
     GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING: true
     GUI_CP_INSTALL_PLATFORM_AI_AGENT: false
+    GUI_CP_INSTALL_PLATFORM_MCP_HUB: false
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: false
@@ -210,12 +216,13 @@ meta:
     CP_STORAGE_PVC_NAME: ${GUI_CP_STORAGE_PVC_NAME:-"control-plane-pvc"} # added in 1.7.0
 
     # CP logging
+    CP_ES_NAMESPACE: ${GUI_CP_ES_NAMESPACE:-"elastic-system"}
     CP_LOG_ENABLE: ${GUI_CP_LOG_ENABLE:-false}
-    CP_LOG_ENDPOINT: ${GUI_CP_LOG_ENDPOINT:-"https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200"} # optional logserver endpoint
+    CP_LOG_ENDPOINT: ${GUI_CP_LOG_ENDPOINT:-"https://dp-config-es-es-http.${CP_ES_NAMESPACE}.svc.cluster.local:9200"} # optional logserver endpoint
     CP_LOG_USERNAME: ${GUI_CP_LOG_USERNAME:-"elastic"} # optional logserver username
     CP_LOG_PASSWORD: ${GUI_CP_LOG_PASSWORD:-""} # optional logserver password
     CP_LOG_INDEX: ${GUI_CP_LOG_INDEX:-"tibco-cp-logs"} # optional logserver index, default is tibco-cp-logs
-    CP_AUDITSERVER_ENDPOINT: ${GUI_CP_AUDITSERVER_ENDPOINT:-"https://dp-config-es-es-http.elastic-system.svc.cluster.local:9200"} # optional auditserver endpoint
+    CP_AUDITSERVER_ENDPOINT: ${GUI_CP_AUDITSERVER_ENDPOINT:-"https://dp-config-es-es-http.${CP_ES_NAMESPACE}.svc.cluster.local:9200"} # optional auditserver endpoint
     CP_AUDITSERVER_USERNAME: ${GUI_CP_AUDITSERVER_USERNAME:-"elastic"} # optional auditserver username
     CP_AUDITSERVER_PASSWORD: ${GUI_CP_AUDITSERVER_PASSWORD:-""} # optional auditserver password
     CP_AUDITSERVER_INDEX: ${GUI_CP_AUDITSERVER_INDEX:-"audittrail"} # optional auditserver index, default is audittrail
@@ -282,20 +289,23 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.15.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.15.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.15.0} # use ^1.0.0 for latest
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_SB_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_SB_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.16.0} # use ^1.0.0 for latest
     CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.15.31} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.15.31} # use ^1.0.0 for latest
-    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.15.0} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.16.6} # use ^1.0.0 for latest
+    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.16.0} # use ^1.0.0 for latest
     CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.16.0-0"} # use ~1.16.0-0 for latest alpha/stable
+    CP_PLATFORM_MCP_HUB_VERSION: ${GUI_CP_PLATFORM_MCP_HUB_VERSION:-"~1.17.0-0"} # use ~1.17.0-0 for latest alpha/stable
     
     # CP AI MCP servers
     TP_AI_ENABLE_CP_MCP_SERVER: ${GUI_TP_AI_ENABLE_CP_MCP_SERVER:-false}
     TP_AI_ENABLE_O11Y_MCP_SERVER: ${GUI_TP_AI_ENABLE_O11Y_MCP_SERVER:-false}
     TP_AI_ENABLE_BW_MCP_SERVER: ${GUI_TP_AI_ENABLE_BW_MCP_SERVER:-false}
     TP_AI_ENABLE_FLOGO_MCP_SERVER: ${GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER:-false}
+    TP_AI_ENABLE_MCP_HUB: ${GUI_TP_AI_ENABLE_MCP_HUB:-false}
 
     # CP AI Agent env
     TP_AI_MCP_TRANSPORT: ${GUI_TP_AI_MCP_TRANSPORT:-"streamable-http"}
@@ -320,10 +330,12 @@ meta:
     CP_INSTALL_PLATFORM_HAWK: ${GUI_CP_INSTALL_PLATFORM_HAWK:-true}
     CP_INSTALL_PLATFORM_INTEGRATION_BW: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW:-true} # Env added after 1.8.0
     CP_INSTALL_PLATFORM_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_FLOGO:-true}
+    CP_INSTALL_PLATFORM_INTEGRATION_SB: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_SB:-false}
     CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES:-true}
     CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES:-true}
     CP_INSTALL_PLATFORM_EVENTPROCESSING: ${GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING:-true}
     CP_INSTALL_PLATFORM_AI_AGENT: ${GUI_CP_INSTALL_PLATFORM_AI_AGENT:-false}
+    CP_INSTALL_PLATFORM_MCP_HUB: ${GUI_CP_INSTALL_PLATFORM_MCP_HUB:-false}
   tools:
     yq: "4.40" # this also have the logic to create soft link of yq-4.40 --> yq
 preTasks:
@@ -892,6 +904,8 @@ helmCharts:
               limits:
                 cpu: 200m
                 memory: 512Mi
+          mcpHub:
+            enabled: ${TP_AI_ENABLE_MCP_HUB}
       tp-cp-o11y:
         o11ymcpserver: 
           enabled: ${TP_AI_ENABLE_O11Y_MCP_SERVER}
@@ -999,13 +1013,14 @@ helmCharts:
         touch log_values.yaml
         if [[ "${CP_LOG_ENABLE}" == "true" && -z "${CP_LOG_PASSWORD}" ]]; then
           # update es logging password
-          export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n elastic-system dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode)
+          export HOOK_CP_LOG_PASSWORD=$(kubectl get secret -n ${CP_ES_NAMESPACE} dp-config-es-es-elastic-user -o=jsonpath='{.data.elastic}' 2>/dev/null | base64 --decode)
           if [[ -n "${HOOK_CP_LOG_PASSWORD}" ]]; then
             yq eval '.global.external.logserver.password = env(HOOK_CP_LOG_PASSWORD)' log_values.yaml > log_values.tmp.yaml
           else
             echo "Log server password not found, please set it in the recipe"
             echo "disable otel-collector"
             yq eval '.otel-collector.enabled = false' log_values.yaml > log_values.tmp.yaml
+            yq eval '.global.tibco.logging.fluentbit.enabled = false' log_values.tmp.yaml > log_values.yaml
           fi
           mv log_values.tmp.yaml log_values.yaml
           echo "Log values:"
@@ -1131,6 +1146,45 @@ helmCharts:
     names:
       - ${CP_CLUSTER_NAME}
   releaseName: tibco-cp-flogo
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-sb
+  version: ${CP_PLATFORM_INTEGRATION_SB_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_INTEGRATION_SB}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+      sb-recipes:
+        enabled: true
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-sb
   namespace: ${CP_NAMESPACE}
   flags:
     wait: true
@@ -1329,6 +1383,52 @@ helmCharts:
     names:
       - ${CP_CLUSTER_NAME}
   releaseName: tibco-cp-ai-agent
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-mcp-hub
+  version: ${CP_PLATFORM_MCP_HUB_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_MCP_HUB}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      mcp-hub-recipes:
+        enabled: true
+      mcp-hub-webserver:
+        enabled: true
+      global:
+        external:
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+          storage:
+            pvcName: ${CP_STORAGE_PVC_NAME}
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE}
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          useSingleNamespace: true
+          proxy:
+            httpProxy: "${CP_PROXY_HTTP_PROXY}"
+            httpsProxy: "${CP_PROXY_HTTPS_PROXY}"
+            noProxy: "${CP_PROXY_NO_PROXY}"
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-mcp-hub
   namespace: ${CP_NAMESPACE}
   flags:
     wait: true

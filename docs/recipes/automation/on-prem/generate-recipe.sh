@@ -152,10 +152,10 @@ update_05-tp-auto-deploy-dp() {
   done
 }
 
-# Check if yq is installed
+# Check if yq is installed and version is 4.40+
 check_yq() {
   if ! command -v yq &> /dev/null; then
-    echo "Error: yq is not installed. Please install yq before running this script."
+    echo "Error: yq is not installed. Please install yq (v4.40+) before running this script."
     echo "Installation instructions:"
 
     case "$OSTYPE" in
@@ -174,6 +174,17 @@ check_yq() {
         ;;
     esac
 
+    exit 1
+  fi
+
+  local yq_version_full
+  yq_version_full=$(yq --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  local yq_major yq_minor
+  yq_major=$(echo "${yq_version_full}" | cut -d. -f1)
+  yq_minor=$(echo "${yq_version_full}" | cut -d. -f2)
+  if [[ "${yq_major}" -ne 4 ]] || [[ "${yq_minor}" -lt 40 ]]; then
+    echo "Error: yq version 4.40+ is required. Current version: ${yq_version_full}"
+    echo "Please upgrade yq: https://github.com/mikefarah/yq/releases"
     exit 1
   fi
 }

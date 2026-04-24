@@ -67,6 +67,7 @@ class EnvConfig:
     TP_AUTO_IS_PROVISION_FLOGO = os.environ.get("TP_AUTO_IS_PROVISION_FLOGO", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_PULSAR = os.environ.get("TP_AUTO_IS_PROVISION_PULSAR", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
+    TP_AI_ENABLE_MCP_HUB = os.environ.get("TP_AI_ENABLE_MCP_HUB", "false").lower() == "true"
 
     # OAuth token
     TP_AUTO_TOKEN_NAMESPACE = os.environ.get("TP_AUTO_TOKEN_NAMESPACE") or "automation"
@@ -164,6 +165,11 @@ class EnvConfig:
     TP_AUTO_EMS_CAPABILITY_SERVER_NAME = os.environ.get("TP_AUTO_EMS_CAPABILITY_SERVER_NAME") or "ems-sn"
     TP_AUTO_PULSAR_CAPABILITY_SERVER_NAME = os.environ.get("TP_AUTO_PULSAR_CAPABILITY_SERVER_NAME") or "pulsar-sn"
     TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME = os.environ.get("TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME") or "tibco-hub"
+
+    # hybrid connectivity
+    TP_AUTO_ENABLE_HYBRID_CONNECTIVITY = os.environ.get("TP_AUTO_ENABLE_HYBRID_CONNECTIVITY", "true").lower() == "true"
+    TP_AUTO_REACHABLE_DP_URL = os.environ.get("TP_AUTO_REACHABLE_DP_URL") or f"http://cpdpproxy.{TP_AUTO_K8S_DP_NAMESPACE}.svc.cluster.local"
+    TP_AUTO_REACHABLE_BMDP_URL = os.environ.get("TP_AUTO_REACHABLE_BMDP_URL") or f"http://cpdpproxy.{TP_AUTO_K8S_BMDP_NAMESPACE}.svc.cluster.local"
 
     # data plane config
     TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG = os.environ.get("TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG", "false").lower() == "true"

@@ -50,6 +50,7 @@ meta:
     GUI_TP_AUTO_IS_ENABLE_EMSDM: true
     GUI_TP_AUTO_IS_ENABLE_BW6DM: true
     GUI_TP_AUTO_ENABLE_O11Y_WIDGET: true
+    GUI_TP_AI_ENABLE_MCP_HUB: false
     GUI_TP_AUTO_ENABLE_E2E_TEST: false
     GUI_TP_AUTO_USE_CLI: true
 
@@ -88,14 +89,20 @@ meta:
     GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT: "443:websecure"
     GUI_TP_AUTO_STORAGE_CLASS: "hostpath"
 
+    # hybrid connectivity
+    GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY: true
+    GUI_TP_AUTO_REACHABLE_DP_URL: ""
+    GUI_TP_AUTO_REACHABLE_BMDP_URL: ""
+
     # network policy
     GUI_TP_CREATE_NETWORK_POLICIES: false
 
     # DP o11y setup
+    GUI_TP_PROMETHEUS_NAMESPACE: "prometheus-system"
     GUI_TP_AUTO_ELASTIC_URL: ""
     GUI_TP_AUTO_ELASTIC_USER: ""
     GUI_TP_AUTO_ELASTIC_PASSWORD: ""
-    GUI_TP_AUTO_PROMETHEUS_URL: "http://kube-prometheus-stack-prometheus.prometheus-system.svc.cluster.local:9090"
+    GUI_TP_AUTO_PROMETHEUS_URL: ""
     GUI_TP_AUTO_PROMETHEUS_USER: ""
     GUI_TP_AUTO_PROMETHEUS_PASSWORD: ""
 
@@ -168,6 +175,7 @@ meta:
     TP_AUTO_IS_ENABLE_EMSDM: ${GUI_TP_AUTO_IS_ENABLE_EMSDM:-true}
     TP_AUTO_IS_ENABLE_BW6DM: ${GUI_TP_AUTO_IS_ENABLE_BW6DM:-true}
     TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-true}
+    TP_AI_ENABLE_MCP_HUB: ${GUI_TP_AI_ENABLE_MCP_HUB:-false}
     TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-false}
     TP_AUTO_USE_CLI: ${GUI_TP_AUTO_USE_CLI:-false}
 
@@ -215,10 +223,11 @@ meta:
     TP_CLUSTER_SERVICE_CIDR: ${GUI_TP_CLUSTER_SERVICE_CIDR:-"10.96.0.0/12"} # for k3s: 10.43.0.0/16 for kind 10.96.0.0/16
 
     # DP o11y setup
+    TP_PROMETHEUS_NAMESPACE: ${GUI_TP_PROMETHEUS_NAMESPACE:-"prometheus-system"}
     TP_AUTO_ELASTIC_URL: ${GUI_TP_AUTO_ELASTIC_URL:-""}
     TP_AUTO_ELASTIC_USER: ${GUI_TP_AUTO_ELASTIC_USER:-""}
     TP_AUTO_ELASTIC_PASSWORD: ${GUI_TP_AUTO_ELASTIC_PASSWORD:-""}
-    TP_AUTO_PROMETHEUS_URL: ${GUI_TP_AUTO_PROMETHEUS_URL:-""}
+    TP_AUTO_PROMETHEUS_URL: ${GUI_TP_AUTO_PROMETHEUS_URL:-"http://kube-prometheus-stack-prometheus.${TP_PROMETHEUS_NAMESPACE}.svc.cluster.local:9090"}
     TP_AUTO_PROMETHEUS_USER: ${GUI_TP_AUTO_PROMETHEUS_USER:-""}
     TP_AUTO_PROMETHEUS_PASSWORD: ${GUI_TP_AUTO_PROMETHEUS_PASSWORD:-""}
 
@@ -250,6 +259,11 @@ meta:
 
     # self-signed certificate
     TP_IS_CERT_SELF_SIGNED: ${GUI_TP_IS_CERT_SELF_SIGNED:-"false"}
+    
+    # hybrid connectivity
+    TP_AUTO_ENABLE_HYBRID_CONNECTIVITY: ${GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY:-true}
+    TP_AUTO_REACHABLE_DP_URL: ${GUI_TP_AUTO_REACHABLE_DP_URL:-"http://cpdpproxy.${TP_AUTO_K8S_DP_NAMESPACE}.svc.cluster.local"}
+    TP_AUTO_REACHABLE_BMDP_URL: ${GUI_TP_AUTO_REACHABLE_BMDP_URL:-"http://cpdpproxy.${TP_AUTO_K8S_BMDP_NAMESPACE}.svc.cluster.local"}
 
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
@@ -258,6 +272,7 @@ meta:
     PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
     PYTHON_FILE_ENTRY_POINT_O11Y: page_o11y.py
     PYTHON_FILE_ENTRY_POINT_SETTING: page_setting.py
+    PYTHON_FILE_ENTRY_POINT_MCP_HUB: case/k8s_deploy_mcp_hub.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
     TP_PORT_FORWARD: ${GUI_TP_PORT_FORWARD:-true}
@@ -678,6 +693,28 @@ tasks:
         uv run --active ${PYTHON_FILE_ENTRY_POINT}
       else
         python ${PYTHON_FILE_ENTRY_POINT}
+      fi
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AI_ENABLE_MCP_HUB} # deploy MCP Hub (gateway + MCP server + push to gateway)
+  name: deploy-mcp-hub
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+
+      echo "===== Task Name: deploy-mcp-hub, Running file ${PYTHON_FILE_ENTRY_POINT_MCP_HUB} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run --active python -m case.k8s_deploy_mcp_hub
+      else
+        python -m case.k8s_deploy_mcp_hub
       fi
       _result=$?
       echo "python return code: ${_result}"

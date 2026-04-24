@@ -1,6 +1,8 @@
 # Platform Provisioner by TIBCO®
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Tests](https://github.com/tibco/platform-provisioner/actions/workflows/test.yaml/badge.svg)](https://github.com/tibco/platform-provisioner/actions/workflows/test.yaml)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A590%25_(branch)-brightgreen.svg)](https://github.com/tibco/platform-provisioner/actions/workflows/test.yaml)
 [![Helm Charts](https://img.shields.io/badge/Helm%20Charts-published-green.svg)](https://tibcosoftware.github.io/platform-provisioner)
 
 Platform Provisioner by TIBCO® is a lightweight, extensible, and easy to use recipe based provisioning system for cloud native platforms.
@@ -30,18 +32,18 @@ For more information see: [Architecture Documentation](docs/design/README.md)
 
 * Docker installed
 * Bash shell
-* [yq](https://mikefarah.gitbook.io/yq) version 4 installed
+* [yq](https://mikefarah.gitbook.io/yq) version 4.40+ installed
 
 ### Run the Platform Provisioner
 
 Go to the project root directory and run the following command:
 ```bash
-export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-container-binaries.yaml"
+export PIPELINE_INPUT_RECIPE="tests/e2e/test-container-binaries.yaml"
 ./dev/platform-provisioner.sh
 ```
 
 For this sample pipeline:
-* The recipe is `docs/recipes/tests/test-container-binaries.yaml`
+* The recipe is `tests/e2e/test-container-binaries.yaml`
 * The pipeline is called `generic-runner`
 * The runtime Docker image is `ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:latest`
 

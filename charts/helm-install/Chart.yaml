@@ -16,7 +16,7 @@
 
 apiVersion: v2
 name: helm-install
-version: "1.0.16"
+version: "1.0.17"
 appVersion: "1.0.0"
 description: helm-install
 type: application

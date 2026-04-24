@@ -8,7 +8,7 @@ It will mount `"${HOME}"/.config/gcloud` folder to the docker container to acces
 
 ```bash
 export ACCOUNT="" # starts with gcp-
-export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-gcp.yaml"
+export PIPELINE_INPUT_RECIPE="tests/e2e/test-gcp.yaml"
 
 ./dev/platform-provisioner.sh
 ```

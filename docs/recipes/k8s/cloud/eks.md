@@ -9,7 +9,7 @@ It will mount `"${HOME}"/.aws` folder to the docker container to access the AWS 
 ```bash
 export ACCOUNT=""
 export AWS_PROFILE=""
-export PIPELINE_INPUT_RECIPE="docs/recipes/tests/test-aws.yaml"
+export PIPELINE_INPUT_RECIPE="tests/e2e/test-aws.yaml"
 
 ./dev/platform-provisioner.sh
 ```
