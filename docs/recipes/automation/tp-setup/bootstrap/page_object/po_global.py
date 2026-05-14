@@ -87,7 +87,7 @@ class PageObjectGlobal:
             self.page.locator(self.selector_header_app_scale_input()).wait_for(state="visible")
             print(f"Mouseover to Dom {self.selector_header_app_scale_input()}...")
             self.page.locator(self.selector_header_app_scale_input()).focus()
-            self.page.locator(self.selector_header_app_scale_input()).hover()
+            self.page.locator(self.selector_header_app_scale_input()).hover(force=True)
             self.page.locator(self.selector_header_app_scale_input()).dispatch_event("pointerover")
             self.page.locator(self.selector_header_app_scale_input()).dispatch_event("mouseover")
             self.page.wait_for_timeout(200)

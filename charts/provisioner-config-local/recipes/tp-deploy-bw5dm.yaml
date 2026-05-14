@@ -30,8 +30,12 @@ meta:
     GUI_BW5_CHART_VERSION: "^1.1.0"
     GUI_TP_BWDM_NAMESPACE: "bw5dm"
     GUI_TP_BWDM_RELEASE_NAME: "bw5dm"
+    GUI_TP_BW5_APP_NAME: "RestSample" # another embedded app is "SoapSample"
+    GUI_TP_ENABLE_OTEL_TRACES: true
     GUI_TP_OTEL_TRACES_ENDPOINT: "http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"
+    GUI_TP_ENABLE_OTEL_METRICS: true
     GUI_TP_OTEL_METRICS_ENDPOINT: "http://otel-userapp-metrics.k8s-auto-bmdp1ns.svc:4318/v1/metrics"
+    GUI_TP_ENABLE_OTEL_LOGS: true
     GUI_TP_OTEL_LOGS_ENDPOINT: "http://otel-userapp-logs.k8s-auto-bmdp1ns.svc:4318/v1/logs"
 
     # image tag
@@ -46,7 +50,7 @@ meta:
     GUI_TP_DEPLOY_EMS_SERVER: true
     GUI_TP_DEPLOY_EMSDM: true
     GUI_TP_DEPLOY_HAWKCONSOLE: true
-    GUI_TP_DEPLOY_BW6DM: true
+    GUI_TP_DEPLOY_BW6DM: true    
     GUI_PIPELINE_LOG_DEBUG: false
   globalEnvVariable:
     REPLACE_RECIPE: true
@@ -74,6 +78,7 @@ meta:
     BW5_CHART_VERSION: ${GUI_BW5_CHART_VERSION:-"^1.1.0"}
     TP_BWDM_NAMESPACE: ${GUI_TP_BWDM_NAMESPACE:-bw5dm}
     TP_BWDM_RELEASE_NAME: ${GUI_TP_BWDM_RELEASE_NAME:-bw5dm}
+    TP_BW5_APP_NAME: ${GUI_TP_BW5_APP_NAME:-"RestSample"}
     TP_OTEL_TRACES_ENDPOINT: ${GUI_TP_OTEL_TRACES_ENDPOINT:-"http://otel-userapp-traces.k8s-auto-bmdp1ns.svc:4318/v1/traces"}
     TP_OTEL_METRICS_ENDPOINT: ${GUI_TP_OTEL_METRICS_ENDPOINT:-"http://otel-userapp-metrics.k8s-auto-bmdp1ns.svc:4318/v1/metrics"}
     TP_OTEL_LOGS_ENDPOINT: ${GUI_TP_OTEL_LOGS_ENDPOINT:-"http://otel-userapp-logs.k8s-auto-bmdp1ns.svc:4318/v1/logs"}
@@ -97,6 +102,9 @@ meta:
     TP_DEPLOY_EMSDM: ${GUI_TP_DEPLOY_EMSDM:-true}
     TP_DEPLOY_HAWKCONSOLE: ${GUI_TP_DEPLOY_HAWKCONSOLE:-true}
     TP_DEPLOY_BW6DM: ${GUI_TP_DEPLOY_BW6DM:-true}
+    TP_ENABLE_OTEL_LOGS: ${GUI_TP_ENABLE_OTEL_LOGS:-true}
+    TP_ENABLE_OTEL_METRICS: ${GUI_TP_ENABLE_OTEL_METRICS:-true}
+    TP_ENABLE_OTEL_TRACES: ${GUI_TP_ENABLE_OTEL_TRACES:-true}
   tools:
     yq: "4.40"
 helmCharts:
@@ -147,10 +155,16 @@ helmCharts:
               repository: "${TP_CONTAINER_REGISTRY}/${TP_CONTAINER_REGISTRY_REPOSITORY}/bw5-test"
               tag: "${TP_BMDP_IMAGE_TAG_BW5EMSDM}"
             env:
+              - name: ENABLE_OTEL_TRACES
+                value: "${TP_ENABLE_OTEL_TRACES}"
               - name: OTEL_TRACES_ENDPOINT
                 value: "${TP_OTEL_TRACES_ENDPOINT}"
+              - name: ENABLE_OTEL_METRICS
+                value: "${TP_ENABLE_OTEL_METRICS}"
               - name: OTEL_METRICS_ENDPOINT
                 value: "${TP_OTEL_METRICS_ENDPOINT}"
+              - name: ENABLE_OTEL_LOGS
+                value: "${TP_ENABLE_OTEL_LOGS}"
               - name: OTEL_LOGS_ENDPOINT
                 value: "${TP_OTEL_LOGS_ENDPOINT}"
               - name: LICENSE_URL
@@ -176,6 +190,18 @@ helmCharts:
                 secret:
                   secretName: activation-file-secret
                   optional: true
+          service:
+            ports:
+              restapp:
+                enabled: true
+                containerPort: 5678
+                servicePort: 5678
+                protocol: TCP
+              soapapp:
+                enabled: true
+                containerPort: 7865
+                servicePort: 7865
+                protocol: TCP
         bw5rvdm:
           enabled: ${TP_DEPLOY_RVDM}
           deployment:
@@ -183,10 +209,16 @@ helmCharts:
               repository: "${TP_CONTAINER_REGISTRY}/${TP_CONTAINER_REGISTRY_REPOSITORY}/bw5-test"
               tag: "${TP_BMDP_IMAGE_TAG_BW5RVDM}"
             env:
+              - name: ENABLE_OTEL_TRACES
+                value: "${TP_ENABLE_OTEL_TRACES}"
               - name: OTEL_TRACES_ENDPOINT
                 value: "${TP_OTEL_TRACES_ENDPOINT}"
+              - name: ENABLE_OTEL_METRICS
+                value: "${TP_ENABLE_OTEL_METRICS}"
               - name: OTEL_METRICS_ENDPOINT
                 value: "${TP_OTEL_METRICS_ENDPOINT}"
+              - name: ENABLE_OTEL_LOGS
+                value: "${TP_ENABLE_OTEL_LOGS}"
               - name: OTEL_LOGS_ENDPOINT
                 value: "${TP_OTEL_LOGS_ENDPOINT}"
               - name: LICENSE_URL
@@ -205,6 +237,18 @@ helmCharts:
                 secret:
                   secretName: activation-file-secret
                   optional: true
+          service:
+            ports:
+              restapp:
+                enabled: true
+                containerPort: 5678
+                servicePort: 5678
+                protocol: TCP
+              soapapp:
+                enabled: true
+                containerPort: 7865
+                servicePort: 7865
+                protocol: TCP
         hawkconsole:
           enabled: ${TP_DEPLOY_HAWKCONSOLE}
           deployment:

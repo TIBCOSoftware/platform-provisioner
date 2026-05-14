@@ -105,44 +105,62 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 else:
                     Util.exit_error(f"'{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
-            if self.page.locator('#ingress-resource-table').is_visible():
-                print(f"Checking Ingress Controller table has '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' visible...")
-                if not Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 2, 4):
-                    ColorLogger.info(f"Adding Ingress Controller: {ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO} for Flogo capability")
-                    if self.page.locator("#add-ingress-resource-ingress-controller-btn").is_visible():
-                        self.page.locator("#add-ingress-resource-ingress-controller-btn").click()
-                        print("Clicked 'Add Ingress Controller' button")
-                        # Add Ingress Controller dialog popup
-                        self.po_dp_config.dp_config_resources_ingress(
-                            dp_name,
+            # CP 1.18+ renamed #ingress-resource-table to #route-resource-table
+            ingress_table_sel = "#ingress-resource-table, #route-resource-table"
+            if self.page.locator(ingress_table_sel).first.is_visible():
+                print(f"Checking Ingress/Route table has '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 2, 4):
+                    ColorLogger.info(f"Adding Ingress/Route: {ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO} for Flogo capability")
+                    add_btn_sel = "#add-ingress-resource-ingress-controller-btn, #add-route-resource-btn"
+                    if self.page.locator(add_btn_sel).first.is_visible():
+                        self.page.locator(add_btn_sel).first.click()
+                        print("Clicked 'Add Ingress/Route Resource' button")
+                        self.po_dp_config.add_ingress_controller(
                             ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
-                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
+                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO,
+                            "route" if self.page.locator('#route-resource-table').is_visible() else "ingress"
                         )
 
-                if Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 3, 6):
-                    self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)).locator('label').click()
-                    print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress Controller for Flogo capability")
+                if Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 3, 6):
+                    self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)).locator('label').click()
+                    print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress/Route for Flogo capability")
                 else:
-                    Util.exit_error(f"'{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress Controller is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
+                    Util.exit_error(f"'{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress/Route is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             self.page.locator("#btnNextCapabilityProvision").click()
             print("Clicked Flogo 'Next' button, finished step 1")
-            is_eula_loaded = Util.refresh_until_success(self.page,
-                                                        self.page.locator(".eula-container input"),
-                                                        self.page.locator(".eula-container input"),
-                                                        "Flogo Capability step 2 is loaded.")
-            if is_eula_loaded:
-                self.page.locator(".eula-container input").click()
-                print("Clicked Flogo 'EUA' checkbox")
-                self.page.wait_for_timeout(500)
+            # CP 1.18+ removed the EULA checkbox; step 2 shows license info
+            # with #qaNextToRecipe directly enabled. Try both indicators.
+            step2_sel = ".eula-container input, #qaNextToRecipe"
+            is_step2_loaded = Util.refresh_until_success(self.page,
+                                                         self.page.locator(step2_sel).first,
+                                                         self.page.locator(step2_sel).first,
+                                                         "Flogo Capability step 2 is loaded.")
+            if is_step2_loaded:
+                if self.page.locator(".eula-container input").is_visible():
+                    self.page.locator(".eula-container input").click()
+                    print("Clicked Flogo 'EUA' checkbox")
+                    self.page.wait_for_timeout(500)
+                else:
+                    print("No EULA checkbox (CP 1.18+), skipping")
+
                 # for 'Preview / Customize Recipe' step
                 if Util.check_dom_visibility(self.page, self.page.locator("#qaNextToRecipe"), 2, 2):
                     self.page.locator("#qaNextToRecipe").click()
                     print(f"Clicked Flogo 'Next' button, finished step 2, 'Preview / Customize Recipe' step page is loaded")
 
+                # Wait for step 3 provision button to appear (confirms page loaded)
+                self.page.locator("#qaProvisionFlogo").wait_for(state="visible", timeout=10000)
+
+                # CP 1.18+ moved EUA checkbox from step 2 to step 3
+                if self.page.locator(".eula-container input").is_visible() and not self.page.locator(".eula-container input").is_checked():
+                    self.page.locator(".eula-container input").click()
+                    print("Clicked Flogo 'EUA' checkbox on step 3")
+                    self.page.wait_for_timeout(500)
+
+                self.page.locator("#qaProvisionFlogo:not([disabled])").wait_for(state="visible", timeout=30000)
                 self.page.locator("#qaProvisionFlogo").click()
                 print("Clicked 'Flogo Provision Capability' button, waiting for Flogo Capability Provision Request Completed")
-                # TODO: success message may not pop up, need to handle this case
                 if Util.check_dom_visibility(self.page, self.page.locator(".notification-message", has_text="Successfully provisioned Flogo"), 5, 30):
                     ColorLogger.success("Provision Flogo capability successful.")
                 else:

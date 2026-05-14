@@ -328,10 +328,10 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             self.page.locator("button.pl-button.pl-button--secondary.gemsButton", has_text="Validate Server").click()
             print("Clicked 'Validate Server' button")
 
-            if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']"), 1, 10):
+            if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']").first, 1, 10):
                 self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Register Server").click()
                 print("Clicked 'Register Server' button")
-                if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']"), 1, 10):
+                if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']").first, 1, 10):
                     ColorLogger.success("EMS Server registration is successful.")
                     self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Done").click()
                     print("Clicked 'Done' button")

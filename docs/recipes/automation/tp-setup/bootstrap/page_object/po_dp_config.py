@@ -344,13 +344,19 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         if ReportYaml.get_dataplane_info(dp_name, "storage") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, Resources Storage '{resource_name}' is already created in DataPlane '{dp_name}'.")
             return
-    
+
         ColorLogger.info("Config Data Plane Resources Storage...")
         self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").wait_for(state="visible")
         self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").click()
         print("Clicked 'Resources' left side menu")
         print(f"Resource Name: {resource_name}")
         self.page.wait_for_timeout(5000)
+
+        # Wait for Storage section to render; may take extra time after DP just created
+        if not Util.check_dom_visibility(self.page, self.page.locator("#add-storage-resource-btn, #storage-resource-table").first, 5, 60):
+            ColorLogger.warning("Storage resource section not loaded after waiting — DP may not be fully ready, skipping.")
+            return
+
         if self.page.locator("#storage-resource-table tr td:first-child", has_text=resource_name).is_visible():
             ColorLogger.success(f"Storage '{resource_name}' is already created.")
             ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, "storage", True)
@@ -377,6 +383,17 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         Util.click_button_until_enabled(self.page, self.page.locator("#save-storage-configuration"))
         print("Clicked 'Add' button in 'Add Storage' dialog")
 
+    def _detect_ingress_toggle(self):
+        """Detect which ingress/route toggle is present on the Resources page.
+        CP 1.18+ renamed 'Ingress Controller' to 'Route Resource'.
+        Returns the toggle ID or None if neither is found.
+        """
+        if self.page.locator("#toggle-ingress-expansion").is_visible():
+            return "ingress"
+        if self.page.locator("#toggle-route-resource-expansion").is_visible():
+            return "route"
+        return None
+
     def dp_config_resources_ingress(self, dp_name, ingress_controller, resource_name, ingress_class_name, fqdn):
         if ReportYaml.get_dataplane_info(dp_name, resource_name) == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, ingress '{resource_name}' is already created in DataPlane '{dp_name}'.")
@@ -386,73 +403,110 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").click()
         print("Clicked 'Resources' left side menu")
         self.page.wait_for_timeout(5000)
-        self.page.locator("#toggle-ingress-expansion svg use").wait_for(state="visible")
-        expected_icon = 'pl-icon-caret-right'
-        if expected_icon in (self.page.query_selector("#toggle-ingress-expansion svg use") or {}).get_attribute("xlink:href"):
-            self.page.locator("#toggle-ingress-expansion").click()
-            print("Clicked expand Icon, and wait for Ingress Controller table")
+
+        # CP 1.18+ renamed "Ingress Controller" to "Route Resource".
+        # Try both toggle selectors; whichever appears first wins.
+        ingress_toggle_sel = "#toggle-ingress-expansion, #toggle-route-resource-expansion"
+        if not Util.check_dom_visibility(self.page, self.page.locator(ingress_toggle_sel).first, 5, 60):
+            ColorLogger.warning("Ingress/Route resource section not loaded after waiting — DP may not be fully ready, skipping.")
+            return
+
+        section_type = self._detect_ingress_toggle()
+        if section_type == "ingress":
+            toggle_id = "#toggle-ingress-expansion"
+            table_selector = "#ingress-resource-table tr td:first-child"
+            add_btn_selector = ".ingress .add-resource-btn button"
+        else:
+            toggle_id = "#toggle-route-resource-expansion"
+            table_selector = ".route-resource table tr td:first-child"
+            add_btn_selector = ".route-resource .add-resource-btn button"
+
+        # Expand the section if collapsed — check if content is already visible
+        if not self.page.locator(add_btn_selector).is_visible():
+            self.page.locator(toggle_id).click()
+            print(f"Clicked toggle {toggle_id} to expand section")
             self.page.wait_for_timeout(3000)
-    
-        print(f"Check if Ingress Controller '{resource_name}' is exist...")
-        if self.page.locator("#ingress-resource-table tr td:first-child", has_text=resource_name).is_visible():
-            ColorLogger.success(f"Ingress Controller '{resource_name}' is already created.")
+
+        print(f"Check if Ingress/Route '{resource_name}' exists...")
+        if self.page.locator(table_selector, has_text=resource_name).is_visible():
+            ColorLogger.success(f"Ingress/Route '{resource_name}' is already created.")
             ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, resource_name, True)
         else:
-            print(f"Ingress Controller table do not have '{resource_name}'")
-            print(f"Adding Ingress Controller '{resource_name}', and wait for 'Add Ingress Controller' button ...")
-            self.page.locator(".ingress .add-resource-btn button").wait_for(state="visible")
-            self.page.locator(".ingress .add-resource-btn button").click()
-            print("Clicked 'Add Ingress Controller' button")
-    
-            # Add Ingress Controller dialog popup
-            self.add_ingress_controller(ingress_controller, resource_name, ingress_class_name, fqdn)
+            print(f"Adding Ingress/Route '{resource_name}'...")
+            self.page.locator(add_btn_selector).wait_for(state="visible")
+            self.page.locator(add_btn_selector).click()
+            print("Clicked 'Add' button")
+
+            self.add_ingress_controller(ingress_controller, resource_name, ingress_class_name, fqdn, section_type)
             self.page.wait_for_timeout(1000)
             if self.page.locator(".pl-notification--error").is_visible():
                 error_content = self.page.locator(".pl-notification__message").text_content()
                 Util.warning_screenshot(f"Config Data Plane Resources Ingress Error: {error_content}", self.page, "dp_config_resources_ingress.png")
-                self.page.locator("#cancel-ingress-configuration").click()
-                print("Clicked 'Cancel' button")
+                cancel_btn = self.page.locator("#cancel-ingress-configuration, .pl-modal button", has_text="Cancel").first
+                if cancel_btn.is_visible():
+                    cancel_btn.click()
+                    print("Clicked 'Cancel' button")
+                else:
+                    self.page.keyboard.press("Escape")
+                    self.page.wait_for_timeout(500)
+                    print("Pressed Escape to close modal")
                 return
-            if Util.check_dom_visibility(self.page, self.page.locator("#ingress-resource-table tr td:first-child", has_text=resource_name), 3, 6):
-                ColorLogger.success(f"Add Ingress Controller '{resource_name}' successfully.")
+            if Util.check_dom_visibility(self.page, self.page.locator(table_selector, has_text=resource_name), 3, 6):
+                ColorLogger.success(f"Add Ingress/Route '{resource_name}' successfully.")
                 ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, resource_name, True)
             else:
                 Util.warning_screenshot(f"Config Data Plane Resources '{resource_name}' Error", self.page, "dp_config_resources_ingress.png")
 
-    def add_ingress_controller(self, ingress_controller, resource_name, ingress_class_name, fqdn):
-        ColorLogger.info("Add Ingress Controller in dialog...")
-        self.page.locator('.pl-modal__header', has_text="Add Ingress Controller").wait_for(state="visible")
-        print("Dialog 'Add Ingress Controller' popup")
-        self.page.locator('#ingress-controller-dropdown input').click()
-        print("Clicked 'Ingress Controller' dropdown")
-        self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).wait_for(state="visible")
-        print(f"Waiting for '{ingress_controller}' in Ingress Controller dropdown")
-        self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).click()
-        print(f"Selected '{ingress_controller}' in Ingress Controller dropdown")
-        self.page.fill('#resourceName-input', resource_name)
-        print(f"Filled Resource Name: {resource_name}")
-        self.page.fill('#ingressClassName-input', ingress_class_name)
-        print(f"Filled Ingress Class Name: {ingress_class_name}")
-        self.page.fill('#fqdn-input', fqdn)
-        print(f"Filled FQDN: {fqdn}")
+    def add_ingress_controller(self, ingress_controller, resource_name, ingress_class_name, fqdn, section_type="ingress"):
+        ColorLogger.info("Add Ingress/Route Resource in dialog...")
 
-        # for Ingress Key and Value
-        # if ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS != "" and ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES != "":
-        #     keys = ENV.TP_AUTO_INGRESS_CONTROLLER_KEYS.split(" ")
-        #     values = ENV.TP_AUTO_INGRESS_CONTROLLER_VALUES.split(" ")
-        #     for i in range(len(keys)):
-        #         key = keys[i].strip()
-        #         value = values[i].strip()
-        #         self.page.fill("#key-input", key)
-        #         self.page.fill("#value-textarea", value)
-        #         print(f"Filled Ingress Key: {key}, Value: {value}")
-        #         self.page.wait_for_timeout(500)
-        #         self.page.locator(".olly-header__inputs button", has_text="Save").click()
-        #         print("Clicked 'Save' button")
-        #         self.page.wait_for_timeout(500)
-
-        Util.click_button_until_enabled(self.page, self.page.locator("#save-ingress-configuration"))
-        print("Clicked 'Add' button in 'Add Ingress Controller' dialog")
+        if section_type == "route":
+            # CP 1.18+ "Add Route Resource" dialog
+            self.page.locator('.pl-modal__header', has_text="Add Route Resource").wait_for(state="visible")
+            print("Dialog 'Add Route Resource' popup")
+            # Select "Ingress" radio button (default may already be selected)
+            ingress_radio = self.page.locator("#ingress-radio-button")
+            if ingress_radio.is_visible() and not ingress_radio.is_checked():
+                self.page.locator("label[for='ingress-radio-button']").click()
+                print("Selected 'Ingress' radio button")
+            # Select ingress controller type (e.g. Traefik) from dropdown
+            dropdown_selector = '#ingressController-dropdown input, #ingress-controller-dropdown input'
+            option_selector = '#ingressController-dropdown .pl-select__dropdown li, #ingress-controller-dropdown .pl-select__dropdown li'
+            self.page.locator(dropdown_selector).first.click()
+            print("Clicked 'Ingress Controller' dropdown")
+            self.page.locator(option_selector, has_text=ingress_controller).first.wait_for(state="visible")
+            print(f"Waiting for '{ingress_controller}' in Ingress Controller dropdown")
+            self.page.locator(option_selector, has_text=ingress_controller).first.click()
+            print(f"Selected '{ingress_controller}' in Ingress Controller dropdown")
+            self.page.fill('#resourceName-input', resource_name)
+            print(f"Filled Resource Name: {resource_name}")
+            # CP 1.18 uses #ingressClass-input instead of #ingressClassName-input
+            self.page.fill('#ingressClass-input', ingress_class_name)
+            print(f"Filled Ingress Class Name: {ingress_class_name}")
+            self.page.fill('#fqdn-input', fqdn)
+            print(f"Filled FQDN: {fqdn}")
+            # Save button — try both old and new IDs
+            save_btn = self.page.locator("#save-ingress-configuration, #save-route-resource-configuration, .pl-modal button.pl-button--primary", has_text=re.compile(r"Add|Save")).first
+            Util.click_button_until_enabled(self.page, save_btn)
+            print("Clicked 'Add' button in 'Add Route Resource' dialog")
+        else:
+            # Legacy "Add Ingress Controller" dialog
+            self.page.locator('.pl-modal__header', has_text="Add Ingress Controller").wait_for(state="visible")
+            print("Dialog 'Add Ingress Controller' popup")
+            self.page.locator('#ingress-controller-dropdown input').click()
+            print("Clicked 'Ingress Controller' dropdown")
+            self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).wait_for(state="visible")
+            print(f"Waiting for '{ingress_controller}' in Ingress Controller dropdown")
+            self.page.locator('#ingress-controller-dropdown .pl-select__dropdown li', has_text=ingress_controller).click()
+            print(f"Selected '{ingress_controller}' in Ingress Controller dropdown")
+            self.page.fill('#resourceName-input', resource_name)
+            print(f"Filled Resource Name: {resource_name}")
+            self.page.fill('#ingressClassName-input', ingress_class_name)
+            print(f"Filled Ingress Class Name: {ingress_class_name}")
+            self.page.fill('#fqdn-input', fqdn)
+            print(f"Filled FQDN: {fqdn}")
+            Util.click_button_until_enabled(self.page, self.page.locator("#save-ingress-configuration"))
+            print("Clicked 'Add' button in 'Add Ingress Controller' dialog")
 
     def dp_config_activation(self, dp_name, use_global = False):
         activation_menu_item = self.page.locator(".menu-item-list .menu-item-text", has_text="Activation")

@@ -68,6 +68,7 @@ class EnvConfig:
     TP_AUTO_IS_PROVISION_PULSAR = os.environ.get("TP_AUTO_IS_PROVISION_PULSAR", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
     TP_AI_ENABLE_MCP_HUB = os.environ.get("TP_AI_ENABLE_MCP_HUB", "false").lower() == "true"
+    TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL = os.environ.get("TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL", "true").lower() == "true"
 
     # OAuth token
     TP_AUTO_TOKEN_NAMESPACE = os.environ.get("TP_AUTO_TOKEN_NAMESPACE") or "automation"
@@ -112,6 +113,7 @@ class EnvConfig:
     TP_AUTO_K8S_BMDP_NAMESPACE = os.environ.get("TP_AUTO_K8S_BMDP_NAMESPACE") or f"{TP_AUTO_K8S_BMDP_NAME}ns"
     TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT = os.environ.get("TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT") or f"{TP_AUTO_K8S_BMDP_NAME}sa"
     TP_AUTO_FQDN_BMDP = os.environ.get("TP_AUTO_FQDN_BMDP") or socket.gethostname().lower()
+    TP_AUTO_BW5_APP_NAME = os.environ.get("TP_AUTO_BW5_APP_NAME") or os.environ.get("TP_BW5_APP_NAME") or "RestSample"
     TP_AUTO_K8S_BMDP_BW5_RVDM = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM") or "tra5130rv"
     TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE") or "7474"
     TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK = os.environ.get("TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK") or ""

@@ -16,6 +16,7 @@
 from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
+from utils.color_logger import ColorLogger
 from page_object.po_auth import PageObjectAuth
 
 if __name__ == "__main__":
@@ -25,10 +26,27 @@ if __name__ == "__main__":
     po_auth = PageObjectAuth(page)
     try:
         if not po_auth.is_host_prefix_exist(ENV.DP_HOST_PREFIX):
-            if not po_auth.is_admin_user_exist():
-                po_auth.active_user_in_mail(ENV.CP_ADMIN_EMAIL, True)
-            po_auth.admin_provision_user(ENV.DP_USER_EMAIL, ENV.DP_HOST_PREFIX)
-            po_auth.active_user_in_mail(ENV.DP_USER_EMAIL)
+            if ENV.TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL:
+                # No-email path (default): admin pre-bootstrapped via chart adminInitialPassword;
+                # regular user via Console API + initialPassword. login_admin_user / login
+                # transparently handle CP's forced first-login password reset.
+                if not po_auth.is_admin_user_exist():
+                    Util.exit_error("Admin login failed (even after first-login reset attempt).",
+                                    page, "no-email-admin-login.png")
+                po_auth.admin_provision_user_via_api(ENV.DP_USER_EMAIL, ENV.DP_HOST_PREFIX, ENV.DP_USER_PASSWORD)
+                if po_auth.login():
+                    po_auth.logout()
+                else:
+                    # CP 1.18+: initialPassword no longer registers the user in the IdP.
+                    # Fall back to email-based activation via maildev.
+                    ColorLogger.warning("initialPassword login failed, activating user via maildev email...")
+                    po_auth.active_user_in_mail(ENV.DP_USER_EMAIL)
+            else:
+                # Legacy email-based path
+                if not po_auth.is_admin_user_exist():
+                    po_auth.active_user_in_mail(ENV.CP_ADMIN_EMAIL, True)
+                po_auth.admin_provision_user(ENV.DP_USER_EMAIL, ENV.DP_HOST_PREFIX)
+                po_auth.active_user_in_mail(ENV.DP_USER_EMAIL)
     except Exception as e:
         current_filename = Path(__file__).stem
         Util.exit_error(f"Unhandled error: {e}", page, f"unhandled_error_{current_filename}.png")

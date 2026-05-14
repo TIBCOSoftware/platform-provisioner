@@ -64,10 +64,12 @@ class PageObjectDataPlaneTibcoHub(PageObjectDataPlane):
                 self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
                 print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for TibcoHub capability")
 
-            if self.page.locator('#ingress-resource-table').is_visible():
-                self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB)).locator('label').wait_for(state="visible")
-                self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB)).locator('label').click()
-                print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB}' Ingress Controller for TibcoHub capability")
+            # CP 1.18+ renamed #ingress-resource-table to #route-resource-table
+            ingress_table_sel = "#ingress-resource-table, #route-resource-table"
+            if self.page.locator(ingress_table_sel).first.is_visible():
+                self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB)).locator('label').wait_for(state="visible")
+                self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB)).locator('label').click()
+                print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB}' Ingress/Route for TibcoHub capability")
 
             self.page.locator("#btnNextCapabilityProvision", has_text="Next").click()
             print("Clicked TibcoHub step 1 'Next' button")

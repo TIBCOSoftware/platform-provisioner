@@ -159,30 +159,39 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 else:
                     Util.exit_error(f"'{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
-            if self.page.locator('#ingress-resource-table').is_visible():
-                print(f"Checking Ingress Controller table has '{self.ingress_controller}' visible...")
-                if not Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=self.ingress_controller)), 2, 4):
-                    ColorLogger.info(f"Adding Ingress Controller: {self.ingress_controller} for {self.capability_upper} capability")
-                    if self.page.locator("#add-ingress-resource-ingress-controller-btn").is_visible():
-                        self.page.locator("#add-ingress-resource-ingress-controller-btn").click()
-                        print("Clicked 'Add Ingress Controller' button")
-                        # Add Ingress Controller dialog popup
+            # CP 1.18+ renamed #ingress-resource-table to #route-resource-table
+            ingress_table_sel = "#ingress-resource-table, #route-resource-table"
+            if self.page.locator(ingress_table_sel).first.is_visible():
+                print(f"Checking Ingress/Route table has '{self.ingress_controller}' visible...")
+                ingress_row_sel = f"{ingress_table_sel} >> tr >> td >> text={self.ingress_controller}"
+                if not Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=self.ingress_controller)), 2, 4):
+                    ColorLogger.info(f"Adding Ingress/Route: {self.ingress_controller} for {self.capability_upper} capability")
+                    add_btn_sel = "#add-ingress-resource-ingress-controller-btn, #add-route-resource-btn"
+                    if self.page.locator(add_btn_sel).first.is_visible():
+                        self.page.locator(add_btn_sel).first.click()
+                        print("Clicked 'Add Ingress/Route Resource' button")
                         self.po_dp_config.add_ingress_controller(
                             ENV.TP_AUTO_INGRESS_CONTROLLER, self.ingress_controller,
-                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, self.fqdn
+                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, self.fqdn,
+                            "route" if self.page.locator('#route-resource-table').is_visible() else "ingress"
                         )
 
-                if Util.check_dom_visibility(self.page, self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=self.ingress_controller)), 3, 6):
-                    self.page.locator('#ingress-resource-table tr', has=self.page.locator('td', has_text=self.ingress_controller)).locator('label').click()
-                    print(f"Selected '{self.ingress_controller}' Ingress Controller for {self.capability_upper} capability")
+                if Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=self.ingress_controller)), 3, 6):
+                    self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=self.ingress_controller)).locator('label').click()
+                    print(f"Selected '{self.ingress_controller}' Ingress/Route for {self.capability_upper} capability")
                 else:
-                    Util.exit_error(f"'{self.ingress_controller}' Ingress Controller is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
+                    Util.exit_error(f"'{self.ingress_controller}' Ingress/Route is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             self.page.locator("#btnNextCapabilityProvision", has_text="Next").click()
             print(f"Clicked {self.capability_upper} 'Next' button, finished step 1")
-            self.page.locator(".resource-agree label").click()
-            print(f"Clicked {self.capability_upper} 'EUA' checkbox")
-            self.page.wait_for_timeout(500)
+            self.page.wait_for_timeout(3000)
+            # CP 1.18+ removed the EULA checkbox
+            if self.page.locator(".resource-agree label").is_visible():
+                self.page.locator(".resource-agree label").click()
+                print(f"Clicked {self.capability_upper} 'EUA' checkbox")
+                self.page.wait_for_timeout(500)
+            else:
+                print(f"No EULA checkbox (CP 1.18+), skipping")
             self.page.locator("#btnNextCapabilityProvision").click()
 
             # for bw5ce dom selector

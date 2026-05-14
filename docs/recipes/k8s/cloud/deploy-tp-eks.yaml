@@ -90,9 +90,13 @@ meta:
     TP_ENABLE_INGRESS_CONTROLLER: $([[ "$TP_INGRESS_CLASS" == "nginx" || "$TP_INGRESS_CLASS" == "traefik" || "$TP_INGRESS_CLASS" == "haproxy" || "$TP_INGRESS_CLASS" == "nginx-gateway-fabric" ]] && echo "true" || echo "false")
     TP_ENABLE_ISTIO_GATEWAY: $([[ "$TP_INGRESS_CLASS" == "istio-gateway" ]] && echo "true" || echo "false")
     TP_ENABLE_TRAEFIK_GATEWAY: $([[ "$TP_INGRESS_CLASS" == "traefik-gateway" ]] && echo "true" || echo "false")
+    TP_ENABLE_NETSCALER_GATEWAY: $([[ "$TP_INGRESS_CLASS" == "netscaler-cpx-gateway" ]] && echo "true" || echo "false")
+    # NetScaler CPX Gateway Controller
+    TP_NETSCALER_ENTITY_PREFIX: ${GUI_TP_NETSCALER_ENTITY_PREFIX:-"gwy"}
+    TP_NETSCALER_GATEWAY_CONTROLLER_NAME: ${GUI_TP_NETSCALER_GATEWAY_CONTROLLER_NAME:-"citrix.com/nscpxgw-controller"}
     # computed: ingress vs gateway API routing
     TP_ENABLE_INGRESS: $([[ "$TP_INGRESS_CLASS" == "nginx" || "$TP_INGRESS_CLASS" == "traefik" || "$TP_INGRESS_CLASS" == "haproxy" ]] && echo "true" || echo "false")
-    TP_ENABLE_HTTP_ROUTE: $([[ "$TP_INGRESS_CLASS" == "nginx-gateway-fabric" || "$TP_INGRESS_CLASS" == "istio-gateway" || "$TP_INGRESS_CLASS" == "traefik-gateway" ]] && echo "true" || echo "false")
+    TP_ENABLE_HTTP_ROUTE: $([[ "$TP_INGRESS_CLASS" == "nginx-gateway-fabric" || "$TP_INGRESS_CLASS" == "istio-gateway" || "$TP_INGRESS_CLASS" == "traefik-gateway" || "$TP_INGRESS_CLASS" == "netscaler-gateway" ]] && echo "true" || echo "false")
     TP_ENABLE_SECONDARY_KONG: $([[ "$TP_SECONDARY_INGRESS_CLASS" == "kong" ]] && echo "true" || echo "false")
     TP_DEPLOY_SECONDARY_INGRESS: $([[ "$TP_ENABLE_SECONDARY_KONG" == "true" ]] && echo "true" || echo "false")
     TP_HTTP_INGRESS_BACKEND_SERVICE: ${TP_INGRESS_RELEASE_NAME}-$( ( [[  "$TP_INGRESS_CLASS" == "nginx" ]] && echo "ingress-nginx-controller" ) || ( [[ "$TP_INGRESS_CLASS" == "kong" ]] && echo "kong-proxy" ) )
@@ -774,6 +778,155 @@ helmCharts:
               namespaces:
                 from: All
         EOF
+# NetScaler CPX Gateway Controller: in-cluster NetScaler CPX with Gateway API support
+- condition: ${TP_ENABLE_NETSCALER_GATEWAY}
+  name: dp-config-aws
+  namespace: ${TP_INGRESS_NAMESPACE}
+  version: ${TP_CHART_VERSION_DP_CONFIG_AWS}
+  repo:
+    helm:
+      url: ${TP_CHART_REPO}
+      username: "${TP_CHART_REPO_USER_NAME}"
+      password: "${TP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: true
+    content: |
+      netscaler-cpx-with-gateway-controller:
+        enabled: true
+        # NetScaler CPX Gateway Controller doc: https://docs.netscaler.com/en-us/netscaler-kubernetes-gateway-controller/deploy-cpx-with-gateway-controller
+        # chart values: https://github.com/netscaler/netscaler-helm-charts/tree/master/netscaler-cpx-with-gateway-controller
+        license:
+          accept: yes
+        gatewayController:
+          entityPrefix: "${TP_NETSCALER_ENTITY_PREFIX}"
+          gatewayControllerName: "${TP_NETSCALER_GATEWAY_CONTROLLER_NAME}"
+        netscalerCpx:
+          # Increase resource limits to prevent liveness probe timeouts on Docker Desktop
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          # Bootup commands for WebSocket, X-Forwarded headers, and proper rewrite policy binding
+          commands: |
+            # Enable WebSocket for tibtunnel connections
+            set ns httpProfile nshttp_default_profile -webSocket ENABLED
+            # Add X-Forwarded-Proto header for HTTPS traffic after TLS termination
+            add rewrite action rw_act_x_forwarded_proto insert_http_header X-Forwarded-Proto "\"https\""
+            add rewrite policy rw_pol_x_forwarded_proto CLIENT.SSL.IS_SSL rw_act_x_forwarded_proto
+            bind rewrite global rw_pol_x_forwarded_proto 10 NEXT -type REQ_OVERRIDE
+            # Add X-Forwarded-Port header for HTTPS traffic
+            add rewrite action rw_act_x_forwarded_port insert_http_header X-Forwarded-Port "\"443\""
+            add rewrite policy rw_pol_x_forwarded_port CLIENT.SSL.IS_SSL rw_act_x_forwarded_port
+            bind rewrite global rw_pol_x_forwarded_port 20 NEXT -type REQ_OVERRIDE
+            # Disable connection multiplexing — enables body streaming instead of buffering
+            # conMultiplex DISABLED — by default CPX reuses backend connections (multiplexing), 
+            # which requires buffering the full request before forwarding. Disabling it makes CPX stream the request body directly to the backend as it arrives from the browser.
+            set ns httpProfile nshttp_default_profile -conMultiplex DISABLED
+            # Increase TCP buffers from 128KB → 4MB — fixes throughput on high-latency connections
+            # bufferSize / sendBuffsize 4194304 — increases the TCP socket receive/send buffer from 128KB to 4MB. Throughput over high-latency connections is buffer_size ÷ RTT. At 128KB
+            # you were getting ~350 KB/s; at 4MB you get the full available bandwidth.
+            set ns tcpProfile nstcp_default_profile -bufferSize 4194304 -sendBuffsize 4194304 -dynamicReceiveBuffering ENABLED -maxcwnd 4194304
+        service:
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "external"
+            service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+            service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+            external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+          spec:
+            type: LoadBalancer
+            ports:
+            - port: 80
+              targetPort: 9080
+              protocol: TCP
+              name: http
+            - port: 443
+              targetPort: 443
+              protocol: TCP
+              name: https
+  cluster:
+    names:
+      - ${TP_CLUSTER_NAME}
+  releaseName: cpx-gateway-controller
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: false
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        kubectl create ns ${TP_INGRESS_NAMESPACE}
+        # add label for tibtunnel to connect to the ingress controller
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-dp-ns=enable
+        kubectl label namespace ${TP_INGRESS_NAMESPACE} networking.platform.tibco.com/non-cp-ns=enable
+        
+        # Install Gateway API CRDs for HTTPRoute support (only if not already present)
+        kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
+          { kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml; }
+
+        # create a certificate for the main ingress
+        kubectl apply -f - << EOF
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: tp-certificate-main-ingress
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          secretName: tp-certificate-main-ingress
+          issuerRef:
+            name: ${TP_CERTIFICATE_CLUSTER_ISSUER}
+            kind: ClusterIssuer
+          dnsNames:
+            - '*.${TP_DOMAIN}'
+        EOF
+    postDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # create GatewayClass for NetScaler
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: GatewayClass
+        metadata:
+          name: netscaler-gateway-class
+        spec:
+          controllerName: ${TP_NETSCALER_GATEWAY_CONTROLLER_NAME}
+        EOF
+        # wait for GatewayClass to be accepted
+        kubectl wait --timeout=2m gatewayclass/netscaler-gateway-class --for=condition=Accepted
+        # create gateway object with HTTPS listener and TLS termination
+        kubectl apply -f - <<EOF
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: netscalercpx-gateway
+          namespace: ${TP_INGRESS_NAMESPACE}
+        spec:
+          gatewayClassName: netscaler-gateway-class
+          listeners:
+          - allowedRoutes:
+              namespaces:
+                from: All
+            name: https
+            hostname: "*.${TP_DOMAIN}"
+            port: 443
+            protocol: HTTPS
+            tls:
+              certificateRefs:
+              - group: ""
+                kind: Secret
+                name: tp-certificate-main-ingress
+              mode: Terminate
+        EOF
+        # Wait for Gateway to be programmed
+        kubectl wait --timeout=5m -n ${TP_INGRESS_NAMESPACE} gateway/netscalercpx-gateway --for=condition=Programmed
+        # NOTE: Manual step required - Deploy priority fix CronJob to handle wildcard vs exact hostname routing when using CP/DP in same cluster with same domain
 - name: dp-config-aws
   version: "${TP_CHART_VERSION_DP_CONFIG_AWS}"
   condition: ${TP_DEPLOY_SECONDARY_INGRESS}
