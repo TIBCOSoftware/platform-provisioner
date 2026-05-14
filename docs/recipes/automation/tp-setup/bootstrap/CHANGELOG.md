@@ -1,3 +1,51 @@
+## [1.7.32-auto-on-prem-jammy]
+### Added
+- [PCP-19289] Lower flogoprovisioner pod resources right after FLOGO capability provisioning. 
+
+## [1.7.31-auto-on-prem-jammy]
+### Fixed
+- [PCP-19290] Use `check_dom_visibility(10, 60, True)` for create-dp modal wait — polls with page refresh instead of silent Playwright timeout
+- [PCP-19290] Added Escape key fallback when ingress error Cancel button selector doesn't match — prevents unclosed modal from blocking navigation
+- [PCP-19284] Fixed automation for CP 1.18 UI changes: login flow (generateIAT=True), ingress/route resource toggle, EULA checkbox step
+### Added
+- Added wait pattern guideline to CLAUDE.md: prefer `check_dom_visibility` over `wait_for(timeout=N)`
+
+## [1.7.29-auto-on-prem-jammy]
+### Fixed
+- [PCP-19216] Restored email activation retry in `active_user_in_mail()` — replaced single `is_visible()` check with `Util.check_dom_visibility()` polling (10s interval, 60s max, with page refresh)
+
+## [1.7.28-auto-on-prem-jammy]
+### Fixed
+- [PCP-19158] Fixed Playwright strict mode violation on combined CSS selectors (storage, ingress toggle, EULA) by adding `.first`
+- [PCP-19158] Simplified ingress section expand check — replaced SVG `xlink:href` inspection with button visibility check
+- [PCP-19158] Fixed cached locator pattern in Flogo, BWCE, and TibcoHub ingress table selection — store selector strings, re-query on each use
+- [PCP-19216] Removed email server DB hack (`_configure_email_server_via_kubectl`) — superseded by PCP-19150 no-email path
+### Added
+- Added Playwright Automation Principles to CLAUDE.md (user simulator philosophy, selector abstraction, strict mode, locator caching, backward compatibility)
+
+## [1.7.27-auto-on-prem-jammy]
+### Updated
+- Updated MCP Hub automation for CP 1.17 5-step gateway wizard (added Advanced and Gateway Configuration steps with backward compatibility)
+- Updated MCP Hub sidebar navigation from tabs to links with tab fallback for older CP versions
+- Fixed tools count extraction for new sidebar badge format
+
+## [1.7.26-auto-on-prem-jammy]
+### Added
+- [PCP-19150] Added no-email user provisioning path (now default). Set `TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL=false` to fall back to the legacy maildev-based flow. Admin uses chart-bootstrapped `adminInitialPassword` + first-login reset; regular DP user is created via `POST /platform-console/api/v1/subscriptions` with `initialPassword` + first-login reset. `login` and `login_admin_user` now transparently handle the forced first-login password reset.
+
+## [1.7.25-auto-on-prem-jammy]
+### Fixed
+- [PCP-19158] Fixed MCP Hub `verify_tools()` tab selector: CP 1.17.0 renamed "Tools" tab to "MCP Tools", updated regex
+- [PCP-19158] Fixed `create-bmdp` spinner blocking button click: wait for `.pl-primary-spinner` to hide, detect disabled button with tooltip
+- [PCP-19158] Fixed BMDP EMS success alert strict mode violation: added `.first` to avoid resolving to 2 elements
+### Changed
+- [PCP-19158] Added wait for DP Resources page storage/ingress sections to render after DP creation
+- [PCP-19158] Reduced outer `deploy-subscription` retry loop default from 10 to 3
+
+## [1.7.24-auto-on-prem-jammy]
+### Updated
+- [PCP-18595] Updated bw5 images to support TP 1.16+
+- updated bw5 recipe to support logs and metrics configuration
 ## [1.7.23-auto-on-prem-jammy]
 ### Fixed
 - [PCP-18853] Updated MCP Hub automation for CP 1.17.0: 3-step provisioning wizard, create storage class if missing, new Add MCP Server dialog selectors, Preview Changes confirmation dialog

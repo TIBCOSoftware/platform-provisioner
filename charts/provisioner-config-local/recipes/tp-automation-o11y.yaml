@@ -38,6 +38,7 @@ meta:
 
     # DP capabilities deployment
     GUI_TP_AUTO_ACTIVE_USER: true
+    GUI_TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL: true
     GUI_TP_AUTO_ENABLE_DP: true
     GUI_TP_AUTO_ENABLE_CONFIG_O11Y: true
     GUI_TP_AUTO_ENABLE_FLOGO: true
@@ -161,6 +162,7 @@ meta:
     # DP capabilities deployment
     TP_AUTO_CREATE_OAUTH_TOKEN: ${GUI_TP_AUTO_CREATE_OAUTH_TOKEN:-true}
     TP_AUTO_ACTIVE_USER: ${GUI_TP_AUTO_ACTIVE_USER:-true}
+    TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL: ${GUI_TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL:-true}
     TP_AUTO_ENABLE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true}
     TP_AUTO_IS_CREATE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true} # need this as global value
     TP_AUTO_ENABLE_CONFIG_O11Y: ${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-true}
@@ -650,6 +652,24 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
+- condition: ${TP_AUTO_ENABLE_FLOGO} # PCP-19289: shrink over-provisioned flogoprovisioner CPU in test/dev
+  name: lower-flogoprovisioner-resource
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: true
+    fileName: script.sh
+    content: |
+      if ! kubectl -n "${TP_AUTO_K8S_DP_NAMESPACE}" get deploy flogoprovisioner >/dev/null 2>&1; then
+        echo "WARNING: flogoprovisioner Deployment not found in ${TP_AUTO_K8S_DP_NAMESPACE}; skipping CPU patch (non-critical)"
+        exit 0
+      fi
+      echo "Patching ${TP_AUTO_K8S_DP_NAMESPACE}/flogoprovisioner: requests=cpu=500m,memory=1000Mi limits=cpu=1000m,memory=1500Mi"
+      kubectl set resources -n "${TP_AUTO_K8S_DP_NAMESPACE}" deployment/flogoprovisioner \
+        -c flogoprovisioner \
+        --requests=cpu=500m,memory=1000Mi \
+        --limits=cpu=1000m,memory=1500Mi
+      kubectl -n "${TP_AUTO_K8S_DP_NAMESPACE}" rollout status deployment/flogoprovisioner --timeout=180s
 - condition: ${TP_AUTO_ENABLE_BWCE} # only deploy bwce
   name: deploy-bwce
   clusters:

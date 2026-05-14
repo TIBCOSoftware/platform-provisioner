@@ -25,6 +25,7 @@ Handles all capability-related operations:
 import json
 from utils.color_logger import ColorLogger
 from utils.env import ENV
+from utils.helper import Helper
 from .base import TibcopBase
 
 
@@ -385,11 +386,43 @@ class TibcopCapability:
             return None
 
         ColorLogger.success(f"{capability} capability provisioned successfully")
+        if capability.upper() == "FLOGO":
+            self._lower_flogoprovisioner_resource()
         print("\n" + "="*60)
         print("Updated capability list:")
         print("="*60 + "\n")
         self.list_capabilities(dp_name, print_result=True)
         return result
+
+    def _lower_flogoprovisioner_resource(self):
+        """PCP-19289: shrink the over-provisioned flogoprovisioner Deployment in the
+        DP namespace right after FLOGO capability provisioning, so subsequent
+        steps (e.g. create-bmdp inside cli-full-automation) have CPU available.
+        Best-effort: never fails the caller. Hardcoded test/dev sizing.
+        """
+        ns = ENV.TP_AUTO_K8S_DP_NAMESPACE
+        if not ns:
+            ColorLogger.warning("TP_AUTO_K8S_DP_NAMESPACE not set; skipping flogoprovisioner CPU patch (non-critical)")
+            return
+        if not Helper.get_command_output(
+            f"kubectl -n {ns} get deploy flogoprovisioner -o name", is_print_error=False
+        ):
+            ColorLogger.warning(f"flogoprovisioner Deployment not found in {ns}; skipping CPU patch (non-critical)")
+            return
+        ColorLogger.info(
+            f"Patching {ns}/flogoprovisioner: requests=cpu=500m,memory=1000Mi limits=cpu=1000m,memory=1500Mi"
+        )
+        Helper.get_command_output(
+            f"kubectl set resources -n {ns} deployment/flogoprovisioner "
+            f"-c flogoprovisioner "
+            f"--requests=cpu=500m,memory=1000Mi "
+            f"--limits=cpu=1000m,memory=1500Mi",
+            is_print_error=False,
+        )
+        Helper.get_command_output(
+            f"kubectl -n {ns} rollout status deployment/flogoprovisioner --timeout=180s",
+            is_print_error=False,
+        )
 
     def delete_capability_instance(self, dp_name, capability, other_args=None):
         """

@@ -13,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import json
+import os
+
 from page_object.po_global import PageObjectGlobal
 from utils.color_logger import ColorLogger
+from utils.helper import Helper
 from utils.util import Util
 from utils.env import ENV
 from utils.report import ReportYaml
@@ -47,13 +51,13 @@ class PageObjectAuth(PageObjectGlobal):
         Util.refresh_page(self.page)
 
         email_selector = self.page.locator(".email-list .email-item-link", has_text=email_title).nth(0)
-        if not email_selector.is_visible():
-            print(f"No email '{email_title}' for active Admin user.")
-            self.reactive_admin()
-            print(f"Reactive Admin user '{ENV.CP_ADMIN_EMAIL}' after reset password.")
-            return
-
-        email_selector.wait_for(state="visible")
+        if not Util.check_dom_visibility(self.page, email_selector, interval=10, max_wait=60, is_refresh=True):
+            if is_admin:
+                print(f"No email '{email_title}' for active Admin user.")
+                self.reactive_admin()
+                print(f"Reactive Admin user '{ENV.CP_ADMIN_EMAIL}' after reset password.")
+                return
+            Util.exit_error(f"Active Email for {email} is not found.", self.page, "active_user_in_mail.png")
         print(f"Page {ENV.TP_AUTO_MAIL_URL} has been loaded...")
         if not email_selector.locator(".title-subline", has_text=email).is_visible():
             Util.exit_error(f"Active Email for {email} is not found.", self.page, "active_user_in_mail.png")
@@ -95,23 +99,29 @@ class PageObjectAuth(PageObjectGlobal):
                 new_page.fill("#user-password", temp_admin_password)
                 new_page.locator("#user-login-btn").click()
                 print(f"Filled Admin User Email: {ENV.CP_ADMIN_EMAIL}, Password: {temp_admin_password}, then clicked 'Sign in' button")
-                self.reset_admin_password(new_page)
+                if not self.reset_password_on_first_login(new_page, ENV.CP_ADMIN_PASSWORD, label="admin"):
+                    Util.exit_error("Reset Password page is not visible.", new_page, "active_user_in_mail_3.png")
                 ColorLogger.info("=== This is the new step to active admin in mail from CP 1.10.0. ===")
             else:
                 Util.exit_error(f"Can not active Email for {email}", new_page, "active_user_in_mail_3.png")
 
         new_page.close()
 
-    def reset_admin_password(self, new_page):
-        ColorLogger.info("Reset admin password in new page...")
+    def reset_password_on_first_login(self, page, password, label="user"):
+        """Handle the forced 'Reset Password' page that CP shows on first login.
+        Same DOM for admin and regular DP user: only #passwordInput, #confirmPasswordInput,
+        and #ta-sign-in-button (text 'Reset Password', initially disabled until both
+        passwords pass the policy check).
+        Returns True if the reset was performed, False if the reset page wasn't shown.
+        """
         self.page.wait_for_timeout(1000)
-        if Util.check_dom_visibility(new_page, new_page.locator(".title", has_text="Reset Password"), 3, 6):
-            new_page.fill("#passwordInput", ENV.CP_ADMIN_PASSWORD)
-            new_page.fill("#confirmPasswordInput", ENV.CP_ADMIN_PASSWORD)
-            new_page.locator("#ta-sign-in-button", has_text="Reset Password").click()
-            print(f"Changed to new password: {ENV.CP_ADMIN_PASSWORD} and clicked 'Reset Password' button.")
-        else:
-            Util.exit_error("Reset Password page is not visible.", new_page, "active_user_in_mail_3.png")
+        if not Util.check_dom_visibility(page, page.locator(".title", has_text="Reset Password"), 3, 6):
+            return False
+        page.fill("#passwordInput", password)
+        page.fill("#confirmPasswordInput", password)
+        Util.click_button_until_enabled(page, page.locator("#ta-sign-in-button", has_text="Reset Password"))
+        print(f"Reset {label} password and clicked 'Reset Password' button.")
+        return True
 
     def reactive_admin(self):
         ColorLogger.info("No email for active Admin user, start to reactive Admin.")
@@ -153,7 +163,8 @@ class PageObjectAuth(PageObjectGlobal):
                 print(f"Clicked 'Reset password' button from email title '{reset_password_email_title}'.")
 
             new_page = new_page_info.value
-            self.reset_admin_password(new_page)
+            if not self.reset_password_on_first_login(new_page, ENV.CP_ADMIN_PASSWORD, label="admin"):
+                Util.exit_error("Reset Password page is not visible.", new_page, "active_user_in_mail_3.png")
             new_page.close()
         else:
             Util.exit_error("Other error occurred while reactive admin user, please check manually.", self.page, "reactive_admin.png")
@@ -161,7 +172,7 @@ class PageObjectAuth(PageObjectGlobal):
         self.page.goto(ENV.TP_AUTO_ADMIN_URL)
         print(f"Finish reactive admin user, navigating to admin page {ENV.TP_AUTO_ADMIN_URL}...")
 
-    def login_admin_user(self):
+    def login_admin_user(self, _retry_after_reset=False):
         ColorLogger.info("Login as admin user...")
         self.page.goto(ENV.TP_AUTO_ADMIN_URL)
         print(f"Navigating to admin page {ENV.TP_AUTO_ADMIN_URL}...")
@@ -183,6 +194,12 @@ class PageObjectAuth(PageObjectGlobal):
         if self.page.locator("#toastr401", has_text="Invalid username or password").is_visible():
             ColorLogger.warning(f"Admin user {ENV.CP_ADMIN_EMAIL}, {ENV.CP_ADMIN_PASSWORD} login failed.")
             return False
+
+        # Handle the forced first-login password reset (used with chart adminInitialPassword).
+        # Recurse once with the new password set; the guard prevents an infinite loop.
+        if not _retry_after_reset and self.reset_password_on_first_login(self.page, ENV.CP_ADMIN_PASSWORD, label="admin"):
+            self.page.wait_for_timeout(2000)
+            return self.login_admin_user(_retry_after_reset=True)
 
         self.page.wait_for_timeout(1000)
         # Note: if the "Sign in with Default IdP" button is still visible, click it again
@@ -267,6 +284,64 @@ class PageObjectAuth(PageObjectGlobal):
         self.logout_admin_user()
         ColorLogger.success(f"Admin user {ENV.CP_ADMIN_EMAIL} logout successful.")
 
+    def admin_provision_user_via_api(self, email, host_prefix, password):
+        """Provision a regular TP subscription via the Console API.
+        Uses the admin browser session cookie for auth — admin must be logged in.
+        Endpoint: POST https://admin.<DOMAIN>/platform-console/api/v1/subscriptions
+
+        In this method's payload for POST /platform-console/api/v1/subscriptions,
+        generateIAT is set to False to avoid generating unused one-time activation tokens;
+        CP >= 1.18 still uses maildev activation fallback because initialPassword no longer
+        registers users in the IdP.
+        On CP <= 1.17, initialPassword also works for direct login.
+        On CP >= 1.18, initialPassword no longer registers the user in the IdP,
+        so the caller must fall back to email-based activation via maildev.
+        """
+        ColorLogger.info(f"Provision user {email} (host_prefix={host_prefix}) via Console API...")
+        if not self.login_admin_user():
+            Util.exit_error("Admin login failed before API provisioning",
+                            self.page, "api-provision-login.png")
+
+        api_url = f"https://admin.{ENV.TP_AUTO_CP_SERVICE_DNS_DOMAIN}/platform-console/api/v1/subscriptions"
+        first_name = email.split("@")[0]
+        payload = {
+            "userDetails": {
+                "firstName": first_name,
+                "lastName": "Auto",
+                "email": email,
+                "initialPassword": password,
+                "country": "US",
+                "state": "TX",
+            },
+            "accountDetails": {
+                "companyName": f"Tibco-{first_name}",
+                "ownerLimit": 10,
+                "hostPrefix": host_prefix,
+                "comment": "Provisioned by automation via Console API (no email)",
+            },
+            "generateIAT": False,
+            "copyAdminIdP": False,
+            "userRoles": ["*"],
+            "useDefaultIDP": True,
+            "customContainerRegistry": False,
+        }
+        resp = self.page.context.request.post(
+            api_url,
+            data=json.dumps(payload),
+            headers={"Content-Type": "application/json"},
+        )
+        body = resp.text()[:1000]
+        if resp.status not in (200, 201):
+            if "already exists" in body.lower() or "duplicate" in body.lower():
+                ColorLogger.warning(f"Subscription for {host_prefix} already exists — continuing.")
+            else:
+                Util.exit_error(f"API provisioning failed status={resp.status} body={body}",
+                                self.page, "api-provision.png")
+        else:
+            ColorLogger.success(f"Provisioned {email} via API (subscription created).")
+            print(f"API response body: {body}")
+        self.logout_admin_user()
+
     def is_host_prefix_exist(self, host_prefix):
         ColorLogger.info(f"Checking if host_prefix: {host_prefix} is exist...")
         try:
@@ -305,7 +380,7 @@ class PageObjectAuth(PageObjectGlobal):
             ColorLogger.warning(f"An error occurred while verify admin user in {ENV.TP_AUTO_ADMIN_URL}: {ENV.CP_ADMIN_EMAIL}, {ENV.CP_ADMIN_PASSWORD}")
             return False
 
-    def login(self):
+    def login(self, _retry_after_reset=False):
         ColorLogger.info(f"Navigating to login page {ENV.TP_AUTO_LOGIN_URL}...")
         self.page.goto(ENV.TP_AUTO_LOGIN_URL)
         print("Wait for login page is visible...")
@@ -325,6 +400,12 @@ class PageObjectAuth(PageObjectGlobal):
         if self.page.locator("#toastr401", has_text="Invalid username or password").is_visible():
             ColorLogger.warning(f"User {ENV.DP_USER_EMAIL}, {ENV.DP_USER_PASSWORD} login {ENV.TP_AUTO_LOGIN_URL} failed.")
             return False
+
+        # Handle the forced first-login password reset (used with API initialPassword).
+        # Recurse once with the new password set; the guard prevents an infinite loop.
+        if not _retry_after_reset and self.reset_password_on_first_login(self.page, ENV.DP_USER_PASSWORD, label=ENV.DP_USER_EMAIL):
+            self.page.wait_for_timeout(2000)
+            return self.login(_retry_after_reset=True)
 
         print(f"Waiting for user profile...")
         if Util.check_dom_visibility(self.page, self.page.locator("#user-profile"), 3, 9, True):

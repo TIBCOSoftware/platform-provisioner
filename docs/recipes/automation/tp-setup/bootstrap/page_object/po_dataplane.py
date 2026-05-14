@@ -238,8 +238,9 @@ class PageObjectDataPlane(PageObjectGlobal):
             return
 
         self.page.click("#register-dp-button")
-        self.page.locator("#select-existing-dp-button").wait_for(state="visible")
-        self.page.click("#select-existing-dp-button")
+        if not Util.check_dom_visibility(self.page, self.page.locator("#select-existing-dp-button"), 10, 60, True):
+            Util.exit_error("DP registration modal did not load within 60s", self.page, "k8s_create_dataplane.png")
+        self.page.locator("#select-existing-dp-button").click()
         # step 1 Basic
         print("Waiting for Step 1: 'Basic' page is loaded")
         self.page.locator(".pl-secondarynav a.is-active", has_text="Basic").wait_for(state="visible")
@@ -333,7 +334,19 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         self.page.click("#register-dp-button")
         self.page.locator("#select-control-tower-dp-button").wait_for(state="visible")
-        self.page.click("#select-control-tower-dp-button")
+        self.page.locator(".pl-primary-spinner").wait_for(state="hidden", timeout=60000)
+        self.page.wait_for_timeout(2000)
+
+        start_btn = self.page.locator("#select-control-tower-dp-button")
+        if "pcp-disabled" in (start_btn.get_attribute("class") or ""):
+            tooltip = self.page.locator("#control-tower-dp-register-button-tooltip")
+            hint = tooltip.text_content(timeout=3000) if tooltip.is_visible(timeout=2000) else "unknown prerequisite"
+            Util.exit_error(
+                f"Control Tower DP 'Start' button is disabled: {hint}",
+                self.page, "bmdp_button_disabled.png"
+            )
+
+        start_btn.click()
         print("Waiting for Step 1: 'Pre-Requisites' page is loaded")
         if Util.check_dom_visibility(self.page, self.page.locator("#data-plane-pre-requisites-btn"), 1, 5):
         # if self.page.locator("#data-plane-pre-requisites-btn").is_visible():

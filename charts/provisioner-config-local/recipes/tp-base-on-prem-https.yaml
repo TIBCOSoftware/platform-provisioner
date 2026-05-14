@@ -88,7 +88,7 @@ meta:
 
     # CP automation
     GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
-    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.7.23-auto-on-prem-jammy
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.7.32-auto-on-prem-jammy
 
     # langfuse
     GUI_TP_LANGFUSE_NAMESPACE: langfuse-system

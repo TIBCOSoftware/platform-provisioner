@@ -204,13 +204,13 @@ def _run_gui_bmdp_config(bmdp_name):
             po_bmdp_config = PageObjectBMDPConfiguration(page)
 
             # BW5 RVDM config
-            if ENV.TP_AUTO_IS_ENABLE_RVDM and not po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, "mySleep"):
+            if ENV.TP_AUTO_IS_ENABLE_RVDM and not po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, ENV.TP_AUTO_BW5_APP_NAME):
                 po_dp.goto_dataplane(bmdp_name)
                 po_bmdp_config.goto_dataplane_config()
                 if po_bmdp_config.dp_config_bw5_rvdm(ENV.TP_AUTO_K8S_BMDP_BW5_RVDM):
                     po_dp.goto_dataplane(bmdp_name)
                     if po_bmdp_config.goto_products("BW5"):
-                        po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, "mySleep")
+                        po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, ENV.TP_AUTO_BW5_APP_NAME)
 
             # EMS Server config
             if ENV.TP_AUTO_IS_ENABLE_EMSDM and not po_bmdp_config.is_ems_server_connected(ENV.TP_BMDP_IMAGE_TAG_EMS):
@@ -219,13 +219,13 @@ def _run_gui_bmdp_config(bmdp_name):
                 po_bmdp_config.dp_config_ems(ENV.TP_BMDP_IMAGE_TAG_EMS)
 
             # BW5 EMSDM config
-            if ENV.TP_AUTO_IS_ENABLE_EMSDM and not po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, "mySleep"):
+            if ENV.TP_AUTO_IS_ENABLE_EMSDM and not po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, ENV.TP_AUTO_BW5_APP_NAME):
                 po_dp.goto_dataplane(bmdp_name)
                 po_bmdp_config.goto_dataplane_config()
                 if po_bmdp_config.dp_config_bw5_emsdm(ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM):
                     po_dp.goto_dataplane(bmdp_name)
                     if po_bmdp_config.goto_products("BW5"):
-                        po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, "mySleep")
+                        po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, ENV.TP_AUTO_BW5_APP_NAME)
 
             # BW6 Domain config
             if ENV.TP_AUTO_IS_ENABLE_BW6DM and not po_bmdp_config.is_app_running("BW6", ENV.TP_AUTO_K8S_BMDP_BW6DM, "mySleep.application"):

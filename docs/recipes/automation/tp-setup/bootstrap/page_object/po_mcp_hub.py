@@ -51,7 +51,7 @@ class PageObjectMcpHub(PageObjectGlobal):
         return Util.check_dom_visibility(self.page, self.page.locator("text=online").first, 1, 2)
 
     def _wait_for_gateway_online(self):
-        """Wait for MCP Gateway to come online (up to 6 minutes).
+        """Wait for MCP Gateway to come online (up to 15 minutes).
         Reloads the page each iteration since status doesn't auto-refresh.
         """
         if self.is_gateway_online():
@@ -59,7 +59,7 @@ class PageObjectMcpHub(PageObjectGlobal):
             return
 
         ColorLogger.info("Waiting for MCP Gateway to come online...")
-        for i in range(12):  # Up to 6 minutes
+        for i in range(30):  # Up to 15 minutes
             self.page.wait_for_timeout(30000)
             self.page.reload(wait_until="domcontentloaded")
             self.page.wait_for_timeout(2000)
@@ -68,15 +68,19 @@ class PageObjectMcpHub(PageObjectGlobal):
                 return
             ColorLogger.info(f"Still waiting... ({(i+1)*30}s)")
 
-        ColorLogger.warning("MCP Gateway is not online yet, continuing anyway")
+        Util.exit_error("MCP Gateway did not come online within 15 minutes", self.page, "mcp_gateway_not_online.png")
 
     def deploy_mcp_gateway(self, dp_name):
-        """Deploy MCP Gateway on a Data Plane via the 3-step provisioning wizard.
+        """Deploy MCP Gateway on a Data Plane via the provisioning wizard.
+
+        CP >= 1.17 uses a 5-step wizard; older versions use 3 steps.
 
         Steps:
-          1. Resource Selection — select ingress controller (or create one)
-          2. Capability Configuration — select storage class, keep Lite mode defaults
-          3. Chart Values — accept defaults and click Deploy
+          1. Network Access — select ingress controller (or create one)
+          2. Deployment Mode — select storage class, keep Lite mode defaults
+          3. Advanced (CP >= 1.17) — accept defaults (path prefix, logs)
+          4. Gateway Configuration (CP >= 1.17) — accept auth defaults
+          5. Review — accept defaults and click Deploy
 
         Args:
             dp_name: Data Plane name (ingress pattern: mcp-<dp_name>)
@@ -89,14 +93,22 @@ class PageObjectMcpHub(PageObjectGlobal):
 
             dialog = self.page.get_by_role("dialog", name="Provisioning MCP Gateway")
 
-            # --- Step 1: Resource Selection ---
+            # --- Step 1: Network Access (was Resource Selection) ---
             self._wizard_step1_resource_selection(dialog, dp_name)
 
-            # --- Step 2: Capability Configuration ---
+            # --- Step 2: Deployment Mode (was Capability Configuration) ---
             self._wizard_step2_capability_configuration(dialog)
 
-            # --- Step 3: Chart Values — accept defaults and deploy ---
-            ColorLogger.info("Step 3: Chart Values — accepting defaults")
+            # --- Step 3: Advanced (CP >= 1.17) ---
+            if Util.check_dom_visibility(self.page, dialog.locator("text=Enable Path Prefix"), 1, 3):
+                self._wizard_step3_advanced(dialog)
+
+            # --- Step 4: Gateway Configuration (CP >= 1.17) ---
+            if Util.check_dom_visibility(self.page, dialog.locator("text=MCP Client Authentication"), 1, 3):
+                self._wizard_step4_gateway_configuration(dialog)
+
+            # --- Final Step: Review — accept defaults and deploy ---
+            ColorLogger.info("Review — accepting defaults")
             deploy_btn = dialog.get_by_role("button", name="Deploy MCP Gateway")
             deploy_btn.click()
             self.page.wait_for_timeout(3000)
@@ -145,6 +157,20 @@ class PageObjectMcpHub(PageObjectGlobal):
         dialog.get_by_role("button", name="Next").click()
         self.page.wait_for_timeout(1000)
         ColorLogger.success("Step 2 completed")
+
+    def _wizard_step3_advanced(self, dialog):
+        """Handle Step 3 of the provisioning wizard (CP >= 1.17): accept advanced defaults."""
+        ColorLogger.info("Step 3: Advanced — accepting defaults")
+        dialog.get_by_role("button", name="Next").click()
+        self.page.wait_for_timeout(1000)
+        ColorLogger.success("Step 3 completed")
+
+    def _wizard_step4_gateway_configuration(self, dialog):
+        """Handle Step 4 of the provisioning wizard (CP >= 1.17): accept auth defaults."""
+        ColorLogger.info("Step 4: Gateway Configuration — accepting defaults")
+        dialog.get_by_role("button", name="Next").click()
+        self.page.wait_for_timeout(1000)
+        ColorLogger.success("Step 4 completed")
 
     def _create_storage_class(self, wizard_dialog, storage_class):
         """Create a new Storage Class resource inside the deploy wizard step 2.
@@ -221,8 +247,11 @@ class PageObjectMcpHub(PageObjectGlobal):
             token: Bearer token for authentication
             auth_type: Auth type ('Bearer Token' or 'None')
         """
-        mcp_servers_tab = self.page.get_by_role("tab", name=re.compile(r"MCP Servers"))
-        mcp_servers_tab.click()
+        mcp_servers_link = self.page.get_by_role("link", name="MCP Servers")
+        if Util.check_dom_visibility(self.page, mcp_servers_link, 1, 3):
+            mcp_servers_link.click()
+        else:
+            self.page.get_by_role("tab", name=re.compile(r"MCP Servers")).click()
         self.page.wait_for_timeout(1000)
 
         if self.page.locator("tr", has_text=name).is_visible(timeout=2000):
@@ -297,19 +326,32 @@ class PageObjectMcpHub(PageObjectGlobal):
         close_btn = dialog.get_by_role("button", name="Close")
         if Util.check_dom_visibility(self.page, close_btn, 1, 3):
             close_btn.click()
+            dialog.wait_for(state="hidden", timeout=10000)
         self.page.wait_for_timeout(2000)
         return tools_count
 
     def get_tools_count(self):
-        """Get the number of discovered tools from the Tools tab label."""
-        tab = self.page.get_by_role("tab", name=re.compile(r"Tools"))
-        text = tab.text_content()
-        match = re.search(r'\((\d+)\)', text)
+        """Get the number of discovered tools from the MCP Tools link or tab label."""
+        tools_link = self.page.get_by_role("link", name="MCP Tools")
+        if Util.check_dom_visibility(self.page, tools_link, 1, 2):
+            text = tools_link.text_content()
+        else:
+            tab = self.page.get_by_role("tab", name=re.compile(r"MCP Tools"))
+            tab.wait_for(state="visible", timeout=10000)
+            text = tab.text_content()
+        match = re.search(r'\((\d+)\)', text) or re.search(r'(\d+)', text)
         return int(match.group(1)) if match else 0
 
     def verify_tools(self):
-        """Navigate to Tools tab and verify tools are discovered."""
-        self.page.get_by_role("tab", name=re.compile(r"Tools")).click()
+        """Navigate to MCP Tools page and verify tools are discovered."""
+        tools_link = self.page.get_by_role("link", name="MCP Tools")
+        if Util.check_dom_visibility(self.page, tools_link, 1, 2):
+            tools_link.click()
+        else:
+            self.page.wait_for_timeout(3000)
+            mcp_tools_tab = self.page.get_by_role("tab", name=re.compile(r"MCP Tools"))
+            mcp_tools_tab.wait_for(state="visible", timeout=30000)
+            mcp_tools_tab.click()
         self.page.wait_for_timeout(3000)
 
         count = self.get_tools_count()

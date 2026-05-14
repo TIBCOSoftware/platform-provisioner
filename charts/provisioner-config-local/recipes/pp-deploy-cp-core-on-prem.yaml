@@ -41,14 +41,14 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.16.0
-    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.16.0
-    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.16.0
+    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.17.0
+    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.17.0
+    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.17.0
     GUI_CP_PLATFORM_INTEGRATION_SB_VERSION: 1.16.0
-    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.16.0
+    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.17.0
     GUI_CP_PLATFORM_MESSAGING_VERSION: 1.15.31
-    GUI_CP_PLATFORM_HAWK_VERSION: 1.16.6
-    GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.16.0
+    GUI_CP_PLATFORM_HAWK_VERSION: 1.17.6
+    GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.17.0
     GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.16.0-0"
     GUI_CP_PLATFORM_MCP_HUB_VERSION: "~1.17.0-0"
 
@@ -56,6 +56,7 @@ meta:
     GUI_CP_INSTANCE_ID: "cp1"
     GUI_CP_NAMESPACE: "cp1-ns"
     GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
+    GUI_CP_ADMIN_PASSWORD: "Tibco@123" # initial admin password; set as adminInitialPassword in chart so admin is pre-activated and no email server is required
     GUI_CP_FROM_REPLY_TO_EMAIL: ""
     GUI_CP_EXTERNAL_ENVIRONMENT: "production"
     GUI_CP_RESOURCES_REQUEST_CPU: "50m"
@@ -69,6 +70,7 @@ meta:
     GUI_TP_AI_ENABLE_BW_MCP_SERVER: true
     GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER: true
     GUI_TP_AI_ENABLE_MCP_HUB: false
+    GUI_CP_MCP_HUB_PERSISTENCE: true
 
     # CP AI Agent env
     GUI_TP_AI_MCP_TRANSPORT: "streamable-http"
@@ -124,7 +126,7 @@ meta:
     GUI_CP_AUDITSERVER_INDEX: "audittrail" # optional auditserver index, default is audittrail
 
     # email
-    GUI_CP_MAIL_SERVER_TYPE: "smtp" # smtp, ses, sendgrid, graph
+    GUI_CP_MAIL_SERVER_TYPE: "" # smtp, ses, sendgrid, graph (empty = no email server; requires adminInitialPassword for admin bootstrap)
     GUI_CP_MAIL_SERVER_SES_ARN: ""
     GUI_CP_MAIL_SERVER_SENDGRID_API_KEY: ""
     GUI_CP_MAIL_SERVER_ADDRESS: ""
@@ -197,6 +199,7 @@ meta:
     CP_INSTANCE_ID: ${GUI_CP_INSTANCE_ID:-"cp1"}
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
     CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
+    CP_ADMIN_PASSWORD: ${GUI_CP_ADMIN_PASSWORD:-"Tibco@123"} # initial admin password (adminInitialPassword)
     CP_FROM_REPLY_TO_EMAIL: ${GUI_CP_FROM_REPLY_TO_EMAIL:-""}
     CP_EXTERNAL_ENVIRONMENT: ${GUI_CP_EXTERNAL_ENVIRONMENT:-"production"}
     CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
@@ -256,7 +259,7 @@ meta:
 
     # CP mail server
     CP_MAIL_MAILDEV_SERVICE_NAME: ${GUI_CP_MAIL_MAILDEV_SERVICE_NAME:-"development-mailserver"}
-    CP_MAIL_SERVER_TYPE: ${GUI_CP_MAIL_SERVER_TYPE:-"smtp"} # smtp, ses, sendgrid
+    CP_MAIL_SERVER_TYPE: ${GUI_CP_MAIL_SERVER_TYPE:-""} # smtp, ses, sendgrid (empty = no email server)
     CP_MAIL_SERVER_SES_ARN: ${GUI_CP_MAIL_SERVER_SES_ARN:-""}
     CP_MAIL_SERVER_SENDGRID_API_KEY: ${GUI_CP_MAIL_SERVER_SENDGRID_API_KEY:-""}
     CP_MAIL_SERVER_ADDRESS: ${GUI_CP_MAIL_SERVER_ADDRESS:-"${CP_MAIL_MAILDEV_SERVICE_NAME}.${CP_EXT_NAMESPACE}.svc.cluster.local"}
@@ -289,14 +292,14 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.16.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.16.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.17.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.17.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.17.0} # use ^1.0.0 for latest
     CP_PLATFORM_INTEGRATION_SB_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_SB_VERSION:-1.16.0} # use ^1.0.0 for latest
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.17.0} # use ^1.0.0 for latest
     CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.15.31} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.16.6} # use ^1.0.0 for latest
-    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.17.6} # use ^1.0.0 for latest
+    CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.17.0} # use ^1.0.0 for latest
     CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.16.0-0"} # use ~1.16.0-0 for latest alpha/stable
     CP_PLATFORM_MCP_HUB_VERSION: ${GUI_CP_PLATFORM_MCP_HUB_VERSION:-"~1.17.0-0"} # use ~1.17.0-0 for latest alpha/stable
     
@@ -306,6 +309,7 @@ meta:
     TP_AI_ENABLE_BW_MCP_SERVER: ${GUI_TP_AI_ENABLE_BW_MCP_SERVER:-false}
     TP_AI_ENABLE_FLOGO_MCP_SERVER: ${GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER:-false}
     TP_AI_ENABLE_MCP_HUB: ${GUI_TP_AI_ENABLE_MCP_HUB:-false}
+    CP_MCP_HUB_PERSISTENCE: ${GUI_CP_MCP_HUB_PERSISTENCE:-false}
 
     # CP AI Agent env
     TP_AI_MCP_TRANSPORT: ${GUI_TP_AI_MCP_TRANSPORT:-"streamable-http"}
@@ -707,6 +711,7 @@ helmCharts:
           db_secret_name: ${CP_DB_SECRET_NAME}
           db_ssl_mode: ${CP_DB_SSL_MODE}
           db_username: ${CP_DB_USER_NAME}
+          # start - email server configuration is removed from this chart since 1.18.0. 
           emailServerType: ${CP_MAIL_SERVER_TYPE}
           emailServer:
             ses:
@@ -722,6 +727,8 @@ helmCharts:
               clientDetailsSecretName: ${CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME}
               skipSentFolder: ${CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER}
           fromAndReplyToEmailAddress: "${CP_FROM_REPLY_TO_EMAIL}"
+          # end
+          adminInitialPassword: "${CP_ADMIN_PASSWORD}"
           admin:
             email: ${CP_ADMIN_EMAIL}
             firstname: "admin"
@@ -1402,6 +1409,9 @@ helmCharts:
         enabled: true
       mcp-hub-webserver:
         enabled: true
+        persistence:
+          enabled: ${CP_MCP_HUB_PERSISTENCE}
+          storageClassName: "${CP_STORAGE_CLASS}"
       global:
         external:
           dnsDomain: ${CP_SERVICE_DNS_DOMAIN}

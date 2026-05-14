@@ -34,8 +34,8 @@
 
 export CURRENT_PATH=$(pwd)
 export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="-v /${CURRENT_PATH}/report:/tmp/auto/report"
-# retry count
-export TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT=${TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT:-10}
+# retry count for outer deploy-subscription loop
+export TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT=${TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT:-${TP_AUTO_SUBSCRIPTION_DEPLOY_RETRY_COUNT:-3}}
 export _PIPELINE_PUBLIC_SCRIPT='/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TIBCOSoftware/platform-provisioner/main/dev/platform-provisioner.sh)"'
 export PIPELINE_SCRIPT="${PIPELINE_SCRIPT:-${_PIPELINE_PUBLIC_SCRIPT}}"
 

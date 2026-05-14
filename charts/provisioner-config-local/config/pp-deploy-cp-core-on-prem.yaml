@@ -620,6 +620,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_AI_ENABLE_MCP_HUB"
   description: |
     Enable/Disable MCP Hub in CP base.
+- name: "MCP Hub Persistence"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_MCP_HUB_PERSISTENCE"
+  description: |
+    Persist MCP Hub SQLite database using a PVC (uses CP storage class). Data survives pod restarts.
 
 # groupIndex: 11 Flow control
 - name: "Validate Cluster Resource"
