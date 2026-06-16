@@ -32,7 +32,7 @@ from .dataplane import TibcopDataPlane
 from .resource import TibcopResource
 from .app import TibcopApp
 from .capability import TibcopCapability
-from .api import TibcopAPI
+from api_object import CpRestApi, CapabilityVersionApi, AppEndpointApi
 from .bwce import TibcopBWCE
 from .flogo import TibcopFlogo
 from .bw5ce import TibcopBW5CE
@@ -68,17 +68,19 @@ class TibcopCLI:
         self.app = TibcopApp(self.base)
 
         # Modules with dependencies
-        self.api = TibcopAPI(self.base, dataplane=self.dataplane)
+        self.cp_rest = CpRestApi(self.base, dataplane=self.dataplane)
+        self.version_api = CapabilityVersionApi(self.cp_rest)
+        self.endpoint_api = AppEndpointApi(self.cp_rest)
         self.capability = TibcopCapability(self.base,
                                           dataplane=self.dataplane,
                                           resource=self.resource)
 
         # Technology modules
-        self.bwce = TibcopBWCE(self.base, api=self.api,
+        self.bwce = TibcopBWCE(self.base, version_api=self.version_api,
                               capability=self.capability, app=self.app)
-        self.flogo = TibcopFlogo(self.base, api=self.api,
+        self.flogo = TibcopFlogo(self.base, version_api=self.version_api,
                                 capability=self.capability, app=self.app)
-        self.bw5ce = TibcopBW5CE(self.base, api=self.api,
+        self.bw5ce = TibcopBW5CE(self.base, version_api=self.version_api,
                                 capability=self.capability, app=self.app)
 
         # Kubectl

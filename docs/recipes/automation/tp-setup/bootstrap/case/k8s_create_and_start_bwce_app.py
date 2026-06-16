@@ -40,13 +40,22 @@ if __name__ == "__main__":
             po_dp_config.goto_dataplane_config()
             po_dp_config.dp_config_resources_storage(ENV.TP_AUTO_K8S_DP_NAME)
 
-            ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE or CAPABILITY == "bw5ce" else ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE
-            fqdn = ENV.TP_AUTO_FQDN_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE or CAPABILITY == "bw5ce" else ENV.TP_AUTO_FQDN_BWCE
-            po_dp_config.dp_config_resources_ingress(
-                ENV.TP_AUTO_K8S_DP_NAME,
-                ENV.TP_AUTO_INGRESS_CONTROLLER, ingress_controller,
-                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, fqdn
-            )
+            is_bw5 = ENV.TP_AUTO_IS_PROVISION_BW5CE or CAPABILITY == "bw5ce"
+            fqdn = ENV.TP_AUTO_FQDN_BW5CE if is_bw5 else ENV.TP_AUTO_FQDN_BWCE
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                gateway_resource = ENV.TP_AUTO_GATEWAY_CONTROLLER_BW5CE if is_bw5 else ENV.TP_AUTO_GATEWAY_CONTROLLER_BWCE
+                po_dp_config.dp_config_resources_gateway(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_GATEWAY_CONTROLLER, gateway_resource,
+                    ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, fqdn
+                )
+            else:
+                ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE if is_bw5 else ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE
+                po_dp_config.dp_config_resources_ingress(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER, ingress_controller,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, fqdn
+                )
 
             po_dp_config.dp_config_activation(ENV.TP_AUTO_K8S_DP_NAME, True)
             po_dp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_DP_NAME)

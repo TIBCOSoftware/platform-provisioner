@@ -123,43 +123,60 @@ class TibcopOrchestrator:
             storage_resource_id = self.cli.resource.get_resource_id_by_name(dp_name, storage_resource_name)
         ReportYaml.set_dataplane_info(dp_name, "storage", ENV.TP_AUTO_STORAGE_CLASS)
 
-        # Step 5: Create ingress resources and collect their IDs per capability
+        # Step 5: Create route resources (ingress or gateway) and collect their IDs per capability
+        use_gateway = ENV.TP_AUTO_INGRESS_OBJECT.lower() == "gateway"
+        route_kind = "gateway" if use_gateway else "ingress"
         ColorLogger.info("=" * 60)
-        ColorLogger.info("CLI Mode - Step 5: Create ingress resources (CLI)")
+        ColorLogger.info(f"CLI Mode - Step 5: Create {route_kind} resources (CLI)")
         ColorLogger.info("=" * 60)
 
-        # Map: (capability_key, ingress_name, fqdn)
-        ingress_configs = []
+        # Map: (capability_key, resource_name, fqdn). Resource name varies by route kind
+        # so it matches the names used by the Playwright wizards (page_dp.py + po_dp_*.py).
+        route_configs = []
         if ENV.TP_AUTO_IS_PROVISION_FLOGO:
-            ingress_configs.append(('FLOGO', ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO, ENV.TP_AUTO_FQDN_FLOGO))
+            name = ENV.TP_AUTO_GATEWAY_CONTROLLER_FLOGO if use_gateway else ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO
+            route_configs.append(('FLOGO', name, ENV.TP_AUTO_FQDN_FLOGO))
         if ENV.TP_AUTO_IS_PROVISION_BWCE:
-            ingress_configs.append(('BWCE', ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE, ENV.TP_AUTO_FQDN_BWCE))
+            name = ENV.TP_AUTO_GATEWAY_CONTROLLER_BWCE if use_gateway else ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE
+            route_configs.append(('BWCE', name, ENV.TP_AUTO_FQDN_BWCE))
         if ENV.TP_AUTO_IS_PROVISION_BW5CE:
-            ingress_configs.append(('BW5CE', ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE, ENV.TP_AUTO_FQDN_BW5CE))
+            name = ENV.TP_AUTO_GATEWAY_CONTROLLER_BW5CE if use_gateway else ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE
+            route_configs.append(('BW5CE', name, ENV.TP_AUTO_FQDN_BW5CE))
         if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
-            ingress_configs.append(('TIBCOHUB', ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB, ENV.TP_AUTO_FQDN_TIBCOHUB))
+            name = ENV.TP_AUTO_GATEWAY_CONTROLLER_TIBCOHUB if use_gateway else ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB
+            route_configs.append(('TIBCOHUB', name, ENV.TP_AUTO_FQDN_TIBCOHUB))
 
-        ingress_ids = {}  # capability_key -> resource_id
-        for cap_key, ingress_name, fqdn in ingress_configs:
-            resource_id = self.cli.resource.get_resource_id_by_name(dp_name, ingress_name)
+        route_ids = {}  # capability_key -> resource_id
+        for cap_key, resource_name, fqdn in route_configs:
+            resource_id = self.cli.resource.get_resource_id_by_name(dp_name, resource_name)
             if resource_id:
-                ColorLogger.success(f"Ingress resource '{ingress_name}' already exists (ID: {resource_id}), skipping creation")
+                ColorLogger.success(f"{route_kind.title()} resource '{resource_name}' already exists (ID: {resource_id}), skipping creation")
             else:
-                self.cli.resource.create_ingress_resource(
-                    dp_name,
-                    ingress_name,
-                    fqdn
-                )
-                resource_id = self.cli.resource.get_resource_id_by_name(dp_name, ingress_name)
+                if use_gateway:
+                    self.cli.resource.create_gateway_api_resource(
+                        dp_name=dp_name,
+                        resource_name=resource_name,
+                        gateway_name=ENV.TP_AUTO_GATEWAY_NAME,
+                        gateway_namespace=ENV.TP_AUTO_GATEWAY_NAMESPACE,
+                        fqdn=fqdn,
+                        gateway_section_name=ENV.TP_AUTO_GATEWAY_SECTION_NAME,
+                    )
+                else:
+                    self.cli.resource.create_ingress_resource(
+                        dp_name,
+                        resource_name,
+                        fqdn
+                    )
+                resource_id = self.cli.resource.get_resource_id_by_name(dp_name, resource_name)
             if resource_id:
-                ingress_ids[cap_key] = resource_id
+                route_ids[cap_key] = resource_id
 
         # Step 6: DP-level O11Y config and activation link (requires GUI)
         if on_o11y_needed:
             on_o11y_needed(dp_name)
 
         # Step 7: Provision capabilities and build/deploy apps
-        self._provision_and_deploy(dp_name, dp_namespace, storage_resource_id, ingress_ids, on_ems_needed)
+        self._provision_and_deploy(dp_name, dp_namespace, storage_resource_id, route_ids, use_gateway, on_ems_needed)
 
 
     def run_bmdp_setup(self, bmdp_name, namespace, service_account, fqdn,
@@ -213,21 +230,23 @@ class TibcopOrchestrator:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _provision_and_deploy(self, dp_name, dp_namespace, storage_resource_id=None, ingress_ids=None,
-                              on_ems_needed=None):
+    def _provision_and_deploy(self, dp_name, dp_namespace, storage_resource_id=None, route_ids=None,
+                              use_gateway=False, on_ems_needed=None):
         """Provision capabilities and build/deploy apps concurrently via CLI.
 
         Phase 1: Provision all enabled capabilities in parallel threads (staggered start)
         Phase 2: Build and deploy all apps in parallel threads (staggered start)
-        Phase 3: Test app endpoints sequentially
+        Phase 3: Wait for app pods and test endpoints in parallel threads (staggered start)
 
         Args:
             dp_name: DataPlane name
             dp_namespace: DataPlane namespace
             storage_resource_id: Pre-created storage resource ID (passed to provision_capability)
-            ingress_ids: Dict mapping capability key -> pre-created ingress resource ID
+            route_ids: Dict mapping capability key -> pre-created route (ingress or gateway) resource ID
+            use_gateway: If True, route_ids are gateway resource IDs; else ingress resource IDs
         """
-        ingress_ids = ingress_ids or {}
+        route_ids = route_ids or {}
+        route_key = 'gateway_resource_id' if use_gateway else 'ingress_resource_id'
 
         # Build capability task list based on enabled flags
         cap_tasks = []
@@ -241,7 +260,7 @@ class TibcopOrchestrator:
                 'start_enabled': ENV.TP_AUTO_START_FLOGO_APP,
                 'endpoint_path': '/', 'endpoint_method': 'GET', 'endpoint_data': None,
                 'storage_resource_id': storage_resource_id,
-                'ingress_resource_id': ingress_ids.get('FLOGO'),
+                route_key: route_ids.get('FLOGO'),
             })
         if ENV.TP_AUTO_IS_PROVISION_BWCE:
             cap_tasks.append({
@@ -253,7 +272,7 @@ class TibcopOrchestrator:
                 'start_enabled': ENV.TP_AUTO_START_BWCE_APP,
                 'endpoint_path': '/swagger/', 'endpoint_method': 'GET', 'endpoint_data': None,
                 'storage_resource_id': storage_resource_id,
-                'ingress_resource_id': ingress_ids.get('BWCE'),
+                route_key: route_ids.get('BWCE'),
             })
         if ENV.TP_AUTO_IS_PROVISION_BW5CE:
             cap_tasks.append({
@@ -265,7 +284,15 @@ class TibcopOrchestrator:
                 'start_enabled': ENV.TP_AUTO_START_BW5CE_APP,
                 'endpoint_path': '/', 'endpoint_method': 'GET', 'endpoint_data': None,
                 'storage_resource_id': storage_resource_id,
-                'ingress_resource_id': ingress_ids.get('BW5CE'),
+                route_key: route_ids.get('BW5CE'),
+            })
+        if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
+            cap_tasks.append({
+                'key': 'TIBCOHUB', 'report_name': 'tibcohub',
+                'deploy_func': None,
+                'endpoint_path': None,
+                'storage_resource_id': storage_resource_id,
+                route_key: route_ids.get('TIBCOHUB'),
             })
 
         # Phase 1-3: Provision, build/deploy, test (for BWCE/BW5CE/FLOGO)
@@ -286,77 +313,56 @@ class TibcopOrchestrator:
                 threads.append(t)
             _start_staggered_threads(threads)
 
-            # Wait for provisioner pods to be Running before deploying
-            if not self.cli.kubectl.wait_for_provisioner_pods(dp_namespace):
-                ColorLogger.error("Provisioner pods not ready, aborting app deployment")
-                return
-
             # Phase 2: Concurrent build & deploy (staggered start)
-            ColorLogger.info("=" * 60)
-            ColorLogger.info("CLI Mode - Step 7b: Build & deploy apps (concurrent)")
-            ColorLogger.info("=" * 60)
-
+            # Only run for capabilities that have a deploy_func (skip provision-only like TIBCOHUB)
+            deploy_tasks = [t for t in cap_tasks if t.get('deploy_func')]
             deploy_results = {}
-            threads = []
-            for task in cap_tasks:
-                if not provision_results.get(task['key']):
-                    ColorLogger.warning(f"{task['key']} provision failed, skipping deploy")
-                    continue
-                t = threading.Thread(
-                    target=self._deploy_worker,
-                    args=(dp_name, dp_namespace, task, deploy_results),
-                    name=f"Deploy-{task['key']}"
-                )
-                threads.append(t)
-            _start_staggered_threads(threads)
+            if deploy_tasks:
+                # Wait for provisioner pods to be Running before deploying
+                if not self.cli.kubectl.wait_for_provisioner_pods(dp_namespace):
+                    ColorLogger.error("Provisioner pods not ready, aborting app deployment")
+                    return
 
-            # Phase 3: Wait for app pods, then test endpoints
+                ColorLogger.info("=" * 60)
+                ColorLogger.info("CLI Mode - Step 7b: Build & deploy apps (concurrent)")
+                ColorLogger.info("=" * 60)
+
+                threads = []
+                for task in deploy_tasks:
+                    if not provision_results.get(task['key']):
+                        ColorLogger.warning(f"{task['key']} provision failed, skipping deploy")
+                        continue
+                    t = threading.Thread(
+                        target=self._deploy_worker,
+                        args=(dp_name, dp_namespace, task, deploy_results),
+                        name=f"Deploy-{task['key']}"
+                    )
+                    threads.append(t)
+                _start_staggered_threads(threads)
+
+            # Phase 3: Wait for app pods, then test endpoints (concurrent)
             # Check activation: without activation, apps cannot become running/ready
             dp_activation = ReportYaml.get_dataplane_info(dp_name, "activation")
             if not dp_activation:
                 ColorLogger.warning(f"No activation found for DataPlane '{dp_name}', skipping endpoint testing")
             else:
-                for task in cap_tasks:
-                    if deploy_results.get(task['key']) and task.get('endpoint_path'):
-                        # Check report: skip if endpoint already public and tested
-                        ep_public = ReportYaml.get_capability_app_info(
-                            dp_name, task['report_name'], task['app_name'], "endpointPublic")
-                        ep_tested = ReportYaml.get_capability_app_info(
-                            dp_name, task['report_name'], task['app_name'], "testedEndpoint")
-                        if str(ep_public).lower() == "true" and str(ep_tested).lower() == "true":
-                            ColorLogger.success(
-                                f"[{task['key']}] App '{task['app_name']}' endpoint already public and tested (from report), skipping")
-                            continue
-
-                        if self.cli.kubectl.wait_for_app_pods(dp_namespace, task['app_name']):
-                            with self.report_lock:
-                                ReportYaml.set_capability_app_info(
-                                    dp_name, task['report_name'], task['app_name'], "status", "Running")
-                            ColorLogger.info(f"[{task['key']}] App '{task['app_name']}' status updated: Running")
-                            self.cli.api.test_app_endpoint(
-                                dp_name, task['key'], task['app_name'],
-                                task['endpoint_path'], task['endpoint_method'], task.get('endpoint_data')
-                            )
-                        else:
-                            ColorLogger.warning(f"[{task['key']}] App pods not ready, skipping endpoint test")
-
-        # TibcoHub / DevHub (provision only, CLI)
-        if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
-            if ReportYaml.is_capability_for_dataplane_created(dp_name, "tibcohub"):
-                ColorLogger.success("TibcoHub already provisioned (from report), skipping")
-            else:
-                ColorLogger.info("=" * 60)
-                ColorLogger.info("CLI Mode - Provision TibcoHub (CLI)")
-                ColorLogger.info("=" * 60)
-                result = self.cli.capability.provision_capability(
-                    dp_name, 'TIBCOHUB',
-                    storage_resource_id=storage_resource_id,
-                    ingress_resource_id=ingress_ids.get('TIBCOHUB')
-                )
-                if result:
-                    with self.report_lock:
-                        ReportYaml.set_capability(dp_name, "tibcohub")
-                    ColorLogger.success("TibcoHub provisioned via CLI")
+                test_tasks = [
+                    task for task in cap_tasks
+                    if deploy_results.get(task['key']) and task.get('endpoint_path')
+                ]
+                if test_tasks:
+                    ColorLogger.info("=" * 60)
+                    ColorLogger.info("CLI Mode - Step 7c: Wait for app pods & test endpoints (concurrent)")
+                    ColorLogger.info("=" * 60)
+                    threads = [
+                        threading.Thread(
+                            target=self._wait_and_test_worker,
+                            args=(dp_name, dp_namespace, task),
+                            name=f"Test-{task['key']}"
+                        )
+                        for task in test_tasks
+                    ]
+                    _start_staggered_threads(threads)
 
         # EMS (provision only, requires GUI)
         if ENV.TP_AUTO_IS_PROVISION_EMS and on_ems_needed:
@@ -381,7 +387,8 @@ class TibcopOrchestrator:
             success = self.cli.capability.provision_capability(
                 dp_name, key,
                 storage_resource_id=task.get('storage_resource_id'),
-                ingress_resource_id=task.get('ingress_resource_id')
+                ingress_resource_id=task.get('ingress_resource_id'),
+                gateway_resource_id=task.get('gateway_resource_id'),
             )
             if success:
                 with self.report_lock:
@@ -437,6 +444,35 @@ class TibcopOrchestrator:
             ColorLogger.error(f"[{key}] Deploy error: {e}")
             traceback.print_exc()
             results[key] = False
+
+    def _wait_and_test_worker(self, dp_name, dp_namespace, task):
+        """Wait for an app's pods to be Running, then test its endpoint, in a thread."""
+        key = task['key']
+        report_name = task['report_name']
+        app_name = task['app_name']
+        try:
+            # Check report: skip if endpoint already public and tested
+            ep_public = ReportYaml.get_capability_app_info(dp_name, report_name, app_name, "endpointPublic")
+            ep_tested = ReportYaml.get_capability_app_info(dp_name, report_name, app_name, "testedEndpoint")
+            if str(ep_public).lower() == "true" and str(ep_tested).lower() == "true":
+                ColorLogger.success(
+                    f"[{key}] App '{app_name}' endpoint already public and tested (from report), skipping")
+                return
+
+            if self.cli.kubectl.wait_for_app_pods(dp_namespace, app_name):
+                with self.report_lock:
+                    ReportYaml.set_capability_app_info(dp_name, report_name, app_name, "status", "Running")
+                ColorLogger.info(f"[{key}] App '{app_name}' status updated: Running")
+                with self.report_lock:
+                    self.cli.endpoint_api.test_app_endpoint(
+                        dp_name, key, app_name,
+                        task['endpoint_path'], task['endpoint_method'], task.get('endpoint_data')
+                    )
+            else:
+                ColorLogger.warning(f"[{key}] App pods not ready, skipping endpoint test")
+        except Exception as e:
+            ColorLogger.error(f"[{key}] Wait/test error: {e}")
+            traceback.print_exc()
 
     def _get_app_state(self, dp_name, capability_key, app_name):
         """Query app state from platform via CLI.

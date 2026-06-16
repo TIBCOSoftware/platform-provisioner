@@ -105,27 +105,44 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 else:
                     Util.exit_error(f"'{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                # CP 1.17 wizard splits Ingress vs Gateway via an `ingressRouteType-GATEWAYAPI`
+                # radio. CP 1.18 dropped that radio: Ingress and Gateway entries coexist in a
+                # single Route Resource table and the row label is clicked directly. Click the
+                # radio only when present.
+                gw_radio = self.page.locator('label[for="ingressRouteType-GATEWAYAPI"]')
+                if gw_radio.is_visible():
+                    gw_radio.click()
+                    self.page.wait_for_timeout(2000)
+                    print("Selected 'Gateway API' radio button (CP 1.17 wizard)")
+                else:
+                    print("'Gateway API' radio not present (CP 1.18 wizard) — picking row directly")
+                route_resource_name = ENV.TP_AUTO_GATEWAY_CONTROLLER_FLOGO
+            else:
+                route_resource_name = ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO
+
             # CP 1.18+ renamed #ingress-resource-table to #route-resource-table
             ingress_table_sel = "#ingress-resource-table, #route-resource-table"
             if self.page.locator(ingress_table_sel).first.is_visible():
-                print(f"Checking Ingress/Route table has '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' visible...")
-                if not Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 2, 4):
-                    ColorLogger.info(f"Adding Ingress/Route: {ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO} for Flogo capability")
-                    add_btn_sel = "#add-ingress-resource-ingress-controller-btn, #add-route-resource-btn"
-                    if self.page.locator(add_btn_sel).first.is_visible():
-                        self.page.locator(add_btn_sel).first.click()
-                        print("Clicked 'Add Ingress/Route Resource' button")
-                        self.po_dp_config.add_ingress_controller(
-                            ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
-                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO,
-                            "route" if self.page.locator('#route-resource-table').is_visible() else "ingress"
-                        )
+                print(f"Checking Ingress/Route table has '{route_resource_name}' visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource_name)), 2, 4):
+                    if ENV.TP_AUTO_INGRESS_OBJECT != "gateway":
+                        ColorLogger.info(f"Adding Ingress/Route: {route_resource_name} for Flogo capability")
+                        add_btn_sel = "#add-ingress-resource-ingress-controller-btn, #add-route-resource-btn"
+                        if self.page.locator(add_btn_sel).first.is_visible():
+                            self.page.locator(add_btn_sel).first.click()
+                            print("Clicked 'Add Ingress/Route Resource' button")
+                            self.po_dp_config.add_ingress_controller(
+                                ENV.TP_AUTO_INGRESS_CONTROLLER, route_resource_name,
+                                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO,
+                                "route" if self.page.locator('#route-resource-table').is_visible() else "ingress"
+                            )
 
-                if Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)), 3, 6):
-                    self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO)).locator('label').click()
-                    print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress/Route for Flogo capability")
+                if Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource_name)), 3, 6):
+                    self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource_name)).locator('label').click()
+                    print(f"Selected '{route_resource_name}' Ingress/Route for Flogo capability")
                 else:
-                    Util.exit_error(f"'{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' Ingress/Route is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
+                    Util.exit_error(f"'{route_resource_name}' Ingress/Route is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             self.page.locator("#btnNextCapabilityProvision").click()
             print("Clicked Flogo 'Next' button, finished step 1")
@@ -314,9 +331,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.wait_for_timeout(2000)
         active_title = self.page.locator("ul.items .is-active .step-text").inner_text()
         print(f"Flogo 'App Build & Deploy' Step 2: '{active_title}' page is loaded")
-        if self.page.locator(".version-field-container .provision-link").is_visible():
+        if self.page.locator(".flogo-version-form-container .version-field-container .provision-link").is_visible():
             with self.page.context.expect_page() as new_page_info:
-                self.page.locator(".version-field-container .provision-link").click()
+                self.page.locator(".flogo-version-form-container .version-field-container .provision-link").click()
                 print("Clicked 'Provision Flogo in another tab' link")
     
             new_page = new_page_info.value
@@ -502,6 +519,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 return
     
             # set Endpoint Visibility to Public
+            route_resource = ENV.TP_AUTO_GATEWAY_CONTROLLER_FLOGO if ENV.TP_AUTO_INGRESS_OBJECT == "gateway" else ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO
             self.page.locator(".endpoints-container td.action-button").wait_for(state="visible")
             print("Endpoint action button is loaded.")
             if self.page.locator(".endpoints-container td.action-button button", has_text="Public URL").is_visible():
@@ -516,9 +534,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                 print("Clicked 'Set Endpoint Visibility' menu item")
                 if Util.check_dom_visibility(self.page, self.page.locator(self.selector_dialog_header(), has_text="Set Endpoint Visibility"), 2, 4):
                     print("Dialog 'Set Endpoint Visibility' popup")
-                    if self.page.locator(".pl-table__row label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).is_visible():
-                        self.page.locator(".pl-table__row label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).click()
-                        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' from Resource Name column")
+                    if self.page.locator(".pl-table__row label", has_text=route_resource).is_visible():
+                        self.page.locator(".pl-table__row label", has_text=route_resource).click()
+                        print(f"Selected '{route_resource}' from Resource Name column")
                         self.page.locator(".pl-table__row label", has_text="Public").click()
                         print("Select 'Public' Visibility")
                         self.page.locator(".pl-modal__footer button", has_text="Save Changes").click()
@@ -528,12 +546,12 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                             ReportYaml.set_capability_app_info(dp_name, capability, app_name, "endpointPublic", True)
                     else:
                         self.page.locator(".pl-modal__footer button", has_text="Cancel").click()
-                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' is not available.", self.page, "flogo_app_config-endpoint.png")
+                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{route_resource}' is not available.", self.page, "flogo_app_config-endpoint.png")
                 elif Util.check_dom_visibility(self.page, self.page.locator(self.selector_dialog_header(), has_text="Update Endpoint visibility to Public"), 2, 4):
                     print("Dialog 'Update Endpoint visibility to Public' popup")
-                    if self.page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).is_visible():
-                        self.page.locator(".capability-table-row-details label", has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO).click()
-                        print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' from Resource Name column")
+                    if self.page.locator(".capability-table-row-details label", has_text=route_resource).is_visible():
+                        self.page.locator(".capability-table-row-details label", has_text=route_resource).click()
+                        print(f"Selected '{route_resource}' from Resource Name column")
                         self.page.locator("button", has_text="Update Endpoint visibility to Public").click()
                         print("Clicked 'Update Endpoint visibility to Public' button")
                         if Util.wait_for_success_message(self.page, 5) and self.page.locator(".endpoints-container td.action-button button", has_text="Public URL").is_visible():
@@ -541,7 +559,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
                             ReportYaml.set_capability_app_info(dp_name, capability, app_name, "endpointPublic", True)
                     else:
                         self.page.locator(".pl-modal__footer-right button", has_text="Cancel").click()
-                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO}' is not available.", self.page, "flogo_app_config-endpoint.png")
+                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{route_resource}' is not available.", self.page, "flogo_app_config-endpoint.png")
     
         if ReportYaml.get_capability_app_info(dp_name, capability, app_name, "enableTrace") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{capability}' Trace is already Enabled in DataPlane '{dp_name}'.")

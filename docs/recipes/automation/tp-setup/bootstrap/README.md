@@ -71,7 +71,7 @@ The CLI features are powered by the modular `cli_object/` architecture, providin
 | Category                     | Supported Features                                                                                                                                                                                              |
 |:-----------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **DataPlane Management**     | ✅ List all DataPlanes (name, id, status)<br>✅ Register K8S DataPlane<br>✅ Unregister/Delete DataPlane<br>✅ Register Control Tower DataPlane (CTDP)                                                              |
-| **Resource Management**      | ✅ List resource instances<br>✅ Create Storage resource<br>✅ Create Ingress resource<br>✅ Create Activation Server resource<br>✅ Delete resource instance                                                        |
+| **Resource Management**      | ✅ List resource instances<br>✅ Create Storage resource<br>✅ Create Ingress resource<br>✅ Create Activation License File resource<br>✅ Delete resource instance                                                        |
 | **Capability Management**    | ✅ List capabilities<br>✅ Provision capabilities (BWCE, Flogo, BW5CE, EMS, Pulsar, TibcoHub)                                                                                                                      |
 | **Application Management**   | ✅ List applications<br>✅ Delete application by name                                                                                                                                                             |
 | **BWCE Operations**          | ✅ List BWCE versions<br>✅ Provision BWCE version<br>✅ Create BWCE build<br>✅ Deploy BWCE application<br>✅ Build and deploy BWCE app (all-in-one)                                                                 |
@@ -255,3 +255,12 @@ python page_dp.py
    ```shell
    kubectl get secret auto-token -n automation -o jsonpath="{.data['auto-token']}" | base64 --decode
    ```
+6. Run the automation against a **no-tibtunnel** CP (hybrid connectivity disabled) — full design in [docs/plan/PCP-19768-plan.md](../../../../plan/PCP-19768-plan.md)
+   * Two independent flags must both be off — they control different things:
+     * **CP**: deploy the Control Plane with `GUI_CP_ENABLE_HYBRID_CONNECTIVITY=false` (no tibtunnel/hybrid-proxy).
+     * **Automation**: `GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY=false` (→ `TP_AUTO_ENABLE_HYBRID_CONNECTIVITY`) so the automation skips the tunnel-connected wait and fills the Reachable DP URL.
+   * Non-hybrid DP registration is **GUI/Playwright-only** (CLI mode has no Reachable-URL field), so also set `GUI_TP_AUTO_USE_CLI=false`.
+   * The CP reaches the DP via `tp-dp-proxy` → the Reachable DP URL. By default (`GUI_TP_AUTO_DP_MANAGE_REACHABILITY=true`) the automation makes that URL reachable after DP/BMDP create:
+     * **Option A (default)** — creates a controller-adaptive `cpdpproxy-public` ingress (host `https://dp-<dpName>.<cpDnsDomain>` → `cpdpproxy:80`), flavor chosen from the configured ingress/gateway controller.
+     * **Option B** — set `GUI_TP_AUTO_DP_APPLY_NETPOL_LABELS=true` to instead label `cpdpproxy` (`cluster-ingress`) and `tp-dp-proxy` (`cluster-egress`) and use the private `http://cpdpproxy.<ns>.svc.cluster.local` URL.
+   * To opt out of reachability management entirely (provisioned externally): `GUI_TP_AUTO_DP_MANAGE_REACHABILITY=false`. Override the URL explicitly with `GUI_TP_AUTO_REACHABLE_DP_URL` / `GUI_TP_AUTO_REACHABLE_BMDP_URL`.

@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+import json
+from urllib.parse import urlparse
+
 from page_object.po_global import PageObjectGlobal
 from utils.color_logger import ColorLogger
 from utils.util import Util
@@ -147,6 +150,12 @@ class PageObjectDataPlane(PageObjectGlobal):
 
     def is_app_created(self, capability, app_name):
         ColorLogger.info(f"Checking if {capability} app '{app_name}' is created")
+        # Guard against a missing app_name: with has_text=None Playwright applies no text
+        # filter, so the locator matches every app row and is_visible() raises a strict-mode
+        # violation ("resolved to N elements"). No app name => nothing to check => not created.
+        if not app_name:
+            print(f"No app_name provided for capability '{capability}', treating as not created.")
+            return False
         try:
             print(f"Checking if {capability} app '{app_name}' is already created...")
             self.page.locator("apps-list").wait_for(state="visible")
@@ -314,6 +323,8 @@ class PageObjectDataPlane(PageObjectGlobal):
         # verify data plane is created in the list
         self.page.wait_for_timeout(2000)
         print(f"Verifying Data Plane {dp_name} is created in the list")
+        # No-tibtunnel mode: make the registered Reachable DP URL reachable (ingress or netpol labels).
+        self.k8s_setup_dp_reachability(dp_name, ENV.TP_AUTO_K8S_DP_NAMESPACE, ENV.TP_AUTO_REACHABLE_DP_URL)
         self.k8s_wait_tunnel_connected(dp_name)
 
     def k8s_create_bmdp(self, dp_name, retry=0):
@@ -337,6 +348,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         self.page.locator(".pl-primary-spinner").wait_for(state="hidden", timeout=60000)
         self.page.wait_for_timeout(2000)
 
+        # check if #select-control-tower-dp-button is disabled, if it's disabled, should return error, and exit.
         start_btn = self.page.locator("#select-control-tower-dp-button")
         if "pcp-disabled" in (start_btn.get_attribute("class") or ""):
             tooltip = self.page.locator("#control-tower-dp-register-button-tooltip")
@@ -348,15 +360,13 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         start_btn.click()
         print("Waiting for Step 1: 'Pre-Requisites' page is loaded")
-        if Util.check_dom_visibility(self.page, self.page.locator("#data-plane-pre-requisites-btn"), 1, 5):
-        # if self.page.locator("#data-plane-pre-requisites-btn").is_visible():
-        # Util.check_dom_visibility(self.page, self.page.locator("#data-plane-pre-requisites-btn"), 1, 5):
+        if Util.check_dom_visibility(self.page, self.page.locator("#data-plane-pre-requisites-btn"), 2, 4):
             tp_version = 1.4
             # step 1 Pre-Requisites
             print("configure for 1.4")
             self.page.click("#data-plane-pre-requisites-btn")
             print("Clicked Next button, Finish Pre-Requisites")
-           # step 2 Basic
+            # step 2 Basic
             self.page.locator(".pl-secondarynav a.is-active", has_text="Basic").wait_for(state="visible")
             self.page.fill("#data-plane-name-text-input", dp_name)
             print(f"Input Data Plane Name: {dp_name}")
@@ -403,27 +413,59 @@ class PageObjectDataPlane(PageObjectGlobal):
         self.page.fill("#storage-class-name-text-input", "nfs")
         print(f"Input Storage Class Name: nfs")
 
-        # step 4 Configure resources - ingress controller
-        # For 1.13 and above, the ingress controller changed to dropdown selection from a readonly input box
-        if not self.page.locator("ingress-controller-text-input").is_visible():
-            # click dropdown and select ENV.TP_AUTO_INGRESS_CONTROLLER
-            print("For 1.13 and above, the ingress controller changed to dropdown selection from a readonly input box")
-            if self.page.locator('.ingress pcp-dropdown').is_visible():
-                print("Selecting Ingress Controller from dropdown")
-                self.page.locator('.ingress pcp-dropdown input[type="button"]').click()
-                print("Clicked Ingress Controller dropdown")
-                self.page.locator('.ingress pcp-dropdown div#ingressController').wait_for(state="visible")
-                print("Ingress Controller options are visible")
-                select_ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER.capitalize()
-                self.page.locator('.ingress pcp-dropdown div#ingressController li', has_text=select_ingress_controller).click()
-                print(f"Selected Ingress Controller: {select_ingress_controller}")
+        # step 4 Configure resources - ingress / gateway controller
+        # CP 1.18 added a Gateway API Controller radio next to the Ingress Controller
+        # radio. Switching to Gateway exposes a different dropdown (Nginx / GKE / Istio /
+        # Traefik / NetScaler / Other) and a different field set with `gateway-*` IDs
+        # instead of `ingress-*`. Earlier CPs (≤1.17) only have the ingress flow.
+        gateway_radio = self.page.locator('#gateway-radio-button')
+        if ENV.TP_AUTO_INGRESS_OBJECT == "gateway" and gateway_radio.is_visible():
+            # CP 1.18+ gateway path
+            gateway_radio.click(force=True)
+            print("Switched to 'Gateway API Controller' radio (CP 1.18 BMDP wizard)")
+            self.page.wait_for_timeout(1500)
 
-        self.page.fill("#ingress-resource-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER)
-        print(f"Input Ingress Resource Name: {ENV.TP_AUTO_INGRESS_CONTROLLER}")
-        self.page.fill("#ingress-class-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME)
-        print(f"Input Ingress Class Name: {ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME}")
-        self.page.fill("#ingress-fqdn-text-input", ENV.TP_AUTO_FQDN_BMDP)
-        print(f"Input Ingress FQDN: {ENV.TP_AUTO_FQDN_BMDP}")
+            # Same `.ingress pcp-dropdown` container; in gateway mode the inner div is
+            # #gatewayController and options are Nginx/GKE/Istio/Traefik/NetScaler/Other.
+            self.page.locator('.ingress pcp-dropdown input[type="button"]').click()
+            print("Clicked Gateway Controller dropdown")
+            select_gateway_controller = ENV.TP_AUTO_GATEWAY_CONTROLLER.capitalize()
+            opt = self.page.locator('.ingress pcp-dropdown li', has_text=select_gateway_controller).first
+            opt.wait_for(state="visible")
+            opt.click()
+            print(f"Selected Gateway Controller: {select_gateway_controller}")
+
+            self.page.fill("#gateway-resource-name-text-input", ENV.TP_AUTO_GATEWAY_CONTROLLER)
+            print(f"Input Gateway Resource Name: {ENV.TP_AUTO_GATEWAY_CONTROLLER}")
+            self.page.fill("#gateway-name-text-input", ENV.TP_AUTO_GATEWAY_NAME)
+            print(f"Input Gateway Name: {ENV.TP_AUTO_GATEWAY_NAME}")
+            self.page.fill("#gateway-namespace-text-input", ENV.TP_AUTO_GATEWAY_NAMESPACE)
+            print(f"Input Gateway Namespace: {ENV.TP_AUTO_GATEWAY_NAMESPACE}")
+            self.page.fill("#gateway-hostname-text-input", ENV.TP_AUTO_FQDN_BMDP)
+            print(f"Input Gateway Hostname (FQDN): {ENV.TP_AUTO_FQDN_BMDP}")
+        else:
+            # Ingress path (CP <= 1.17 always; CP 1.18 when TP_AUTO_INGRESS_OBJECT != "gateway")
+            # For 1.13 and above, the ingress controller changed to dropdown selection from a readonly input box
+            if not self.page.locator("ingress-controller-text-input").is_visible():
+                # click dropdown and select ENV.TP_AUTO_INGRESS_CONTROLLER
+                print("For 1.13 and above, the ingress controller changed to dropdown selection from a readonly input box")
+                if self.page.locator('.ingress pcp-dropdown').is_visible():
+                    print("Selecting Ingress Controller from dropdown")
+                    self.page.locator('.ingress pcp-dropdown input[type="button"]').click()
+                    print("Clicked Ingress Controller dropdown")
+                    self.page.locator('.ingress pcp-dropdown div#ingressController').wait_for(state="visible")
+                    print("Ingress Controller options are visible")
+                    select_ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER.capitalize()
+                    self.page.locator('.ingress pcp-dropdown div#ingressController li', has_text=select_ingress_controller).click()
+                    print(f"Selected Ingress Controller: {select_ingress_controller}")
+
+            self.page.fill("#ingress-resource-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER)
+            print(f"Input Ingress Resource Name: {ENV.TP_AUTO_INGRESS_CONTROLLER}")
+            self.page.fill("#ingress-class-name-text-input", ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME)
+            print(f"Input Ingress Class Name: {ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME}")
+            self.page.fill("#ingress-fqdn-text-input", ENV.TP_AUTO_FQDN_BMDP)
+            print(f"Input Ingress FQDN: {ENV.TP_AUTO_FQDN_BMDP}")
+
         self.page.click("#data-plane-resources-btn")
         print("Clicked Next button, Finish Configure resources")
 
@@ -452,7 +494,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         # step 7 Register Data Plane
         print("Check if create Data Plane is successful...")
         if not Util.check_dom_visibility(self.page, self.page.locator(".install-content"), 2, 10) \
-            and not Util.check_dom_visibility(self.page, self.page.locator(".pl-button.pl-button--primary .pl-button__text"), 1, 3):
+                and not Util.check_dom_visibility(self.page, self.page.locator(".pl-button.pl-button--primary .pl-button__text"), 1, 3):
             self.k8s_delete_dataplane(dp_name)
             if retry >= 3:
                 Util.exit_error(f"Data Plane '{dp_name}' creation failed.", self.page, "k8s_create_dataplane_finish.png")
@@ -485,6 +527,8 @@ class PageObjectDataPlane(PageObjectGlobal):
         # verify data plane is created in the list
         self.page.wait_for_timeout(2000)
         print(f"Verifying Data Plane {dp_name} is created in the list")
+        # No-tibtunnel mode: make the registered Reachable BMDP URL reachable (ingress or netpol labels).
+        self.k8s_setup_dp_reachability(dp_name, ENV.TP_AUTO_K8S_BMDP_NAMESPACE, ENV.TP_AUTO_REACHABLE_BMDP_URL, is_bmdp=True)
         self.k8s_wait_tunnel_connected(dp_name, False)
         self.k8s_wait_bmdp_ready(dp_name)
 
@@ -559,23 +603,198 @@ class PageObjectDataPlane(PageObjectGlobal):
         ReportYaml.set_dataplane_info(dp_name, "status", "Running successfully")
 
     def k8s_wait_tunnel_connected(self, dp_name, is_update_report=True):
-        print(f"Waiting for Data Planes {dp_name} tunnel connected.")
+        print(f"Waiting for Data Plane {dp_name} to be created and ready.")
         self.goto_left_navbar_dataplane()
-        print(f"Navigated to Data Planes list page, and checking for {dp_name} in created and tunnel connected.")
+        print(f"Navigated to Data Planes list page, and checking for {dp_name} is created.")
         self.page.locator('.data-plane-name', has_text=dp_name).wait_for(state="visible")
         if not self.page.locator('.data-plane-name', has_text=dp_name).is_visible():
             Util.exit_error(f"DataPlane {dp_name} is not created.", self.page, "k8s_wait_tunnel_connected_1.png")
 
-        ColorLogger.success(f"DataPlane {dp_name} is created, waiting for tunnel connected.")
         if is_update_report:
             ReportYaml.set_dataplane(dp_name)
         data_plane_card = self.page.locator(".data-plane-card", has=self.page.locator('.data-plane-name', has_text=dp_name))
+
+        # No-tibtunnel mode (hybrid connectivity disabled): there is no tibtunnel to
+        # wait for — the CP reaches the DP over the configured Reachable DP URL. Skip
+        # the tunnel-status wait and instead confirm DP readiness via the card-level
+        # DP status icon (the same signal k8s_wait_bmdp_ready uses).
+        if not ENV.TP_AUTO_ENABLE_HYBRID_CONNECTIVITY:
+            ColorLogger.success(f"DataPlane {dp_name} is created. Hybrid connectivity disabled, skipping tunnel-connected wait.")
+            print(f"Waiting for DataPlane {dp_name} to be ready (no-tibtunnel mode)...")
+            # Match k8s_wait_bmdp_ready: poll every 20s up to 300s and refresh the DP list page
+            # between polls (is_refresh=True) — the DP status icon only turns green after a reload.
+            if not Util.check_dom_visibility(self.page, data_plane_card.locator('.data-plane-status svg.green'), 20, 300, True):
+                Util.exit_error(f"DataPlane {dp_name} is not ready, exit program and recheck again.", self.page, "k8s_wait_dp_ready.png")
+            ColorLogger.success(f"DataPlane {dp_name} is ready.")
+            ReportYaml.set_dataplane_info(dp_name, "tunnelConnected", False)
+            return
+
+        ColorLogger.success(f"DataPlane {dp_name} is created, waiting for tunnel connected.")
         print(f"Waiting for DataPlane {dp_name} tunnel connected...")
         if not Util.check_dom_visibility(self.page, data_plane_card.locator('.tunnel-status svg.green'), 10, 180):
             Util.exit_error(f"DataPlane {dp_name} tunnel is not connected, exit program and recheck again.", self.page, "k8s_wait_tunnel_connected_2.png")
 
         ColorLogger.success(f"DataPlane {dp_name} tunnel is connected.")
         ReportYaml.set_dataplane_info(dp_name, "tunnelConnected", True)
+
+    def k8s_setup_dp_reachability(self, dp_name, namespace, reachable_url, is_bmdp=False):
+        # No-tibtunnel (hybrid disabled) reachability: make the registered Reachable DP URL actually
+        # reachable from the CP. Option A (default): create a controller-adaptive ingress in the DP
+        # namespace pointing at the cpdpproxy service. Option B (TP_AUTO_DP_APPLY_NETPOL_LABELS=true):
+        # label the cpdpproxy (DP) and tp-dp-proxy (CP) deployments so tp-dp-proxy can reach the
+        # cpdpproxy ClusterIP directly through the namespace deny-all NetworkPolicies.
+        if ENV.TP_AUTO_ENABLE_HYBRID_CONNECTIVITY:
+            return
+        if not ENV.TP_AUTO_DP_MANAGE_REACHABILITY:
+            ColorLogger.info("TP_AUTO_DP_MANAGE_REACHABILITY is false, skipping no-tibtunnel reachability setup.")
+            return
+        if not ENV.IS_CLUSTER_ACCESSIBLE:
+            ColorLogger.warning("Cluster is not accessible, skipping no-tibtunnel reachability setup.")
+            return
+
+        dp_type = "BMDP" if is_bmdp else "DataPlane"
+        if ENV.TP_AUTO_DP_APPLY_NETPOL_LABELS:
+            ColorLogger.info(f"No-tibtunnel {dp_type} '{dp_name}': applying private-reachability NetworkPolicy labels (Option B).")
+            self._apply_dp_reachability_netpol_labels(namespace)
+        else:
+            ColorLogger.info(f"No-tibtunnel {dp_type} '{dp_name}': creating public cpdpproxy {ENV.TP_AUTO_INGRESS_OBJECT} (Option A).")
+            self._apply_cpdpproxy_public_ingress(namespace, reachable_url)
+
+        # Cross-cutting: dp-proxy (CP side) caches DP connection-details and keeps dialing the
+        # previous (stale) address until the cache expires. Restart it so it re-reads the
+        # registered reachable URL and uses the now-in-place ingress/labels immediately.
+        self._restart_dp_proxy()
+
+    def _restart_dp_proxy(self):
+        cp_ns = ENV.TP_AUTO_CP_NAMESPACE
+        deploy = ENV.TP_AUTO_CP_DP_PROXY_DEPLOYMENT
+        ColorLogger.info(f"Restarting {deploy} in {cp_ns} to invalidate the no-tibtunnel connection-details cache.")
+        out = Helper.get_command_output(f"kubectl rollout restart deployment {deploy} -n {cp_ns}", is_print_cmd=True)
+        if out is None:
+            ColorLogger.warning(f"Could not restart {deploy} in {cp_ns}; the CP may keep using the cached DP address.")
+            return
+        print(out)
+        # Best-effort wait so the refreshed dp-proxy is ready before we verify DP readiness.
+        Helper.get_command_output(f"kubectl rollout status deployment {deploy} -n {cp_ns} --timeout=150s", is_print_cmd=True)
+
+    def _apply_cpdpproxy_public_ingress(self, namespace, reachable_url):
+        host = urlparse(reachable_url).hostname or reachable_url.split("://")[-1].split("/")[0]
+        controller = ENV.TP_AUTO_GATEWAY_CONTROLLER if ENV.TP_AUTO_INGRESS_OBJECT == "gateway" else ENV.TP_AUTO_INGRESS_CONTROLLER
+        manifest = self._build_cpdpproxy_ingress_manifest(host, namespace)
+        ColorLogger.info(f"Applying cpdpproxy public {ENV.TP_AUTO_INGRESS_OBJECT} (controller: {controller}) for host '{host}' in namespace '{namespace}'.")
+        print(f"Manifest:\n{manifest}")
+        cmd = "cat <<'EOF' | kubectl apply -f -\n" + manifest + "EOF\n"
+        output = Helper.get_command_output(cmd, is_print_cmd=True)
+        if output is None:
+            ColorLogger.warning(f"Failed to apply cpdpproxy public {ENV.TP_AUTO_INGRESS_OBJECT} for host '{host}'; the CP may not be able to reach the DP.")
+        else:
+            ColorLogger.success(f"cpdpproxy public {ENV.TP_AUTO_INGRESS_OBJECT} applied for host '{host}'.")
+            print(output)
+
+    def _apply_dp_reachability_netpol_labels(self, dp_namespace):
+        # cpdpproxy (DP side) must accept cross-namespace ingress; tp-dp-proxy (CP side) must be allowed
+        # to egress to the DP namespace. Label both the Deployment object and its pod template so the
+        # pods carry the label (NetworkPolicy selects on pod labels) and it survives restarts.
+        self._label_deployment_and_template(ENV.TP_AUTO_DP_PROXY_SERVICE_NAME, dp_namespace,
+                                            "networking.platform.tibco.com/cluster-ingress", "enable")
+        self._label_deployment_and_template(ENV.TP_AUTO_CP_DP_PROXY_DEPLOYMENT, ENV.TP_AUTO_CP_NAMESPACE,
+                                            "networking.platform.tibco.com/cluster-egress", "enable")
+
+    @staticmethod
+    def _label_deployment_and_template(deployment, namespace, label_key, label_value):
+        labels = {label_key: label_value}
+        patch = json.dumps({"metadata": {"labels": labels}, "spec": {"template": {"metadata": {"labels": labels}}}})
+        cmd = f"kubectl patch deployment {deployment} -n {namespace} --type=merge -p '{patch}'"
+        output = Helper.get_command_output(cmd, is_print_cmd=True)
+        if output is None:
+            ColorLogger.warning(f"Could not label deployment '{deployment}' in '{namespace}' ({label_key}={label_value}); it may not exist.")
+        else:
+            ColorLogger.success(f"Labeled deployment '{deployment}' in '{namespace}': {label_key}={label_value}")
+            print(output)
+
+    def _build_cpdpproxy_ingress_manifest(self, host, namespace):
+        # Mirror the capability charts' controller-adaptive ingress pattern (dp-flogo-app / dp-bwce-app):
+        # one shape per deployed controller, selected from the same ENV the automation feeds the CP
+        # "Add Ingress/Route" wizard. cpdpproxy needs a plain host -> service route (no prefix strip).
+        svc = ENV.TP_AUTO_DP_PROXY_SERVICE_NAME
+        port = ENV.TP_AUTO_DP_PROXY_SERVICE_PORT
+        name = "cpdpproxy-public"
+
+        if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+            section_name = f"\n    sectionName: {ENV.TP_AUTO_GATEWAY_SECTION_NAME}" if ENV.TP_AUTO_GATEWAY_SECTION_NAME else ""
+            return (
+                "apiVersion: gateway.networking.k8s.io/v1\n"
+                "kind: HTTPRoute\n"
+                "metadata:\n"
+                f"  name: {name}\n"
+                f"  namespace: {namespace}\n"
+                "  annotations:\n"
+                f"    platform.tibco.com/controller-name: \"{ENV.TP_AUTO_GATEWAY_CONTROLLER}\"\n"
+                "spec:\n"
+                "  parentRefs:\n"
+                f"  - name: {ENV.TP_AUTO_GATEWAY_NAME}\n"
+                f"    namespace: {ENV.TP_AUTO_GATEWAY_NAMESPACE}{section_name}\n"
+                "  hostnames:\n"
+                f"  - \"{host}\"\n"
+                "  rules:\n"
+                "  - matches:\n"
+                "    - path:\n"
+                "        type: PathPrefix\n"
+                "        value: /\n"
+                "    backendRefs:\n"
+                f"    - name: {svc}\n"
+                f"      port: {port}\n"
+                "      weight: 100\n"
+            )
+
+        controller = ENV.TP_AUTO_INGRESS_CONTROLLER
+        if controller == "openshiftRouter":
+            return (
+                "apiVersion: route.openshift.io/v1\n"
+                "kind: Route\n"
+                "metadata:\n"
+                f"  name: {name}\n"
+                f"  namespace: {namespace}\n"
+                "  annotations:\n"
+                f"    platform.tibco.com/controller-name: \"{controller}\"\n"
+                "spec:\n"
+                f"  host: {host}\n"
+                "  path: /\n"
+                "  to:\n"
+                "    kind: Service\n"
+                f"    name: {svc}\n"
+                "    weight: 100\n"
+                "  port:\n"
+                f"    targetPort: {port}\n"
+                "  wildcardPolicy: None\n"
+            )
+
+        # Classic Ingress (traefik / nginx / haProxy / kong) — controller chosen via ingressClassName.
+        annotations = f"    platform.tibco.com/controller-name: \"{controller}\"\n"
+        if controller == "nginx":
+            annotations += "    nginx.ingress.kubernetes.io/proxy-body-size: \"0\"\n"
+        return (
+            "apiVersion: networking.k8s.io/v1\n"
+            "kind: Ingress\n"
+            "metadata:\n"
+            f"  name: {name}\n"
+            f"  namespace: {namespace}\n"
+            "  annotations:\n"
+            f"{annotations}"
+            "spec:\n"
+            f"  ingressClassName: {ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME}\n"
+            "  rules:\n"
+            f"  - host: {host}\n"
+            "    http:\n"
+            "      paths:\n"
+            "      - path: /\n"
+            "        pathType: Prefix\n"
+            "        backend:\n"
+            "          service:\n"
+            f"            name: {svc}\n"
+            "            port:\n"
+            f"              number: {port}\n"
+        )
 
     def k8s_delete_app(self, dp_name, capability, app_name):
         ColorLogger.info(f"Deleting {capability} app '{app_name}' in DataPlane {dp_name}")
@@ -598,14 +817,21 @@ class PageObjectDataPlane(PageObjectGlobal):
 
     def switch_to_global_config(self, dp_name):
         ColorLogger.info(f"Switch to Global Observability Resource")
+        # NOTE on waits: the o11y panel is an Angular component that can take several seconds
+        # to (re-)render. The checks below poll without reloading the page (is_refresh=False)
+        # so a transient slow render does not get reset mid-flow. Previously these were
+        # single-shot checks with is_refresh=True, where a miss on the legacy ".switch-to-global"
+        # selector reloaded the page and the following ".use-global-resource" check then raced
+        # the freshly re-rendering panel -> a false "link failed".
         print("PreCheck if Data Plane is already linked to Global Observability Resource...")
-        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 10, 10, True):
+        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 10):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
             ReportYaml.set_dataplane_info(dp_name, "switchGlobal", True)
             return
 
         print("Check if 'Switch to Global' or 'Use Global Resource' button is visible...")
-        if Util.check_dom_visibility(self.page, self.page.locator(".switch-to-global"), 10, 10, True) and self.page.locator(".switch-to-global").is_enabled():
+        # ".switch-to-global" is the legacy (pre-1.5) selector; absent on newer CP versions.
+        if Util.check_dom_visibility(self.page, self.page.locator(".switch-to-global"), 5, 5) and self.page.locator(".switch-to-global").is_enabled():
             ColorLogger.info(f"Switching current Data Plane '{dp_name}' configuration to Global Observability Resource")
             self.page.locator(".switch-to-global").click()
             print("Clicked 'Switch to Global' button")
@@ -613,7 +839,7 @@ class PageObjectDataPlane(PageObjectGlobal):
             print("Confirmation dialog is visible")
             self.page.locator("#confirm-button", has_text="Yes").click()
             print("Clicked 'Yes' button in confirmation dialog")
-        elif Util.check_dom_visibility(self.page, self.page.locator(".use-global-resource .o11y-btn"), 10, 10, True) and self.page.locator(".use-global-resource .o11y-btn").is_enabled():
+        elif Util.check_dom_visibility(self.page, self.page.locator(".use-global-resource .o11y-btn"), 3, 30) and self.page.locator(".use-global-resource .o11y-btn").is_enabled():
             ColorLogger.info(f"Data Plane '{dp_name}' does not have configuration, Use Global Resource")
             self.page.locator(".use-global-resource .o11y-btn").click()
             print("Clicked 'Use Global Resource' button")
@@ -623,7 +849,9 @@ class PageObjectDataPlane(PageObjectGlobal):
             print("Clicked 'Link' button in confirmation dialog")
 
         print("Double Check if Data Plane is already linked to Global Observability Resource...")
-        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 10, 10, True):
+        # Linking applies global o11y config on the backend, so the confirmation can lag a few
+        # seconds; poll (with reload) for up to 30s before declaring failure.
+        if Util.check_dom_visibility(self.page, self.page.locator(".o11y-panel-actions .global-resource-name", has_text="View in Global Configuration"), 5, 30, True):
             ColorLogger.success(f"Linked {dp_name} to Global Observability Resource successfully.")
             ReportYaml.set_dataplane_info(dp_name, "switchGlobal", True)
         else:

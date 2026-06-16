@@ -259,6 +259,20 @@ options:
   reference: "meta.guiEnv.GUI_TP_DB_TLS_ENABLED"
   description: |
     Enable TLS for Postgres
+- name: "Redis password"
+  groupIndex: 8
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_REDIS_PASSWORD"
+  description: |
+    The Redis password. Used when "Install Redis" is enabled.
+- name: "Enable Redis TLS"
+  groupIndex: 8
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_REDIS_TLS_ENABLED"
+  description: |
+    Enable TLS for Redis
 
 # groupIndex: 10 Flow control
 - name: "Install cert-manager"
@@ -289,6 +303,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_INSTALL_POSTGRES"
   description: |
     Install Postgres database for TP Cluster
+- name: "Install Redis"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_INSTALL_REDIS"
+  description: |
+    Install Redis for TP Cluster. Optional; default off.
 - name: "Install Calico"
   groupIndex: 10
   type: boolean

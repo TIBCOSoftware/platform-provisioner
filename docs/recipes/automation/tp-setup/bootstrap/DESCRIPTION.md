@@ -72,7 +72,7 @@ Comprehensive Platform CLI integration with object-oriented architecture:
 - **Resource Management**
   - Create and manage Storage resources
   - Create and manage Ingress resources
-  - Configure Activation Server as a resource
+  - Configure Activation License File resource
   - List and delete resource instances
 
 - **Capability Management**

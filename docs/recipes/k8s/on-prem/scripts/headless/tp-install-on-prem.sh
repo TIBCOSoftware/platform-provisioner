@@ -21,6 +21,7 @@
 # Globals:
 #   TP_TOP_DOMAIN: the top domain (default: tp.localhost)
 #   TP_K8S_CLUSTER_TYPE_CODE: the k8s cluster type code. 1 for k3s, 2 for OpenShift, 3 for Docker Desktop (default), 4 for miniKube, 5 for kind, 6 for MicroK8s
+#   TP_K8S_INGRESS_TYPE_CODE: the ingress type code. 1=nginx, 2=traefik (default), 3=nginx gateway fabric, 4=haproxy, 5=istio gateway, 6=traefik gateway, 7=netscaler cpx gateway
 #   TP_AUTOMATION_SCRIPT_OPTIONS: the automation script options. see: https://github.com/TIBCOSoftware/platform-provisioner/blob/main/docs/recipes/automation/on-prem/run.sh
 #   GUI_TP_LICENSE_FILE_PATH: the path to the .bin license file for file-based activation
 #   GUI_TP_TLS_CERT: (optional) the SSL Certificate in base64. If empty, a self-signed cert will be generated
@@ -33,6 +34,7 @@
 #   GUI_TP_AUTO_ENABLE_FLOGO: enable Flogo. default is true
 #   GUI_TP_AUTO_ENABLE_BW5CE: enable BW5CE. default is false
 #   GUI_TP_AUTO_ENABLE_TIBCOHUB: enable TIBCO Hub. default is false
+#   GUI_TP_AUTO_ENABLE_SB: enable SpringBoot. default is false
 #   GUI_TP_AUTO_ENABLE_EMS: enable EMS. default is false
 #   GUI_TP_AUTO_ENABLE_BMDP: enable BMDP. default is false
 #   GUI_TP_AUTO_IS_ENABLE_RVDM: enable RV data model. default is true
@@ -41,6 +43,9 @@
 #   GUI_TP_AUTO_ENABLE_O11Y_WIDGET: enable O11y widget. default is true
 #   GUI_TP_AUTO_ENABLE_E2E_TEST: enable E2E test. default is false
 #   GUI_TP_AUTO_ENABLE_DP: enable Data Plane. default is true
+#   GUI_TP_AUTO_INGRESS_CONTROLLER: (optional) ingress/gateway controller family name for DP automation (matches CP UI dropdown: nginx, traefik, haproxy, Istio). Auto-detected from TP_K8S_INGRESS_TYPE_CODE
+#   GUI_TP_AUTO_GATEWAY_NAME: (optional) gateway object name for DP automation. Auto-detected from TP_K8S_INGRESS_TYPE_CODE
+#   GUI_TP_AUTO_GATEWAY_NAMESPACE: (optional) gateway namespace for DP automation. Auto-detected from TP_K8S_INGRESS_TYPE_CODE
 #   GITHUB_TOKEN: (optional) GitHub token for private repo access. When set, private repos/images are used; otherwise public defaults are used.
 #   TP_SKIP_DEPLOY: (optional) when "true", generate recipes only without running ./run.sh. Default is "false".
 # Arguments:
@@ -174,6 +179,12 @@ function customize-tp() {
 
     yq eval -i '(.meta.guiEnv.GUI_CP_ENABLE_HYBRID_CONNECTIVITY = env(GUI_TP_ENABLE_HYBRID_CONNECTIVITY))' "$_recipe_file_name"
 
+    # PCP-19763: keep CP admin-init mode in lock-step with the DP automation login mode.
+    # enable_api_based_initialization (this recipe) MUST equal GUI_TP_AUTO_USE_CLI (05-tp-auto-deploy-dp.yaml),
+    # so derive both from the single GUI_TP_AUTO_USE_CLI source of truth (default true).
+    export GUI_TP_AUTO_USE_CLI=${GUI_TP_AUTO_USE_CLI:-"true"}
+    yq eval -i '(.meta.guiEnv.GUI_CP_ENABLE_API_BASED_INITIALIZATION = env(GUI_TP_AUTO_USE_CLI))' "$_recipe_file_name"
+
     # Enable BWCE by default for headless
     export GUI_TP_AUTO_ENABLE_BWCE=${GUI_TP_AUTO_ENABLE_BWCE:-"true"}
     yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW = env(GUI_TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
@@ -259,6 +270,9 @@ function customize-tp() {
     export GUI_TP_AUTO_ENABLE_TIBCOHUB=${GUI_TP_AUTO_ENABLE_TIBCOHUB:-"false"}
     yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_TIBCOHUB = env(GUI_TP_AUTO_ENABLE_TIBCOHUB))' "$_recipe_file_name"
 
+    export GUI_TP_AUTO_ENABLE_SB=${GUI_TP_AUTO_ENABLE_SB:-"false"}
+    yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_SB = env(GUI_TP_AUTO_ENABLE_SB))' "$_recipe_file_name"
+
     export GUI_TP_AUTO_ENABLE_EMS=${GUI_TP_AUTO_ENABLE_EMS:-"false"}
     yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_EMS = env(GUI_TP_AUTO_ENABLE_EMS))' "$_recipe_file_name"
 
@@ -305,6 +319,40 @@ function customize-tp() {
       yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GITHUB_REPO_NAME = env(GUI_TP_AUTO_GITHUB_REPO_NAME))' "$_recipe_file_name"
       yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GITHUB_REPO_PATH = env(GUI_TP_AUTO_GITHUB_REPO_PATH))' "$_recipe_file_name"
       yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GITHUB_REPO_BRANCH = env(GUI_TP_AUTO_GITHUB_REPO_BRANCH))' "$_recipe_file_name"
+    fi
+
+    # Gateway API support: set gateway-specific variables for DP automation
+    case "${TP_K8S_INGRESS_TYPE_CODE}" in
+      3)
+        export GUI_TP_AUTO_INGRESS_CONTROLLER=${GUI_TP_AUTO_INGRESS_CONTROLLER:-"nginx"}
+        export GUI_TP_AUTO_GATEWAY_NAME=${GUI_TP_AUTO_GATEWAY_NAME:-"nginx-gateway"}
+        export GUI_TP_AUTO_GATEWAY_NAMESPACE=${GUI_TP_AUTO_GATEWAY_NAMESPACE:-"ingress-system"}
+        ;;
+      5)
+        export GUI_TP_AUTO_INGRESS_CONTROLLER=${GUI_TP_AUTO_INGRESS_CONTROLLER:-"Istio"}
+        export GUI_TP_AUTO_GATEWAY_NAME=${GUI_TP_AUTO_GATEWAY_NAME:-"istio-gateway-istio"}
+        export GUI_TP_AUTO_GATEWAY_NAMESPACE=${GUI_TP_AUTO_GATEWAY_NAMESPACE:-"ingress-system"}
+        ;;
+      6)
+        export GUI_TP_AUTO_INGRESS_CONTROLLER=${GUI_TP_AUTO_INGRESS_CONTROLLER:-"traefik"}
+        export GUI_TP_AUTO_GATEWAY_NAME=${GUI_TP_AUTO_GATEWAY_NAME:-"traefik-gateway"}
+        export GUI_TP_AUTO_GATEWAY_NAMESPACE=${GUI_TP_AUTO_GATEWAY_NAMESPACE:-"ingress-system"}
+        ;;
+      7)
+        export GUI_TP_AUTO_INGRESS_CONTROLLER=${GUI_TP_AUTO_INGRESS_CONTROLLER:-"netscaler"}
+        export GUI_TP_AUTO_GATEWAY_NAME=${GUI_TP_AUTO_GATEWAY_NAME:-"netscalercpx-gateway"}
+        export GUI_TP_AUTO_GATEWAY_NAMESPACE=${GUI_TP_AUTO_GATEWAY_NAMESPACE:-"ingress-system"}
+        ;;
+    esac
+    if [[ "${TP_K8S_INGRESS_TYPE_CODE}" =~ ^(3|5|6|7)$ ]]; then
+      echo "Gateway mode: configuring gateway API variables for automation..."
+      yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_INGRESS_CONTROLLER = env(GUI_TP_AUTO_INGRESS_CONTROLLER))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GATEWAY_NAME = env(GUI_TP_AUTO_GATEWAY_NAME))' "$_recipe_file_name"
+      yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_GATEWAY_NAMESPACE = env(GUI_TP_AUTO_GATEWAY_NAMESPACE))' "$_recipe_file_name"
+      yq eval -i '(.meta.globalEnvVariable.TP_AUTO_INGRESS_CONTROLLER = "${GUI_TP_AUTO_INGRESS_CONTROLLER}")' "$_recipe_file_name"
+      yq eval -i '(.meta.globalEnvVariable.TP_AUTO_GATEWAY_CONTROLLER = "${GUI_TP_AUTO_INGRESS_CONTROLLER}")' "$_recipe_file_name"
+      yq eval -i '(.meta.globalEnvVariable.TP_AUTO_GATEWAY_NAME = "${GUI_TP_AUTO_GATEWAY_NAME}")' "$_recipe_file_name"
+      yq eval -i '(.meta.globalEnvVariable.TP_AUTO_GATEWAY_NAMESPACE = "${GUI_TP_AUTO_GATEWAY_NAMESPACE}")' "$_recipe_file_name"
     fi
   fi
 
@@ -357,7 +405,7 @@ function install-tp() {
   export TP_K8S_CLUSTER_TYPE_CODE=${TP_K8S_CLUSTER_TYPE_CODE:-""} # 1 for k3s, 2 for OpenShift, 3 for Docker Desktop
   ./adjust-recipe.sh ${TP_K8S_CLUSTER_TYPE_CODE}
 
-  export TP_K8S_INGRESS_TYPE_CODE=${TP_K8S_INGRESS_TYPE_CODE:-"2"} # 1 for nginx, 2 for traefik
+  export TP_K8S_INGRESS_TYPE_CODE=${TP_K8S_INGRESS_TYPE_CODE:-"2"} # 1=nginx, 2=traefik, 3=nginx-gw-fabric, 4=haproxy, 5=istio-gw, 6=traefik-gw, 7=netscaler-gw
   ./adjust-ingress.sh ${TP_K8S_INGRESS_TYPE_CODE}
 
   echo "Update recipe tokens..."

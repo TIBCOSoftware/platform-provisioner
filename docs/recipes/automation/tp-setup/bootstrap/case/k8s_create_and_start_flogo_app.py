@@ -37,11 +37,18 @@ if __name__ == "__main__":
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_config.goto_dataplane_config()
             po_dp_config.dp_config_resources_storage(ENV.TP_AUTO_K8S_DP_NAME)
-            po_dp_config.dp_config_resources_ingress(
-                ENV.TP_AUTO_K8S_DP_NAME,
-                ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
-                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
-            )
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                po_dp_config.dp_config_resources_gateway(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_FLOGO,
+                    ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_FLOGO
+                )
+            else:
+                po_dp_config.dp_config_resources_ingress(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
+                )
             po_dp_config.dp_config_activation(ENV.TP_AUTO_K8S_DP_NAME, True)
             po_dp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_DP_NAME)
 

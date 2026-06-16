@@ -38,15 +38,11 @@ groups:
     * Matching CP version with automation version
 
     ---
-- title: "Activation Server"
+- title: "Activation License File"
   index: 3
   description: |
-    ## Activation server specific configurations
-    * Activation server IP
-    * Activation server hostname
-    * Activation server port
-    * Activation server fingerprint
-    * Activation file in zip format
+    ## License file configuration
+    * Upload your license file (activation.bin.zip) to enable application components
 
     ---
 - title: "DP setup"
@@ -107,46 +103,8 @@ options:
   description: |
     The GitHub token for DP to access private helm chart repo. If you deploy unreleased CP/DP; this GitHub token is a must.
 
-# groupIndex: 3 Activation Server
-- name: "Activation service configuration"
-  groupIndex: 3
-  type: boolean
-  guiType: checkbox
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_CONFIG"
-  description: "Configure the activation server IP address with coreDNS."
-- name: "Activation server IP"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_IP"
-  required: false
-  description: |
-    The IP address of activation server.
-- name: "Activation server port"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_PORT"
-  required: false
-  description: |
-    The port of activation server.
-- name: "Activation server hostname"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME"
-  required: false
-  description: |
-    The hostname of activation server.
-- name: "Activation server fingerprint"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_FINGER_PRINT"
-  required: false
-  description: |
-    The fingerprint of activation server.
-- name: "Upload Activation file in zip"
+# groupIndex: 3 Activation License File
+- name: "Upload Activation License File (zip)"
   groupIndex: 3
   type: string
   accept: ".zip"
@@ -154,7 +112,8 @@ options:
   guiType: file
   reference: "meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64"
   description: |
-    License file will be used prior to activation server if you configured both.
+    Upload the activation.bin.zip license file to enable application components.
+
 # groupIndex: 5 DP setup
 - name: "DP host prefix"
   groupIndex: 5
@@ -216,6 +175,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_CONFIG_O11Y"
   description: |
     Set to true to configure DP O11Y
+- name: "Setup Observability dashboards and cards"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_O11Y_WIDGET"
+  description: |
+    Set to true to set up Observability dashboards and cards: on newer CP, create per-capability dashboards (Default + logs + one per installed capability) and bulk-add cards; on older CP, add a few cards to the Default dashboard.
 - name: "Deploy Flogo"
   groupIndex: 6
   type: boolean
@@ -237,6 +203,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_AI_ENABLE_MCP_HUB"
   description: |
     Set to true to deploy MCP Hub (MCP Gateway + CP MCP Server + push to gateway)
+- name: "Deploy Kubernetes MCP Server"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER"
+  description: |
+    Set to true to deploy Kubernetes MCP Server capability
 - name: "Deploy TIBCO Hub"
   groupIndex: 6
   type: boolean
@@ -259,6 +232,25 @@ options:
   description: |
     Set to false when CP is deployed with hybrid connectivity disabled.
     When disabled, automation will fill the Reachable DP URL instead of waiting for tunnel connection.
+- name: "Manage no-tibtunnel DP reachability"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_DP_MANAGE_REACHABILITY"
+  description: |
+    Only used when hybrid connectivity is disabled. When true (default), the automation makes the
+    registered Reachable DP URL reachable after DP create — Option A: create a controller-adaptive
+    cpdpproxy ingress; Option B: apply NetworkPolicy labels. Set false if reachability is provisioned
+    externally.
+- name: "Use private DP reachability (NetworkPolicy labels)"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_DP_APPLY_NETPOL_LABELS"
+  description: |
+    Only used when hybrid connectivity is disabled. false (default) = Option A: public cpdpproxy
+    ingress at https://dp-<dpName>.<cpDnsDomain>. true = Option B: label cpdpproxy (cluster-ingress)
+    and tp-dp-proxy (cluster-egress) and use the private http://cpdpproxy.<ns>.svc.cluster.local URL.
 
 # groupIndex: 7 DNS and Port Forward
 - name: "TP port forward"

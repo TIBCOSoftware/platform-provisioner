@@ -64,12 +64,28 @@ class PageObjectDataPlaneTibcoHub(PageObjectDataPlane):
                 self.page.locator('#storage-class-resource-table tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_STORAGE_CLASS)).locator('label').click()
                 print(f"Selected '{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class for TibcoHub capability")
 
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                # CP 1.17 wizard splits Ingress vs Gateway via an `ingressRouteType-GATEWAYAPI`
+                # radio. CP 1.18 dropped that radio: Ingress and Gateway entries coexist in a
+                # single Route Resource table and the row label is clicked directly. Click the
+                # radio only when present.
+                gw_radio = self.page.locator('label[for="ingressRouteType-GATEWAYAPI"]')
+                if gw_radio.is_visible():
+                    gw_radio.click()
+                    self.page.wait_for_timeout(2000)
+                    print("Selected 'Gateway API' radio button (CP 1.17 wizard)")
+                else:
+                    print("'Gateway API' radio not present (CP 1.18 wizard) — picking row directly")
+                route_resource = ENV.TP_AUTO_GATEWAY_CONTROLLER_TIBCOHUB
+            else:
+                route_resource = ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB
+
             # CP 1.18+ renamed #ingress-resource-table to #route-resource-table
             ingress_table_sel = "#ingress-resource-table, #route-resource-table"
             if self.page.locator(ingress_table_sel).first.is_visible():
-                self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB)).locator('label').wait_for(state="visible")
-                self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB)).locator('label').click()
-                print(f"Selected '{ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB}' Ingress/Route for TibcoHub capability")
+                self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource)).locator('label').wait_for(state="visible")
+                self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource)).locator('label').click()
+                print(f"Selected '{route_resource}' Ingress/Route for TibcoHub capability")
 
             self.page.locator("#btnNextCapabilityProvision", has_text="Next").click()
             print("Clicked TibcoHub step 1 'Next' button")

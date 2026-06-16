@@ -359,7 +359,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
         if self.page.locator("#storage-resource-table tr td:first-child", has_text=resource_name).is_visible():
             ColorLogger.success(f"Storage '{resource_name}' is already created.")
-            ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, "storage", True)
+            ReportYaml.set_dataplane_info(dp_name, "storage", True)
         else:
             print(f"Adding Storage '{resource_name}', and wait for 'Add Storage Class' button ...")
             self.page.locator("#add-storage-resource-btn").wait_for(state="visible")
@@ -370,7 +370,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
             if Util.check_dom_visibility(self.page, self.page.locator("#storage-resource-table tr td:first-child", has_text=resource_name), 3, 6):
                 ColorLogger.success(f"Add Storage '{resource_name}' successfully.")
-                ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, "storage", True)
+                ReportYaml.set_dataplane_info(dp_name, "storage", True)
 
     def add_storage(self, resource_name):
         ColorLogger.info("Add Storage in dialog...")
@@ -383,10 +383,25 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         Util.click_button_until_enabled(self.page, self.page.locator("#save-storage-configuration"))
         print("Clicked 'Add' button in 'Add Storage' dialog")
 
+    def _close_modal(self):
+        cancel_sel = "#cancel-ingress-configuration, #cancel-route-resource-configuration, .pl-modal button.pl-button--secondary"
+        if self.page.locator(cancel_sel).first.is_visible():
+            self.page.locator(cancel_sel).first.click()
+            print("Clicked 'Cancel' button to close modal")
+        else:
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(500)
+            print("Pressed Escape to close modal")
+        self.page.wait_for_timeout(1000)
+        if self.page.locator(".pl-modal--open").is_visible():
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(500)
+            print("Modal still open, pressed Escape again")
+
     def _detect_ingress_toggle(self):
         """Detect which ingress/route toggle is present on the Resources page.
         CP 1.18+ renamed 'Ingress Controller' to 'Route Resource'.
-        Returns the toggle ID or None if neither is found.
+        Returns 'ingress', 'route', or None if neither is found.
         """
         if self.page.locator("#toggle-ingress-expansion").is_visible():
             return "ingress"
@@ -416,13 +431,16 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             toggle_id = "#toggle-ingress-expansion"
             table_selector = "#ingress-resource-table tr td:first-child"
             add_btn_selector = ".ingress .add-resource-btn button"
-        else:
+        elif section_type == "route":
             toggle_id = "#toggle-route-resource-expansion"
             table_selector = ".route-resource table tr td:first-child"
             add_btn_selector = ".route-resource .add-resource-btn button"
+        else:
+            Util.exit_error("Neither ingress nor route is visible — unknown CP version or page state.", self.page, "dp_config_resources_ingress.png")
+            return
 
-        # Expand the section if collapsed — check if content is already visible
-        if not self.page.locator(add_btn_selector).is_visible():
+        # Expand the section — check if table content is visible (not just the add button)
+        if not self.page.locator(table_selector).first.is_visible():
             self.page.locator(toggle_id).click()
             print(f"Clicked toggle {toggle_id} to expand section")
             self.page.wait_for_timeout(3000)
@@ -430,7 +448,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print(f"Check if Ingress/Route '{resource_name}' exists...")
         if self.page.locator(table_selector, has_text=resource_name).is_visible():
             ColorLogger.success(f"Ingress/Route '{resource_name}' is already created.")
-            ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, resource_name, True)
+            ReportYaml.set_dataplane_info(dp_name, resource_name, True)
         else:
             print(f"Adding Ingress/Route '{resource_name}'...")
             self.page.locator(add_btn_selector).wait_for(state="visible")
@@ -441,19 +459,16 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.wait_for_timeout(1000)
             if self.page.locator(".pl-notification--error").is_visible():
                 error_content = self.page.locator(".pl-notification__message").text_content()
+                already_exists = "already in use" in (error_content or "")
                 Util.warning_screenshot(f"Config Data Plane Resources Ingress Error: {error_content}", self.page, "dp_config_resources_ingress.png")
-                cancel_btn = self.page.locator("#cancel-ingress-configuration, .pl-modal button", has_text="Cancel").first
-                if cancel_btn.is_visible():
-                    cancel_btn.click()
-                    print("Clicked 'Cancel' button")
-                else:
-                    self.page.keyboard.press("Escape")
-                    self.page.wait_for_timeout(500)
-                    print("Pressed Escape to close modal")
+                self._close_modal()
+                if already_exists:
+                    ColorLogger.success(f"Ingress/Route '{resource_name}' already exists, marking as done.")
+                    ReportYaml.set_dataplane_info(dp_name, resource_name, True)
                 return
             if Util.check_dom_visibility(self.page, self.page.locator(table_selector, has_text=resource_name), 3, 6):
                 ColorLogger.success(f"Add Ingress/Route '{resource_name}' successfully.")
-                ReportYaml.set_dataplane_info(ENV.TP_AUTO_K8S_DP_NAME, resource_name, True)
+                ReportYaml.set_dataplane_info(dp_name, resource_name, True)
             else:
                 Util.warning_screenshot(f"Config Data Plane Resources '{resource_name}' Error", self.page, "dp_config_resources_ingress.png")
 
@@ -507,6 +522,205 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             print(f"Filled FQDN: {fqdn}")
             Util.click_button_until_enabled(self.page, self.page.locator("#save-ingress-configuration"))
             print("Clicked 'Add' button in 'Add Ingress Controller' dialog")
+
+    def dp_config_resources_gateway(self, dp_name, gateway_controller, resource_name, gateway_name, gateway_namespace, fqdn, gateway_section_name=""):
+        """Add a Gateway API controller resource to the DataPlane.
+
+        CP 1.17 and earlier: separate `.gateway-api` section with its own Add button
+        and a dedicated "Add Gateway API details" modal.
+
+        CP 1.18+: Ingress and Gateway are unified into a single "Route Resource" section.
+        Adding a gateway means opening the "Add Route Resource" modal, switching the
+        Ingress/Gateway radio to "Gateway API Controller", and filling renamed fields.
+        """
+        if ReportYaml.get_dataplane_info(dp_name, resource_name) == "true":
+            ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, gateway '{resource_name}' is already created in DataPlane '{dp_name}'.")
+            return
+        ColorLogger.info("Config Data Plane Resources GatewayAPI...")
+        self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").wait_for(state="visible")
+        self.page.locator("#resources-menu-item .menu-item-text", has_text="Resources").click()
+        print("Clicked 'Resources' left side menu")
+        self.page.wait_for_timeout(5000)
+
+        # Detect which CP version's UI is rendered. CP 1.17 has the legacy `.gateway-api`
+        # section; CP 1.18+ has it merged into the "Route Resource" toggle.
+        if self.page.locator(".gateway-api").is_visible():
+            self._dp_config_gateway_legacy(
+                dp_name, gateway_controller, resource_name,
+                gateway_name, gateway_namespace, fqdn, gateway_section_name)
+        elif Util.check_dom_visibility(self.page, self.page.locator("#toggle-route-resource-expansion"), 3, 30):
+            self._dp_config_gateway_route_resource(
+                dp_name, gateway_controller, resource_name,
+                gateway_name, gateway_namespace, fqdn, gateway_section_name)
+        else:
+            ColorLogger.warning("Neither .gateway-api (CP <= 1.17) nor #toggle-route-resource-expansion (CP 1.18+) found — DP may not be ready, OR DP may not support Gateway, skipping.")
+
+    # ---------------------------------------------------------------------
+    # CP <= 1.17 path: separate `.gateway-api` section and "Add Gateway API details" modal.
+    # Preserved verbatim from the original implementation (just lifted into helpers).
+    # ---------------------------------------------------------------------
+
+    def _dp_config_gateway_legacy(self, dp_name, gateway_controller, resource_name, gateway_name, gateway_namespace, fqdn, gateway_section_name=""):
+        gateway_section = self.page.locator(".gateway-api")
+        gateway_toggle = gateway_section.locator(".toggle-expansion")
+        gateway_toggle.wait_for(state="visible")
+        expected_icon = 'pl-icon-caret-right'
+        if expected_icon in (gateway_toggle.locator("svg use").get_attribute("xlink:href") or ""):
+            gateway_toggle.click()
+            print("Clicked expand Icon for GatewayAPI section")
+            self.page.wait_for_timeout(3000)
+
+        gateway_table = gateway_section.locator("table")
+        print(f"Check if GatewayAPI Controller '{resource_name}' exists...")
+        if gateway_table.is_visible() and gateway_table.locator("tr td:first-child", has_text=resource_name).is_visible():
+            ColorLogger.success(f"GatewayAPI Controller '{resource_name}' is already created.")
+            ReportYaml.set_dataplane_info(dp_name, resource_name, True)
+        else:
+            print(f"GatewayAPI Controller table does not have '{resource_name}'")
+            print(f"Adding GatewayAPI Controller '{resource_name}'...")
+            self.page.locator("#add-db-config-resource-GATEWAYAPI-btn").wait_for(state="visible")
+            self.page.locator("#add-db-config-resource-GATEWAYAPI-btn").click()
+            print("Clicked 'Add GatewayAPI Controller' button")
+
+            self._add_gateway_controller_legacy(gateway_controller, resource_name, gateway_name, gateway_namespace, fqdn, gateway_section_name)
+            self.page.wait_for_timeout(1000)
+            if self.page.locator(".pl-notification--error").is_visible():
+                error_content = self.page.locator(".pl-notification__message").text_content()
+                Util.warning_screenshot(f"Config Data Plane Resources GatewayAPI Error: {error_content}", self.page, "dp_config_resources_gateway.png")
+                self.page.locator("#cancel-database-configuration").click()
+                print("Clicked 'Cancel' button")
+                return
+            if Util.check_dom_visibility(self.page, gateway_section.locator("table tr td:first-child", has_text=resource_name), 3, 6):
+                ColorLogger.success(f"Add GatewayAPI Controller '{resource_name}' successfully.")
+                ReportYaml.set_dataplane_info(dp_name, resource_name, True)
+            else:
+                Util.warning_screenshot(f"Config Data Plane Resources GatewayAPI '{resource_name}' Error", self.page, "dp_config_resources_gateway.png")
+
+    def _add_gateway_controller_legacy(self, gateway_controller, resource_name, gateway_name, gateway_namespace, fqdn, gateway_section_name=""):
+        ColorLogger.info("Add GatewayAPI Controller in dialog (CP <= 1.17)...")
+        self.page.locator('.pl-modal__heading', has_text="Add Gateway API details").wait_for(state="visible")
+        print("Dialog 'Add Gateway API details' popup")
+        dropdown = self.page.locator('.pl-select', has=self.page.locator('#gatewayAPIControllerName'))
+        dropdown.locator('input[type="button"]').click()
+        print("Clicked 'Gateway API Controller Name' dropdown")
+        dropdown.locator('.pl-select__dropdown li', has_text=gateway_controller).wait_for(state="visible")
+        dropdown.locator('.pl-select__dropdown li', has_text=gateway_controller).click()
+        print(f"Selected '{gateway_controller}' in Gateway API Controller Name dropdown")
+        self.page.fill('#resourceName', resource_name)
+        print(f"Filled Resource Name: {resource_name}")
+        self.page.fill('#gatewayName', gateway_name)
+        print(f"Filled Gateway Name: {gateway_name}")
+        self.page.fill('#gatewayNamespace', gateway_namespace)
+        print(f"Filled Gateway Namespace: {gateway_namespace}")
+        self.page.fill('#gatewayHostOrDomainName', fqdn)
+        print(f"Filled Gateway Host or Domain Name: {fqdn}")
+        if gateway_section_name:
+            self.page.fill('#gatewaySectionName', gateway_section_name)
+            print(f"Filled Gateway Section Name: {gateway_section_name}")
+        Util.click_button_until_enabled(self.page, self.page.locator("#save-database-configuration"))
+        print("Clicked 'Add' button in 'Add Gateway API details' dialog")
+
+    # ---------------------------------------------------------------------
+    # CP 1.18+ path: unified "Route Resource" section, "Add Route Resource" modal
+    # with Ingress/Gateway radio toggle. Field IDs differ from CP 1.17.
+    # ---------------------------------------------------------------------
+
+    def _ensure_route_resource_expanded(self):
+        """Make sure the Route Resource section is expanded so its <table> rows are
+        actually visible. CP 1.18 collapses the section by default and re-collapses
+        it after a successful Save, hiding the table even though the resource exists.
+        Caller must invoke this before any `.route-resource table ...` visibility check.
+        """
+        section_table = self.page.locator(".route-resource table")
+        if section_table.is_visible():
+            return
+        toggle = self.page.locator("#toggle-route-resource-expansion")
+        if toggle.is_visible():
+            toggle.click()
+            print("Expanded Route Resource section")
+            self.page.wait_for_timeout(2000)
+
+    def _dp_config_gateway_route_resource(self, dp_name, gateway_controller, resource_name, gateway_name, gateway_namespace, fqdn, gateway_section_name=""):
+        # The Add button is visible even when collapsed, but the table rows are NOT
+        # — so always expand explicitly before reading the table.
+        self._ensure_route_resource_expanded()
+
+        # Existing-resource fast path (CP 1.18 lists rows under .route-resource table)
+        existing_row = self.page.locator(".route-resource table tr td:first-child", has_text=resource_name)
+        print(f"Check if Gateway resource '{resource_name}' exists in Route Resource table...")
+        if existing_row.is_visible():
+            ColorLogger.success(f"Gateway resource '{resource_name}' is already created.")
+            ReportYaml.set_dataplane_info(dp_name, resource_name, True)
+            return
+
+        print(f"Adding Gateway resource '{resource_name}' via 'Add Route Resource' dialog...")
+        add_btn_selector = ".route-resource .add-resource-btn button"
+        self.page.locator(add_btn_selector).click()
+        print("Clicked 'Add' button under Route Resource")
+        self.page.wait_for_timeout(1500)
+
+        self._add_gateway_controller_route_resource(gateway_controller, resource_name, gateway_name, gateway_namespace, fqdn, gateway_section_name)
+        self.page.wait_for_timeout(1000)
+
+        if self.page.locator(".pl-notification--error").is_visible():
+            error_content = self.page.locator(".pl-notification__message").text_content()
+            Util.warning_screenshot(f"Config Data Plane Resources Gateway (Route Resource) Error: {error_content}", self.page, "dp_config_resources_gateway.png")
+            # No id on Cancel in CP 1.18 — match by text or fall back to Escape
+            cancel_btn = self.page.locator(".pl-modal__footer button", has_text="Cancel").first
+            if cancel_btn.is_visible():
+                cancel_btn.click()
+                print("Clicked 'Cancel' button")
+            else:
+                self.page.keyboard.press("Escape")
+                print("Pressed Escape to close modal")
+            return
+
+        # CP 1.18 auto-collapses the Route Resource section after Save closes the
+        # modal — re-expand before checking the row showed up.
+        self._ensure_route_resource_expanded()
+        if Util.check_dom_visibility(self.page, existing_row, 3, 6):
+            ColorLogger.success(f"Add Gateway resource '{resource_name}' successfully.")
+            ReportYaml.set_dataplane_info(dp_name, resource_name, True)
+        else:
+            Util.warning_screenshot(f"Config Data Plane Resources Gateway '{resource_name}' Error", self.page, "dp_config_resources_gateway.png")
+
+    def _add_gateway_controller_route_resource(self, gateway_controller, resource_name, gateway_name, gateway_namespace, fqdn, gateway_section_name=""):
+        ColorLogger.info("Add Gateway Controller in dialog (CP 1.18+ Route Resource)...")
+        modal = self.page.locator(".pl-modal", has=self.page.locator(".pl-modal__heading", has_text="Add Route Resource")).first
+        modal.wait_for(state="visible")
+        print("Dialog 'Add Route Resource' popup")
+
+        # Switch radio from Ingress (default) to Gateway API Controller.
+        # Angular form-field radios need force=True (the styled label/wrapper intercepts clicks).
+        modal.locator("#gateway-radio-button").click(force=True)
+        self.page.wait_for_timeout(1000)
+        print("Switched to 'Gateway API Controller' radio")
+
+        # Pick the controller from the gateway-specific dropdown (Nginx / GKE / Istio / Traefik / NetScaler / Other Gateway API Controller)
+        modal.locator("#gatewayController-dropdown").click(force=True)
+        self.page.wait_for_timeout(800)
+        option = self.page.locator(".pl-select__dropdown li", has_text=gateway_controller).first
+        option.wait_for(state="visible")
+        option.click()
+        print(f"Selected '{gateway_controller}' in Gateway Controller dropdown")
+
+        # CP 1.18 input IDs all carry the `-input` suffix and dropped the `description` field.
+        modal.locator("#resourceName-input").fill(resource_name)
+        print(f"Filled Resource Name: {resource_name}")
+        modal.locator("#gatewayName-input").fill(gateway_name)
+        print(f"Filled Gateway Name: {gateway_name}")
+        modal.locator("#gatewayNamespace-input").fill(gateway_namespace)
+        print(f"Filled Gateway Namespace: {gateway_namespace}")
+        modal.locator("#gatewayHost-input").fill(fqdn)
+        print(f"Filled Gateway Host: {fqdn}")
+        if gateway_section_name:
+            modal.locator("#sectionName-input").fill(gateway_section_name)
+            print(f"Filled Section Name: {gateway_section_name}")
+
+        # CP 1.18 Save button has no id — class + text match.
+        save_btn = modal.locator(".pl-modal__footer button.pl-button--primary", has_text="Add Route Resource")
+        Util.click_button_until_enabled(self.page, save_btn)
+        print("Clicked 'Add Route Resource' button in dialog")
 
     def dp_config_activation(self, dp_name, use_global = False):
         activation_menu_item = self.page.locator(".menu-item-list .menu-item-text", has_text="Activation")

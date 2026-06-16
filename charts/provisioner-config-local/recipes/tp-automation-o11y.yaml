@@ -45,20 +45,23 @@ meta:
     GUI_TP_AUTO_ENABLE_BWCE: false
     GUI_TP_AUTO_ENABLE_BW5CE: false
     GUI_TP_AUTO_ENABLE_TIBCOHUB: false
+    GUI_TP_AUTO_ENABLE_SB: false
     GUI_TP_AUTO_ENABLE_EMS: false
     GUI_TP_AUTO_ENABLE_BMDP: false
     GUI_TP_AUTO_IS_ENABLE_RVDM: true
     GUI_TP_AUTO_IS_ENABLE_EMSDM: true
     GUI_TP_AUTO_IS_ENABLE_BW6DM: true
-    GUI_TP_AUTO_ENABLE_O11Y_WIDGET: true
+    GUI_TP_AUTO_ENABLE_O11Y_WIDGET: false
+    GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER: false
     GUI_TP_AI_ENABLE_MCP_HUB: false
     GUI_TP_AUTO_ENABLE_E2E_TEST: false
-    GUI_TP_AUTO_USE_CLI: true
+    GUI_TP_AUTO_USE_CLI: false
 
     # start app or not
     GUI_TP_AUTO_START_FLOGO_APP: true
     GUI_TP_AUTO_START_BWCE_APP: false
     GUI_TP_AUTO_START_BW5CE_APP: false
+    GUI_TP_AUTO_START_SPRINGBOOT_APP: false
 
     # CP setup
     GUI_TP_AUTO_CP_INSTANCE_ID: "cp1"
@@ -68,6 +71,8 @@ meta:
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ""
+    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER: ""
+    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT: ""
     GUI_TP_AUTO_LOGIN_URL: ""
     GUI_TP_AUTO_MAIL_URL: ""
     GUI_TP_AUTO_ADMIN_URL: ""
@@ -83,15 +88,25 @@ meta:
     GUI_TP_AUTO_K8S_DP_NAME: "k8s-auto-dp1"
     GUI_TP_AUTO_K8S_DP_NAMESPACE: "k8s-auto-dp1ns"
     GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT: "k8s-auto-dp1sa"
+    GUI_TP_AUTO_INGRESS_OBJECT: "ingress" # set to "gateway" if using gateway
     GUI_TP_AUTO_INGRESS_CONTROLLER: "traefik"
     GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: "traefik"
     GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME: "traefik"
     GUI_TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE: "ingress-system"
     GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT: "443:websecure"
+    GUI_TP_AUTO_GATEWAY_NAME: "nginx-gateway"
+    GUI_TP_AUTO_GATEWAY_NAMESPACE: "ingress-system"
+    GUI_TP_AUTO_GATEWAY_SECTION_NAME: ""
     GUI_TP_AUTO_STORAGE_CLASS: "hostpath"
 
     # hybrid connectivity
     GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY: true
+    # No-tibtunnel reachability (only used when hybrid connectivity is disabled):
+    #   GUI_TP_AUTO_DP_MANAGE_REACHABILITY  - auto-create the reachability artifact after DP create (default true)
+    #   GUI_TP_AUTO_DP_APPLY_NETPOL_LABELS  - false = Option A (public cpdpproxy ingress); true = Option B (netpol labels + private svc URL)
+    #   GUI_TP_AUTO_REACHABLE_DP_URL/_BMDP_URL - optional explicit override; empty lets the automation pick the default for the chosen option
+    GUI_TP_AUTO_DP_MANAGE_REACHABILITY: true
+    GUI_TP_AUTO_DP_APPLY_NETPOL_LABELS: false
     GUI_TP_AUTO_REACHABLE_DP_URL: ""
     GUI_TP_AUTO_REACHABLE_BMDP_URL: ""
 
@@ -112,6 +127,8 @@ meta:
     GUI_TP_AUTO_FQDN_BW5CE: ""
     GUI_TP_AUTO_FQDN_FLOGO: ""
     GUI_TP_AUTO_FQDN_TIBCOHUB: ""
+    GUI_TP_AUTO_FQDN_K8S_MCP_SERVER: ""
+    GUI_TP_AUTO_FQDN_SPRINGBOOT: ""
     GUI_TP_AUTO_FQDN_BMDP: "bmdp.dummy.hostname"
 
     # BMDP setup
@@ -123,12 +140,7 @@ meta:
     GUI_TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME: "admin"
     GUI_TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD: ""
 
-    # TP activation server
-    GUI_TP_ACTIVATION_SERVER_CONFIG: false
-    GUI_TP_ACTIVATION_SERVER_IP: ""
-    GUI_TP_ACTIVATION_SERVER_PORT: "7070"
-    GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
-    GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
+    # TP activation license file
     GUI_TP_ACTIVATION_ZIP_FILE_BASE64: ""
 
     # self-signed certificate
@@ -171,12 +183,15 @@ meta:
     TP_AUTO_ENABLE_BWCE: ${GUI_TP_AUTO_ENABLE_BWCE:-true}
     TP_AUTO_ENABLE_BW5CE: ${GUI_TP_AUTO_ENABLE_BW5CE:-true}
     TP_AUTO_ENABLE_TIBCOHUB: ${GUI_TP_AUTO_ENABLE_TIBCOHUB:-true}
+    TP_AUTO_ENABLE_SB: ${GUI_TP_AUTO_ENABLE_SB:-false}
     TP_AUTO_ENABLE_EMS: ${GUI_TP_AUTO_ENABLE_EMS:-true}
     TP_AUTO_ENABLE_BMDP: ${GUI_TP_AUTO_ENABLE_BMDP:-false}
     TP_AUTO_IS_ENABLE_RVDM: ${GUI_TP_AUTO_IS_ENABLE_RVDM:-true}
     TP_AUTO_IS_ENABLE_EMSDM: ${GUI_TP_AUTO_IS_ENABLE_EMSDM:-true}
     TP_AUTO_IS_ENABLE_BW6DM: ${GUI_TP_AUTO_IS_ENABLE_BW6DM:-true}
-    TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-true}
+    TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-false}
+    TP_AUTO_ENABLE_K8S_MCP_SERVER: ${GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER:-false}
+    TP_AUTO_IS_PROVISION_K8S_MCP_SERVER: ${GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER:-false} # need this as global value
     TP_AI_ENABLE_MCP_HUB: ${GUI_TP_AI_ENABLE_MCP_HUB:-false}
     TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-false}
     TP_AUTO_USE_CLI: ${GUI_TP_AUTO_USE_CLI:-false}
@@ -185,6 +200,7 @@ meta:
     TP_AUTO_START_FLOGO_APP: ${GUI_TP_AUTO_START_FLOGO_APP:-true}
     TP_AUTO_START_BWCE_APP: ${GUI_TP_AUTO_START_BWCE_APP:-false}
     TP_AUTO_START_BW5CE_APP: ${GUI_TP_AUTO_START_BW5CE_APP:-false}
+    TP_AUTO_START_SPRINGBOOT_APP: ${GUI_TP_AUTO_START_SPRINGBOOT_APP:-false}
 
     # CP setup
     TP_AUTO_CP_INSTANCE_ID: ${GUI_TP_AUTO_CP_INSTANCE_ID:-"cp1"}
@@ -194,6 +210,8 @@ meta:
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE:-"bw5ce"}
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO:-"flogo"}
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB:-"tibcohub"}
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER:-"k8smcp"}
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT:-"springboot"}
     TP_AUTO_LOGIN_URL: ${GUI_TP_AUTO_LOGIN_URL:-""}
     TP_AUTO_MAIL_URL: ${GUI_TP_AUTO_MAIL_URL:-""}
     TP_AUTO_ADMIN_URL: ${GUI_TP_AUTO_ADMIN_URL:-""}
@@ -209,11 +227,16 @@ meta:
     TP_AUTO_K8S_DP_NAME: ${GUI_TP_AUTO_K8S_DP_NAME:-"k8s-auto-dp1"}
     TP_AUTO_K8S_DP_NAMESPACE: ${GUI_TP_AUTO_K8S_DP_NAMESPACE:-"k8s-auto-dp1ns"}
     TP_AUTO_K8S_DP_SERVICE_ACCOUNT: ${GUI_TP_AUTO_K8S_DP_SERVICE_ACCOUNT:-"k8s-auto-dp1sa"}
+    TP_AUTO_INGRESS_OBJECT: ${GUI_TP_AUTO_INGRESS_OBJECT:-"ingress"}
     TP_AUTO_INGRESS_CONTROLLER: ${GUI_TP_AUTO_INGRESS_CONTROLLER:-"traefik"}
     TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME: ${GUI_TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME:-"traefik"}
     TP_INGRESS_CONTROLLER_SERVICE_NAME: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAME:-"traefik"}
     TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE:-"ingress-system"}
     TP_INGRESS_CONTROLLER_SERVICE_PORT: ${GUI_TP_INGRESS_CONTROLLER_SERVICE_PORT:-"443:websecure"}
+    TP_AUTO_GATEWAY_CONTROLLER: ${GUI_TP_AUTO_INGRESS_CONTROLLER:-"traefik"}
+    TP_AUTO_GATEWAY_NAME: ${GUI_TP_AUTO_GATEWAY_NAME:-"nginx-gateway"}
+    TP_AUTO_GATEWAY_NAMESPACE: ${GUI_TP_AUTO_GATEWAY_NAMESPACE:-"ingress-system"}
+    TP_AUTO_GATEWAY_SECTION_NAME: ${GUI_TP_AUTO_GATEWAY_SECTION_NAME:-""}
     TP_AUTO_STORAGE_CLASS: ${GUI_TP_AUTO_STORAGE_CLASS:-"hostpath"}
 
     # network policies
@@ -238,6 +261,8 @@ meta:
     TP_AUTO_FQDN_BW5CE: ${GUI_TP_AUTO_FQDN_BW5CE:-""}
     TP_AUTO_FQDN_FLOGO: ${GUI_TP_AUTO_FQDN_FLOGO:-""}
     TP_AUTO_FQDN_TIBCOHUB: ${GUI_TP_AUTO_FQDN_TIBCOHUB:-""}
+    TP_AUTO_FQDN_K8S_MCP_SERVER: ${GUI_TP_AUTO_FQDN_K8S_MCP_SERVER:-""}
+    TP_AUTO_FQDN_SPRINGBOOT: ${GUI_TP_AUTO_FQDN_SPRINGBOOT:-""}
     TP_AUTO_FQDN_BMDP: ${GUI_TP_AUTO_FQDN_BMDP:-""}
 
     # BMDP setup
@@ -251,12 +276,7 @@ meta:
     TP_AUTO_K8S_BMDP_BW6DM: ${GUI_TP_AUTO_K8S_BMDP_BW6DM:-"bw6110"}
     TP_AUTO_K8S_BMDP_BW6DM_URL: ${GUI_TP_AUTO_K8S_BMDP_BW6DM_URL:-"http://bw6dm.bw5dm.svc:9091/bwta"}
 
-    # TP activation server
-    TP_ACTIVATION_SERVER_CONFIG: ${GUI_TP_ACTIVATION_SERVER_CONFIG:-true}
-    TP_ACTIVATION_SERVER_IP: ${GUI_TP_ACTIVATION_SERVER_IP:-""}
-    TP_ACTIVATION_SERVER_PORT: ${GUI_TP_ACTIVATION_SERVER_PORT:-"7070"}
-    TP_ACTIVATION_SERVER_CERT_HOSTNAME: ${GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME:-""}
-    TP_ACTIVATION_SERVER_FINGER_PRINT: ${GUI_TP_ACTIVATION_SERVER_FINGER_PRINT:-""}
+    # TP activation license file
     TP_ACTIVATION_ZIP_FILE_BASE64: ${GUI_TP_ACTIVATION_ZIP_FILE_BASE64:-""}
 
     # self-signed certificate
@@ -264,8 +284,12 @@ meta:
     
     # hybrid connectivity
     TP_AUTO_ENABLE_HYBRID_CONNECTIVITY: ${GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY:-true}
-    TP_AUTO_REACHABLE_DP_URL: ${GUI_TP_AUTO_REACHABLE_DP_URL:-"http://cpdpproxy.${TP_AUTO_K8S_DP_NAMESPACE}.svc.cluster.local"}
-    TP_AUTO_REACHABLE_BMDP_URL: ${GUI_TP_AUTO_REACHABLE_BMDP_URL:-"http://cpdpproxy.${TP_AUTO_K8S_BMDP_NAMESPACE}.svc.cluster.local"}
+    TP_AUTO_DP_MANAGE_REACHABILITY: ${GUI_TP_AUTO_DP_MANAGE_REACHABILITY:-true}
+    TP_AUTO_DP_APPLY_NETPOL_LABELS: ${GUI_TP_AUTO_DP_APPLY_NETPOL_LABELS:-false}
+    # Empty by default so the automation (utils/env.py) picks the option-appropriate default:
+    # Option A -> https://dp-<dpName>.<cpDnsDomain>; Option B -> http://cpdpproxy.<ns>.svc.cluster.local
+    TP_AUTO_REACHABLE_DP_URL: ${GUI_TP_AUTO_REACHABLE_DP_URL:-""}
+    TP_AUTO_REACHABLE_BMDP_URL: ${GUI_TP_AUTO_REACHABLE_BMDP_URL:-""}
 
     # flow control
     PYTHON_FILE_LOGIN_POINT: page_auth.py
@@ -274,6 +298,7 @@ meta:
     PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
     PYTHON_FILE_ENTRY_POINT_O11Y: page_o11y.py
     PYTHON_FILE_ENTRY_POINT_SETTING: page_setting.py
+    PYTHON_FILE_ENTRY_POINT_K8S_MCP_SERVER: case/k8s_provision_k8s_mcp_server.py
     PYTHON_FILE_ENTRY_POINT_MCP_HUB: case/k8s_deploy_mcp_hub.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
@@ -309,11 +334,20 @@ tasks:
         echo "Service ${TP_INGRESS_CONTROLLER_SERVICE_NAME} found in namespace ${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}"
       fi
       echo "starting port-forward..."
-      nohup setsid bash -c 'while true; do
-        kubectl port-forward -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" --address 0.0.0.0 service/"${TP_INGRESS_CONTROLLER_SERVICE_NAME}" "${TP_INGRESS_CONTROLLER_SERVICE_PORT}"
-        echo "kubectl port-forward crashed, restarting..."
-        sleep 5
-      done' &
+      if [ "${TP_AUTO_INGRESS_OBJECT}" = "gateway" ]; then
+        echo "Gateway mode: forwarding HTTPS (443)..."
+        nohup setsid bash -c 'while true; do
+          kubectl port-forward -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" --address 0.0.0.0 service/"${TP_INGRESS_CONTROLLER_SERVICE_NAME}" 443:443
+          echo "kubectl port-forward crashed, restarting..."
+          sleep 5
+        done' &
+      else
+        nohup setsid bash -c 'while true; do
+          kubectl port-forward -n "${TP_INGRESS_CONTROLLER_SERVICE_NAMESPACE}" --address 0.0.0.0 service/"${TP_INGRESS_CONTROLLER_SERVICE_NAME}" "${TP_INGRESS_CONTROLLER_SERVICE_PORT}"
+          echo "kubectl port-forward crashed, restarting..."
+          sleep 5
+        done' &
+      fi
 - condition: ${TP_AUTO_USE_GITHUB_SCRIPT}
   name: clone-github-script
   clusters:
@@ -379,11 +413,11 @@ tasks:
           echo "[WARN] No requirements.txt or pyproject.toml found, skipping pip install"
         fi
       fi
-- condition: ${TP_ACTIVATION_SERVER_CONFIG}
-  name: "activation-server-dns-config"
+- condition: true
+  name: "create-activation-file"
   script:
     content: |
-      # create the secret for activation file
+      # create the license file from the uploaded activation zip
       create_activation_file() {
 
         # get the base64 encoded activation zip file from env first
@@ -392,7 +426,7 @@ tasks:
             yq e '.meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64' /tmp/activation-zip-base64.yaml
           )"
         if [ -z "$ACTIVATION_ZIP_BASE64" ]; then
-          echo "❌ Activation zip file base64 content is empty. Will use Activation Server."
+          echo "❌ Activation zip file base64 content is empty. No license file will be created."
           return 0
         fi
         echo "$ACTIVATION_ZIP_BASE64" | base64 -d > /tmp/activation.zip
@@ -403,42 +437,6 @@ tasks:
       }
 
       create_activation_file
-
-      add_static_dns_record_to_coredns() {
-        local namespace="kube-system"
-        local configmap_name="coredns"
-        local new_record="${TP_ACTIVATION_SERVER_IP} ${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
-      
-        echo "🔍 Reading current NodeHosts from ConfigMap '$configmap_name' in namespace '$namespace'..."
-        local current_hosts
-        current_hosts=$(kubectl get configmap "$configmap_name" -n "$namespace" -o jsonpath='{.data.NodeHosts}')
-      
-        if echo "$current_hosts" | grep -Fxq "$new_record"; then
-          echo "✅ Record already exists: $new_record"
-          return 0
-        fi
-      
-        echo "➕ Appending new record: $new_record"
-        local updated_hosts="${current_hosts}"$'\n'"${new_record}"
-      
-        echo "📦 Patching ConfigMap..."
-        kubectl patch configmap "$configmap_name" -n "$namespace" --type merge \
-          --patch "$(cat <<EOF
-      data:
-        NodeHosts: |
-      $(echo "$updated_hosts" | sed 's/^/    /')
-      EOF
-      )"
-      
-        echo "✅ Record added successfully."
-      
-        echo "🔄 Restarting CoreDNS to apply changes..."
-        kubectl -n "$namespace" rollout restart deployment coredns
-      
-        echo "🎉 Done."
-      }
-      
-      add_static_dns_record_to_coredns
 - condition: ${TP_AUTO_ACTIVE_USER} # only create admin and subscription
   name: active-user
   clusters:
@@ -528,11 +526,14 @@ tasks:
       export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
       export TP_AUTO_IS_PROVISION_BW5CE=${TP_AUTO_ENABLE_BW5CE}
       export TP_AUTO_IS_PROVISION_TIBCOHUB=${TP_AUTO_ENABLE_TIBCOHUB}
+      export TP_AUTO_IS_PROVISION_SPRINGBOOT=${TP_AUTO_ENABLE_SB}
       export TP_AUTO_IS_PROVISION_EMS=${TP_AUTO_ENABLE_EMS}
+      export TP_AUTO_IS_PROVISION_K8S_MCP_SERVER=${TP_AUTO_ENABLE_K8S_MCP_SERVER}
       export TP_AUTO_IS_CREATE_BMDP=${TP_AUTO_ENABLE_BMDP}
       export TP_AUTO_START_FLOGO_APP=${TP_AUTO_START_FLOGO_APP}
       export TP_AUTO_START_BWCE_APP=${TP_AUTO_START_BWCE_APP}
       export TP_AUTO_START_BW5CE_APP=${TP_AUTO_START_BW5CE_APP}
+      export TP_AUTO_START_SPRINGBOOT_APP=${TP_AUTO_START_SPRINGBOOT_APP}
 
       echo "===== Task Name: cli-full-automation, Running file ${PYTHON_FILE_ENTRY_POINT_CLI} ====="
       if command -v uv >/dev/null 2>&1; then
@@ -579,32 +580,6 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${TP_ACTIVATION_SERVER_CONFIG}
-  name: "activation-server-config"
-  script:
-    content: |
-      # this is a long running activation server.
-      if kubectl get ns "${TP_AUTO_K8S_DP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${TP_ACTIVATION_SERVER_IP}" ]; then
-        kubectl apply -n ${TP_AUTO_K8S_DP_NAMESPACE} -f - <<EOF
-      kind: Service
-      apiVersion: v1
-      metadata:
-        name: tib-activate
-      spec:
-        clusterIP: None
-
-      ---
-      kind: Endpoints
-      apiVersion: v1
-      metadata:
-        name: tib-activate
-      subsets:
-        - addresses:
-            - ip: "${TP_ACTIVATION_SERVER_IP}"
-          ports:
-            - port: 7070
-      EOF
-      fi
 - condition: ${TP_AUTO_ENABLE_FLOGO} # only deploy flogo
   name: deploy-flogo
   clusters:
@@ -652,24 +627,6 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${TP_AUTO_ENABLE_FLOGO} # PCP-19289: shrink over-provisioned flogoprovisioner CPU in test/dev
-  name: lower-flogoprovisioner-resource
-  clusters:
-    - name: ${TP_CLUSTER_NAME}
-  script:
-    ignoreErrors: true
-    fileName: script.sh
-    content: |
-      if ! kubectl -n "${TP_AUTO_K8S_DP_NAMESPACE}" get deploy flogoprovisioner >/dev/null 2>&1; then
-        echo "WARNING: flogoprovisioner Deployment not found in ${TP_AUTO_K8S_DP_NAMESPACE}; skipping CPU patch (non-critical)"
-        exit 0
-      fi
-      echo "Patching ${TP_AUTO_K8S_DP_NAMESPACE}/flogoprovisioner: requests=cpu=500m,memory=1000Mi limits=cpu=1000m,memory=1500Mi"
-      kubectl set resources -n "${TP_AUTO_K8S_DP_NAMESPACE}" deployment/flogoprovisioner \
-        -c flogoprovisioner \
-        --requests=cpu=500m,memory=1000Mi \
-        --limits=cpu=1000m,memory=1500Mi
-      kubectl -n "${TP_AUTO_K8S_DP_NAMESPACE}" rollout status deployment/flogoprovisioner --timeout=180s
 - condition: ${TP_AUTO_ENABLE_BWCE} # only deploy bwce
   name: deploy-bwce
   clusters:
@@ -723,7 +680,14 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
-    retryCount: 10
+    # PCP-20110 (DC-2): fail fast. A deterministic selector-not-found (e.g. a UI selector
+    # drift like the one this ticket fixes) used to re-run the whole task 10x against the
+    # ~10h pipeline timeout. The runner retries on any non-zero exit (no per-exit-code
+    # classification), so retryCount is the only lever: 2 still absorbs a genuine transient
+    # (page-load / OAuth flake) while killing the 10x burn on a deterministic miss. Per-attempt
+    # cost is bounded by the page object's own DOM-visibility timeouts (this task deploys with
+    # skip_online_wait=True, so there is no 15-min wait-for-online inside an attempt).
+    retryCount: 2
     retryDelay: 10
     fileName: script.sh
     content: |
@@ -735,6 +699,50 @@ tasks:
         uv run --active python -m case.k8s_deploy_mcp_hub
       else
         python -m case.k8s_deploy_mcp_hub
+      fi
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
+- condition: ${TP_AUTO_ENABLE_K8S_MCP_SERVER} # only deploy Kubernetes MCP Server
+  name: deploy-k8s-mcp-server
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      export TP_AUTO_IS_PROVISION_K8S_MCP_SERVER=${TP_AUTO_ENABLE_K8S_MCP_SERVER}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="k8smcpserver"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        capability_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                    .capability[] | select(.name == env(capability))
+                  ] | any
+                   ' "$_report_file"
+            )"
+        if [[ "$capability_status" = "true" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+
+      echo "===== Task Name: deploy-k8s-mcp-server, Running file ${PYTHON_FILE_ENTRY_POINT_K8S_MCP_SERVER} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run --active python -m case.k8s_provision_k8s_mcp_server
+      else
+        python -m case.k8s_provision_k8s_mcp_server
       fi
       _result=$?
       echo "python return code: ${_result}"
@@ -874,6 +882,53 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
+- condition: ${TP_AUTO_ENABLE_SB} # only deploy springboot
+  name: deploy-sb
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      export TP_AUTO_IS_PROVISION_SPRINGBOOT=${TP_AUTO_ENABLE_SB}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="sb"
+      export app_name="sb-observability-metrics-app"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        app_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                   .capability[] | select(.name == env(capability)) |
+                   .app[]        | select(.name == env(app_name)) |
+                   .status
+                   ][0] // ""
+                   ' "$_report_file"
+            )"
+        if [[ -n "$app_status" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} -> ${app_name}.status: '${app_status}' already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          echo "_report_file: ${_report_file}"
+          cat "$_report_file"
+        fi
+      fi
+
+      echo "===== Task Name: deploy-sb, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
 - condition: ${TP_AUTO_ENABLE_BMDP} # only create BMDP
   name: create-bmdp
   clusters:
@@ -910,32 +965,6 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${TP_ACTIVATION_SERVER_CONFIG}
-  name: "activation-server-config"
-  script:
-    content: |
-      # this is a long running activation server.
-      if kubectl get ns "${TP_AUTO_K8S_BMDP_NAMESPACE}" >/dev/null 2>&1 && [ -n "${ACTIVATION_SERVER_IP}" ]; then
-        kubectl apply -n ${TP_AUTO_K8S_BMDP_NAMESPACE} -f - <<EOF
-      kind: Service
-      apiVersion: v1
-      metadata:
-        name: tib-activate
-      spec:
-        clusterIP: None
-
-      ---
-      kind: Endpoints
-      apiVersion: v1
-      metadata:
-        name: tib-activate
-      subsets:
-        - addresses:
-            - ip: "${ACTIVATION_SERVER_IP}"
-          ports:
-            - port: 7070
-      EOF
-      fi
 - condition: ${TP_AUTO_ENABLE_O11Y_WIDGET} # only initialize Observability widget
   name: add-card-to-o11y
   clusters:
@@ -952,10 +981,10 @@ tasks:
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
         k8s_o11y_widget_status="$(
-              yq e -r '[.dataPlane[] | select(.name == env(TP_AUTO_K8S_DP_NAME)).o11yWidget] // ""' "$_report_file"
+              yq e -r '.dataPlane[] | select(.name == env(TP_AUTO_K8S_DP_NAME)).o11yWidget // ""' "$_report_file"
             )"
         bmdp_o11y_widget_status="$(
-              yq e -r '[.dataPlane[] | select(.name == env(TP_AUTO_K8S_BMDP_NAME)).o11yWidget] // ""' "$_report_file"
+              yq e -r '.dataPlane[] | select(.name == env(TP_AUTO_K8S_BMDP_NAME)).o11yWidget // ""' "$_report_file"
             )"
         if [[ -n "$k8s_o11y_widget_status" || -n "$bmdp_o11y_widget_status" ]]; then
           echo "----------------------------------------------------------------"

@@ -376,7 +376,7 @@ options:
   values:
     - "ingress"
     - "gateway"
-  reference: "meta.guiEnv.GUI_CP_BOOTSTRAP_INGRESS_OBJECT"
+  reference: "meta.guiEnv.GUI_TP_INGRESS_OBJECT"
   description: "Enable to create ingress / http route object for router / hybrid-proxy"
 - name: "CP ingress use hostport"
   groupIndex: 6
@@ -585,6 +585,14 @@ options:
     The Graph skip sent folder. The default value is false.
 
 # group: 10 CP AI MCP Servers
+- name: "Enable AI Agent Config"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_ENABLE_AI_AGENT_CONFIG"
+  description: |
+    Enable/Disable AI Agent config on tp-cp-web-server. When enabled, the
+    tibco-cp-base chart renders AI_AGENT_CONFIG via cpwebserver.aiAgent.enabled.
 - name: "Enable CP MCP Server"
   groupIndex: 10
   type: boolean
@@ -709,6 +717,12 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_MCP_HUB"
   description: "Install platform MCP hub"
+- name: "Install Keycloak IdP"
+  groupIndex: 11
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_KEYCLOAK"
+  description: "Install Keycloak external IdP for MCP Hub inbound-VS OAuth (test envs only; default OFF)"
 - name: "Enable debug log"
   groupIndex: 11
   type: boolean

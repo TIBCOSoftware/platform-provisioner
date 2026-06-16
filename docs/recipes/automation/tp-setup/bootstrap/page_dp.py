@@ -26,6 +26,7 @@ from page_object.po_dp_ems import PageObjectDataPlaneEMS
 from page_object.po_dp_flogo import PageObjectDataPlaneFlogo
 from page_object.po_dp_pulsar import PageObjectDataPlanePulsar
 from page_object.po_dp_tibcohub import PageObjectDataPlaneTibcoHub
+from page_object.po_dp_springboot import PageObjectDataPlaneSpringBoot
 
 if __name__ == "__main__":
     ENV.pre_check()
@@ -52,30 +53,68 @@ if __name__ == "__main__":
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_config.goto_dataplane_config()
             po_dp_config.dp_config_resources_storage(ENV.TP_AUTO_K8S_DP_NAME)
-            if ENV.TP_AUTO_IS_PROVISION_FLOGO:
-                po_dp_config.dp_config_resources_ingress(
-                    ENV.TP_AUTO_K8S_DP_NAME,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
-                )
-            if ENV.TP_AUTO_IS_PROVISION_BWCE:
-                po_dp_config.dp_config_resources_ingress(
-                    ENV.TP_AUTO_K8S_DP_NAME,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_BWCE
-                )
-            if ENV.TP_AUTO_IS_PROVISION_BW5CE:
-                po_dp_config.dp_config_resources_ingress(
-                    ENV.TP_AUTO_K8S_DP_NAME,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_BW5CE
-                )
-            if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
-                po_dp_config.dp_config_resources_ingress(
-                    ENV.TP_AUTO_K8S_DP_NAME,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB,
-                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_TIBCOHUB
-                )
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                if ENV.TP_AUTO_IS_PROVISION_FLOGO:
+                    po_dp_config.dp_config_resources_gateway(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_FLOGO,
+                        ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_FLOGO
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_BWCE:
+                    po_dp_config.dp_config_resources_gateway(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_BWCE,
+                        ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_BWCE
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_BW5CE:
+                    po_dp_config.dp_config_resources_gateway(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_BW5CE,
+                        ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_BW5CE
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
+                    po_dp_config.dp_config_resources_gateway(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_TIBCOHUB,
+                        ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_TIBCOHUB
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_SPRINGBOOT:
+                    po_dp_config.dp_config_resources_gateway(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_SPRINGBOOT,
+                        ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_SPRINGBOOT
+                    )
+            else:
+                if ENV.TP_AUTO_IS_PROVISION_FLOGO:
+                    po_dp_config.dp_config_resources_ingress(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_BWCE:
+                    po_dp_config.dp_config_resources_ingress(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_BWCE
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_BW5CE:
+                    po_dp_config.dp_config_resources_ingress(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_BW5CE
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
+                    po_dp_config.dp_config_resources_ingress(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_TIBCOHUB
+                    )
+                if ENV.TP_AUTO_IS_PROVISION_SPRINGBOOT:
+                    po_dp_config.dp_config_resources_ingress(
+                        ENV.TP_AUTO_K8S_DP_NAME,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_SPRINGBOOT,
+                        ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_SPRINGBOOT
+                    )
             # Note: Will switch to global dataplane configuration, remove config dataplane level o11y
             # po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
             po_dp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_DP_NAME)
@@ -139,6 +178,21 @@ if __name__ == "__main__":
                 po_dp_tibcohub.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
                 po_dp_tibcohub.tibcohub_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
+
+            # for provision Spring Boot capability, connector, app, and start app
+            if ENV.TP_AUTO_IS_PROVISION_SPRINGBOOT:
+                po_dp_springboot = PageObjectDataPlaneSpringBoot(page)
+                po_dp_springboot.goto_left_navbar_dataplane()
+                po_dp_springboot.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+                po_dp_springboot.springboot_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+                po_dp_springboot.springboot_provision_connector(ENV.TP_AUTO_K8S_DP_NAME)
+                po_dp_springboot.springboot_app_build_and_deploy(ENV.TP_AUTO_K8S_DP_NAME)
+                po_dp_springboot.springboot_app_deploy(ENV.TP_AUTO_K8S_DP_NAME)
+
+                po_dp_springboot.springboot_app_config(ENV.TP_AUTO_K8S_DP_NAME)
+                if ENV.TP_AUTO_START_SPRINGBOOT_APP:
+                    po_dp_springboot.springboot_app_start(ENV.TP_AUTO_K8S_DP_NAME)
 
         po_dp.goto_left_navbar_dataplane()
         po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)

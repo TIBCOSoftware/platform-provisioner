@@ -25,7 +25,6 @@ from .dataplane import TibcopDataPlane
 from .resource import TibcopResource
 from .app import TibcopApp
 from .capability import TibcopCapability
-from .api import TibcopAPI
 from .bwce import TibcopBWCE
 from .flogo import TibcopFlogo
 from .bw5ce import TibcopBW5CE
@@ -38,7 +37,6 @@ __all__ = [
     'TibcopResource',
     'TibcopApp',
     'TibcopCapability',
-    'TibcopAPI',
     'TibcopBWCE',
     'TibcopFlogo',
     'TibcopBW5CE',
