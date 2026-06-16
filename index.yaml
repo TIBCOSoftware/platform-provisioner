@@ -581,6 +581,20 @@ entries:
   provisioner-config-local:
   - apiVersion: v2
     appVersion: 2.0.1
+    created: "2026-06-16T16:45:14.61448354Z"
+    description: Platform Provisioner local config
+    digest: 4353e624d07ebc6504aeb2ba73fc7ada9e4f270e3bcffdb835648c8d9d21c194
+    home: https://github.com/TIBCOSoftware/platform-provisioner
+    maintainers:
+    - email: cloud@tibco.com
+      name: TIBCO Cloud Dev Team
+    name: provisioner-config-local
+    type: application
+    urls:
+    - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.18.13/provisioner-config-local-1.18.13.tgz
+    version: 1.18.13
+  - apiVersion: v2
+    appVersion: 2.0.1
     created: "2026-05-14T15:47:47.711078514Z"
     description: Platform Provisioner local config
     digest: 1b9036ca9c7b512e03109b8f7c15f5cb072d7347e690e1f3c3c5024c05b846b0
@@ -1615,4 +1629,4 @@ entries:
     urls:
     - https://github.com/TIBCOSoftware/platform-provisioner/releases/download/provisioner-config-local-1.0.25/provisioner-config-local-1.0.25.tgz
     version: 1.0.25
-generated: "2026-05-14T15:47:47.711406793Z"
+generated: "2026-06-16T16:45:14.615212101Z"
