@@ -18,11 +18,15 @@
 # This script mirrors the workflow of page_dp.py but uses the tibcop CLI
 # for DP operations instead of GUI (Playwright) automation where possible.
 #
-# Steps that use GUI (Playwright): login, permissions, global O11Y config,
-#   BMDP domain configs (BW5 RVDM/EMSDM, BW6, EMS), O11Y switch-to-global
+# Steps that use GUI (Playwright): EMS capability provisioning
+#   (BMDP domain configs now use REST via _run_api_bmdp_config; app-level
+#    status verification is deferred — only registration-level "Connected"
+#    is recorded, pending ct-auth-token sourcing for the BW5 v1 API)
+# Steps that use REST API: OAuth token bootstrap (IAT -> client -> token),
+#   Global + DP-scoped O11Y resource creation, Global + DP activation file upload,
+#   BMDP domain/agent/EMS-server registration, app endpoint testing
 # Steps that use CLI (tibcop): DP registration, resource creation,
 #   capability provisioning, app build & deploy, BMDP registration
-# Steps that use REST API: app endpoint testing
 #
 # Usage:
 #   export TP_AUTO_USE_CLI=true
@@ -37,17 +41,23 @@
 import os
 import sys
 import threading
+import time
 import traceback
 
+from api_object import (
+    ApiAuth,
+    ApiUserPermission,
+    BmdpBw5Api,
+    BmdpBw6Api,
+    BmdpEmsApi,
+    ConsoleApiClient,
+    LicenseApi,
+    OllyApi,
+)
 from cli_object.facade import TibcopCLI
 from cli_object.orchestrator import THREAD_STAGGER_DELAY
 from page_object.po_auth import PageObjectAuth
-from page_object.po_bmdp_config import PageObjectBMDPConfiguration
-from page_object.po_dataplane import PageObjectDataPlane
-from page_object.po_dp_config import PageObjectDataPlaneConfiguration
 from page_object.po_dp_ems import PageObjectDataPlaneEMS
-from page_object.po_settings import PageObjectSettings
-from page_object.po_user_management import PageObjectUserManagement
 from utils.color_logger import ColorLogger
 from utils.env import ENV
 from utils.helper import Helper
@@ -58,88 +68,136 @@ from utils.util import Util
 # don't stomp on the shared browser/tracing/video state in Util.
 _gui_lock = threading.Lock()
 
+def _run_api_steps():
+    """Browser-free replacement for the old GUI bootstrap path.
 
-def _run_gui_steps(page):
-    """Run GUI-only steps: login, permissions, global O11Y config."""
-    # Step 1: User login and permissions
+    Assumes the CP subscription was provisioned via the api-samples flow
+    (`userRoles=["*"]`, `generateIAT=true`), so:
+      - No UI login needed (Bearer token replaces session cookie).
+      - No UI permission grant needed (`*` already grants all roles).
+
+    Steps:
+      1. OAuth token: IAT -> client -> token (api-samples steps 8-9).
+      2. Global O11Y resources via OllyApi (SUBSCRIPTION scope).
+      3. Global activation license file via LicenseApi (SUBSCRIPTION scope).
+         Activation server URL handled separately in run() via tibcop CLI.
+    """
     ColorLogger.info("=" * 60)
-    ColorLogger.info("CLI Mode - Step 1: User login & permissions (GUI)")
-    ColorLogger.info("=" * 60)
-
-    po_auth = PageObjectAuth(page)
-    po_auth.login()
-    po_auth.login_check()
-
-    po_user_management = PageObjectUserManagement(page)
-    po_user_management.set_user_permission()
-
-    # Step 2: Global O11Y config
-    ColorLogger.info("=" * 60)
-    ColorLogger.info("CLI Mode - Step 2: Global O11Y configuration (GUI)")
+    ColorLogger.info("CLI Mode - API bootstrap (no browser)")
     ColorLogger.info("=" * 60)
 
-    po_dp_config = PageObjectDataPlaneConfiguration(page)
-    po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_DP_NAME_GLOBAL)
-
-    # Configure Global activation (file upload or URL) via GUI
-    po_dp_config.o11y_config_activation(ENV.TP_AUTO_DP_NAME_GLOBAL)
-
-    # Step 3: Set OAuth token (if not already available)
+    # Step 1: OAuth token
     token = os.environ.get("TIBCOP_CLI_OAUTH_TOKEN") or Helper.get_auto_token()
     if not token:
-        ColorLogger.info("No OAuth token found, creating via GUI Settings...")
-        po_settings = PageObjectSettings(page)
-        po_settings.set_oauth_token()
+        ColorLogger.info("Step 1: No OAuth token cached — bootstrapping via IAT -> client -> token")
+        _bootstrap_oauth_token_via_iat()
+        token = Helper.get_auto_token()
+        if not token:
+            raise RuntimeError("Token bootstrap completed but auto-token secret read empty")
+    else:
+        ColorLogger.success("Step 1: OAuth token already available, skipping bootstrap")
 
-    # Step 4: DP-level O11Y config (switch to global + activation)
-    # This must happen via GUI after the DP is created by CLI.
-    # Since the DP may not exist yet at this point (CLI creates it later),
-    # we return the page objects needed for post-DP O11Y config.
-    po_auth.logout()
+    # Step 2: Global O11Y resources
+    if not ENV.TP_AUTO_IS_CONFIG_O11Y:
+        ColorLogger.info("Step 2/3: TP_AUTO_IS_CONFIG_O11Y=false, skipping Global O11Y + activation")
+        return
+
+    cp_url = os.environ.get("TIBCOP_CLI_CPURL", "").rstrip("/") or (ApiAuth.get_subscription_url() or "").rstrip("/")
+    if not cp_url:
+        raise RuntimeError("TIBCOP_CLI_CPURL or cp-iat subscription-url required for API-based O11Y config")
+
+    client = ConsoleApiClient(cp_url, token)
+    ColorLogger.info("Step 2: Creating Global O11Y resources via API")
+    OllyApi(client).create_o11y_resources("global")
+    ReportYaml.set_dataplane(ENV.TP_AUTO_DP_NAME_GLOBAL)
+    ReportYaml.set_dataplane_info(ENV.TP_AUTO_DP_NAME_GLOBAL, "o11yConfig", True)
+
+    # Step 3: Global activation license file (optional)
+    license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
+    if license_path and os.path.isfile(license_path):
+        ColorLogger.info(f"Step 3: Uploading Global activation file via API: {license_path}")
+        result = LicenseApi(cp_url, token).upload_license_file(license_path, dp_id=None)
+        if result:
+            ReportYaml.set_dataplane_info(ENV.TP_AUTO_DP_NAME_GLOBAL, "activation", "uploaded")
+            ColorLogger.success("Step 3: Global activation file uploaded")
+        else:
+            ColorLogger.warning("Step 3: Global activation file upload failed")
+    else:
+        ColorLogger.info(f"Step 3: license file not found at {license_path}, skipping license file upload")
 
 
-def _run_gui_dp_o11y(dp_name):
-    """Run GUI-based DP-level O11Y configuration after DP is created via CLI.
+def _bootstrap_oauth_token_via_iat():
+    """Back-compat wrapper around ApiAuth.bootstrap_tenant_token()."""
+    ApiAuth.bootstrap_tenant_token()
 
-    Opens a new browser session to configure O11Y switch-to-global and activation
-    on the DataPlane. This is required because there is no CLI equivalent for
-    O11Y configuration.
 
-    Acquires _gui_lock to prevent concurrent browser sessions.
+def _run_dp_o11y(cli, dp_name):
+    """DP-level O11Y configuration after DP is created via CLI.
+
+    Two API calls (no GUI needed):
+      1. O11Y resources: POST /cp/api/v1/data-planes/{dpId}/resources/instances/{type}
+      2. Activation file: PUT /cp/api/v1/data-planes/{dpId}/license
     """
     if not ENV.TP_AUTO_IS_CONFIG_O11Y:
         ColorLogger.info("TP_AUTO_IS_CONFIG_O11Y is false, skipping DP-level O11Y config")
         return
 
-    # Check report: skip if switchGlobal and activation already configured
-    switch_global = ReportYaml.get_dataplane_info(dp_name, "switchGlobal")
     activation = ReportYaml.get_dataplane_info(dp_name, "activation")
-    if str(switch_global).lower() == "true" and activation:
-        ColorLogger.success(f"DP '{dp_name}' O11Y already configured (from report: switchGlobal={switch_global}, activation={activation}), skipping")
+    o11y_done = ReportYaml.get_dataplane_info(dp_name, "o11yResources")
+    if str(o11y_done).lower() == "true" and activation:
+        ColorLogger.success(f"DP '{dp_name}' O11Y already configured (report: o11yResources={o11y_done}, activation={activation}), skipping")
         return
 
-    with _gui_lock:
-        ColorLogger.info("=" * 60)
-        ColorLogger.info(f"CLI Mode - DP O11Y configuration for '{dp_name}' (GUI)")
-        ColorLogger.info("=" * 60)
+    ColorLogger.info("=" * 60)
+    ColorLogger.info(f"CLI Mode - DP O11Y resources for '{dp_name}' (REST via cli.resource)")
+    ColorLogger.info("=" * 60)
+    try:
+        report_lock = getattr(getattr(cli, "orchestrator", None), "report_lock", None)
+        if cli.resource.create_o11y_resources(dp_name) is None:
+            raise RuntimeError("create_o11y_resources returned None")
+        if report_lock:
+            with report_lock:
+                ReportYaml.set_dataplane_info(dp_name, "o11yResources", True)
+        else:
+            ReportYaml.set_dataplane_info(dp_name, "o11yResources", True)
+    except Exception as e:
+        ColorLogger.error(f"DP-level O11Y resource create failed: {e}")
+        traceback.print_exc()
+        return
 
-        page = Util.browser_launch()
+    # Upload activation file via REST API (if available)
+    license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
+    if license_path and os.path.isfile(license_path):
+        ColorLogger.info("=" * 60)
+        ColorLogger.info(f"CLI Mode - DP activation file upload for '{dp_name}' (REST API)")
+        ColorLogger.info("=" * 60)
         try:
-            po_auth = PageObjectAuth(page)
-            po_auth.login()
-            po_auth.login_check()
-
-            po_dp_config = PageObjectDataPlaneConfiguration(page)
-            po_dp_config.o11y_config_switch_to_global(dp_name)
-            po_dp_config.o11y_config_activation(dp_name)
-
-            po_auth.logout()
-            ColorLogger.success(f"DP-level O11Y configured for '{dp_name}'")
+            # Resolve DP ID for the upload endpoint
+            dp_id = cli.dataplane.get_dataplane_id(dp_name)
+            if not dp_id:
+                ColorLogger.warning(f"Could not resolve DP ID for '{dp_name}', skipping activation file upload")
+            else:
+                # Build CP URL and token from CLI environment
+                cp_url = (getattr(cli.base, "CUSTOM_ENV", {}) or {}).get("TIBCOP_CLI_CPURL") or os.environ.get("TIBCOP_CLI_CPURL", "").rstrip("/")
+                token = (getattr(cli.base, "CUSTOM_ENV", {}) or {}).get("TIBCOP_CLI_OAUTH_TOKEN") or os.environ.get("TIBCOP_CLI_OAUTH_TOKEN", "") or Helper.get_auto_token()
+                if not (cp_url and token):
+                    ColorLogger.warning("CP URL or token missing, skipping activation file upload")
+                else:
+                    result = LicenseApi(cp_url, token).upload_license_file(license_path, dp_id)
+                    if result:
+                        if report_lock:
+                            with report_lock:
+                                ReportYaml.set_dataplane_info(dp_name, "activation", "uploaded")
+                        else:
+                            ReportYaml.set_dataplane_info(dp_name, "activation", "uploaded")
+                        ColorLogger.success(f"DP-level O11Y activation configured for '{dp_name}'")
+                    else:
+                        ColorLogger.warning(f"License file upload failed for '{dp_name}'")
         except Exception as e:
-            ColorLogger.error(f"DP-level O11Y config failed: {e}")
+            ColorLogger.error(f"DP-level O11Y activation upload failed: {e}")
             traceback.print_exc()
-        finally:
-            Util.browser_close()
+    else:
+        ColorLogger.info(f"license file not found at {license_path}, skipping DP activation file upload")
 
 
 def _run_gui_ems_provision(dp_name):
@@ -176,86 +234,144 @@ def _run_gui_ems_provision(dp_name):
             Util.browser_close()
 
 
-def _run_gui_bmdp_config(bmdp_name):
-    """Run GUI-based BMDP domain configuration after BMDP is created via CLI.
+def _run_api_bmdp_config(bmdp_name, report_lock):
+    """API-based BMDP configuration. Sequential, browser-free.
 
-    Opens a new browser session to configure:
-    - BW5 RV Domain Manager (RVDM)
-    - EMS Server registration
-    - BW5 EMS Domain Manager (EMSDM)
-    - BW6 Domain Manager
-    - O11Y switch-to-global
-    These operations have no CLI equivalent.
+    Writes domain-/server-level ReportYaml entries (`capability` +
+    `capability_info` with value "Connected") only when the underlying API
+    confirms registration succeeded (HAWKDOMAIN status == "REGISTERED" or
+    MSGSERVER successfully created). Does NOT write app-level
+    `set_capability_app_info("Status", "Running")` — that requires the BW5
+    v1 API (ct-auth-token), which is not yet accessible outside the browser.
 
-    Acquires _gui_lock to prevent concurrent browser sessions.
+    `report_lock` serializes ReportYaml writes against concurrent DP-thread
+    writes; reuse `cli.orchestrator.report_lock`.
     """
-    with _gui_lock:
-        ColorLogger.info("=" * 60)
-        ColorLogger.info(f"CLI Mode - BMDP domain configuration for '{bmdp_name}' (GUI)")
-        ColorLogger.info("=" * 60)
+    ColorLogger.info("=" * 60)
+    ColorLogger.info(f"CLI Mode - BMDP API configuration for '{bmdp_name}' (no browser)")
+    ColorLogger.info("=" * 60)
 
-        page = Util.browser_launch()
+    client = ConsoleApiClient.from_auto_token()
+    dp_id = client.resolve_dataplane_id(bmdp_name)
+    bw5 = BmdpBw5Api(client)
+    bw6 = BmdpBw6Api(client)
+    ems = BmdpEmsApi(client)
+
+    # ReportYaml capability/info writers require the dataplane entry to exist;
+    # set_dataplane is idempotent. Orchestrator flow already calls this before
+    # invoking us, but standalone callers may not — be defensive.
+    with report_lock:
+        ReportYaml.set_dataplane(bmdp_name)
+
+    # Grant the user Product Permission via API (replaces the GUI "Assign
+    # Permissions" wizard). Without it the product cards are disabled and the
+    # capability/domain config below is rejected. BW5 and BW6 are the products
+    # gated behind product permission (see po_bmdp_config.goto_products); EMS
+    # server registration is not. Idempotent — a present grant is left as-is.
+    perm = ApiUserPermission(client)
+    if ENV.TP_AUTO_IS_ENABLE_RVDM or ENV.TP_AUTO_IS_ENABLE_EMSDM:
+        perm.grant_product_permission(bmdp_name, "BW5")
+    if ENV.TP_AUTO_IS_ENABLE_BW6DM:
+        perm.grant_product_permission(bmdp_name, "BW6")
+
+    def _hawkdomain_registered(name):
+        d = bw5.find_domain(dp_id, name)
+        if not d:
+            return False
+        meta = d.get("resource_instance_metadata") or {}
+        domains = meta.get("domains") or [{}]
+        return (domains[0] or {}).get("status") == "REGISTERED"
+
+    # --- BW5 RVDM ---
+    if ENV.TP_AUTO_IS_ENABLE_RVDM:
         try:
-            po_auth = PageObjectAuth(page)
-            po_auth.login()
-            po_auth.login_check()
-
-            po_dp = PageObjectDataPlane(page)
-            po_bmdp_config = PageObjectBMDPConfiguration(page)
-
-            # BW5 RVDM config
-            if ENV.TP_AUTO_IS_ENABLE_RVDM and not po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, ENV.TP_AUTO_BW5_APP_NAME):
-                po_dp.goto_dataplane(bmdp_name)
-                po_bmdp_config.goto_dataplane_config()
-                if po_bmdp_config.dp_config_bw5_rvdm(ENV.TP_AUTO_K8S_BMDP_BW5_RVDM):
-                    po_dp.goto_dataplane(bmdp_name)
-                    if po_bmdp_config.goto_products("BW5"):
-                        po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, ENV.TP_AUTO_BW5_APP_NAME)
-
-            # EMS Server config
-            if ENV.TP_AUTO_IS_ENABLE_EMSDM and not po_bmdp_config.is_ems_server_connected(ENV.TP_BMDP_IMAGE_TAG_EMS):
-                po_dp.goto_dataplane(bmdp_name)
-                po_bmdp_config.goto_dataplane_config()
-                po_bmdp_config.dp_config_ems(ENV.TP_BMDP_IMAGE_TAG_EMS)
-
-            # BW5 EMSDM config
-            if ENV.TP_AUTO_IS_ENABLE_EMSDM and not po_bmdp_config.is_app_running("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, ENV.TP_AUTO_BW5_APP_NAME):
-                po_dp.goto_dataplane(bmdp_name)
-                po_bmdp_config.goto_dataplane_config()
-                if po_bmdp_config.dp_config_bw5_emsdm(ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM):
-                    po_dp.goto_dataplane(bmdp_name)
-                    if po_bmdp_config.goto_products("BW5"):
-                        po_bmdp_config.check_bmdp_app_status_by_app_name("BW5", ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, ENV.TP_AUTO_BW5_APP_NAME)
-
-            # BW6 Domain config
-            if ENV.TP_AUTO_IS_ENABLE_BW6DM and not po_bmdp_config.is_app_running("BW6", ENV.TP_AUTO_K8S_BMDP_BW6DM, "mySleep.application"):
-                po_dp.goto_dataplane(bmdp_name)
-                po_bmdp_config.goto_dataplane_config()
-                if po_bmdp_config.dp_config_bw6(ENV.TP_AUTO_K8S_BMDP_BW6DM):
-                    po_dp.goto_dataplane(bmdp_name)
-                    if po_bmdp_config.goto_products("BW6"):
-                        po_bmdp_config.check_bmdp_app_status_by_app_name("BW6", ENV.TP_AUTO_K8S_BMDP_BW6DM, "mySleep.application")
-
-            # O11Y switch to global + activation
-            if ENV.TP_AUTO_IS_CONFIG_O11Y:
-                po_dp.goto_dataplane(bmdp_name)
-                po_bmdp_config.goto_dataplane_config()
-                po_bmdp_config.o11y_config_switch_to_global(bmdp_name)
-
-                po_dp_config = PageObjectDataPlaneConfiguration(page)
-                
-
-            # Take screenshot and logout
-            po_dp.goto_left_navbar_dataplane()
-            po_dp.goto_dataplane(bmdp_name)
-            Util.screenshot_page(page, f"success-{bmdp_name}.png")
-            po_auth.logout()
-            ColorLogger.success(f"BMDP domain configuration completed for '{bmdp_name}'")
+            bw5.add_rv_domain(
+                dp_id, ENV.TP_AUTO_K8S_BMDP_BW5_RVDM,
+                ENV.TP_AUTO_K8S_BMDP_BW5_RVDM_RV_SERVICE,
+                ENV.TP_AUTO_K8S_BMDP_BW5_RVDM_RV_NETWORK,
+                ENV.TP_AUTO_K8S_BMDP_BW5_RVDM_RV_DAEMON,
+            )
+            if _hawkdomain_registered(ENV.TP_AUTO_K8S_BMDP_BW5_RVDM):
+                with report_lock:
+                    ReportYaml.set_capability(bmdp_name, "BW5")
+                    ReportYaml.set_capability_info(bmdp_name, "BW5",
+                        ENV.TP_AUTO_K8S_BMDP_BW5_RVDM, "Connected")
         except Exception as e:
-            ColorLogger.error(f"BMDP domain configuration failed: {e}")
+            ColorLogger.error(f"BW5 RVDM registration failed: {e}")
             traceback.print_exc()
-        finally:
-            Util.browser_close()
+
+    # --- EMS Server + BW5 EMSDM ---
+    if ENV.TP_AUTO_IS_ENABLE_EMSDM:
+        try:
+            ems.register_ems(
+                dp_id, ENV.TP_BMDP_IMAGE_TAG_EMS,
+                ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL,
+                ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL,
+                ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME,
+                ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD,
+            )
+            with report_lock:
+                ReportYaml.set_capability(bmdp_name, "EMSServer")
+                ReportYaml.set_capability_info(bmdp_name, "EMSServer",
+                    ENV.TP_BMDP_IMAGE_TAG_EMS, "Connected")
+        except Exception as e:
+            ColorLogger.error(f"EMS Server registration failed: {e}")
+            traceback.print_exc()
+
+        try:
+            bw5.add_ems_domain(
+                dp_id, ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM,
+                ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL,
+                ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME,
+                ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD,
+            )
+            if _hawkdomain_registered(ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM):
+                with report_lock:
+                    ReportYaml.set_capability(bmdp_name, "BW5")
+                    ReportYaml.set_capability_info(bmdp_name, "BW5",
+                        ENV.TP_AUTO_K8S_BMDP_BW5_EMSDM, "Connected")
+        except Exception as e:
+            ColorLogger.error(f"BW5 EMSDM registration failed: {e}")
+            traceback.print_exc()
+
+    # --- BW6 Agent ---
+    if ENV.TP_AUTO_IS_ENABLE_BW6DM:
+        try:
+            bw6.add_agent(
+                dp_id, ENV.TP_AUTO_K8S_BMDP_BW6DM,
+                ENV.TP_AUTO_K8S_BMDP_BW6DM_URL,
+            )
+            with report_lock:
+                ReportYaml.set_capability(bmdp_name, "BW6")
+                ReportYaml.set_capability_info(bmdp_name, "BW6",
+                    ENV.TP_AUTO_K8S_BMDP_BW6DM, "Connected")
+        except Exception as e:
+            ColorLogger.error(f"BW6 Agent registration failed: {e}")
+            traceback.print_exc()
+
+    # --- O11Y — mirror DP: dataplane-scope create + activation upload ---
+    if ENV.TP_AUTO_IS_CONFIG_O11Y:
+        try:
+            OllyApi(client).create_o11y_resources(bmdp_name)
+            with report_lock:
+                ReportYaml.set_dataplane_info(bmdp_name, "o11yResources", True)
+
+            license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
+            if license_path and os.path.isfile(license_path):
+                token = Helper.get_auto_token()
+                if LicenseApi(client.base_url, token).upload_license_file(license_path, dp_id):
+                    with report_lock:
+                        ReportYaml.set_dataplane_info(bmdp_name, "activation", "uploaded")
+                    ColorLogger.success(f"BMDP activation file uploaded for '{bmdp_name}'")
+                else:
+                    ColorLogger.warning(f"License file upload failed for '{bmdp_name}'")
+            else:
+                ColorLogger.info(f"License file not found at {license_path}, skipping BMDP activation upload")
+        except Exception as e:
+            ColorLogger.error(f"BMDP O11Y configuration failed: {e}")
+            traceback.print_exc()
+
+    ColorLogger.success(f"BMDP API configuration completed for '{bmdp_name}'")
 
 
 def _run_dp_setup(cli, errors):
@@ -264,7 +380,7 @@ def _run_dp_setup(cli, errors):
         cli.orchestrator.run_dataplane_setup(
             ENV.TP_AUTO_K8S_DP_NAME,
             ENV.TP_AUTO_K8S_DP_NAMESPACE,
-            on_o11y_needed=_run_gui_dp_o11y,
+            on_o11y_needed=lambda dp: _run_dp_o11y(cli, dp),
             on_ems_needed=_run_gui_ems_provision
         )
     except Exception as e:
@@ -281,7 +397,8 @@ def _run_bmdp_setup(cli, errors):
             ENV.TP_AUTO_K8S_BMDP_NAMESPACE,
             ENV.TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT,
             ENV.TP_AUTO_FQDN_BMDP,
-            on_config_needed=_run_gui_bmdp_config
+            on_config_needed=lambda name: _run_api_bmdp_config(
+                name, cli.orchestrator.report_lock),
         )
     except Exception as e:
         ColorLogger.error(f"[BMDP] Setup failed: {e}")
@@ -300,21 +417,13 @@ def run():
     # Write CP environment info to report
     Util.set_cp_env()
 
-    # Phase 1: GUI steps (login, permissions, O11Y)
-    page = None
+    # Phase 1: API bootstrap (no browser; permissions baked into subscription via userRoles=["*"])
     try:
-        page = Util.browser_launch()
-        _run_gui_steps(page)
+        _run_api_steps()
     except Exception as e:
-        ColorLogger.error(f"GUI steps failed: {e}")
+        ColorLogger.error(f"API bootstrap failed: {e}")
         traceback.print_exc()
         return
-    finally:
-        # Always close browser - no longer needed for CLI steps
-        if page:
-            ColorLogger.info("Closing browser - remaining steps use CLI")
-            Util.browser_close()
-            page = None
 
     # Phase 2: CLI steps
     cli = TibcopCLI.from_env()
@@ -354,7 +463,6 @@ def run():
     for i, t in enumerate(threads):
         t.start()
         if i < len(threads) - 1:
-            import time
             time.sleep(THREAD_STAGGER_DELAY)
     for t in threads:
         t.join()

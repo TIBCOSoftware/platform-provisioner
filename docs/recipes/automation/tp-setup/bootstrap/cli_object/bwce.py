@@ -38,18 +38,18 @@ class TibcopBWCE:
     Provides methods for BWCE application lifecycle management.
     """
 
-    def __init__(self, base: TibcopBase, api=None, capability=None, app=None):
+    def __init__(self, base: TibcopBase, version_api=None, capability=None, app=None):
         """
         Initialize BWCE handler.
 
         Args:
             base: TibcopBase instance for command execution
-            api: TibcopAPI instance for REST API operations (optional)
+            version_api: CapabilityVersionApi instance (optional)
             capability: TibcopCapability instance for capability operations (optional)
             app: TibcopApp instance for app operations (optional)
         """
         self.base = base
-        self.api = api
+        self.version_api = version_api
         self.capability = capability
         self.app = app
 
@@ -71,8 +71,8 @@ class TibcopBWCE:
         # 1. Get BWCE version from Control Plane (select last version)
         ColorLogger.info("1. Getting BWCE version from Control Plane...")
         cp_version = None
-        if self.api:
-            cp_version = self.api.get_capability_version_from_cp_api('BWCE', dp_name, select_last=True)
+        if self.version_api:
+            cp_version = self.version_api.get_capability_version('BWCE', dp_name, select_last=True)
 
         if cp_version:
             print()
@@ -315,8 +315,8 @@ class TibcopBWCE:
         # Step 1: Get version from CP (select last version)
         ColorLogger.info("Step 1/5: Getting BWCE version from CP...")
         bwce_version = None
-        if self.api:
-            bwce_version = self.api.get_capability_version_from_cp_api('BWCE', dp_name, select_last=True)
+        if self.version_api:
+            bwce_version = self.version_api.get_capability_version('BWCE', dp_name, select_last=True)
 
         if not bwce_version:
             ColorLogger.error("Failed to get BWCE version")

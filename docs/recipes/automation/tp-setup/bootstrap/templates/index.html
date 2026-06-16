@@ -152,11 +152,14 @@
                       <option value="provision_ems">Provision EMS</option>
                       <option value="provision_flogo">Provision Flogo</option>
                       <option value="provision_tibcohub">Provision Hub</option>
+                      <option value="provision_k8s_mcp_server">Provision Kubernetes MCP Server</option>
+                      <option value="provision_springboot">Provision Spring Boot</option>
                     </optgroup>
                     <optgroup label="Create And Start app">
                       <option value="case.k8s_create_and_start_bwce_app">Create And Start BW6(BWCE) App (Include set endpoint to public and Test swagger API)</option>
                       <option value="case.k8s_create_and_start_bw5ce_app">Create And Start BW5(BW5CE) App (Include set endpoint to public and Test swagger API)</option>
                       <option value="case.k8s_create_and_start_flogo_app">Create And Start Flogo App (Include set endpoint to public and Test swagger API)</option>
+                      <option value="case.k8s_create_and_start_springboot_app">Create And Start Spring Boot App (Include set endpoint to public)</option>
                     </optgroup>
                     <optgroup label="MCP Hub">
                       <option value="case.k8s_deploy_mcp_hub">Deploy MCP Gateway (Deploy gateway, add MCP server, push, verify tools)</option>
@@ -165,6 +168,7 @@
                       <option value="delete_bwce_app">Delete BW6(BWCE) App</option>
                       <option value="delete_bw5ce_app">Delete BW5(BW5CE) App</option>
                       <option value="delete_flogo_app">Delete Flogo App</option>
+                      <option value="delete_springboot_app">Delete Spring Boot App</option>
                     </optgroup>
                     <optgroup label="DataPlane(Control Tower)">
                       <option value="case.bmdp_create_dp">Create Control Tower Data Plane (Include run helm command)</option>
@@ -183,8 +187,8 @@
                   <label>App File<span>(Optional)</span></label>
                 </div>
                 <div class="col-sm-7">
-                  <input type="file" id="app_file" accept=".ear,.json,.flogo"
-                    title="Will use the default Flogo(.json, .flogo) or BWCE(*.ear) file if no file is chosen." />
+                  <input type="file" id="app_file" accept=".ear,.json,.flogo,.jar"
+                    title="Will use the default Flogo(.json, .flogo), BWCE(*.ear), or SpringBoot(*.jar) file if no file is chosen." />
                 </div>
                 <div class="col-sm-2"></div>
               </div>
@@ -209,29 +213,35 @@
                 <div class="col-sm-9"><input type="text" id="FLOGO_APP_NAME"></div>
               </div>
 
+              <div class="row SPRINGBOOT_APP_NAME">
+                <div class="col-sm-3"><label for="SPRINGBOOT_APP_NAME">Spring Boot app name</label></div>
+                <div class="col-sm-9"><input type="text" id="SPRINGBOOT_APP_NAME"></div>
+              </div>
+
               <div class="row GITHUB_TOKEN">
                 <div class="col-sm-3"><label for="GITHUB_TOKEN">GitHub Token<span class="required">(*Required)</span></label></div>
                 <div class="col-sm-9"><input type="text" id="GITHUB_TOKEN"></div>
               </div>
 
-              <div class="row TP_ACTIVATION_SERVER_IP">
-                <div class="col-sm-3"><label for="TP_ACTIVATION_SERVER_IP">Activation Server IP<span class="required">(*Required)</span></label></div>
-                <div class="col-sm-9"><input type="text" id="TP_ACTIVATION_SERVER_IP"></div>
+              <div class="row TP_BW5_CHART_REPO_USER_NAME">
+                <div class="col-sm-3"><label for="TP_BW5_CHART_REPO_USER_NAME">JFrog User<span class="required">(*Required)</span></label></div>
+                <div class="col-sm-9"><input type="text" id="TP_BW5_CHART_REPO_USER_NAME"
+                    placeholder="JFrog user for Helm chart + container registry pull"></div>
               </div>
 
-              <div class="row TP_ACTIVATION_SERVER_PORT">
-                <div class="col-sm-3"><label for="TP_ACTIVATION_SERVER_PORT">Activation Server Port<span class="required">(*Required)</span></label></div>
-                <div class="col-sm-9"><input type="text" id="TP_ACTIVATION_SERVER_PORT"></div>
+              <div class="row TP_BW5_JFROG_TOKEN">
+                <div class="col-sm-3"><label for="TP_BW5_JFROG_TOKEN">JFrog Token<span class="required">(*Required)</span></label></div>
+                <div class="col-sm-9"><input type="text" id="TP_BW5_JFROG_TOKEN"
+                    placeholder="JFrog token used for both Helm chart pull and container registry pull"></div>
               </div>
 
-              <div class="row TP_ACTIVATION_SERVER_CERT_HOSTNAME">
-                <div class="col-sm-3"><label for="TP_ACTIVATION_SERVER_CERT_HOSTNAME">Activation Server Cert Hostname<span class="required">(*Required)</span></label></div>
-                <div class="col-sm-9"><input type="text" id="TP_ACTIVATION_SERVER_CERT_HOSTNAME"></div>
-              </div>
-
-              <div class="row TP_ACTIVATION_SERVER_FINGER_PRINT">
-                <div class="col-sm-3"><label for="TP_ACTIVATION_SERVER_FINGER_PRINT">Activation Server Fingerprint<span class="required">(*Required)</span></label></div>
-                <div class="col-sm-9"><input type="text" id="TP_ACTIVATION_SERVER_FINGER_PRINT"></div>
+              <div class="row TP_ACTIVATION_ZIP_FILE">
+                <div class="col-sm-3"><label for="TP_ACTIVATION_ZIP_FILE">Activation License File(in .zip)<span class="required">(*Required)</span></label></div>
+                <div class="col-sm-7">
+                  <input type="file" id="TP_ACTIVATION_ZIP_FILE" accept=".zip"
+                    title="Upload the activation license .zip (containing the .bin license). Leave empty to deploy without a license." />
+                </div>
+                <div class="col-sm-2"></div>
               </div>
 
               <div class="row TP_BMDP_IMAGE_TAG_EMS">
@@ -354,13 +364,6 @@
                 </div>
               </div>
 
-              <div class="row TIBCOP_CLI_ACTIVATION_SERVER_URL" style="display: none;">
-                <div class="col-sm-3"><label for="TIBCOP_CLI_ACTIVATION_SERVER_URL">Activation Server URL (Optional)</label></div>
-                <div class="col-sm-9">
-                  <input type="text" id="TIBCOP_CLI_ACTIVATION_SERVER_URL" placeholder="Leave empty to use ENV variables (TP_ACTIVATION_SERVER_*)">
-                </div>
-              </div>
-
               <div class="row TIBCOP_CLI_INGRESS_CONTROLLER" style="display: none;">
                 <div class="col-sm-3"><label for="TIBCOP_CLI_INGRESS_CONTROLLER">Ingress Controller</label></div>
                 <div class="col-sm-9">
@@ -396,7 +399,7 @@
                   <div class="file-upload-wrapper">
                     <input type="text" id="TIBCOP_CLI_EAR_FILE_PATH" value="" readonly class="file-upload-display" placeholder="Leave empty to use default">
                     <label for="TIBCOP_CLI_EAR_FILE_UPLOAD" class="file-upload-button">Browse...</label>
-                    <input type="file" id="TIBCOP_CLI_EAR_FILE_UPLOAD" accept=".ear,.json,.flogo" class="file-upload-input">
+                    <input type="file" id="TIBCOP_CLI_EAR_FILE_UPLOAD" accept=".ear,.json,.flogo,.jar" class="file-upload-input">
                   </div>
                   <small style="display: block; color: #666; margin-top: 5px;" id="TIBCOP_CLI_EAR_FILE_DEFAULT_HINT">Upload a file or leave empty to use default</small>
                   <!-- Note for build-and-deploy operations -->
@@ -471,7 +474,7 @@
                       <option value="tplatform:list-resource-instances">tplatform:list-resource-instances</option>
                       <option value="create-storage-resource">create-storage-resource</option>
                       <option value="create-ingress-resource">create-ingress-resource</option>
-                      <option value="create-activation-server">create-activation-server</option>
+                      <option value="create-activation-file-resource">create-activation-file-resource</option>
                       <option value="delete-resource-instance">delete-resource-instance</option>
                     </optgroup>
                     <optgroup label="Capability Management">

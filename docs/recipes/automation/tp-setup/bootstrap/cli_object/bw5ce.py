@@ -38,18 +38,18 @@ class TibcopBW5CE:
     Provides methods for BW5CE application lifecycle management.
     """
 
-    def __init__(self, base: TibcopBase, api=None, capability=None, app=None):
+    def __init__(self, base: TibcopBase, version_api=None, capability=None, app=None):
         """
         Initialize BW5CE handler.
 
         Args:
             base: TibcopBase instance for command execution
-            api: TibcopAPI instance for REST API operations (optional)
+            version_api: CapabilityVersionApi instance (optional)
             capability: TibcopCapability instance for capability operations (optional)
             app: TibcopApp instance for app operations (optional)
         """
         self.base = base
-        self.api = api
+        self.version_api = version_api
         self.capability = capability
         self.app = app
 
@@ -71,9 +71,9 @@ class TibcopBW5CE:
         # 1. Get BW5CE version from Control Plane (select last version)
         ColorLogger.info("1. Getting BW5CE version from Control Plane...")
         cp_version = None
-        if self.api:
+        if self.version_api:
             # BW5CE uses select_last=True to get the latest version
-            cp_version = self.api.get_capability_version_from_cp_api('BW5CE', dp_name, select_last=True)
+            cp_version = self.version_api.get_capability_version('BW5CE', dp_name, select_last=True)
 
         if cp_version:
             print()
@@ -316,8 +316,8 @@ class TibcopBW5CE:
         # Step 1: Get version from CP (select last version for BW5CE)
         ColorLogger.info("Step 1/5: Getting BW5CE version from CP...")
         bw5ce_version = None
-        if self.api:
-            bw5ce_version = self.api.get_capability_version_from_cp_api('BW5CE', dp_name, select_last=True)
+        if self.version_api:
+            bw5ce_version = self.version_api.get_capability_version('BW5CE', dp_name, select_last=True)
 
         if not bw5ce_version:
             ColorLogger.error("Failed to get BW5CE version")

@@ -28,6 +28,26 @@ from utils.env import ENV
 from utils.helper import Helper
 
 
+# tibcop CLI enums use mixed casing that .title() mangles
+# (e.g. HaProxy -> Haproxy, NetScaler -> Netscaler). Normalize explicitly.
+_INGRESS_CONTROLLER_ENUM = {
+    "nginx": "Nginx", "kong": "Kong", "traefik": "Traefik",
+    "openshiftrouter": "OpenshiftRouter", "haproxy": "HaProxy",
+}
+_GATEWAY_CONTROLLER_ENUM = {
+    "nginx": "Nginx", "traefik": "Traefik", "gke": "GKE",
+    "istio": "Istio", "netscaler": "NetScaler", "other": "Other",
+}
+
+
+def normalize_ingress_controller(value):
+    return _INGRESS_CONTROLLER_ENUM.get((value or "").lower(), value)
+
+
+def normalize_gateway_controller(value):
+    return _GATEWAY_CONTROLLER_ENUM.get((value or "").lower(), value)
+
+
 class TibcopBase:
     """
     Base class for tibcop CLI operations.

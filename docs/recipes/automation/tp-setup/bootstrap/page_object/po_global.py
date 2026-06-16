@@ -27,7 +27,11 @@ class PageObjectGlobal:
 
     def goto_left_navbar(self, item_name):
         ColorLogger.info(f"Going to left side menu ...")
-        self.page.locator(".nav-bar-pointer", has_text=item_name).wait_for(state="visible")
+        # Poll with logged progress instead of a silent wait_for() so a slow/abnormal
+        # left-nav re-render (e.g. right after a heavy DP config operation) fails with a
+        # screenshot and clear logs rather than an opaque "Timeout 30000ms exceeded".
+        if not Util.check_dom_visibility(self.page, self.page.locator(".nav-bar-pointer", has_text=item_name), 3, 30):
+            Util.exit_error(f"Left side menu '{item_name}' is not visible.", self.page, "goto_left_navbar.png")
         self.page.locator(".nav-bar-pointer", has_text=item_name).click()
         print(f"Clicked left side menu '{item_name}'")
         self.page.wait_for_timeout(500)

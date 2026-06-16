@@ -179,8 +179,31 @@ class Helper:
         return Helper.get_command_output("kubectl get sc | awk '/\\(default\\)/ {print $1}'", is_print_error=False)
 
     @staticmethod
-    def get_file_fullpath_in_upload_folder(file_name):
-        return os.path.join(os.path.dirname(__file__), "..", "upload", file_name)
+    def get_file_fullpath_in_upload_folder(file_name: str) -> str:
+        return str(Path(__file__).resolve().parent.parent / "upload" / file_name)
+
+    @staticmethod
+    def extract_activation_license(zip_path):
+        """Unzip an activation zip and rename the contained .bin to license-file.bin
+        (placed next to the zip). Returns True on success."""
+        upload_dir = os.path.dirname(zip_path)
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(upload_dir)
+
+            # Find and rename .bin file to license-file.bin
+            for item in os.listdir(upload_dir):
+                if item.endswith('.bin'):
+                    old_path = os.path.join(upload_dir, item)
+                    new_path = os.path.join(upload_dir, 'license-file.bin')
+                    os.rename(old_path, new_path)
+                    return True
+        except Exception as e:
+            ColorLogger.error(f"Failed to unzip or process license file: {e}")
+            return False
+
+        ColorLogger.error("No .bin license file found in the uploaded activation zip.")
+        return False
 
     @staticmethod
     def save_activation_file(base64_string, filename):
@@ -196,37 +219,115 @@ class Helper:
 
         zip_bytes = base64.b64decode(b64, validate=True)
 
-        out_path = os.path.join(os.path.dirname(__file__), "..", "upload", filename)
+        out_path = str(Path(__file__).resolve().parent.parent / "upload" / filename)
         with open(out_path, "wb") as f:
             f.write(zip_bytes)
 
         # Unzip the file and rename .bin file to license-file.bin
-        upload_dir = os.path.dirname(out_path)
-        try:
-            with zipfile.ZipFile(out_path, 'r') as zip_ref:
-                zip_ref.extractall(upload_dir)
-            
-            # Find and rename .bin file to license-file.bin
-            for item in os.listdir(upload_dir):
-                if item.endswith('.bin'):
-                    old_path = os.path.join(upload_dir, item)
-                    new_path = os.path.join(upload_dir, 'license-file.bin')
-                    os.rename(old_path, new_path)
-                    break
-        except Exception as e:
-            ColorLogger.error(f"Failed to unzip or process license file: {e}")
-            return False
-
-        return True
+        return Helper.extract_activation_license(out_path)
 
     @staticmethod
-    def get_app_file_fullpath(app_file_name):
+    def get_app_file_fullpath(app_file_name, repo="", tag=""):
         file_path = Helper.get_file_fullpath_in_upload_folder(app_file_name)
 
         if not os.path.isfile(file_path):
-            ColorLogger.error(f"The app file does not exist in {file_path}.")
-            sys.exit()
+            ColorLogger.warning(f"App file not found locally: {file_path}. Attempting download from GitHub Release...")
+            file_path = Helper._download_app_from_release(app_file_name, file_path, repo, tag)
+
         return file_path
+
+    @staticmethod
+    def resolve_github_token(secret_path="/tmp/secret-github/GITHUB_TOKEN"):
+        # Mirror common-dependency/scripts/_functions.sh git_clone() token precedence:
+        # env GITHUB_TOKEN first, otherwise the pipeline-mounted secret volume. This is
+        # the same source/boundary as the pipeline's own git checkout, so app-asset
+        # downloads reuse the token that cloned the repo (SaaS pipeline path), while
+        # on-prem still relies on the env var passed via `docker run -e GITHUB_TOKEN`.
+        token = os.getenv("GITHUB_TOKEN", "")
+        if not token and os.path.isfile(secret_path):
+            with open(secret_path) as f:
+                token = f.read().strip()
+        return token
+
+    @staticmethod
+    def _download_app_from_release(app_file_name, dest_path, repo="", tag=""):
+        if not repo or not tag:
+            ColorLogger.error("TP_AUTO_APP_RELEASE_REPO and TP_AUTO_APP_RELEASE_TAG must be set to download app files from GitHub Release.")
+            sys.exit()
+
+        # Both download branches must authenticate to private releases. The `gh` CLI
+        # reads its token from the environment, so export the resolved token (env or
+        # mounted secret) when GITHUB_TOKEN is not already set in the env.
+        _token = Helper.resolve_github_token()
+        if _token and not os.getenv("GITHUB_TOKEN"):
+            os.environ["GITHUB_TOKEN"] = _token
+
+        dest_dir = os.path.dirname(dest_path)
+        os.makedirs(dest_dir, exist_ok=True)
+
+        has_gh = Helper.get_command_output("which gh", is_print_error=False) is not None
+        if has_gh:
+            cmd = f"gh release download {tag} --repo {repo} --pattern {app_file_name} --dir {dest_dir}"
+            ColorLogger.info(f"Downloading via gh: {cmd}")
+            Helper.get_command_output(cmd, is_print_cmd=True)
+        else:
+            Helper._download_via_curl(repo, tag, app_file_name, dest_path)
+
+        if not os.path.isfile(dest_path):
+            ColorLogger.error(f"Failed to download '{app_file_name}' from GitHub Release {repo}@{tag}.")
+            sys.exit()
+
+        ColorLogger.success(f"Downloaded '{app_file_name}' to {dest_path}")
+        return dest_path
+
+    @staticmethod
+    def _download_via_curl(repo, tag, app_file_name, dest_path):
+        token = Helper.resolve_github_token()
+        api_url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+        ColorLogger.info(f"Downloading via curl from GitHub Release {repo}@{tag}...")
+
+        curl_headers = ["-H", "Accept: application/vnd.github+json"]
+        if token:
+            curl_headers.extend(["-H", f"Authorization: token {token}"])
+
+        try:
+            # -f: fail (non-zero exit) on HTTP errors instead of writing the error body
+            # to stdout and exiting 0, which would otherwise be parsed as a valid release.
+            cmd = ["curl", "-fsSL"] + curl_headers + [api_url]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            assets_json = result.stdout
+        except subprocess.CalledProcessError as e:
+            ColorLogger.error(f"Failed to fetch release info: {e.stderr}")
+            return
+
+        try:
+            release = json.loads(assets_json)
+        except json.JSONDecodeError:
+            ColorLogger.error("Invalid JSON response from GitHub API")
+            return
+
+        asset_api_url = None
+        for asset in release.get("assets", []):
+            if asset.get("name") == app_file_name:
+                asset_api_url = asset.get("url")
+                break
+
+        if not asset_api_url:
+            ColorLogger.error(f"Asset '{app_file_name}' not found in release {repo}@{tag}")
+            return
+
+        ColorLogger.info(f"Downloading asset: {app_file_name} ({os.path.basename(asset_api_url)})")
+        try:
+            dl_headers = ["-H", "Accept: application/octet-stream"]
+            if token:
+                dl_headers.extend(["-H", f"Authorization: token {token}"])
+            # -f: fail on HTTP errors so a 404/401 aborts with a non-zero exit instead of
+            # silently writing the error body into dest_path (a corrupt JAR that would
+            # then pass the downstream os.path.isfile() check and get deployed).
+            cmd = ["curl", "-fsSL"] + dl_headers + ["-o", dest_path, asset_api_url]
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            ColorLogger.error(f"Failed to download asset: {e}")
 
     @staticmethod
     def get_app_name(app_file_name):
@@ -254,4 +355,3 @@ class Helper:
         else:
             name_input = f"{dp_name}-{menu_name}-{tab}-{index}".lower()
         return name_input
-    

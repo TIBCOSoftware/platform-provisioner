@@ -33,15 +33,11 @@ groups:
     * The chart repo user name (if necessary)
 
     ---
-- title: "Activation Server"
+- title: "Activation License File"
   index: 3
   description: |
-    ## Activation server specific configurations
-    * Activation server IP
-    * Activation server hostname
-    * Activation server port
-    * Activation server fingerprint
-    * Activation file in zip format
+    ## License file configuration
+    * Upload your license file (activation.bin.zip) to enable application components
 
     ---
 - title: "TP Automation Config"
@@ -74,40 +70,8 @@ options:
   reference: "meta.guiEnv.GUI_BW5_CHART_REPO_TOKEN"
   description: |
     The token to access the BW5 private chart repo. It is required to deploy BW5.
-# groupIndex: 3 Activation Server
-- name: "Activation server IP"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_IP"
-  required: false
-  description: |
-    The IP address of activation server.
-- name: "Activation server port"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_PORT"
-  required: false
-  description: |
-    The port of activation server.
-- name: "Activation server hostname"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME"
-  required: false
-  description: |
-    The hostname of activation server.
-- name: "Activation server fingerprint"
-  groupIndex: 3
-  type: string
-  guiType: input
-  reference: "meta.guiEnv.GUI_TP_ACTIVATION_SERVER_FINGER_PRINT"
-  required: false
-  description: |
-    The fingerprint of activation server.
-- name: "Upload Activation file in zip"
+# groupIndex: 3 Activation License File
+- name: "Upload Activation License File (zip)"
   groupIndex: 3
   type: string
   accept: ".zip"
@@ -115,7 +79,7 @@ options:
   guiType: file
   reference: "meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64"
   description: |
-    License file will be used prior to activation server if you configured both.
+    Upload the activation.bin.zip license file to enable application components.
 # groupIndex: 6 TP Automation Config
 - name: "Deploy RVDM"
   groupIndex: 6

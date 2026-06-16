@@ -44,6 +44,8 @@ async function loadData() {
     const hintElement = document.getElementById('TIBCOP_CLI_EAR_FILE_DEFAULT_HINT');
     if (hintElement) {
       hintElement.textContent = `Upload a file or leave empty to use default (BWCE: upload/${defaultBwceFile}, Flogo: upload/${defaultFlogoFile}, BW5CE: upload/${defaultBw5ceFile})`;
+      // Remember the app-file hint so per-operation overrides can restore it
+      hintElement.dataset.defaultHint = hintElement.textContent;
     }
 
     return data;
@@ -95,6 +97,32 @@ async function handleFileUpload() {
   });
 }
 
+// Upload the activation license .zip (BW5 domain case). The server extracts the
+// contained .bin to upload/license-file.bin, which the case turns into a k8s secret.
+async function handleActivationFileUpload() {
+  const fileInput = document.getElementById("TP_ACTIVATION_ZIP_FILE");
+  if (!fileInput || !fileInput.value) return;
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  return new Promise((resolve, reject) => {
+    $.ajax({
+      url: '/upload',
+      type: 'POST',
+      data: formData,
+      contentType: false,
+      processData: false,
+      success: function (response) {
+        resolve(response);
+      },
+      error: function (err) {
+        reject(err);
+      }
+    });
+  });
+}
+
 async function runGuiScript(currentElement) {
   const formElement = $(currentElement).closest('form');
 
@@ -118,11 +146,10 @@ async function runGuiScript(currentElement) {
     BWCE_APP_NAME: document.getElementById("BWCE_APP_NAME").value,
     BW5CE_APP_NAME: document.getElementById("BW5CE_APP_NAME").value,
     FLOGO_APP_NAME: document.getElementById("FLOGO_APP_NAME").value,
+    SPRINGBOOT_APP_NAME: document.getElementById("SPRINGBOOT_APP_NAME").value,
     GITHUB_TOKEN: document.getElementById("GITHUB_TOKEN").value,
-    TP_ACTIVATION_SERVER_IP: document.getElementById("TP_ACTIVATION_SERVER_IP").value,
-    TP_ACTIVATION_SERVER_PORT: document.getElementById("TP_ACTIVATION_SERVER_PORT").value,
-    TP_ACTIVATION_SERVER_CERT_HOSTNAME: document.getElementById("TP_ACTIVATION_SERVER_CERT_HOSTNAME").value,
-    TP_ACTIVATION_SERVER_FINGER_PRINT: document.getElementById("TP_ACTIVATION_SERVER_FINGER_PRINT").value,
+    TP_BW5_CHART_REPO_USER_NAME: document.getElementById("TP_BW5_CHART_REPO_USER_NAME").value,
+    TP_BW5_CHART_REPO_TOKEN: document.getElementById("TP_BW5_JFROG_TOKEN").value,
     TP_BMDP_IMAGE_TAG_EMS: document.getElementById("TP_BMDP_IMAGE_TAG_EMS").value,
     TP_BMDP_IMAGE_TAG_BW5EMSDM: document.getElementById("TP_BMDP_IMAGE_TAG_BW5EMSDM").value,
     TP_BMDP_IMAGE_TAG_BW5RVDM: document.getElementById("TP_BMDP_IMAGE_TAG_BW5RVDM").value,
@@ -138,8 +165,13 @@ async function runGuiScript(currentElement) {
       // In file server.py, API /upload, all .ear file is treated as BWCE file type
       additionalParams.TP_AUTO_BWCE_APP_FILE_NAME = filename;
       additionalParams.TP_AUTO_BW5CE_APP_FILE_NAME = filename;
+    } else if (filetype === "SPRINGBOOT") {
+      additionalParams.TP_AUTO_SPRINGBOOT_APP_FILE_NAME = filename;
     }
   }
+  // Upload the activation license zip (BW5 domain case) so the case can build the
+  // license secret from upload/license-file.bin. No param needed (fixed filename).
+  await handleActivationFileUpload();
   const params = new URLSearchParams({ ...handleGuiSpecialCase(additionalParams) });
   runScript(`/run-gui-script?${params.toString()}`, formElement);
 }
@@ -257,7 +289,6 @@ async function runCliScript(currentElement) {
     TIBCOP_CLI_DEVHUB_NAME: document.getElementById("TIBCOP_CLI_DEVHUB_NAME").value,
     TIBCOP_CLI_K8S_SECRET: document.getElementById("TIBCOP_CLI_K8S_SECRET").value,
     TIBCOP_CLI_RESOURCE_NAME: document.getElementById("TIBCOP_CLI_RESOURCE_NAME").value,
-    TIBCOP_CLI_ACTIVATION_SERVER_URL: document.getElementById("TIBCOP_CLI_ACTIVATION_SERVER_URL").value,
     TIBCOP_CLI_STORAGE_CLASS_NAME: document.getElementById("TIBCOP_CLI_STORAGE_CLASS_NAME").value,
     TIBCOP_CLI_INGRESS_CLASS_NAME: document.getElementById("TIBCOP_CLI_INGRESS_CLASS_NAME").value,
     TIBCOP_CLI_INGRESS_CONTROLLER: document.getElementById("TIBCOP_CLI_INGRESS_CONTROLLER").value,
@@ -355,7 +386,9 @@ function handleGuiSpecialCase(params) {
     "provision_ems": "TP_AUTO_IS_PROVISION_EMS",
     "provision_flogo": "TP_AUTO_IS_PROVISION_FLOGO",
     "provision_pulsar": "TP_AUTO_IS_PROVISION_PULSAR",
-    "provision_tibcohub": "TP_AUTO_IS_PROVISION_TIBCOHUB"
+    "provision_tibcohub": "TP_AUTO_IS_PROVISION_TIBCOHUB",
+    "provision_k8s_mcp_server": "TP_AUTO_IS_PROVISION_K8S_MCP_SERVER",
+    "provision_springboot": "TP_AUTO_IS_PROVISION_SPRINGBOOT"
   };
 
   if (provisionCaseMapping[params.case]) {
@@ -377,6 +410,7 @@ function handleGuiSpecialCase(params) {
     "delete_bwce_app": "bwce",
     "delete_bw5ce_app": "bw5ce",
     "delete_flogo_app": "flogo",
+    "delete_springboot_app": "sb",
   };
 
   if (deleteCaseMapping[params.case]) {
@@ -468,6 +502,11 @@ function handleFieldsAction() {
         toggleField([".app_file"], true);
         cleanAppFileInput();
         break;
+      case "case.k8s_create_and_start_springboot_app":
+        toggleField([".SPRINGBOOT_APP_NAME"], true);
+        toggleField([".app_file"], true);
+        cleanAppFileInput();
+        break;
       case "delete_bwce_app":
         toggleField([".BWCE_APP_NAME"], true);
         break;
@@ -476,6 +515,9 @@ function handleFieldsAction() {
         break;
       case "delete_flogo_app":
         toggleField([".FLOGO_APP_NAME"], true);
+        break;
+      case "delete_springboot_app":
+        toggleField([".SPRINGBOOT_APP_NAME"], true);
         break;
       case "case.bmdp_create_dp":
         toggleField([".TP_AUTO_K8S_BMDP_NAME", ".TP_AUTO_K8S_DP_SERVICE_ACCOUNT_CREATION_ADDITIONAL_SETTINGS"], true);
@@ -493,17 +535,14 @@ function handleFieldsAction() {
         toggleField([".TP_AUTO_K8S_DP_NAME"], false);
         toggleField([
           ".TP_AUTO_K8S_BMDP_NAME",
-          ".GITHUB_TOKEN",
-          ".TP_ACTIVATION_SERVER_IP",
-          ".TP_ACTIVATION_SERVER_PORT",
-          ".TP_ACTIVATION_SERVER_CERT_HOSTNAME",
-          ".TP_ACTIVATION_SERVER_FINGER_PRINT",
+          ".TP_BW5_CHART_REPO_USER_NAME",
+          ".TP_BW5_JFROG_TOKEN",
+          ".TP_ACTIVATION_ZIP_FILE",
           ".TP_BMDP_IMAGE_TAG_EMS",
           ".TP_BMDP_IMAGE_TAG_BW5EMSDM",
           ".TP_BMDP_IMAGE_TAG_BW5RVDM",
           ".TP_BMDP_IMAGE_TAG_BW6DM"
         ], true);
-        preLoadBMDPCreateBW5DMData();
         break;
       case "case.bmdp_provision_capability":
         toggleField([".TP_AUTO_K8S_BMDP_NAME"], true);
@@ -527,7 +566,6 @@ function handleFieldsAction() {
       '.TIBCOP_CLI_DEVHUB_NAME',
       '.TIBCOP_CLI_K8S_SECRET',
       '.TIBCOP_CLI_RESOURCE_NAME',
-      '.TIBCOP_CLI_ACTIVATION_SERVER_URL',
       '.TIBCOP_CLI_STORAGE_CLASS_NAME',
       '.TIBCOP_CLI_INGRESS_CLASS_NAME',
       '.TIBCOP_CLI_INGRESS_CONTROLLER',
@@ -541,6 +579,12 @@ function handleFieldsAction() {
       '.TIBCOP_CLI_CAPABILITIES',
       '.build-and-deploy-note'
     ], false);
+
+    // Reset the shared file upload field so a previous selection's file
+    // (e.g. the activation license .zip) does not leak into other operations
+    $('#TIBCOP_CLI_EAR_FILE_PATH').val('');
+    const earUploadInput = document.getElementById('TIBCOP_CLI_EAR_FILE_UPLOAD');
+    if (earUploadInput) earUploadInput.value = '';
 
     // Show fields for tplatform:list-apps operation
     if (selectedValue === "tplatform:list-apps") {
@@ -588,9 +632,17 @@ function handleFieldsAction() {
       ], true);
     }
 
-    // Show fields for create-activation-server operation
-    if (selectedValue === "create-activation-server") {
-      toggleField(['.TIBCOP_CLI_RESOURCE_NAME', '.TIBCOP_CLI_ACTIVATION_SERVER_URL'], true);
+    // Show fields for create-activation-file-resource operation
+    // Uploads the activation license .zip; the server extracts the .bin to
+    // upload/license-file.bin and uploads it via the CP license REST API.
+    if (selectedValue === "create-activation-file-resource") {
+      toggleField(['.TIBCOP_CLI_EAR_FILE_PATH'], true);
+      updateFileUploadLabel(
+        'Activation License File (.zip)',
+        '.zip',
+        'Upload the activation license .zip (the .bin is extracted automatically)',
+        'Upload the activation license .zip'
+      );
     }
 
     // Show fields for delete-resource-instance operation
@@ -807,25 +859,11 @@ function handleFieldsAction() {
         $("#BW5CE_APP_NAME").val(fileName);
       } else if (caseValue === "case.k8s_create_and_start_flogo_app") {
         $("#FLOGO_APP_NAME").val(fileName);
+      } else if (caseValue === "case.k8s_create_and_start_springboot_app") {
+        $("#SPRINGBOOT_APP_NAME").val(fileName);
       }
     }
   });
-}
-
-function preLoadBMDPCreateBW5DMData() {
-  loadCPAPI("/cp/api/v1/resources/instances?webui=true&type=ACTIVATION_SERVER")
-    .then(res => {
-      const activationUrl = res.response?.[0]?.name;
-      if (activationUrl) {
-        const urlObj = new URL(activationUrl);
-        const data = {
-          "TP_ACTIVATION_SERVER_PORT": urlObj.port,
-          "TP_ACTIVATION_SERVER_CERT_HOSTNAME": urlObj.hostname,
-          "TP_ACTIVATION_SERVER_FINGER_PRINT": urlObj.searchParams.get("fp") || "",
-        }
-        initInputValue(data);
-      }
-    })
 }
 
 // Clean the app_file input and reset the app name to default value from ENV
@@ -840,6 +878,8 @@ function cleanAppFileInput() {
     $("#BW5CE_APP_NAME").val(ENV.BW5CE_APP_NAME);
   } else if (caseValue === "case.k8s_create_and_start_flogo_app") {
     $("#FLOGO_APP_NAME").val(ENV.FLOGO_APP_NAME);
+  } else if (caseValue === "case.k8s_create_and_start_springboot_app") {
+    $("#SPRINGBOOT_APP_NAME").val(ENV.SPRINGBOOT_APP_NAME);
   }
 }
 
@@ -891,12 +931,11 @@ function hideFields() {
     ".BWCE_APP_NAME",
     ".BW5CE_APP_NAME",
     ".FLOGO_APP_NAME",
+    ".SPRINGBOOT_APP_NAME",
     ".app_file",
-    ".GITHUB_TOKEN",
-    ".TP_ACTIVATION_SERVER_IP",
-    ".TP_ACTIVATION_SERVER_PORT",
-    ".TP_ACTIVATION_SERVER_CERT_HOSTNAME",
-    ".TP_ACTIVATION_SERVER_FINGER_PRINT",
+    ".TP_BW5_CHART_REPO_USER_NAME",
+    ".TP_BW5_JFROG_TOKEN",
+    ".TP_ACTIVATION_ZIP_FILE",
     ".TP_BMDP_IMAGE_TAG_EMS",
     ".TP_BMDP_IMAGE_TAG_BW5EMSDM",
     ".TP_BMDP_IMAGE_TAG_BW5RVDM",
@@ -1042,10 +1081,23 @@ function highlightJSON(textarea) {
 }
 
 // Update file upload label based on operation type
-function updateFileUploadLabel(labelText) {
+function updateFileUploadLabel(labelText, acceptTypes = '.ear,.json,.flogo', hintText = null, placeholderText = 'Leave empty to use default') {
   const labelElement = document.getElementById('TIBCOP_CLI_FILE_UPLOAD_LABEL');
   if (labelElement) {
     labelElement.textContent = labelText;
+  }
+  const fileInput = document.getElementById('TIBCOP_CLI_EAR_FILE_UPLOAD');
+  if (fileInput) {
+    fileInput.accept = acceptTypes;
+  }
+  // Override the help hint when provided, otherwise restore the app-file default
+  const hintElement = document.getElementById('TIBCOP_CLI_EAR_FILE_DEFAULT_HINT');
+  if (hintElement) {
+    hintElement.textContent = hintText !== null ? hintText : (hintElement.dataset.defaultHint || hintElement.textContent);
+  }
+  const pathInput = document.getElementById('TIBCOP_CLI_EAR_FILE_PATH');
+  if (pathInput) {
+    pathInput.placeholder = placeholderText;
   }
 }
 

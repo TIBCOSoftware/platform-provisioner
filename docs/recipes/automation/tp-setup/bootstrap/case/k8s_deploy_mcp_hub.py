@@ -22,14 +22,14 @@ from utils.helper import Helper
 from page_object.po_auth import PageObjectAuth
 from page_object.po_mcp_hub import PageObjectMcpHub
 
-CP_MCP_SERVER_NAME = "cp-mcp-server"
-
-
-def get_cp_mcp_url():
-    """Build CP MCP server URL from environment."""
-    host_prefix = ENV.DP_HOST_PREFIX
-    dns_domain = ENV.TP_AUTO_CP_SERVICE_DNS_DOMAIN
-    return f"https://{host_prefix}.{dns_domain}/cp/mcp"
+# MCP servers to install from the registry (short keys; mapped to registry
+# display names in PageObjectMcpHub.MCP_SERVER_CATALOG).
+MCP_SERVERS_TO_INSTALL = [
+    "cp-mcp-server",
+    "o11y-mcp-server",
+    "flogo-mcp-server",
+    "bw-mcp-server",
+]
 
 
 if __name__ == "__main__":
@@ -38,42 +38,37 @@ if __name__ == "__main__":
         exit(0)
 
     dp_name = ENV.TP_AUTO_K8S_DP_NAME
-    cp_mcp_url = get_cp_mcp_url()
     token = Helper.get_auto_token()
 
     if not token:
         ColorLogger.warning("OAuth token is empty (kubectl may not be connected). MCP Server auth will not be configured.")
 
     ColorLogger.info(f"Starting MCP Hub deployment for DP '{dp_name}'...")
-    ColorLogger.info(f"CP MCP URL: {cp_mcp_url}")
 
     page = Util.browser_launch()
     try:
-        # Login
         po_auth = PageObjectAuth(page)
         po_auth.login()
         po_auth.login_check()
 
-        # MCP Hub flow
+        # Gateway-centric React UI (PCP-19623): Register Gateway ->
+        # "Deploy to a TIBCO Data Plane" (auto-provision), install servers from the
+        # registry (DP pre-selected), push to the gateway, then verify tools.
         po_mcp = PageObjectMcpHub(page)
         po_mcp.goto_mcp_hub()
-        po_mcp.goto_dataplane(dp_name)
 
-        # Deploy MCP Gateway (skip if already deployed)
-        po_mcp.deploy_mcp_gateway(dp_name)
+        gateway_id = po_mcp.deploy_mcp_gateway(dp_name, skip_online_wait=True)
 
-        # Add CP MCP Server (skip if already exists)
-        po_mcp.add_mcp_server(
-            name=CP_MCP_SERVER_NAME,
-            url=cp_mcp_url,
-            token=token,
-            auth_type="Bearer Token",
-        )
+        # Wait until the gateway is deployed (deterministic Hub API mcpgatewayDeployed
+        # + detail view operable) so the servers tab renders before installing servers.
+        # Pass dp_name so an empty/unresolved gateway_id can still resolve by name.
+        po_mcp.wait_for_gateway_deployed(gateway_id, dp_name=dp_name)
 
-        # Push to Gateway and verify
-        po_mcp.push_to_gateway()
-        tools_count = po_mcp.verify_tools()
+        for server_name in MCP_SERVERS_TO_INSTALL:
+            po_mcp.add_mcp_server(name=server_name, token=token, gateway_id=gateway_id)
 
+        po_mcp.push_to_gateway(gateway_id=gateway_id)
+        tools_count = po_mcp.verify_tools(gateway_id=gateway_id)
         ColorLogger.success(f"MCP Hub deployment complete! {tools_count} tools discovered.")
 
         po_auth.logout()

@@ -289,13 +289,15 @@ class PageObjectAuth(PageObjectGlobal):
         Uses the admin browser session cookie for auth — admin must be logged in.
         Endpoint: POST https://admin.<DOMAIN>/platform-console/api/v1/subscriptions
 
-        In this method's payload for POST /platform-console/api/v1/subscriptions,
-        generateIAT is set to False to avoid generating unused one-time activation tokens;
-        CP >= 1.18 still uses maildev activation fallback because initialPassword no longer
-        registers users in the IdP.
-        On CP <= 1.17, initialPassword also works for direct login.
-        On CP >= 1.18, initialPassword no longer registers the user in the IdP,
-        so the caller must fall back to email-based activation via maildev.
+        Always sets `generateIAT=true` and persists the IAT + subscription URL to
+        k8s secret `cp-iat` (namespace `automation`). The IAT is cheap (24h TTL,
+        single-bootstrap-use) and harmless to GUI flows that ignore it; downstream
+        API/CLI flows use it to register a long-lived OAuth2 client via
+        /idm/v1/oauth2/clients without ever opening a browser.
+
+        CP >= 1.18 still falls back to maildev activation because initialPassword
+        no longer registers the user in the IdP. On CP <= 1.17, initialPassword
+        also works for direct login.
         """
         ColorLogger.info(f"Provision user {email} (host_prefix={host_prefix}) via Console API...")
         if not self.login_admin_user():
@@ -319,7 +321,7 @@ class PageObjectAuth(PageObjectGlobal):
                 "hostPrefix": host_prefix,
                 "comment": "Provisioned by automation via Console API (no email)",
             },
-            "generateIAT": False,
+            "generateIAT": True,
             "copyAdminIdP": False,
             "userRoles": ["*"],
             "useDefaultIDP": True,
@@ -330,17 +332,47 @@ class PageObjectAuth(PageObjectGlobal):
             data=json.dumps(payload),
             headers={"Content-Type": "application/json"},
         )
-        body = resp.text()[:1000]
-        if resp.status not in (200, 201):
-            if "already exists" in body.lower() or "duplicate" in body.lower():
-                ColorLogger.warning(f"Subscription for {host_prefix} already exists — continuing.")
-            else:
-                Util.exit_error(f"API provisioning failed status={resp.status} body={body}",
-                                self.page, "api-provision.png")
-        else:
+        body = resp.text()[:4000]
+        # CP returns HTTP 200 even for application errors (status:"error" in body),
+        # so HTTP code alone is not enough — must also check the parsed body.
+        try:
+            parsed = json.loads(body)
+        except ValueError:
+            parsed = {}
+        if resp.status in (200, 201) and parsed.get("status") != "error":
             ColorLogger.success(f"Provisioned {email} via API (subscription created).")
-            print(f"API response body: {body}")
+            self._persist_iat_from_response(parsed, host_prefix)
+        elif "already exists" in body.lower() or "duplicate" in body.lower():
+            ColorLogger.warning(f"Subscription for {host_prefix} already exists — continuing.")
+        else:
+            Util.exit_error(f"API provisioning failed status={resp.status} body={body}",
+                            self.page, "api-provision.png")
         self.logout_admin_user()
+
+    @staticmethod
+    def _persist_iat_from_response(parsed, host_prefix):
+        """Extract IAT + subscription URL from subscription response and store
+        in k8s secret `cp-iat` (namespace TP_AUTO_TOKEN_NAMESPACE). Idempotent."""
+        try:
+            inner = parsed.get("response", {})
+            iat = inner.get("iat", {}).get("accessToken")
+            sub_url = inner.get("details", {}).get("provisioningDetails", {}).get("subscriptionUrl") or ""
+        except AttributeError:
+            iat, sub_url = None, ""
+        if not iat:
+            ColorLogger.warning("generateIAT=True but no IAT found in response; downstream CLI bootstrap will fail")
+            return
+        if sub_url and not sub_url.startswith("http"):
+            sub_url = f"https://{sub_url}"
+        ns = ENV.TP_AUTO_TOKEN_NAMESPACE
+        Helper.get_command_output(f"kubectl create namespace {ns} 2>/dev/null || true")
+        Helper.get_command_output(f"kubectl delete secret cp-iat -n {ns} 2>/dev/null || true")
+        Helper.get_command_output(
+            f"kubectl create secret generic cp-iat -n {ns} "
+            f"--from-literal=iat='{iat}' --from-literal=subscription-url='{sub_url}' "
+            f"--from-literal=host-prefix='{host_prefix}'"
+        )
+        ColorLogger.success(f"IAT stored in secret {ns}/cp-iat (sub_url={sub_url})")
 
     def is_host_prefix_exist(self, host_prefix):
         ColorLogger.info(f"Checking if host_prefix: {host_prefix} is exist...")

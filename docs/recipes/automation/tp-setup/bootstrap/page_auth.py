@@ -13,15 +13,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Init-user dispatcher.
+
+Two paths:
+- TP_AUTO_USE_CLI=true  -> pure-API path (api_object.ApiAuth, no browser).
+                           Requires CP installed with
+                           global.external.enable_api_based_initialization=true.
+- otherwise             -> legacy GUI path (page_object.PageObjectAuth), unchanged.
+"""
 from pathlib import Path
-from utils.util import Util
-from utils.env import ENV
+
 from utils.color_logger import ColorLogger
-from page_object.po_auth import PageObjectAuth
+from utils.env import ENV
+from utils.util import Util
 
-if __name__ == "__main__":
-    ENV.pre_check()
 
+def _run_api_path():
+    from api_object import ApiAuth, ApiAuthError
+    ColorLogger.info("Init-user via API (TP_AUTO_USE_CLI=true)")
+    try:
+        ApiAuth().init_cp_user(ENV.DP_USER_EMAIL, ENV.DP_HOST_PREFIX, ENV.DP_USER_PASSWORD)
+    except ApiAuthError as e:
+        ColorLogger.error(str(e))
+        raise
+
+
+def _run_gui_path():
+    from page_object.po_auth import PageObjectAuth
     page = Util.browser_launch()
     po_auth = PageObjectAuth(page)
     try:
@@ -50,8 +68,14 @@ if __name__ == "__main__":
     except Exception as e:
         current_filename = Path(__file__).stem
         Util.exit_error(f"Unhandled error: {e}", page, f"unhandled_error_{current_filename}.png")
-
     Util.browser_close()
 
+
+if __name__ == "__main__":
+    ENV.pre_check()
+    if ENV.TP_AUTO_USE_CLI:
+        _run_api_path()
+    else:
+        _run_gui_path()
     Util.set_cp_env()
     Util.print_env_info(True, False)

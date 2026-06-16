@@ -44,6 +44,9 @@ if __name__ == "__main__":
         if CAPABILITY == "flogo":
             po_dp.k8s_delete_app(ENV.TP_AUTO_K8S_DP_NAME, CAPABILITY, ENV.FLOGO_APP_NAME)
 
+        if CAPABILITY == "sb":
+            po_dp.k8s_delete_app(ENV.TP_AUTO_K8S_DP_NAME, CAPABILITY, ENV.SPRINGBOOT_APP_NAME)
+
         po_auth.logout()
     except Exception as e:
         current_filename = Path(__file__).stem

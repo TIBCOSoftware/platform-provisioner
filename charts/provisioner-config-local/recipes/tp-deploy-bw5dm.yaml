@@ -17,17 +17,17 @@ meta:
 
     # env
     GUI_TP_CLUSTER_NAME: "on-prem"
-    GUI_TP_ACTIVATION_SERVER_IP: ""
-    GUI_TP_ACTIVATION_SERVER_PORT: "7070"
-    GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME: ""
-    GUI_TP_ACTIVATION_SERVER_FINGER_PRINT: ""
+    # TP activation license file
     GUI_TP_ACTIVATION_ZIP_FILE_BASE64: ""
     # ingress
+    GUI_TP_INGRESS_OBJECT: "ingress"
     GUI_TP_INGRESS_CLASS: "traefik"
+    GUI_TP_GATEWAY_NAME: "nginx-gateway"
+    GUI_TP_INGRESS_GATEWAY_NAMESPACE: "ingress-system"
     GUI_TP_CP_DNS_DOMAIN: "localhost.dataplanes.pro"
 
     # BW5DM
-    GUI_BW5_CHART_VERSION: "^1.1.0"
+    GUI_BW5_CHART_VERSION: "^1.2.0"
     GUI_TP_BWDM_NAMESPACE: "bw5dm"
     GUI_TP_BWDM_RELEASE_NAME: "bw5dm"
     GUI_TP_BW5_APP_NAME: "RestSample" # another embedded app is "SoapSample"
@@ -49,8 +49,8 @@ meta:
     GUI_TP_DEPLOY_RVDM: true
     GUI_TP_DEPLOY_EMS_SERVER: true
     GUI_TP_DEPLOY_EMSDM: true
-    GUI_TP_DEPLOY_HAWKCONSOLE: true
-    GUI_TP_DEPLOY_BW6DM: true    
+    GUI_TP_DEPLOY_HAWKCONSOLE: false
+    GUI_TP_DEPLOY_BW6DM: true
     GUI_PIPELINE_LOG_DEBUG: false
   globalEnvVariable:
     REPLACE_RECIPE: true
@@ -71,11 +71,14 @@ meta:
     TP_CLUSTER_NAME: ${GUI_TP_CLUSTER_NAME:-"on-prem"}
 
     # ingress
+    TP_INGRESS_OBJECT: ${GUI_TP_INGRESS_OBJECT:-"ingress"}
     TP_INGRESS_CLASS: ${GUI_TP_INGRESS_CLASS:-"traefik"}
+    TP_GATEWAY_NAME: ${GUI_TP_GATEWAY_NAME:-"nginx-gateway"}
+    TP_INGRESS_GATEWAY_NAMESPACE: ${GUI_TP_INGRESS_GATEWAY_NAMESPACE:-"ingress-system"}
     TP_DNS_DOMAIN: ${GUI_TP_CP_DNS_DOMAIN:-"localhost.dataplanes.pro"}
 
     # BW5DM
-    BW5_CHART_VERSION: ${GUI_BW5_CHART_VERSION:-"^1.1.0"}
+    BW5_CHART_VERSION: ${GUI_BW5_CHART_VERSION:-"^1.2.0"}
     TP_BWDM_NAMESPACE: ${GUI_TP_BWDM_NAMESPACE:-bw5dm}
     TP_BWDM_RELEASE_NAME: ${GUI_TP_BWDM_RELEASE_NAME:-bw5dm}
     TP_BW5_APP_NAME: ${GUI_TP_BW5_APP_NAME:-"RestSample"}
@@ -83,11 +86,8 @@ meta:
     TP_OTEL_METRICS_ENDPOINT: ${GUI_TP_OTEL_METRICS_ENDPOINT:-"http://otel-userapp-metrics.k8s-auto-bmdp1ns.svc:4318/v1/metrics"}
     TP_OTEL_LOGS_ENDPOINT: ${GUI_TP_OTEL_LOGS_ENDPOINT:-"http://otel-userapp-logs.k8s-auto-bmdp1ns.svc:4318/v1/logs"}
 
-    # activation server
-    TP_ACTIVATION_SERVER_IP: ${GUI_TP_ACTIVATION_SERVER_IP:-""}
-    TP_ACTIVATION_SERVER_PORT: ${GUI_TP_ACTIVATION_SERVER_PORT:-"7070"}
-    TP_ACTIVATION_SERVER_CERT_HOSTNAME: ${GUI_TP_ACTIVATION_SERVER_CERT_HOSTNAME:-""}
-    TP_ACTIVATION_SERVER_FINGER_PRINT: ${GUI_TP_ACTIVATION_SERVER_FINGER_PRINT:-""}
+    # TP activation license file
+    TP_ACTIVATION_ZIP_FILE_BASE64: ${GUI_TP_ACTIVATION_ZIP_FILE_BASE64:-""}
 
     # image tag
     TP_BMDP_IMAGE_TAG_BW5EMSDM: ${GUI_TP_BMDP_IMAGE_TAG_BW5EMSDM:-"emsdm-latest"}
@@ -126,6 +126,9 @@ helmCharts:
           containerRegistryUsername: "${TP_CONTAINER_REGISTRY_USERNAME}"
           containerRegistryPassword: "${TP_CONTAINER_REGISTRY_PASSWORD}"
           ingressClassName: ${TP_INGRESS_CLASS}
+          ingressObject: ${TP_INGRESS_OBJECT}
+          gatewayName: ${TP_GATEWAY_NAME}
+          gatewayNamespace: ${TP_INGRESS_GATEWAY_NAMESPACE}
           tpDNSDomainName: ${TP_DNS_DOMAIN}
         secret:
           enabled: true
@@ -135,14 +138,11 @@ helmCharts:
             image:
               repository: "${TP_CONTAINER_REGISTRY}/${TP_CONTAINER_REGISTRY_REPOSITORY}/bw5-test"
               tag: "${TP_BMDP_IMAGE_TAG_EMS}"
-            env:
-              - name: TIBEMS_LICENSE
-                value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
             volumeMounts:
               - name: license-secret
                 mountPath: /opt/tibco/license-file.bin
                 subPath: license-file.bin
-                readyOnly: true
+                readOnly: true
             volumes:
               - name: license-secret
                 secret:
@@ -167,12 +167,6 @@ helmCharts:
                 value: "${TP_ENABLE_OTEL_LOGS}"
               - name: OTEL_LOGS_ENDPOINT
                 value: "${TP_OTEL_LOGS_ENDPOINT}"
-              - name: LICENSE_URL
-                value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
-              - name: ACTIVATION_SERVER_IP
-                value: "${TP_ACTIVATION_SERVER_IP}"
-              - name: ACTIVATION_SERVER_HOSTNAME
-                value: "${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
               # Use the ems-server above by default, if you want to use a different one, set info below
               # - name: EMS_URL
               #   value: "tcp://newemsserver:7222"
@@ -184,7 +178,7 @@ helmCharts:
               - name: license-secret
                 mountPath: /opt/tibco/license-file.bin
                 subPath: license-file.bin
-                readyOnly: true
+                readOnly: true
             volumes:
               - name: license-secret
                 secret:
@@ -221,17 +215,11 @@ helmCharts:
                 value: "${TP_ENABLE_OTEL_LOGS}"
               - name: OTEL_LOGS_ENDPOINT
                 value: "${TP_OTEL_LOGS_ENDPOINT}"
-              - name: LICENSE_URL
-                value: "https://${TP_ACTIVATION_SERVER_CERT_HOSTNAME}:${TP_ACTIVATION_SERVER_PORT}/?fp=${TP_ACTIVATION_SERVER_FINGER_PRINT}"
-              - name: ACTIVATION_SERVER_IP
-                value: "${TP_ACTIVATION_SERVER_IP}"
-              - name: ACTIVATION_SERVER_HOSTNAME
-                value: "${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
             volumeMounts:
                 - name: license-secret
                   mountPath: /opt/tibco/license-file.bin
                   subPath: license-file.bin
-                  readyOnly: true
+                  readOnly: true
             volumes:
               - name: license-secret
                 secret:
@@ -261,6 +249,16 @@ helmCharts:
             image:
               repository: "${TP_CONTAINER_REGISTRY}/${TP_CONTAINER_REGISTRY_REPOSITORY}/bw5-test"
               tag: "${TP_BMDP_IMAGE_TAG_BW6DM}"
+            volumeMounts:
+              - name: license-secret
+                mountPath: /opt/tibco/license-file.bin
+                subPath: license-file.bin
+                readOnly: true
+            volumes:
+              - name: license-secret
+                secret:
+                  secretName: activation-file-secret
+                  optional: true
     cluster:
       names:
         - ${TP_CLUSTER_NAME}
@@ -296,7 +294,7 @@ helmCharts:
                 yq e '.meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64' /tmp/activation-zip-base64.yaml
               )"
             if [ -z "$ACTIVATION_ZIP_BASE64" ]; then
-              echo "❌ Activation zip file base64 content is empty. Will use Activation Server."
+              echo "❌ Activation zip file base64 content is empty. No license file will be created."
               return 0
             fi
             echo "$ACTIVATION_ZIP_BASE64" | base64 -d > /tmp/activation.zip
@@ -309,40 +307,3 @@ helmCharts:
           }
 
           create_secret_for_activation_file
-
-          # BW, EMS also need to add the activation server otherwise the pod will not ready
-          add_static_dns_record_to_coredns() {
-            local namespace="kube-system"
-            local configmap_name="coredns"
-            local new_record="${TP_ACTIVATION_SERVER_IP} ${TP_ACTIVATION_SERVER_CERT_HOSTNAME}"
-
-            echo "🔍 Reading current NodeHosts from ConfigMap '$configmap_name' in namespace '$namespace'..."
-            local current_hosts
-            current_hosts=$(kubectl get configmap "$configmap_name" -n "$namespace" -o jsonpath='{.data.NodeHosts}')
-
-            if echo "$current_hosts" | grep -Fxq "$new_record"; then
-              echo "✅ Record already exists: $new_record"
-              return 0
-            fi
-
-            echo "➕ Appending new record: $new_record"
-            local updated_hosts="${current_hosts}"$'\n'"${new_record}"
-
-            echo "📦 Patching ConfigMap..."
-            kubectl patch configmap "$configmap_name" -n "$namespace" --type merge \
-              --patch "$(cat <<EOF
-          data:
-            NodeHosts: |
-          $(echo "$updated_hosts" | sed 's/^/    /')
-          EOF
-          )"
-
-            echo "✅ Record added successfully."
-
-            echo "🔄 Restarting CoreDNS to apply changes..."
-            kubectl -n "$namespace" rollout restart deployment coredns
-
-            echo "🎉 Done."
-          }
-
-          add_static_dns_record_to_coredns

@@ -1,18 +1,25 @@
 pipelineName: "Config CoreDNS"
 description: |
-  This pipeline will config CoreDNS for the TP cluster. It will add a rewrite rule to Corefile to rewrite the domain name to the target service.
-  This is designed to work with domain like `*.localhost.dataplanes.pro` to rewrite to 
+  This pipeline configures CoreDNS for the TP cluster so that `*.localhost.dataplanes.pro`
+  resolves in-cluster to the target ingress service, e.g.
   * `ingress-nginx-controller.ingress-system.svc.cluster.local` for nginx
   * `traefik.ingress-system.svc.cluster.local` for traefik
-  
-  The domain `*.localhost.dataplanes.pro` is pointing to 127.0.0.1. We need to redirect it to the target ingress service.
-  
-  This script is idempotent. It will only add the rewrite rule if it does not exist.
-  
-  The CoreDNS pod will be restarted after the change.
-  
-  In order to avoid deal with escape characters in the regex pattern, we use base64 format of the regex pattern. 
-  Use this command to generate the base64 format of the regex pattern:
+
+  The domain `*.localhost.dataplanes.pro` points to 127.0.0.1; in-cluster callers need it
+  redirected to the target ingress service.
+
+  The rewrite is applied in the most durable way available on the cluster. When the live CoreDNS
+  Corefile imports `/etc/coredns/custom/*.override`, the rule is written into the UNMANAGED
+  `coredns-custom` ConfigMap in `kube-system`; the coredns addon does not reconcile that
+  ConfigMap, so the rule persists across CoreDNS restarts/reconciles (a rewrite added straight
+  into the managed Corefile would be reverted on the next reconcile). On clusters whose Corefile
+  does not import a custom directory, the rule is added to the managed `coredns` Corefile
+  directly as a fallback.
+
+  This pipeline is idempotent. The CoreDNS pod is restarted after the change.
+
+  In order to avoid dealing with escape characters in the regex pattern, we use the base64 form
+  of the regex pattern. Use this command to generate it:
   ```bash
   echo '(.*)\.localhost\.dataplanes\.pro' | base64
   ```
@@ -23,7 +30,7 @@ options:
   reference: "meta.guiEnv.GUI_TARGET_SERVICE"
   required: true
   description: |
-    The target service to rewrite the domain name to. For ngixn: `ingress-nginx-controller.ingress-system.svc.cluster.local`
+    The target service to rewrite the domain name to. For nginx: `ingress-nginx-controller.ingress-system.svc.cluster.local`
     For traefik: `traefik.ingress-system.svc.cluster.local`
 - name: "The regex domain pattern in base64"
   type: string
@@ -55,25 +62,43 @@ recipe: |
         fileName: script.sh
         content: |
           #!/bin/bash
+          set -euo pipefail
           REGEX_PATTERN=$(echo "$REGEX_PATTERN_BASE64" | base64 --decode | tr -d '\n')
-          kubectl get configmap coredns -n kube-system -o json | jq --arg regex "$REGEX_PATTERN" --arg target "$TARGET_SERVICE" '
-            .data.Corefile |=
-            if (. | test("rewrite name regex \\Q" + $regex + "\\E " + $target + " answer auto")) then
-              # If the rewrite rule already exists, leave the Corefile unchanged
-              .
-            else
-              # If the rewrite rule does not exist, insert it after the "ready" line
-              (split("\n") | map(
-                if test("^\\s*ready\\s*$") then
-                  . + "\n    rewrite name regex " + $regex + " " + $target + " answer auto"
-                else
-                  .
-                end
-              ) | join("\n"))
-            end
-          ' > coredns-updated.json
 
-          
-          kubectl apply -f coredns-updated.json
-  
+          # Apply the *.localhost.dataplanes.pro -> ingress rewrite in the most durable way
+          # available. When the live Corefile imports /etc/coredns/custom/*.override, write the
+          # rule into the UNMANAGED coredns-custom ConfigMap (not reconciled by the coredns addon,
+          # so it survives CoreDNS restarts/reconciles). Otherwise patch the managed Corefile
+          # directly as a fallback (clusters whose Corefile does not import a custom directory).
+          if kubectl -n kube-system get cm coredns -o jsonpath='{.data.Corefile}' | grep -q 'import /etc/coredns/custom'; then
+            echo "CoreDNS imports a custom override dir; writing the unmanaged coredns-custom ConfigMap (durable)."
+            kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: coredns-custom
+            namespace: kube-system
+          data:
+            dataplanes.override: |
+              rewrite name regex $REGEX_PATTERN $TARGET_SERVICE answer auto
+          EOF
+          else
+            echo "CoreDNS has no custom override import; patching the managed Corefile directly (idempotent)."
+            kubectl get configmap coredns -n kube-system -o json | jq --arg regex "$REGEX_PATTERN" --arg target "$TARGET_SERVICE" '
+              .data.Corefile |=
+              if (. | test("rewrite name regex \\Q" + $regex + "\\E " + $target + " answer auto")) then
+                .
+              else
+                (split("\n") | map(
+                  if test("^\\s*ready\\s*$") then
+                    . + "\n    rewrite name regex " + $regex + " " + $target + " answer auto"
+                  else
+                    .
+                  end
+                ) | join("\n"))
+              end
+            ' > /tmp/coredns-updated.json
+            kubectl apply -f /tmp/coredns-updated.json
+          fi
+
           kubectl rollout restart deployment coredns -n kube-system

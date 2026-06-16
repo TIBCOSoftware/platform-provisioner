@@ -215,7 +215,11 @@ Configures CoreDNS in the Kubernetes cluster to rewrite the `*.localhost.datapla
 
 #### What It Does
 
-1. Adds a rewrite rule to CoreDNS Corefile
+1. Writes the rewrite rule the most durable way available: when the live Corefile imports
+   `/etc/coredns/custom/*.override`, into the unmanaged `coredns-custom` ConfigMap in `kube-system`
+   (the coredns addon does not reconcile it, so the rule survives CoreDNS restarts — unlike a
+   rewrite in the managed Corefile, which the addon reverts on the next reconcile); otherwise it
+   patches the managed `coredns` Corefile directly as a fallback
 2. Rewrites `*.localhost.dataplanes.pro` to ingress service:
    - **nginx**: `ingress-nginx-controller.ingress-system.svc.cluster.local`
    - **Traefik**: `traefik.ingress-system.svc.cluster.local`
@@ -223,7 +227,8 @@ Configures CoreDNS in the Kubernetes cluster to rewrite the `*.localhost.datapla
 
 #### Technical Details
 
-- **Idempotent**: Safe to run multiple times (only adds rule if missing)
+- **Durable where supported**: when the Corefile imports a custom directory, the rule lives in the unmanaged `coredns-custom` ConfigMap (survives coredns addon reconciles); otherwise it falls back to the managed `coredns` Corefile
+- **Idempotent**: Safe to run multiple times
 - **Base64 Encoding**: Uses base64-encoded regex pattern to avoid escape character issues
 - **Regex Pattern**: `(.*)\.localhost\.dataplanes\.pro`
 
@@ -253,8 +258,8 @@ Edit the recipe to specify:
 #### Verification
 
 ```bash
-# Check CoreDNS configmap
-kubectl get configmap coredns -n kube-system -o yaml
+# Check the coredns-custom override ConfigMap
+kubectl get configmap coredns-custom -n kube-system -o yaml
 
 # Test DNS resolution from a pod
 kubectl run -it --rm debug --image=busybox --restart=Never -- nslookup provisioner.localhost.dataplanes.pro
@@ -374,17 +379,17 @@ The recipe can use automation scripts from:
 - Admin user registered and password set
 - Recipe 06 completed if O11y integration is required
 - GitHub token for private chart repositories (if using private charts)
-- Activation server configured (for licensed capabilities)
+- Activation license file uploaded (for licensed capabilities)
 
 #### Key Configuration
 
 | Setting | Description | Required |
 |---------|-------------|----------|
 | `GUI_GITHUB_TOKEN` | GitHub personal access token | Yes (for private repos) |
-| `GUI_TP_AUTO_ACTIVE_USER` | Activation server user | Yes (for licensing) |
+| `GUI_TP_AUTO_ACTIVE_USER` | Auto-activate CP admin user | Yes |
 | DP hostname prefix | Subdomain for DP services | Yes |
 | Username/Password | DP subscription user credentials | Yes |
-| Activation server settings | IP, port, fingerprint | For licensed features |
+| `GUI_TP_ACTIVATION_ZIP_FILE_BASE64` | Activation license file (activation.bin.zip) | For licensed features |
 
 #### Execution Flow
 
@@ -422,7 +427,7 @@ The `run.sh` script executes this recipe with automatic retry:
 - **Timeout waiting for DP**: Increase retry count or check cluster resources
 - **Authentication failures**: Verify admin credentials and user permissions
 - **O11y integration fails**: Ensure recipe 06 (O11y stack) is deployed first
-- **Activation errors**: Check activation server connectivity and credentials
+- **Activation errors**: Verify the activation license file (activation.bin.zip) is uploaded correctly
 
 **Debug Mode:**
 ```bash
@@ -565,7 +570,7 @@ Deploys the BusinessWorks 5 (BW5) integration stack for running classic TIBCO Ac
 - Recipe 02 completed (CP deployed)
 - Access to TIBCO BW5 private Helm chart repository
 - **Architecture**: x86_64 only (ARM64/Mac M1/M2 NOT supported)
-- Valid TIBCO activation server credentials
+- Activation license file (activation.bin.zip)
 - GitHub token for private chart access
 
 #### Key Configuration
@@ -574,11 +579,8 @@ Deploys the BusinessWorks 5 (BW5) integration stack for running classic TIBCO Ac
   - Private GitHub repository for BW5 charts
   - GitHub token required for access
   - Repository URL and username
-- **Activation Server**:
-  - Activation server IP address
-  - Hostname for license validation
-  - Port (default: 8000)
-  - Server fingerprint for security
+- **Activation License File**:
+  - Upload `activation.bin.zip` to enable application components
 - **BW5 Versions**:
   - Configurable per component
   - Must match licensed versions
@@ -621,9 +623,8 @@ If running on ARM architecture, the deployment will fail or containers won't sta
 - Check chart repository URL and credentials
 
 **Licensing Issues**:
-- Verify activation server connectivity
-- Check activation server fingerprint matches
-- Ensure licenses are available for BW5
+- Verify the activation license file (activation.bin.zip) is uploaded via the GUI
+- Ensure the license file is valid and not expired
 
 **Container Crashes on ARM**:
 - This is expected behavior
@@ -801,8 +802,8 @@ ping mail.localhost.dataplanes.pro
 
 **Problem**: DNS rewrite not working
 ```bash
-# Check CoreDNS configmap
-kubectl get configmap coredns -n kube-system -o yaml
+# Check the coredns-custom override ConfigMap
+kubectl get configmap coredns-custom -n kube-system -o yaml
 
 # Restart CoreDNS
 kubectl rollout restart deployment coredns -n kube-system
@@ -960,7 +961,7 @@ export PIPELINE_RECIPE_PRINT="false"
 
 # Docker images
 export PIPELINE_DOCKER_IMAGE_RUNNER="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.0-on-prem"
-export PIPELINE_DOCKER_IMAGE_TESTER="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.2-tester-on-prem-jammy"
+export PIPELINE_DOCKER_IMAGE_TESTER="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.4-tester-on-prem-jammy"
 
 # Retry count for subscription deployment
 export TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT="10"

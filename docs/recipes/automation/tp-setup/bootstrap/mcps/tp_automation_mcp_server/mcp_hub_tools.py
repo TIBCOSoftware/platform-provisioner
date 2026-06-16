@@ -25,31 +25,35 @@ from .config import DEFAULT_VALUES
 logger = logging.getLogger('tibco-platform-provisioner-mcp-hub')
 
 async def deploy_mcp_hub(dp_name: str = "", chart_version: str = "") -> str:
-    """Deploy MCP Hub
+    """Deploy the MCP Gateway and install MCP servers via the MCP Hub UI.
 
-    This tool deploys the TIBCO MCP Hub to the Control Plane namespace.
-    MCP Hub provides a centralized management interface for MCP (Model Context Protocol)
-    servers and recipes within the TIBCO Platform.
+    This tool runs the browser automation case ``case.k8s_deploy_mcp_hub`` against
+    the gateway-centric MCP Hub React UI (PCP-19623). It assumes the MCP Hub chart
+    is already installed on the Control Plane (in CP mode, ``MCP_HUB_MODE=cp``).
 
-    The tool automates the following process:
-    1. Extracts configuration from the existing CP installation (helm get values)
-    2. Builds the MCP Hub chart values (container registry, DNS domain, etc.)
-    3. Adds the TIBCO Platform helm repo
-    4. Runs helm upgrade --install for tibco-cp-mcp-hub chart
+    The automation drives the UI end-to-end:
+    1. Register Gateway -> "Deploy to a TIBCO Data Plane" (auto-provision) onto the
+       target Data Plane (POST /api/mcp-hub/gateways/{dpUuid}/deploy)
+    2. Installs the catalog MCP servers from the registry (DP pre-selected)
+    3. Pushes the configuration to the gateway (Preview Changes -> Push)
+    4. Verifies the discovered tools per server (Tools details drawer)
 
     Args:
-        dp_name: Name of the Data Plane (used for context, MCP Hub deploys to CP namespace).
-        chart_version: Specific chart version to deploy (optional, defaults to latest).
+        dp_name: Target Data Plane name to deploy the gateway onto
+            (maps to TP_AUTO_K8S_DP_NAME).
+        chart_version: MCP Hub chart version override (maps to
+            CP_PLATFORM_MCP_HUB_VERSION); optional, defaults to the installed version.
 
     Returns:
-        Result of the MCP Hub deployment process
+        Result of the MCP Hub deployment automation run.
 
     Examples:
         deploy_mcp_hub()
-        deploy_mcp_hub(chart_version="~1.17.0-0")
+        deploy_mcp_hub(dp_name="k8s-auto-dp1", chart_version="1.17.0-gateway-centric.4")
 
     Note:
-        Requires an existing CP installation with platform-base deployed.
+        Requires an existing CP-mode MCP Hub install and a managed (cp_dp) Data
+        Plane to deploy the gateway onto.
     """
     params: Dict[str, Any] = {
         "TP_AI_ENABLE_MCP_HUB": True,

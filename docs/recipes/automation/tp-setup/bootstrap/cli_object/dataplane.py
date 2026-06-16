@@ -31,7 +31,7 @@ from utils.color_logger import ColorLogger
 from utils.env import ENV
 from utils.helper import Helper
 from utils.util import Util
-from .base import TibcopBase
+from .base import TibcopBase, normalize_gateway_controller
 
 
 class TibcopDataPlane:
@@ -89,7 +89,7 @@ class TibcopDataPlane:
         data = Util.parse_json_result(result)
         return data is not None
 
-    def wait_for_dataplane_green(self, dp_name, timeout=300, interval=20):
+    def wait_for_dataplane_green(self, dp_name, timeout=480, interval=10):
         """
         Wait until the dataplane status becomes 'green'.
 
@@ -98,8 +98,8 @@ class TibcopDataPlane:
 
         Args:
             dp_name: Name of the dataplane to check
-            timeout: Maximum wait time in seconds (default: 300)
-            interval: Polling interval in seconds (default: 20)
+            timeout: Maximum wait time in seconds (default: 480)
+            interval: Polling interval in seconds (default: 10)
 
         Returns:
             True if dataplane is green, False if timed out
@@ -175,6 +175,12 @@ class TibcopDataPlane:
                                          ingress_class_name=None,
                                          ingress_resource_description=None,
                                          fqdn=None,
+                                         use_gateway=None,
+                                         gatewayapi_resource_name=None,
+                                         gateway_apicontroller_name=None,
+                                         gateway_name=None,
+                                         gateway_namespace=None,
+                                         gateway_section=None,
                                          other_args=None):
         """
         Register a Control Tower (Business Monitoring) DataPlane.
@@ -192,7 +198,14 @@ class TibcopDataPlane:
             ingress_controller_name: Ingress controller name (defaults to ENV.TP_AUTO_INGRESS_CONTROLLER)
             ingress_class_name: Ingress class name (defaults to ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME)
             ingress_resource_description: Description for ingress resource
-            fqdn: FQDN for ingress (defaults to ENV.TP_AUTO_FQDN_BMDP)
+            fqdn: FQDN for ingress/gateway (defaults to ENV.TP_AUTO_FQDN_BMDP)
+            use_gateway: When True, register with Gateway API resource instead of ingress.
+                Defaults to (ENV.TP_AUTO_INGRESS_OBJECT == "gateway").
+            gatewayapi_resource_name: Name for the gateway API resource (defaults to 'ctdp-gateway')
+            gateway_apicontroller_name: Controller type, title-cased (defaults to ENV.TP_AUTO_GATEWAY_CONTROLLER)
+            gateway_name: K8s Gateway resource name (defaults to ENV.TP_AUTO_GATEWAY_NAME)
+            gateway_namespace: K8s Gateway namespace (defaults to ENV.TP_AUTO_GATEWAY_NAMESPACE)
+            gateway_section: Optional Gateway Listener section name (defaults to ENV.TP_AUTO_GATEWAY_SECTION_NAME)
             other_args: Additional CLI arguments
 
         Returns:
@@ -210,11 +223,39 @@ class TibcopDataPlane:
         storage_resource_name = storage_resource_name or "ctdp-nfs"
         storage_class_name = storage_class_name or ENV.TP_AUTO_STORAGE_CLASS
         storage_resource_description = storage_resource_description or "storage for bmdp"
-        ingress_resource_name = ingress_resource_name or "ctdp-ingress"
-        ingress_controller_name = ingress_controller_name or ENV.TP_AUTO_INGRESS_CONTROLLER
-        ingress_class_name = ingress_class_name or ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME
-        ingress_resource_description = ingress_resource_description or "ingress for bmdp"
         fqdn = fqdn or ENV.TP_AUTO_FQDN_BMDP
+
+        if use_gateway is None:
+            use_gateway = (ENV.TP_AUTO_INGRESS_OBJECT == "gateway")
+
+        if use_gateway:
+            gatewayapi_resource_name = gatewayapi_resource_name or "ctdp-gateway"
+            gateway_apicontroller_name = normalize_gateway_controller(gateway_apicontroller_name or ENV.TP_AUTO_GATEWAY_CONTROLLER)
+            gateway_name = gateway_name or ENV.TP_AUTO_GATEWAY_NAME
+            gateway_namespace = gateway_namespace or ENV.TP_AUTO_GATEWAY_NAMESPACE
+            if gateway_section is None:
+                gateway_section = ENV.TP_AUTO_GATEWAY_SECTION_NAME
+            route_args = (
+                f'--gatewayapi-resource-name="{gatewayapi_resource_name}" '
+                f'--gateway-apicontroller-name="{gateway_apicontroller_name}" '
+                f'--gateway-name="{gateway_name}" '
+                f'--gateway-namespace="{gateway_namespace}" '
+                f'--gateway-host-or-domain-name="{fqdn}" '
+            )
+            if gateway_section:
+                route_args += f'--gateway-section="{gateway_section}" '
+        else:
+            ingress_resource_name = ingress_resource_name or "ctdp-ingress"
+            ingress_controller_name = ingress_controller_name or ENV.TP_AUTO_INGRESS_CONTROLLER
+            ingress_class_name = ingress_class_name or ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME
+            ingress_resource_description = ingress_resource_description or "ingress for bmdp"
+            route_args = (
+                f'--ingress-resource-name="{ingress_resource_name}" '
+                f'--ingress-controller-name="{ingress_controller_name}" '
+                f'--ingress-class-name="{ingress_class_name}" '
+                f'--ingress-resource-description="{ingress_resource_description}" '
+                f'--fqdn="{fqdn}" '
+            )
 
         cert_arg = '--custom-certificate-secret-name self-signed-cert ' if ENV.TP_IS_CERT_SELF_SIGNED else ''
         command = (
@@ -225,11 +266,7 @@ class TibcopDataPlane:
             f'--storage-resource-name="{storage_resource_name}" '
             f'--storage-class-name="{storage_class_name}" '
             f'--storage-resource-description="{storage_resource_description}" '
-            f'--ingress-resource-name="{ingress_resource_name}" '
-            f'--ingress-controller-name="{ingress_controller_name}" '
-            f'--ingress-class-name="{ingress_class_name}" '
-            f'--ingress-resource-description="{ingress_resource_description}" '
-            f'--fqdn="{fqdn}" '
+            f'{route_args}'
             f'{cert_arg}'
             f'{other_args or ""}'
         )

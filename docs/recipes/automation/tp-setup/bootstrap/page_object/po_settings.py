@@ -145,6 +145,7 @@ class PageObjectSettings:
         if self.is_created_oauth_token():
             ColorLogger.success(f"OAuth Token '{ENV.TP_AUTO_TOKEN_NAME}' is set in kubernetes successfully.")
             ReportYaml.set(".ENV.REPORT_OAUTH_TOKEN", True)
+            ReportYaml.set(".ENV.REPORT_OAUTH_TOKEN_SECRET", f"{ENV.TP_AUTO_TOKEN_NAMESPACE}/{ENV.TP_AUTO_TOKEN_NAME}")
             if self.page.locator("oauth-token table tr", has=self.page.locator("td:first-child", has_text=ENV.TP_AUTO_TOKEN_NAME)).is_visible():
                 ColorLogger.success(f"New OAuth Token '{ENV.TP_AUTO_TOKEN_NAME}' is created successfully.")
         else:

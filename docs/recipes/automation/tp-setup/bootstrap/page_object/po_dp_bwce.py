@@ -159,28 +159,44 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 else:
                     Util.exit_error(f"'{ENV.TP_AUTO_STORAGE_CLASS}' Storage Class is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                # CP 1.17 wizard splits Ingress vs Gateway via an `ingressRouteType-GATEWAYAPI`
+                # radio. CP 1.18 dropped that radio: Ingress and Gateway entries coexist in a
+                # single Route Resource table and the row label is clicked directly. Click the
+                # radio only when present.
+                gw_radio = self.page.locator('label[for="ingressRouteType-GATEWAYAPI"]')
+                if gw_radio.is_visible():
+                    gw_radio.click()
+                    self.page.wait_for_timeout(2000)
+                    print("Selected 'Gateway API' radio button (CP 1.17 wizard)")
+                else:
+                    print("'Gateway API' radio not present (CP 1.18 wizard) — picking row directly")
+                route_resource_name = ENV.TP_AUTO_GATEWAY_CONTROLLER_BW5CE if self.capability == "bw5ce" else ENV.TP_AUTO_GATEWAY_CONTROLLER_BWCE
+            else:
+                route_resource_name = self.ingress_controller
+
             # CP 1.18+ renamed #ingress-resource-table to #route-resource-table
             ingress_table_sel = "#ingress-resource-table, #route-resource-table"
             if self.page.locator(ingress_table_sel).first.is_visible():
-                print(f"Checking Ingress/Route table has '{self.ingress_controller}' visible...")
-                ingress_row_sel = f"{ingress_table_sel} >> tr >> td >> text={self.ingress_controller}"
-                if not Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=self.ingress_controller)), 2, 4):
-                    ColorLogger.info(f"Adding Ingress/Route: {self.ingress_controller} for {self.capability_upper} capability")
-                    add_btn_sel = "#add-ingress-resource-ingress-controller-btn, #add-route-resource-btn"
-                    if self.page.locator(add_btn_sel).first.is_visible():
-                        self.page.locator(add_btn_sel).first.click()
-                        print("Clicked 'Add Ingress/Route Resource' button")
-                        self.po_dp_config.add_ingress_controller(
-                            ENV.TP_AUTO_INGRESS_CONTROLLER, self.ingress_controller,
-                            ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, self.fqdn,
-                            "route" if self.page.locator('#route-resource-table').is_visible() else "ingress"
-                        )
+                print(f"Checking Ingress/Route table has '{route_resource_name}' visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource_name)), 2, 4):
+                    if ENV.TP_AUTO_INGRESS_OBJECT != "gateway":
+                        ColorLogger.info(f"Adding Ingress/Route: {route_resource_name} for {self.capability_upper} capability")
+                        add_btn_sel = "#add-ingress-resource-ingress-controller-btn, #add-route-resource-btn"
+                        if self.page.locator(add_btn_sel).first.is_visible():
+                            self.page.locator(add_btn_sel).first.click()
+                            print("Clicked 'Add Ingress/Route Resource' button")
+                            self.po_dp_config.add_ingress_controller(
+                                ENV.TP_AUTO_INGRESS_CONTROLLER, route_resource_name,
+                                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, self.fqdn,
+                                "route" if self.page.locator('#route-resource-table').is_visible() else "ingress"
+                            )
 
-                if Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=self.ingress_controller)), 3, 6):
-                    self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=self.ingress_controller)).locator('label').click()
-                    print(f"Selected '{self.ingress_controller}' Ingress/Route for {self.capability_upper} capability")
+                if Util.check_dom_visibility(self.page, self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource_name)), 3, 6):
+                    self.page.locator(ingress_table_sel).first.locator('tr', has=self.page.locator('td', has_text=route_resource_name)).locator('label').click()
+                    print(f"Selected '{route_resource_name}' Ingress/Route for {self.capability_upper} capability")
                 else:
-                    Util.exit_error(f"'{self.ingress_controller}' Ingress/Route is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
+                    Util.exit_error(f"'{route_resource_name}' Ingress/Route is still not available, please check if it is provisioned in Data Plane '{dp_name}'", self.page, f"{self.capability}_provision_capability.png")
 
             self.page.locator("#btnNextCapabilityProvision", has_text="Next").click()
             print(f"Clicked {self.capability_upper} 'Next' button, finished step 1")
@@ -294,6 +310,47 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
         self.page.locator(self.selector_header_dp_name(), has_text=dp_name).click()
         print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
 
+    def bwce_provision_version(self, dp_name):
+        """Provision the runtime version (with its default plugins) so the
+        'Create New App Build & Deploy' button appears on the capability page.
+
+        On a FRESH capability the App Builds area shows a 'Provision (Containers) &
+        Plug-ins' button instead of the build button (App Builds reads 0 /
+        "version provisioned yet"). This walks the 2-step provision wizard
+        (Step 1 'Select Versions' -> Step 2 'Provisioning') accepting the
+        pre-selected default version, then returns to the capability page.
+
+        Verified on BOTH bw5ce and bwce: only the entry button differs (captured by
+        provision_plugin_button_selector — bw5ce: the in-appPackages
+        #buildComp-btn-importAppBuild, bwce: #capPackagesBackToDP); the wizard is
+        shared (#provisionPluginUpdt-footBtn-nextStep; completion signalled by
+        #btnNavigationToIntegrationDetailsbtnRight).
+        """
+        ColorLogger.info(f"{self.capability_upper} Provisioning runtime version...")
+        # Click the capability's 'Provision (Containers) & Plug-ins' entry button
+        # (provision_plugin_button_selector differs per capability; the wizard does not).
+        # Re-query the locator on each interaction (do not cache) per project rules.
+        if not Util.check_dom_visibility(self.page, self.page.locator(self.provision_plugin_button_selector, has_text="Provision").first, 2, 6):
+            Util.exit_error(f"{self.capability_upper} 'Provision (Containers) & Plug-ins' button is not visible.", self.page, f"{self.capability}_provision_version.png")
+        self.page.locator(self.provision_plugin_button_selector, has_text="Provision").first.click()
+        print(f"Clicked 'Provision {self.capability_upper} (Containers) & Plug-ins' button")
+
+        # Step 1: Select Versions — the default runtime version is pre-selected.
+        if not Util.check_dom_visibility(self.page, self.page.locator("#provisionPluginUpdt-footBtn-nextStep"), 2, 10):
+            Util.exit_error(f"{self.capability_upper} provision wizard 'Next' button is not visible.", self.page, f"{self.capability}_provision_version-step1.png")
+        self.page.wait_for_timeout(1000)
+        self.page.locator("#provisionPluginUpdt-footBtn-nextStep").click()
+        print(f"Clicked 'Next' on 'Select Versions' step, {self.capability_upper} provisioning started")
+
+        # Step 2: Provisioning — completion shows the 'View Integration Capabilities
+        # details' button.
+        if not Util.check_dom_visibility(self.page, self.page.locator("#btnNavigationToIntegrationDetailsbtnRight"), 5, 180):
+            Util.exit_error(f"{self.capability_upper} version provisioning did not complete in time.", self.page, f"{self.capability}_provision_version-step2.png")
+        ColorLogger.success(f"{self.capability_upper} runtime version provisioned successfully.")
+        self.page.locator("#btnNavigationToIntegrationDetailsbtnRight").click()
+        print("Clicked 'View Integration Capabilities details', back to capability page")
+        self.page.wait_for_timeout(3000)
+
     def bwce_app_build_and_deploy(self, dp_name, app_file_name = None, app_name = None):
         app_file_name = app_file_name or self.app_file_name
         app_name = app_name or self.app_name
@@ -328,7 +385,18 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
 
         print(f"Start Create {self.capability_upper} app build...")
 
-        if not self.page.locator(self.create_app_build_button_selector, has_text="Create New App Build & Deploy").is_visible():
+        # On a fresh capability the runtime version is not provisioned, so the
+        # 'Create New App Build & Deploy' button is absent (the page shows a
+        # 'Provision (Containers) & Plug-ins' button instead). Provision the version
+        # first, then the build button appears. (has_text is case-insensitive, so it
+        # matches the actual 'Create New APP Build & Deploy' label.)
+        if not Util.check_dom_visibility(self.page, self.page.locator(self.create_app_build_button_selector, has_text="Create New App Build & Deploy"), 2, 4):
+            ColorLogger.warning(f"{self.capability_upper} 'Create New App Build & Deploy' not visible — runtime version not provisioned yet, provisioning now...")
+            self.bwce_provision_version(dp_name)
+
+        # After provisioning the version, the build button can take a few seconds to
+        # render — poll for it rather than a bare is_visible().
+        if not Util.check_dom_visibility(self.page, self.page.locator(self.create_app_build_button_selector, has_text="Create New App Build & Deploy"), 3, 30):
             Util.exit_error(f"{self.capability_upper} 'Create New App Build & Deploy' button is not visible, check {self.capability_upper} provision page.", self.page, f"{self.capability}_app_build_and_deploy.png")
 
         self.page.locator(self.create_app_build_button_selector, has_text="Create New App Build & Deploy").click()
@@ -520,9 +588,16 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                 print("Dialog 'Set Endpoint Visibility' popup")
                 texts = self.page.locator(".pl-modal__container strong").nth(0).all_inner_texts()
                 if any(t in ["Set Endpoint visibility", "Update Endpoint visibility"] for t in texts):
-                    if self.page.locator(".pl-table__cell label", has_text=self.ingress_controller).is_visible():
-                        self.page.locator(".pl-table__cell label", has_text=self.ingress_controller).click()
-                        print(f"Selected '{self.ingress_controller}' from Resource Name column")
+                    route_resource = (ENV.TP_AUTO_GATEWAY_CONTROLLER_BW5CE if self.capability == "bw5ce" else ENV.TP_AUTO_GATEWAY_CONTROLLER_BWCE) if ENV.TP_AUTO_INGRESS_OBJECT == "gateway" else self.ingress_controller
+                    if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                        gateway_label = self.page.locator('label[for="endpoint-type-gateway"], label[for="gateway"]').first
+                        if Util.check_dom_visibility(self.page, gateway_label, 1, 2):
+                            gateway_label.click()
+                            self.page.wait_for_timeout(2000)
+                            print("Selected 'Gateway' resource type in endpoint dialog")
+                    if self.page.locator(".pl-table__cell label", has_text=route_resource).is_visible():
+                        self.page.locator(".pl-table__cell label", has_text=route_resource).click()
+                        print(f"Selected '{route_resource}' from Resource Name column")
                         self.page.locator('label[for="endpoint-radio-0-public"]').click()
                         if self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges", has_text="Save Changes").is_enabled():
                             print("Set Public Endpoint Visibility to 'Public'")
@@ -536,7 +611,22 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
                             self.page.locator(".pl-modal__footer-left button", has_text="Cancel").click()
                             print(f"Clicked 'Cancel' button from '{texts}' dialog")
                     else:
-                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{self.ingress_controller}' is not available.", self.page, f"{self.capability}_app_config-endpoint.png")
+                        Util.warning_screenshot(f"Not able to set Endpoint Visibility to Public, '{route_resource}' is not available.", self.page, f"{self.capability}_app_config-endpoint.png")
+
+                # The endpoint dialog auto-closes only on a successful save. If the
+                # save produced no success toast (e.g. the endpoint is already Public,
+                # so the backend reports no change), the dialog stays open and would
+                # intercept the next tab click (Environmental Controls) -> Timeout.
+                # Close it explicitly before moving on.
+                if Util.check_dom_visibility(self.page, self.page.locator("#appDtls-appEndPntMod1-btn-saveChanges"), 2, 4):
+                    # Don't mask a real failure: if Save raised an error toast, surface
+                    # it with a screenshot before dismissing the (still-open) dialog.
+                    if self.page.locator(".pl-notification--error").is_visible():
+                        Util.warning_screenshot(f"{self.capability_upper} app '{app_name}' Set Endpoint Visibility reported an error.", self.page, f"{self.capability}_app_config-endpoint-error.png")
+                    if self.page.locator(".pl-modal__footer-left button", has_text="Cancel").first.is_visible():
+                        self.page.locator(".pl-modal__footer-left button", has_text="Cancel").first.click()
+                        print("Endpoint dialog still open after save — clicked 'Cancel' to close it")
+                        self.page.wait_for_timeout(1000)
 
         if ReportYaml.get_capability_app_info(dp_name, self.capability, app_name, "enableTrace") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, '{self.capability}' Trace is already Enabled in DataPlane '{dp_name}'.")

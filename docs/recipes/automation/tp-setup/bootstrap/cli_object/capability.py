@@ -25,8 +25,7 @@ Handles all capability-related operations:
 import json
 from utils.color_logger import ColorLogger
 from utils.env import ENV
-from utils.helper import Helper
-from .base import TibcopBase
+from .base import TibcopBase, normalize_gateway_controller
 
 
 class TibcopCapability:
@@ -218,17 +217,28 @@ class TibcopCapability:
         return result
 
     def provision_capability(self, dp_name, capability, storage_resource_id=None, ingress_resource_id=None,
-                            path_prefix=None, devhub_name=None, k8s_secret=None, other_args=None):
+                            gateway_resource_id=None, path_prefix=None, devhub_name=None,
+                            k8s_secret=None, other_args=None):
         """
         Provision a capability (BWCE/BW5CE/FLOGO/TIBCOHUB/CONNECTOR) in a DataPlane.
 
-        Auto-creates required storage and ingress resources if IDs not provided.
+        Auto-creates required storage and route (ingress or gateway) resources if IDs not provided.
+
+        Route resource selection:
+        - If ``gateway_resource_id`` is given (or auto-created when
+          ``ENV.TP_AUTO_INGRESS_OBJECT == "gateway"``), the capability is provisioned
+          with ``--gateway-resource-instance-id`` (K8s Gateway API).
+        - Otherwise the original ingress path is used. Explicit ``ingress_resource_id``
+          always wins over the gateway auto-create branch.
 
         Args:
             dp_name: Name of the dataplane
             capability: Capability type (BWCE, BW5CE, FLOGO, TIBCOHUB, CONNECTOR)
             storage_resource_id: Storage resource instance ID (auto-creates if not provided)
-            ingress_resource_id: Ingress resource instance ID (auto-creates if not provided)
+            ingress_resource_id: Ingress resource instance ID (auto-creates if not provided
+                and ``TP_AUTO_INGRESS_OBJECT != "gateway"``)
+            gateway_resource_id: Gateway API resource instance ID (auto-creates if not
+                provided and ``TP_AUTO_INGRESS_OBJECT == "gateway"``)
             path_prefix: Path prefix (for BWCE/BW5CE/FLOGO), default: /tibco/{capability}/{dataplane_id}
             devhub_name: Developer hub name (for TIBCOHUB only, defaults from ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
             k8s_secret: Kubernetes secret object name (for TIBCOHUB only)
@@ -291,8 +301,58 @@ class TibcopCapability:
                     return None
                 ColorLogger.success(f"Storage resource '{storage_resource_name}' created with ID '{storage_resource_id}'")
 
-        # Auto-create ingress resource if not provided
-        if not ingress_resource_id and self.resource:
+        # Decide route kind: Gateway API vs Ingress
+        use_gateway = (ENV.TP_AUTO_INGRESS_OBJECT.lower() == "gateway"
+                       and not ingress_resource_id)
+
+        # Auto-create gateway API resource if requested and not provided
+        if use_gateway and not gateway_resource_id and self.resource:
+            gateway_apicontroller = normalize_gateway_controller(ENV.TP_AUTO_GATEWAY_CONTROLLER)
+            gw_name_map = {
+                "BWCE": ENV.TP_AUTO_GATEWAY_CONTROLLER_BWCE,
+                "BW5CE": ENV.TP_AUTO_GATEWAY_CONTROLLER_BW5CE,
+                "FLOGO": ENV.TP_AUTO_GATEWAY_CONTROLLER_FLOGO,
+                "TIBCOHUB": ENV.TP_AUTO_GATEWAY_CONTROLLER_TIBCOHUB,
+            }
+            gateway_resource_name = gw_name_map.get(
+                capability.upper(),
+                f"{ENV.TP_AUTO_GATEWAY_CONTROLLER}-{capability.lower()}",
+            )
+            ColorLogger.info(f"Gateway resource ID not provided, checking if gateway resource '{gateway_resource_name}' exists...")
+
+            existing_gateway_id = self.resource.get_resource_id_by_name(dp_name, gateway_resource_name)
+            if existing_gateway_id:
+                ColorLogger.info(f"Found existing gateway resource with ID '{existing_gateway_id}'")
+                gateway_resource_id = existing_gateway_id
+            else:
+                fqdn_map = {
+                    "BWCE": ENV.TP_AUTO_FQDN_BWCE,
+                    "BW5CE": ENV.TP_AUTO_FQDN_BW5CE,
+                    "FLOGO": ENV.TP_AUTO_FQDN_FLOGO,
+                    "TIBCOHUB": ENV.TP_AUTO_FQDN_TIBCOHUB,
+                }
+                fqdn = fqdn_map.get(capability.upper(), ENV.TP_AUTO_FQDN_BWCE)
+                ColorLogger.info(f"Creating new gateway API resource '{gateway_resource_name}' with FQDN '{fqdn}', controller '{gateway_apicontroller}', gateway '{ENV.TP_AUTO_GATEWAY_NAME}' in '{ENV.TP_AUTO_GATEWAY_NAMESPACE}'...")
+                result = self.resource.create_gateway_api_resource(
+                    dp_name=dp_name,
+                    resource_name=gateway_resource_name,
+                    gateway_name=ENV.TP_AUTO_GATEWAY_NAME,
+                    gateway_namespace=ENV.TP_AUTO_GATEWAY_NAMESPACE,
+                    fqdn=fqdn,
+                    gateway_apicontroller_name=gateway_apicontroller,
+                    gateway_section_name=ENV.TP_AUTO_GATEWAY_SECTION_NAME,
+                )
+                if result is None:
+                    ColorLogger.error(f"Failed to create gateway resource, cannot continue provisioning {capability}")
+                    return None
+                gateway_resource_id = self.resource.get_resource_id_by_name(dp_name, gateway_resource_name)
+                if not gateway_resource_id:
+                    ColorLogger.error(f"Failed to get resource ID for newly created gateway resource '{gateway_resource_name}'")
+                    return None
+                ColorLogger.success(f"Gateway resource '{gateway_resource_name}' created with ID '{gateway_resource_id}'")
+
+        # Auto-create ingress resource if not provided (skipped when using gateway)
+        if not gateway_resource_id and not ingress_resource_id and self.resource:
             # Get ingress settings from ENV
             ingress_class_name = ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME
             ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER
@@ -356,10 +416,12 @@ class TibcopCapability:
             f'--capability {capability} '
         )
 
-        # Add storage and ingress (common for all capabilities)
+        # Add storage and route resource (gateway preferred over ingress when both set)
         if storage_resource_id:
             command += f'--storage-resource-instance-id "{storage_resource_id}" '
-        if ingress_resource_id:
+        if gateway_resource_id:
+            command += f'--gateway-resource-instance-id "{gateway_resource_id}" '
+        elif ingress_resource_id:
             command += f'--ingress-resource-instance-id "{ingress_resource_id}" '
 
         # Add capability-specific parameters
@@ -386,43 +448,11 @@ class TibcopCapability:
             return None
 
         ColorLogger.success(f"{capability} capability provisioned successfully")
-        if capability.upper() == "FLOGO":
-            self._lower_flogoprovisioner_resource()
         print("\n" + "="*60)
         print("Updated capability list:")
         print("="*60 + "\n")
         self.list_capabilities(dp_name, print_result=True)
         return result
-
-    def _lower_flogoprovisioner_resource(self):
-        """PCP-19289: shrink the over-provisioned flogoprovisioner Deployment in the
-        DP namespace right after FLOGO capability provisioning, so subsequent
-        steps (e.g. create-bmdp inside cli-full-automation) have CPU available.
-        Best-effort: never fails the caller. Hardcoded test/dev sizing.
-        """
-        ns = ENV.TP_AUTO_K8S_DP_NAMESPACE
-        if not ns:
-            ColorLogger.warning("TP_AUTO_K8S_DP_NAMESPACE not set; skipping flogoprovisioner CPU patch (non-critical)")
-            return
-        if not Helper.get_command_output(
-            f"kubectl -n {ns} get deploy flogoprovisioner -o name", is_print_error=False
-        ):
-            ColorLogger.warning(f"flogoprovisioner Deployment not found in {ns}; skipping CPU patch (non-critical)")
-            return
-        ColorLogger.info(
-            f"Patching {ns}/flogoprovisioner: requests=cpu=500m,memory=1000Mi limits=cpu=1000m,memory=1500Mi"
-        )
-        Helper.get_command_output(
-            f"kubectl set resources -n {ns} deployment/flogoprovisioner "
-            f"-c flogoprovisioner "
-            f"--requests=cpu=500m,memory=1000Mi "
-            f"--limits=cpu=1000m,memory=1500Mi",
-            is_print_error=False,
-        )
-        Helper.get_command_output(
-            f"kubectl -n {ns} rollout status deployment/flogoprovisioner --timeout=180s",
-            is_print_error=False,
-        )
 
     def delete_capability_instance(self, dp_name, capability, other_args=None):
         """

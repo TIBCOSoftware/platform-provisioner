@@ -1,6 +1,92 @@
-## [1.7.32-auto-on-prem-jammy]
+## [1.7.47-auto-on-prem-jammy]
+### Fixed
+- [PCP-20336] `deploy-mcp-hub` gateway readiness now uses **deterministic Hub API signals** instead of brittle UI-flag polling (the contextforge/`mcpgatewayDeployed` flag could lag the running pod — BREAK A / PCP-20127). Complements PCP-20334 (which adapted the Register-wizard *selectors* to the alpha.142 redesign); this reworks the *readiness* layer PCP-20334 left on the old UI-flag path:
+  - `wait_for_gateway_deployed` polls the gateways API (`GET .../gateways` → `mcpgatewayDeployed`) for the backend's own "deploy accepted" truth, then confirms the detail Push action is operable; if the API says deployed but the UI view never renders it fails loud (UI-flag lag, PCP-20127) instead of a blind 15-min poll. Resolves the row by id (deploy POST) or `dp_name`.
+  - `_wait_for_gateway_online` forces a synchronous `POST .../gateways/{id}/health-check` and accepts the response's `status=='online'` (real probe); fails fast after 3 consecutive hard errors (auth/URL), single bounded UI fallback only when the endpoint is absent (404); a `Gateway not found` 404 (wrong id) fails loud.
+  - new `_api_get_gateway` (id-primary; name-fallback requires `origin=='cp_dp'` and fails loud on >1 match — multi-gateway-per-dp safe) + `_detail_push_button` (role+name `Push Changes to Gateway`, legacy `dp-detail-sync` fallback) used by the deployed-wait and `push_to_gateway`.
+  - `_wait_for_target_dp_online` restores the documented `origin=='cp_dp'` filter (zero live-behavior change — `/data-planes` carries no `origin`), fixing a pre-existing red regression test.
+  - Extended `tests/test_po_mcp_hub_pick_target_dp.py` (34 unit tests green). Selector layer unchanged (owned by PCP-20334). Verified live on `ins-syan-70` (wip-poc-1-3ee6d26): the wizard drives end-to-end to the real provisioning POST; the gateway-pod deploy itself needs a full CP (the dev-k3s resource-create 403→502 is the orchestrator full-platform guard / PCP-20333, not the automation).
+
+## [1.7.46-auto-on-prem-jammy]
+### Fixed
+- [PCP-20320] App build automation failed on a **fresh capability** (runtime version not provisioned) across flogo, bwce, and bw5ce.
+  - **flogo** (`po_dp_flogo.py`): scoped the "Provision Flogo in another tab" locator to `.flogo-version-form-container .version-field-container .provision-link` so Step 2 (App Build Configurations) no longer hits a Playwright strict-mode violation when both the Flogo runtime version and a connector still need provisioning (two `.provision-link` elements).
+  - **bwce/bw5ce** (`po_dp_bwce.py`): on a fresh capability the BW5/BW6 (Containers) runtime version is not provisioned, so the "Create New App Build & Deploy" button is absent and `bwce_app_build_and_deploy` exited. Added `bwce_provision_version()` — clicks the per-capability provision entry (`provision_plugin_button_selector`; bw5ce: in-appPackages `#buildComp-btn-importAppBuild`, bwce: `#capPackagesBackToDP`), walks the shared 2-step wizard (`#provisionPluginUpdt-footBtn-nextStep` → wait `#btnNavigationToIntegrationDetailsbtnRight`), returns to the capability page; `bwce_app_build_and_deploy` calls it when the build button isn't visible, then polls for the button to render.
+  - **endpoint dialog** (`po_dp_bwce.py:bwce_app_config`): the Set Endpoint Visibility dialog only auto-closed on a success toast; with no toast (endpoint already Public → no change) it stayed open and intercepted the next tab click (Environmental Controls) → Timeout. Now surfaces a real error toast (no masking) then closes the lingering dialog before navigating on.
+  Verified end-to-end on live on-prem (`k8s-auto-dp1`): flogo, bwce (fresh → auto-provisions version), and bw5ce all run to completion (build → deploy → endpoint Public → trace).
+## [1.7.45-auto-on-prem-jammy]
+### Fixed
+- [PCP-20334] `deploy-mcp-hub` automation adapted to the MCP Hub 1.17.0-alpha.142 Register Gateway wizard (PrimeNG redesign). The wizard dropped the per-action test-ids and moved nav/action buttons into a shared `.rg-foot-actions` footer, so `_register_continue` timed out on the missing `register-continue` test-id. Backward-compatible selector updates in `po_mcp_hub.py` (old test-id tried first, then the redesign fallback): `_register_continue` / `_register_review_and_deploy` / `register-finish` → `.rg-foot-actions` footer buttons ("Continue" / "Register & Deploy" / "Finish") via a new `_register_footer_button` helper; `_register_fill_identity` → `register-name`; `_register_select_or_create_resource` → "Add new" trigger + dialog-footer primary "Add" submit (matched by dialog-scoped CSS, since Chrome folds the pi-plus icon glyph into the button's accessible name). Selectors that were unchanged (`register-dp-option`, `dp-action-resource-table`/`-row`, `dp-action-add-resource`, `#resource-name`, `#field-*`) are retained. Verified by driving the full redesigned wizard live on 1.17.0-alpha.142. Note: full E2E is currently blocked downstream by PCP-20333 (MCP Hub backend returns 403→502 on ingress-resource create), which is a separate product bug.
+
+## [1.7.44-auto-on-prem-jammy]
+### Fixed
+- [PCP-20250] `deploy-flogo` (and any DP→Global Observability link flow) no longer fails on 1.19.0-alpha with a fatal `nav-bar-pointer` timeout and a false "Linked … failed". Black-box verification on live 1.19.0-alpha showed the selectors the ticket blamed are all intact (`.nav-bar-pointer` "Data Planes", `.use-global-resource .o11y-btn`, the "Link Data plane to this resource ?" dialog, and `.o11y-panel-actions .global-resource-name`); the real cause was fragile waits. Two robustness fixes (no selector changes):
+  - `po_global.py:goto_left_navbar` now polls with `Util.check_dom_visibility` (logged, screenshot-on-failure) instead of a silent `wait_for(state="visible")`, so a slow left-nav re-render right after a heavy DP-config operation fails with diagnostics instead of an opaque `Timeout 30000ms exceeded`.
+  - `po_dataplane.py:switch_to_global_config` no longer reloads the page when the legacy `.switch-to-global` selector is absent (the reload was racing the freshly re-rendering Angular o11y panel and skipping the link). Pre-link checks now poll without reloading; the post-link confirmation polls up to 30s before declaring failure. Validated end-to-end against live 1.19.0-alpha (unlink → re-link).
+
+## [1.7.43-auto-on-prem-jammy]
+### Fixed
+- [PCP-20157] `springboot_provision_connector` passed `app_name=None` to `is_app_created`, causing a Playwright strict-mode violation in `deploy-sb` (false PARTIAL pipeline result). Root cause: unlike `springboot_app_build_and_deploy`, the connector method did not default the name, so `is_app_created` ran `locator(..., has_text=None)` which applies no filter and resolves to every app row — `is_visible()` then throws once >=2 apps exist (e.g. the o11y profile provisions BWCE+BW5CE+Flogo before SB). Two fixes: (1) `springboot_provision_connector` now defaults `app_name = app_name or ENV.SPRINGBOOT_APP_NAME` (root cause); (2) `is_app_created` defensively returns `False` on a falsy `app_name` without touching the locator, so any future `None` caller neither throws nor mis-judges. Added regression unit tests (`tests/test_po_app_name_guard.py`).
+
+## [1.7.42-auto-on-prem-jammy]
 ### Added
-- [PCP-19289] Lower flogoprovisioner pod resources right after FLOGO capability provisioning. 
+- [PCP-19768] No-tibtunnel DP reachability, end-to-end. With hybrid connectivity disabled there is no tibtunnel — the CP reaches the DP via `tp-dp-proxy` → the registered Reachable DP URL. The automation now makes that URL actually reachable after DP/BMDP create (gated by `GUI_TP_AUTO_DP_MANAGE_REACHABILITY`, default `true`):
+  - **Option A (default)** — creates a controller-adaptive `cpdpproxy-public` ingress in the DP namespace pointing at `cpdpproxy:80`, host `https://dp-<dpName>.<cpDnsDomain>`. The flavor (Ingress for `traefik`/`nginx`/`haProxy`/`kong`, OpenShift `Route`, or Gateway-API `HTTPRoute`) is selected from the same `TP_AUTO_INGRESS_OBJECT` / `TP_AUTO_INGRESS_CONTROLLER`(`_CLASS_NAME`) / `TP_AUTO_GATEWAY_*` settings the automation already feeds the CP "Add Ingress/Route" wizard, mirroring the capability charts (`dp-flogo-app`/`dp-bwce-app`).
+  - **Option B (opt-in, `GUI_TP_AUTO_DP_APPLY_NETPOL_LABELS=true`)** — instead labels the `cpdpproxy` (DP side, `networking.platform.tibco.com/cluster-ingress`) and `tp-dp-proxy` (CP side, `…/cluster-egress`) deployments + pod templates so `tp-dp-proxy` can reach the `cpdpproxy` ClusterIP directly, and uses the private `http://cpdpproxy.<ns>.svc.cluster.local` URL.
+  - New ENV (and `GUI_…` recipe inputs): `TP_AUTO_DP_MANAGE_REACHABILITY`, `TP_AUTO_DP_APPLY_NETPOL_LABELS`, `TP_AUTO_DP_PROXY_SERVICE_NAME` (default `cpdpproxy`), `TP_AUTO_DP_PROXY_SERVICE_PORT` (default `80`). `TP_AUTO_REACHABLE_DP_URL`/`TP_AUTO_REACHABLE_BMDP_URL` default to the public host **only** for no-tibtunnel Option A (hybrid OFF and not applying netpol labels); when hybrid is ON (default) or Option B is selected they keep the in-cluster `cpdpproxy` svc URL, preserving the pre-existing hybrid-ON registration (incl. the BMDP Reachable-URL field). An explicit value still overrides.
+
+### Fixed
+- [PCP-19768] `k8s_wait_tunnel_connected()` (`po_dataplane.py`) is now guarded on `TP_AUTO_ENABLE_HYBRID_CONNECTIVITY`. With hybrid disabled there is no tibtunnel, so the unconditional wait for `.tunnel-status svg.green` previously hard-exited after 180s and killed both the DP-create and BMDP-create flows. The automation now confirms the DP is created, waits for the card-level DP readiness icon (`.data-plane-status svg.green`, polling 20s/300s with page refresh to match `k8s_wait_bmdp_ready`) instead of the tunnel status, and records `tunnelConnected: false`. Fixes both `k8s_create_dataplane` and `k8s_create_bmdp` callers.
+
+> **No-tibtunnel run — flags to set.** The **automation** hybrid flag is `GUI_TP_AUTO_ENABLE_HYBRID_CONNECTIVITY` (→ `TP_AUTO_ENABLE_HYBRID_CONNECTIVITY`). A full run also needs the **CP** deployed with hybrid off (`GUI_CP_ENABLE_HYBRID_CONNECTIVITY=false`) — the two flags are independent. Non-hybrid DP registration is GUI/Playwright-only (CLI mode has no Reachable-URL field), so also set `GUI_TP_AUTO_USE_CLI=false`. The product-side gateway fix is PCP-19767.
+
+## [1.7.41-auto-on-prem-jammy]
+### Fixed
+- [PCP-20127] `deploy-mcp-hub` automation no longer aborts on a not-yet-online target Data Plane. The Register Gateway wizard fetches its target-DP list once at page mount (`useGateways`: `staleTime:0`, no `refetchInterval`) and never refreshes mid-wizard, so a DP still coming online (~2-3 min after creation) rendered as a disabled row that `_register_pick_target_dp` hard-errored on. `deploy_mcp_gateway` now waits for the target `cp_dp` DP to report `status == 'online'` — via the same Hub `/gateways` API the wizard reads (cookie-auth-shared `page.context.request`, real URL captured off the wire with an `apiBasePath` fallback, fail-fast on API errors) — BEFORE entering the wizard, so its mount-time fetch shows the row enabled. The in-wizard check stays a one-shot postcondition guard (re-querying could never see a frozen disabled row flip) with a clearer timing-skew error. New `tests/test_po_mcp_hub_pick_target_dp.py` + `tests/conftest.py` (neutralizes `utils.env` import-time cluster autodetect for hermetic unit tests).
+
+## [1.7.40-auto-on-prem-jammy]
+### Added
+- [PCP-20053] Observability dashboard automation: `page_o11y.py` now creates per-capability dashboards and bulk-adds cards — resets the Default dashboard, creates `logs_dashboard`, and creates one dashboard per installed capability (Spring Boot split into two dashboards to respect the 15-card limit); uninstalled capabilities are skipped with a log line, and older CP (no "Add dashboard" button) falls back to the legacy widget flow. New `page_object/po_o11y.py` helpers (`get_catalog_menu_labels`, `create_dashboard`, `is_dashboard_exists`, `goto_dashboard`, `add_widgets`, `has_add_dashboard_button`, `is_catalog_card_available`) plus fixes to `goto_left_navbar_o11y` (gate on `.dashboard-actions-row`) and `selector_dialog_left_menu` for the new `tibco-header` / PrimeNG 18 build. Card/dashboard definitions in `o11y_dashboard_config.py` with unit tests; gated by the existing `TP_AUTO_ENABLE_O11Y_WIDGET` toggle (default false) with a "Setup Observability dashboards and cards" UI checkbox.
+
+## [1.7.39-auto-on-prem-jammy]
+### Added
+- [PCP-19592] End-to-end SpringBoot (SB) capability automation: new `po_dp_springboot.py` page object and `case/k8s_create_and_start_springboot_app.py` covering provision, app build, deploy, endpoint config, and start; SB env/ingress/Gateway API defaults in `env.py`; GUI SB cases and `.jar` uploads (`index.html`/`index.js`/`server.py`); `deploy-sb` task in `tp-automation-o11y.yaml`; and a GitHub Release download fallback in `helper.py` (`gh` CLI preferred, curl fallback) for fetching SB JARs. Review fixes: curl downloads use `-f` so a 404/401 fails fast instead of writing a corrupt JAR that passes the `os.path.isfile()` check, and corrected a misleading success log on the endpoint-config failure branch.
+
+## [1.7.38-auto-on-prem-jammy]
+### Changed
+- [PCP-19573] CLI `create-activation-file-resource` now uploads the activation license file via the CP license REST API instead of creating an activation server (casri) resource.
+- [PCP-19573] Replaced the activation server info to activation file in `Deploy BW5 domain` automation case, and update the related steps.
+
+## [1.7.37-auto-on-prem-jammy]
+### Added
+- [PCP-19413] API-based BMDP registration: new `api_object` clients for BW5/BW6 domain, agent, and EMS-server registration; `page_cli.py` BMDP config now goes through REST instead of the browser, plus an API-based product-permission grant for the CLI BMDP path.
+### Fixed
+- [PCP-19413] Flogo/BWCE/BW5CE app-endpoint exposure under Gateway API ingress.
+
+## [1.7.36-auto-on-prem-jammy]
+### Added
+- [PCP-19413] Browser-free API init path (`TP_AUTO_USE_CLI=true`): admin bootstrap, tenant OAuth, O11Y, and license upload all via REST — no Playwright.
+- [PCP-19413] Gateway API support across CLI (resource, capability, CT-DP, endpoint test).
+### Changed
+- [PCP-19413] Rewrote `OllyApi` on flat `/resources/instances/{type}`; supports global + DP-scoped creation with instance-ID capture.
+- [PCP-19413] Bumped tibcop CLI to `1.9.0-alpha.2046`.
+- [PCP-19765] Rewrote MCP Hub automation (`po_mcp_hub.py`) for the gateway-centric React UI (PCP-19623). Deploy now drives the **Register Gateway** wizard → "Deploy to a TIBCO Data Plane" (auto-provision, `POST /api/mcp-hub/gateways/{dpUuid}/deploy`); servers are installed via the in-gateway **Browse Registry** InstallDialog (DP pre-selected); push uses the `dp-detail-sync` → Preview Changes → Sync Result flow; tools are verified in the per-server **Tools details** drawer (`role=treeitem`). Selectors moved to React `data-testid`/ARIA (verified against tp-mcp-hub @ `aff65c8`).
+  - `goto_dataplane()` (MCP Hub) replaced by `goto_gateway(gateway_id, tab=…)`; the gateway UUID is captured from the deploy POST response.
+  - Removed the Angular/PrimeNG selectors and the legacy add-server / `_has_registry_ui` paths (the gateway-centric React UI fully replaces the Angular MCP Hub UI).
+  - Corrected the `deploy_mcp_hub()` MCP wrapper docstring (it runs the UI automation case, not a helm install).
+  - Requires the MCP Hub backend in CP mode (`MCP_HUB_MODE=cp`) so the "Deploy to a TIBCO Data Plane" card renders.
+
+## [1.7.35-auto-on-prem-jammy]
+### Changed
+- [PCP-19589] Raise `wait_for_dataplane_green` default timeout from 300s to 480s — tolerates slower hybrid-proxy tunnel establishment without triggering a full `cli-full-automation` task restart (which wastes ~5 min on re-login + re-OAuth-token).
+
+## [1.7.34-auto-on-prem-jammy]
+### Added
+- [PCP-18499] Add gateway support to 3rd party, CP, DP, BMDP, automation.
+
+## [1.7.33-auto-on-prem-jammy]
+### Added
+- [PCP-18499] Add Kubernetes MCP Server capability provisioning automation
 
 ## [1.7.31-auto-on-prem-jammy]
 ### Fixed

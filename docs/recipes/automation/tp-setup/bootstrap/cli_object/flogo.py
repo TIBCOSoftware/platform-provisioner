@@ -38,18 +38,18 @@ class TibcopFlogo:
     Provides methods for Flogo application lifecycle management.
     """
 
-    def __init__(self, base: TibcopBase, api=None, capability=None, app=None):
+    def __init__(self, base: TibcopBase, version_api=None, capability=None, app=None):
         """
         Initialize Flogo handler.
 
         Args:
             base: TibcopBase instance for command execution
-            api: TibcopAPI instance for REST API operations (optional)
+            version_api: CapabilityVersionApi instance (optional)
             capability: TibcopCapability instance for capability operations (optional)
             app: TibcopApp instance for app operations (optional)
         """
         self.base = base
-        self.api = api
+        self.version_api = version_api
         self.capability = capability
         self.app = app
 
@@ -71,8 +71,8 @@ class TibcopFlogo:
         # 1. Get Flogo version from Control Plane (select last version)
         ColorLogger.info("1. Getting Flogo version from Control Plane...")
         cp_version = None
-        if self.api:
-            cp_version = self.api.get_capability_version_from_cp_api('FLOGO', dp_name, select_last=True)
+        if self.version_api:
+            cp_version = self.version_api.get_capability_version('FLOGO', dp_name, select_last=True)
 
         if cp_version:
             print()
@@ -152,8 +152,8 @@ class TibcopFlogo:
 
         # Provision connector: get version from CP API
         connector_version = None
-        if self.api:
-            connector_version = self.api.get_connector_version_from_cp_api(dp_name, 'General')
+        if self.version_api:
+            connector_version = self.version_api.get_connector_version(dp_name, 'General')
         if not connector_version:
             ColorLogger.warning("Could not get connector version from CP API, skipping connector provisioning")
         else:
@@ -365,8 +365,8 @@ class TibcopFlogo:
         # Step 1: Get version from CP (select last version)
         ColorLogger.info("Step 1/5: Getting Flogo version from CP...")
         flogo_version = None
-        if self.api:
-            flogo_version = self.api.get_capability_version_from_cp_api('FLOGO', dp_name, select_last=True)
+        if self.version_api:
+            flogo_version = self.version_api.get_capability_version('FLOGO', dp_name, select_last=True)
 
         if not flogo_version:
             ColorLogger.error("Failed to get Flogo version")

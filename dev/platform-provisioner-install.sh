@@ -56,7 +56,7 @@
 #######################################
 
 [[ -z "${PIPELINE_DOCKER_IMAGE}" ]] && export PIPELINE_DOCKER_IMAGE=${PIPELINE_DOCKER_IMAGE:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.0-on-prem"}
-[[ -z "${PIPELINE_DOCKER_IMAGE_TESTER}" ]] && export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.2-tester-on-prem-jammy"}
+[[ -z "${PIPELINE_DOCKER_IMAGE_TESTER}" ]] && export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.4-tester-on-prem-jammy"}
 [[ -z "${PIPELINE_SKIP_PROVISIONER_UI}" ]] && export PIPELINE_SKIP_PROVISIONER_UI=${PIPELINE_SKIP_PROVISIONER_UI:-false}
 [[ -z "${PIPELINE_SKIP_TEKTON_PIPELINE}" ]] && export PIPELINE_SKIP_TEKTON_PIPELINE=${PIPELINE_SKIP_TEKTON_PIPELINE:-false}
 [[ -z "${PIPELINE_SKIP_TEKTON_DASHBOARD}" ]] && export PIPELINE_SKIP_TEKTON_DASHBOARD=${PIPELINE_SKIP_TEKTON_DASHBOARD:-true}

@@ -13,12 +13,12 @@ We do have a Platform Provisioner UI which will open source soon. The UI will he
 ## Basic information and assumptions
 
 ### Domain
-For the on-prem use case, we use `dev.localhost` which point to `127.0.0.1` and use it as the domain for the TIBCO Platform.
+For the on-prem use case, we use `tp.localhost` which point to `127.0.0.1` and use it as the domain for the TIBCO Platform.
 The following domains are used:
-* `mail.dev.localhost`: the self-hosted mail server for TIBCO Platform activation emails.
-* `admin.cp1-my.dev.localhost`: the TIBCO Control Plane admin console.
-* `cp-sub1.cp1-my.dev.localhost`: the TIBCO Control Plane subscription console.
-* `cp-sub1.cp1-tunnel.dev.localhost`: hostname for tibtunnel to connect to the Control Plane. Required in TP 1.14.0. Optional in TP 1.15.0 and above.
+* `mail.tp.localhost`: the self-hosted mail server for TIBCO Platform activation emails.
+* `admin.cp1-my.tp.localhost`: the TIBCO Control Plane admin console.
+* `cp-sub1.cp1-my.tp.localhost`: the TIBCO Control Plane subscription console.
+* `cp-sub1.cp1-tunnel.tp.localhost`: hostname for tibtunnel to connect to the Control Plane. Required in TP 1.14.0. Optional in TP 1.15.0 and above.
 
 ### Environment variables
 In the recipe the section `meta.guiEnv` is used to set environment variables for the recipe. The environment variables starts with `GUI_`. It is designed to work with Platform Provisioner UI.
@@ -184,7 +184,7 @@ Recipes are saved to the current directory. You can then run them individually:
 
 ### Custom Domain
 
-Defaults to `dev.localhost` if not set.
+Defaults to `tp.localhost` if not set.
 
 ```bash
 export TP_TOP_DOMAIN="my-domain.example.com"
@@ -228,7 +228,7 @@ export GUI_TP_IS_CERT_SELF_SIGNED=true  # set if your cert is self-signed
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TP_TOP_DOMAIN` | `dev.localhost` | Top-level domain |
+| `TP_TOP_DOMAIN` | `tp.localhost` | Top-level domain |
 | `TP_K8S_CLUSTER_TYPE_CODE` | (interactive) | K8s cluster type: 1=k3s, 2=OpenShift, 3=Docker Desktop, 4=minikube, 5=kind |
 | `TP_K8S_INGRESS_TYPE_CODE` | `2` | 1=nginx, 2=traefik, 3=nginx gateway fabric |
 | `TP_AUTOMATION_SCRIPT_OPTIONS` | `1` | 1=deploy all (see run.sh for other options) |

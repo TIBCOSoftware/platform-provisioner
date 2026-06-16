@@ -27,7 +27,17 @@ class EnvConfig:
     IS_HEADLESS = Helper.is_headless()
     IS_CLUSTER_ACCESSIBLE = "Kubernetes control plane" in (Helper.get_command_output("kubectl cluster-info", is_print_error=False) or "")
 
-    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or "" # GitHub token is not used for now
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or ""
+    TP_AUTO_APP_RELEASE_REPO = os.getenv("TP_AUTO_APP_RELEASE_REPO", "tibco/platform-provisioner")
+    TP_AUTO_APP_RELEASE_TAG = os.getenv("TP_AUTO_APP_RELEASE_TAG", "test-apps-v1.0.0")
+
+    # BW5 domain chart + image registry (JFrog). Defaults mirror charts/.../recipes/tp-deploy-bw5dm.yaml
+    TP_BW5_CHART_REPO = os.environ.get("TP_BW5_CHART_REPO") or "https://csgprdusw2reposaas.jfrog.io/artifactory/api/helm/tibco-platform-helm-dev-github"
+    TP_BW5_CHART_REPO_USER_NAME = os.environ.get("TP_BW5_CHART_REPO_USER_NAME") or "tibco-platform-devops-read"
+    TP_BW5_CHART_REPO_TOKEN = os.environ.get("TP_BW5_CHART_REPO_TOKEN") or ""
+    TP_BW5_CHART_VERSION = os.environ.get("TP_BW5_CHART_VERSION") or "^1.2.0"
+    TP_BW5_CONTAINER_REGISTRY = os.environ.get("TP_BW5_CONTAINER_REGISTRY") or "csgprdusw2reposaas.jfrog.io"
+    TP_BW5_CONTAINER_REGISTRY_REPOSITORY = os.environ.get("TP_BW5_CONTAINER_REGISTRY_REPOSITORY") or "tibco-platform-docker-dev"
     TIME_ZONE = "America/Chicago"
     RETRY_TIME = datetime.now(pytz.timezone(TIME_ZONE))
     RETRY_TIME_FOLDER = RETRY_TIME.strftime("%Y%m%d-%H%M%S")
@@ -67,6 +77,8 @@ class EnvConfig:
     TP_AUTO_IS_PROVISION_FLOGO = os.environ.get("TP_AUTO_IS_PROVISION_FLOGO", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_PULSAR = os.environ.get("TP_AUTO_IS_PROVISION_PULSAR", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
+    TP_AUTO_IS_PROVISION_K8S_MCP_SERVER = os.environ.get("TP_AUTO_IS_PROVISION_K8S_MCP_SERVER", "false").lower() == "true"
+    TP_AUTO_IS_PROVISION_SPRINGBOOT = os.environ.get("TP_AUTO_IS_PROVISION_SPRINGBOOT", "false").lower() == "true"
     TP_AI_ENABLE_MCP_HUB = os.environ.get("TP_AI_ENABLE_MCP_HUB", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL = os.environ.get("TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL", "true").lower() == "true"
 
@@ -80,6 +92,7 @@ class EnvConfig:
     TP_AUTO_START_FLOGO_APP = os.environ.get("TP_AUTO_START_FLOGO_APP", "true").lower() == "true"
     TP_AUTO_START_BWCE_APP = os.environ.get("TP_AUTO_START_BWCE_APP", "false").lower() == "true"
     TP_AUTO_START_BW5CE_APP = os.environ.get("TP_AUTO_START_BW5CE_APP", "false").lower() == "true"
+    TP_AUTO_START_SPRINGBOOT_APP = os.environ.get("TP_AUTO_START_SPRINGBOOT_APP", "false").lower() == "true"
 
     # k8s data plane
     TP_AUTO_DP_NAME_GLOBAL = "Global"
@@ -93,12 +106,12 @@ class EnvConfig:
     # activation sever file
     TP_ACTIVATION_ZIP_FILE_BASE64 = os.environ.get("TP_ACTIVATION_ZIP_FILE_BASE64") or ""
     TP_ACTIVATION_FILENAME = "license-file.bin"
+    TP_AUTO_LICENSE_FILE_PATH = os.environ.get("TP_AUTO_LICENSE_FILE_PATH") or Helper.get_file_fullpath_in_upload_folder(TP_ACTIVATION_FILENAME)
 
     # self-signed certificate
     TP_IS_CERT_SELF_SIGNED = os.environ.get("TP_IS_CERT_SELF_SIGNED", "false").lower() == "true"
 
     # activation url
-    TP_ACTIVATION_SERVER_IP = os.environ.get("TP_ACTIVATION_SERVER_IP") or ""
     TP_ACTIVATION_SERVER_CERT_HOSTNAME = os.environ.get("TP_ACTIVATION_SERVER_CERT_HOSTNAME") or ""
     TP_ACTIVATION_SERVER_PORT = os.environ.get("TP_ACTIVATION_SERVER_PORT") or "7070"
     TP_ACTIVATION_SERVER_FINGER_PRINT = os.environ.get("TP_ACTIVATION_SERVER_FINGER_PRINT") or ""
@@ -142,6 +155,8 @@ class EnvConfig:
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE") or "bw5ce"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO") or "flogo"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB") or "tibcohub"
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER") or "k8smcp"
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT") or "springboot"
 
     TP_AUTO_LOGIN_URL = os.environ.get("TP_AUTO_LOGIN_URL") or f"https://{DP_HOST_PREFIX}.{TP_AUTO_CP_SERVICE_DNS_DOMAIN}/cp/login"
     TP_AUTO_MAIL_URL = os.environ.get("TP_AUTO_MAIL_URL") or f"https://mail.{TP_AUTO_CP_DNS_DOMAIN}/#/"
@@ -162,6 +177,8 @@ class EnvConfig:
     TP_AUTO_FQDN_BW5CE = os.environ.get("TP_AUTO_FQDN_BW5CE") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE}.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_FQDN_FLOGO = os.environ.get("TP_AUTO_FQDN_FLOGO") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_FQDN_TIBCOHUB = os.environ.get("TP_AUTO_FQDN_TIBCOHUB") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}.{TP_AUTO_CP_DNS_DOMAIN}"
+    TP_AUTO_FQDN_K8S_MCP_SERVER = os.environ.get("TP_AUTO_FQDN_K8S_MCP_SERVER") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER}.{TP_AUTO_CP_DNS_DOMAIN}"
+    TP_AUTO_FQDN_SPRINGBOOT = os.environ.get("TP_AUTO_FQDN_SPRINGBOOT") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT}.{TP_AUTO_CP_DNS_DOMAIN}"
 
     # capabilities url
     TP_AUTO_EMS_CAPABILITY_SERVER_NAME = os.environ.get("TP_AUTO_EMS_CAPABILITY_SERVER_NAME") or "ems-sn"
@@ -170,19 +187,58 @@ class EnvConfig:
 
     # hybrid connectivity
     TP_AUTO_ENABLE_HYBRID_CONNECTIVITY = os.environ.get("TP_AUTO_ENABLE_HYBRID_CONNECTIVITY", "true").lower() == "true"
-    TP_AUTO_REACHABLE_DP_URL = os.environ.get("TP_AUTO_REACHABLE_DP_URL") or f"http://cpdpproxy.{TP_AUTO_K8S_DP_NAMESPACE}.svc.cluster.local"
-    TP_AUTO_REACHABLE_BMDP_URL = os.environ.get("TP_AUTO_REACHABLE_BMDP_URL") or f"http://cpdpproxy.{TP_AUTO_K8S_BMDP_NAMESPACE}.svc.cluster.local"
+    # No-tibtunnel (hybrid disabled) reachability: the CP reaches the DP via tp-dp-proxy -> Reachable DP URL.
+    # When managing reachability (default), the automation creates a controller-adaptive ingress in the DP
+    # namespace (Option A, public host). When TP_AUTO_DP_APPLY_NETPOL_LABELS is set, it instead labels the
+    # cpdpproxy/tp-dp-proxy deployments so tp-dp-proxy can reach the cpdpproxy ClusterIP directly (Option B,
+    # private svc URL). Either path can be skipped with TP_AUTO_DP_MANAGE_REACHABILITY=false.
+    TP_AUTO_DP_MANAGE_REACHABILITY = os.environ.get("TP_AUTO_DP_MANAGE_REACHABILITY", "true").lower() == "true"
+    TP_AUTO_DP_APPLY_NETPOL_LABELS = os.environ.get("TP_AUTO_DP_APPLY_NETPOL_LABELS", "false").lower() == "true"
+    TP_AUTO_DP_PROXY_SERVICE_NAME = os.environ.get("TP_AUTO_DP_PROXY_SERVICE_NAME") or "cpdpproxy"
+    TP_AUTO_DP_PROXY_SERVICE_PORT = os.environ.get("TP_AUTO_DP_PROXY_SERVICE_PORT") or "80"
+    # CP-side dp-proxy deployment that caches DP connection-details; restarted after registration
+    # so it re-reads the reachable URL instead of dialing the stale svc address.
+    TP_AUTO_CP_DP_PROXY_DEPLOYMENT = os.environ.get("TP_AUTO_CP_DP_PROXY_DEPLOYMENT") or "tp-dp-proxy"
+    # Public host is used ONLY for no-tibtunnel Option A: reachability management ON, hybrid OFF,
+    # and not applying netpol labels — i.e. exactly the case where the automation creates the public
+    # cpdpproxy ingress. When management is OFF (no ingress is created), hybrid is ON (default), or
+    # Option B is selected, keep the in-cluster cpdpproxy svc URL — preserving the pre-existing
+    # default so a hybrid-ON (or unmanaged) DP/BMDP registration is unchanged. The BMDP "Reachable
+    # DP URL" field is filled on visibility (not hybrid-gated), so this guard matters for the BMDP
+    # create flow under hybrid-ON. An explicit override always wins.
+    _reachable_public = TP_AUTO_DP_MANAGE_REACHABILITY and not TP_AUTO_ENABLE_HYBRID_CONNECTIVITY and not TP_AUTO_DP_APPLY_NETPOL_LABELS
+    TP_AUTO_REACHABLE_DP_URL = os.environ.get("TP_AUTO_REACHABLE_DP_URL") or (
+        f"https://dp-{TP_AUTO_K8S_DP_NAME}.{TP_AUTO_CP_DNS_DOMAIN}" if _reachable_public
+        else f"http://cpdpproxy.{TP_AUTO_K8S_DP_NAMESPACE}.svc.cluster.local"
+    )
+    TP_AUTO_REACHABLE_BMDP_URL = os.environ.get("TP_AUTO_REACHABLE_BMDP_URL") or (
+        f"https://dp-{TP_AUTO_K8S_BMDP_NAME}.{TP_AUTO_CP_DNS_DOMAIN}" if _reachable_public
+        else f"http://cpdpproxy.{TP_AUTO_K8S_BMDP_NAMESPACE}.svc.cluster.local"
+    )
 
     # data plane config
     TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG = os.environ.get("TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG", "false").lower() == "true"
+    TP_AUTO_INGRESS_OBJECT = os.environ.get("TP_AUTO_INGRESS_OBJECT") or "ingress"
     TP_AUTO_INGRESS_CONTROLLER = os.environ.get("TP_AUTO_INGRESS_CONTROLLER") or "traefik"
     TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME") or "traefik"
     TP_AUTO_INGRESS_CONTROLLER_BWCE = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_BWCE") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE}"
     TP_AUTO_INGRESS_CONTROLLER_BW5CE = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_BW5CE") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE}"
     TP_AUTO_INGRESS_CONTROLLER_FLOGO = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_FLOGO") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}"
     TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}"
+    TP_AUTO_INGRESS_CONTROLLER_K8S_MCP_SERVER = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_K8S_MCP_SERVER") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER}"
+    TP_AUTO_INGRESS_CONTROLLER_SPRINGBOOT = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_SPRINGBOOT") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT}"
     # TP_AUTO_INGRESS_CONTROLLER_KEYS = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_KEYS") or ""
     # TP_AUTO_INGRESS_CONTROLLER_VALUES = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_VALUES") or ""
+    # gateway API config
+    TP_AUTO_GATEWAY_CONTROLLER = os.environ.get("TP_AUTO_GATEWAY_CONTROLLER") or "nginx"
+    TP_AUTO_GATEWAY_NAME = os.environ.get("TP_AUTO_GATEWAY_NAME") or "nginx-gateway"
+    TP_AUTO_GATEWAY_NAMESPACE = os.environ.get("TP_AUTO_GATEWAY_NAMESPACE") or "ingress-system"
+    TP_AUTO_GATEWAY_SECTION_NAME = os.environ.get("TP_AUTO_GATEWAY_SECTION_NAME") or ""
+    TP_AUTO_GATEWAY_CONTROLLER_BWCE = os.environ.get("TP_AUTO_GATEWAY_CONTROLLER_BWCE") or f"{TP_AUTO_GATEWAY_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BWCE}"
+    TP_AUTO_GATEWAY_CONTROLLER_BW5CE = os.environ.get("TP_AUTO_GATEWAY_CONTROLLER_BW5CE") or f"{TP_AUTO_GATEWAY_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE}"
+    TP_AUTO_GATEWAY_CONTROLLER_FLOGO = os.environ.get("TP_AUTO_GATEWAY_CONTROLLER_FLOGO") or f"{TP_AUTO_GATEWAY_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}"
+    TP_AUTO_GATEWAY_CONTROLLER_TIBCOHUB = os.environ.get("TP_AUTO_GATEWAY_CONTROLLER_TIBCOHUB") or f"{TP_AUTO_GATEWAY_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}"
+    TP_AUTO_GATEWAY_CONTROLLER_SPRINGBOOT = os.environ.get("TP_AUTO_GATEWAY_CONTROLLER_SPRINGBOOT") or f"{TP_AUTO_GATEWAY_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT}"
     TP_AUTO_STORAGE_CLASS = os.environ.get("TP_AUTO_STORAGE_CLASS") or Helper.get_storage_class()
     # Due to the fuzzy matching of the dp name by Playwright
     # At most 0-9 dp are supported, if more dp is needed, the matching rule of dp selector is required
@@ -197,6 +253,8 @@ class EnvConfig:
     FLOGO_APP_FILE_NAME = os.environ.get("TP_AUTO_FLOGO_APP_FILE_NAME") or "rest-flogo-1.json"
     # need to make sure the flogo app name is unique and lower case in the above JSON file
     FLOGO_APP_NAME = os.environ.get("FLOGO_APP_NAME") or Helper.get_app_name(FLOGO_APP_FILE_NAME)
+    SPRINGBOOT_APP_FILE_NAME = os.environ.get("TP_AUTO_SPRINGBOOT_APP_FILE_NAME") or "sb-observability-metrics-app-1.0.0.jar"
+    SPRINGBOOT_APP_NAME = os.environ.get("SPRINGBOOT_APP_NAME") or "sb-observability-metrics-app"
 
     def pre_check(self):
         current_time = self.RETRY_TIME.strftime("%Y-%m-%d %H:%M:%S")
@@ -222,6 +280,10 @@ class EnvConfig:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_PULSAR is false, will not provision Pulsar capability")
         if not self.TP_AUTO_IS_PROVISION_TIBCOHUB:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_TIBCOHUB is false, will not provision TibcoHub capability")
+        if not self.TP_AUTO_IS_PROVISION_K8S_MCP_SERVER:
+            ColorLogger.warning(f"TP_AUTO_IS_PROVISION_K8S_MCP_SERVER is false, will not provision Kubernetes MCP Server capability")
+        if not self.TP_AUTO_IS_PROVISION_SPRINGBOOT:
+            ColorLogger.warning(f"TP_AUTO_IS_PROVISION_SPRINGBOOT is false, will not provision Spring Boot capability")
 
         if not os.environ.get("DP_HOST_PREFIX"):
             ColorLogger.warning(f"DP_HOST_PREFIX is not set, will use default: {self.DP_HOST_PREFIX}")

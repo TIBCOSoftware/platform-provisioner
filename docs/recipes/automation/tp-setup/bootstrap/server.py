@@ -31,6 +31,8 @@ from cli_object.facade import TibcopCLI
 from utils.util import Util
 from utils.env import ENV
 from utils.helper import Helper
+from utils.color_logger import ColorLogger
+from api_object import LicenseApi
 
 app = Flask(__name__, template_folder="templates")
 HEADER_ONE_CLICK_JOB_ID = "one_click_job_id"
@@ -187,6 +189,38 @@ def run_gui_script():
     }
     return Response(generate(), headers=headers, content_type='text/html; charset=utf-8')
 
+def create_activation_file_resource(cli_handler, dp_name):
+    """Upload the activation license file via the CP REST API.
+
+    Reuses the existing activation-file mechanism (LicenseApi.upload_license_file)
+    used by page_cli.py: the license .bin (extracted from the uploaded activation
+    .zip into upload/license-file.bin) is PUT to the subscription-scoped license
+    endpoint, or the DataPlane-scoped one when a DataPlane name is provided.
+    """
+    license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
+    if not (license_path and os.path.isfile(license_path)):
+        ColorLogger.error(f"Activation license file not found at '{license_path}'. Upload the activation .zip first.")
+        return None
+
+    # Resolve CP URL + token from the CLI environment (same precedence as page_cli.py)
+    custom_env = getattr(cli_handler.base, "CUSTOM_ENV", {}) or {}
+    cp_url = (custom_env.get("TIBCOP_CLI_CPURL") or os.environ.get("TIBCOP_CLI_CPURL", "")).rstrip("/")
+    token = custom_env.get("TIBCOP_CLI_OAUTH_TOKEN") or os.environ.get("TIBCOP_CLI_OAUTH_TOKEN") or Helper.get_auto_token()
+    if not (cp_url and token):
+        ColorLogger.error("TIBCOP_CLI_CPURL or OAuth token missing — cannot upload activation file")
+        return None
+
+    # DataPlane scope when a DP name is given; subscription (global) scope otherwise
+    dp_id = None
+    if dp_name and dp_name.lower() != "global":
+        dp_id = cli_handler.dataplane.get_dataplane_id(dp_name)
+        if not dp_id:
+            ColorLogger.error(f"Could not resolve DataPlane ID for '{dp_name}'")
+            return None
+
+    return LicenseApi(cp_url, token).upload_license_file(license_path, dp_id)
+
+
 @app.route('/run-cli-script')
 def run_cli_script():
     auto_case = request.args.get('case')
@@ -198,7 +232,6 @@ def run_cli_script():
     devhub_name = request.args.get('TIBCOP_CLI_DEVHUB_NAME')
     k8s_secret = request.args.get('TIBCOP_CLI_K8S_SECRET')
     resource_name = request.args.get('TIBCOP_CLI_RESOURCE_NAME')
-    activation_server_url = request.args.get('TIBCOP_CLI_ACTIVATION_SERVER_URL')
     resource_instance_id = request.args.get('TIBCOP_CLI_RESOURCE_INSTANCE_ID')
     fqdn = request.args.get('TIBCOP_CLI_FQDN')
     storage_class_name = request.args.get('TIBCOP_CLI_STORAGE_CLASS_NAME')
@@ -256,9 +289,7 @@ def run_cli_script():
         "delete-resource-instance": lambda: cli_handler.resource.delete_resource(
             dp_name, resource_instance_id, other_args
         ),
-        "create-activation-server": lambda: cli_handler.resource.create_activation_server(
-            dp_name, resource_name, activation_server_url or None, "DATAPLANE", None, None, other_args
-        ),
+        "create-activation-file-resource": lambda: create_activation_file_resource(cli_handler, dp_name),
         "bwce:list-versions": lambda: cli_handler.bwce.list_versions(dp_name, other_args),
         "bwce:provision-version": lambda: cli_handler.bwce.provision_version(dp_name, bwce_version, other_args),
         "bwce:create-build": lambda: cli_handler.bwce.create_build(
@@ -355,6 +386,7 @@ def get_env():
                 ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE", "TP_AUTO_FQDN_BW5CE"),
                 ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO", "TP_AUTO_FQDN_FLOGO"),
                 ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB", "TP_AUTO_FQDN_TIBCOHUB"),
+                ("TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT", "TP_AUTO_FQDN_SPRINGBOOT"),
             ]:
                 prefix = env_dict.get(prefix_key, "")
                 if prefix:
@@ -399,6 +431,13 @@ def upload_file():
             filetype = 'BWCE'
         elif ext in ['.json', '.flogo']:
             filetype = 'FLOGO'
+        elif ext == '.jar':
+            filetype = 'SPRINGBOOT'
+        elif ext == '.zip':
+            # Activation license zip: extract the .bin to upload/license-file.bin
+            filetype = 'ACTIVATION'
+            if not Helper.extract_activation_license(save_path):
+                return jsonify({'message': 'Failed to extract license file from activation zip'}), 400
         else:
             filetype = 'UNKNOWN'
 

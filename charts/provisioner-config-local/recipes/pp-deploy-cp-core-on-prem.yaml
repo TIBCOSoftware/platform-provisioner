@@ -41,13 +41,13 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.17.0
-    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.17.0
-    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.17.0
+    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.18.0
+    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.18.0
+    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.18.0
     GUI_CP_PLATFORM_INTEGRATION_SB_VERSION: 1.16.0
-    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.17.0
+    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.18.0
     GUI_CP_PLATFORM_MESSAGING_VERSION: 1.15.31
-    GUI_CP_PLATFORM_HAWK_VERSION: 1.17.6
+    GUI_CP_PLATFORM_HAWK_VERSION: 1.18.12
     GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.17.0
     GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.16.0-0"
     GUI_CP_PLATFORM_MCP_HUB_VERSION: "~1.17.0-0"
@@ -56,11 +56,12 @@ meta:
     GUI_CP_INSTANCE_ID: "cp1"
     GUI_CP_NAMESPACE: "cp1-ns"
     GUI_CP_ADMIN_EMAIL: "cp-test@tibco.com"
-    GUI_CP_ADMIN_PASSWORD: "Tibco@123" # initial admin password; set as adminInitialPassword in chart so admin is pre-activated and no email server is required
+    GUI_CP_ADMIN_PASSWORD: "Tibco@123" 
+    GUI_CP_ENABLE_API_BASED_INITIALIZATION: false 
     GUI_CP_FROM_REPLY_TO_EMAIL: ""
     GUI_CP_EXTERNAL_ENVIRONMENT: "production"
-    GUI_CP_RESOURCES_REQUEST_CPU: "50m"
-    GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi"
+    GUI_CP_RESOURCES_REQUEST_CPU: "50m" # for lightweight services only; heavy services (IDM, pengine, etc.) use hard-coded values
+    GUI_CP_RESOURCES_REQUEST_MEMORY: "50Mi" # for lightweight services only; heavy services use hard-coded values
     GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: true
     GUI_CP_ENABLE_HYBRID_CONNECTIVITY: true
 
@@ -71,6 +72,8 @@ meta:
     GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER: true
     GUI_TP_AI_ENABLE_MCP_HUB: false
     GUI_CP_MCP_HUB_PERSISTENCE: true
+    # CP AI Agent config (renders AI_AGENT_CONFIG on tp-cp-web-server via cpwebserver.aiAgent.enabled)
+    GUI_CP_ENABLE_AI_AGENT_CONFIG: false
 
     # CP AI Agent env
     GUI_TP_AI_MCP_TRANSPORT: "streamable-http"
@@ -150,12 +153,18 @@ meta:
     GUI_CP_DB_DELETE_ON_UNINSTALL: false
     GUI_CP_MANAGE_DB_SCHEMA: true
 
+    # Keycloak external IdP (optional; only used when GUI_CP_INSTALL_KEYCLOAK=true; test envs only)
+    GUI_CP_KEYCLOAK_HOST: "" # public host for Keycloak; empty => keycloak.<CP_DNS_DOMAIN>
+    GUI_CP_KEYCLOAK_ADMIN_PASSWORD: "Tibco@123" # Keycloak admin console/API password
+    GUI_CP_KEYCLOAK_DB_PASSWORD: "" # empty => CP DB password (GUI_CP_DB_PASSWORD), else "postgres"; must match the real PostgreSQL password
+
     # flow control
     GUI_CP_VALIDATE_CLUSTER_RESOURCE: true
     GUI_CP_CREATE_NAMESPACE: true
     GUI_CP_CROSSPLANE_ENABLED: false
     GUI_CP_INSTALL_MAILDEV: true
     GUI_CP_INSTALL_MAILDEV_INGRESS: true
+    GUI_CP_INSTALL_KEYCLOAK: false # optional external IdP for MCP Hub inbound-VS OAuth; default OFF (test envs only)
     GUI_CP_INSTALL_TIBCO_CP_BASE: true
     GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW: true
     GUI_CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES: true
@@ -200,10 +209,11 @@ meta:
     CP_NAMESPACE: ${GUI_CP_NAMESPACE:-"${CP_INSTANCE_ID}-ns"}
     CP_ADMIN_EMAIL: ${GUI_CP_ADMIN_EMAIL:-"cp-test@gmail.com"}
     CP_ADMIN_PASSWORD: ${GUI_CP_ADMIN_PASSWORD:-"Tibco@123"} # initial admin password (adminInitialPassword)
+    CP_ENABLE_API_BASED_INITIALIZATION: ${GUI_CP_ENABLE_API_BASED_INITIALIZATION:-true}
     CP_FROM_REPLY_TO_EMAIL: ${GUI_CP_FROM_REPLY_TO_EMAIL:-""}
     CP_EXTERNAL_ENVIRONMENT: ${GUI_CP_EXTERNAL_ENVIRONMENT:-"production"}
-    CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # 37 pods * 50m = 1850m
-    CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # 37 pods * 50Mi = 1850Mi
+    CP_RESOURCES_REQUEST_CPU: ${GUI_CP_RESOURCES_REQUEST_CPU:-"50m"} # light-tier request for lightweight services
+    CP_RESOURCES_REQUEST_MEMORY: ${GUI_CP_RESOURCES_REQUEST_MEMORY:-"50Mi"} # light-tier request for lightweight services
     CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS: ${GUI_CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS:-true}
     CP_ENABLE_HYBRID_CONNECTIVITY: ${GUI_CP_ENABLE_HYBRID_CONNECTIVITY:-true}
 
@@ -272,11 +282,12 @@ meta:
     # CP ingress
     CP_INGRESS_CLASSNAME: ${GUI_CP_INGRESS_CLASSNAME:-"traefik"} # the ingress for CP
     CP_INGRESS_NAMESPACE: ${GUI_CP_INGRESS_NAMESPACE:-"ingress-system"}
-    CP_BOOTSTRAP_INGRESS_OBJECT: ${GUI_CP_BOOTSTRAP_INGRESS_OBJECT:-"ingress"} # ingress|gateway, this will create ingress / httproute object for router
-    CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "ingress" ]]; then echo true; else echo false; fi)
-    CP_BOOTSTRAP_INGRESS_ROUTER_GATEWAY_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "gateway" ]]; then echo true; else echo false; fi)
-    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_INGRESS_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "ingress" ]]; then echo true; else echo false; fi)
-    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_GATEWAY_ENABLED: $(if [[ "${CP_BOOTSTRAP_INGRESS_OBJECT}" == "gateway" ]]; then echo true; else echo false; fi)
+    TP_INGRESS_OBJECT: ${GUI_TP_INGRESS_OBJECT:-"ingress"} # ingress|gateway, this will create ingress / httproute object for router
+    TP_GATEWAY_NAME: ${GUI_TP_GATEWAY_NAME:-"nginx-gateway"}
+    CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED: $(if [[ "${TP_INGRESS_OBJECT}" == "ingress" ]]; then echo true; else echo false; fi)
+    CP_BOOTSTRAP_INGRESS_ROUTER_GATEWAY_ENABLED: $(if [[ "${TP_INGRESS_OBJECT}" == "gateway" ]]; then echo true; else echo false; fi)
+    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_INGRESS_ENABLED: $(if [[ "${TP_INGRESS_OBJECT}" == "ingress" ]]; then echo true; else echo false; fi)
+    CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_GATEWAY_ENABLED: $(if [[ "${TP_INGRESS_OBJECT}" == "gateway" ]]; then echo true; else echo false; fi)
     CP_ALB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for ALB
     CP_NLB_CERTIFICATE_ARN: "" # AWS ACM certificate ARN for NLB
     TP_TLS_CERT: ${GUI_TP_TLS_CERT:-""} # if provided; will create secret tp-certificate with tls.crt and tls.key and create ingress
@@ -292,13 +303,13 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.17.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.17.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.17.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.18.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.18.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.18.0} # use ^1.0.0 for latest
     CP_PLATFORM_INTEGRATION_SB_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_SB_VERSION:-1.16.0} # use ^1.0.0 for latest
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.17.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.18.0} # use ^1.0.0 for latest
     CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.15.31} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.17.6} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.18.12} # use ^1.0.0 for latest
     CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.17.0} # use ^1.0.0 for latest
     CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.16.0-0"} # use ~1.16.0-0 for latest alpha/stable
     CP_PLATFORM_MCP_HUB_VERSION: ${GUI_CP_PLATFORM_MCP_HUB_VERSION:-"~1.17.0-0"} # use ~1.17.0-0 for latest alpha/stable
@@ -310,6 +321,7 @@ meta:
     TP_AI_ENABLE_FLOGO_MCP_SERVER: ${GUI_TP_AI_ENABLE_FLOGO_MCP_SERVER:-false}
     TP_AI_ENABLE_MCP_HUB: ${GUI_TP_AI_ENABLE_MCP_HUB:-false}
     CP_MCP_HUB_PERSISTENCE: ${GUI_CP_MCP_HUB_PERSISTENCE:-false}
+    CP_ENABLE_AI_AGENT_CONFIG: ${GUI_CP_ENABLE_AI_AGENT_CONFIG:-false}
 
     # CP AI Agent env
     TP_AI_MCP_TRANSPORT: ${GUI_TP_AI_MCP_TRANSPORT:-"streamable-http"}
@@ -327,6 +339,14 @@ meta:
     CP_CREATE_NAMESPACE: ${GUI_CP_CREATE_NAMESPACE:-true}
     CP_INSTALL_MAILDEV: ${GUI_CP_INSTALL_MAILDEV:-true}
     CP_INSTALL_MAILDEV_INGRESS: ${GUI_CP_INSTALL_MAILDEV_INGRESS:-true}
+    # Keycloak external IdP (optional; for MCP Hub inbound-VS OAuth, test envs only)
+    # Keycloak (optional; test-env IdP). Fixed values (realm mcp-inbound, admin user, DB name/user
+    # keycloak/postgres, DCR voucher 10 uses / 30d) are inlined in the chart step below; only the
+    # 4 knobs below are overridable.
+    CP_INSTALL_KEYCLOAK: ${GUI_CP_INSTALL_KEYCLOAK:-false}
+    CP_KEYCLOAK_HOST: ${GUI_CP_KEYCLOAK_HOST:-"keycloak.${CP_DNS_DOMAIN}"}
+    CP_KEYCLOAK_ADMIN_PASSWORD: ${GUI_CP_KEYCLOAK_ADMIN_PASSWORD:-"Tibco@123"} # stable so postDeploy admin API works across restarts
+    CP_KEYCLOAK_DB_PASSWORD: ${GUI_CP_KEYCLOAK_DB_PASSWORD:-${CP_DB_PASSWORD:-postgres}} # defaults to the CP DB password, else "postgres"
     CP_STORAGE_CREATE_PV: ${GUI_CP_STORAGE_CREATE_PV:-false} # create PV for control-plane-pv for Kind, MicroK8s and Azure use case
     CP_INSTALL_TIBCO_CP_BASE: ${GUI_CP_INSTALL_TIBCO_CP_BASE:-true}
     CP_INSTALL_PLATFORM_TIBCOHUB: ${GUI_CP_INSTALL_PLATFORM_TIBCOHUB:-true}
@@ -352,7 +372,8 @@ preTasks:
     content: |
       _STORAGE_CLASS=${CP_STORAGE_CLASS}
       _INGRESS_CLASS=${CP_INGRESS_CLASSNAME}
-      _BOOTSTRAP_INGRESS_OBJECT=${CP_BOOTSTRAP_INGRESS_OBJECT}
+      _GATEWAY_NAME=${TP_GATEWAY_NAME}
+      _BOOTSTRAP_INGRESS_OBJECT=${TP_INGRESS_OBJECT}
 
       # Function to check if a given k8s object exists
       check_k8s_object_exists() {
@@ -379,12 +400,12 @@ preTasks:
 
       if [[ "${_BOOTSTRAP_INGRESS_OBJECT}" == "gateway" ]]; then
         # Check for Gateway in ingress-system first, then istio-system
-        if kubectl get gateway "${_INGRESS_CLASS}" -n "${CP_INGRESS_NAMESPACE}" >/dev/null 2>&1; then
-          echo "Gateway ${_INGRESS_CLASS} found in namespace ${CP_INGRESS_NAMESPACE}"
-        elif kubectl get gateway "${_INGRESS_CLASS}" -n "istio-system" >/dev/null 2>&1; then
-          echo "Gateway ${_INGRESS_CLASS} found in namespace istio-system"
+        if kubectl get gateway "${_GATEWAY_NAME}" -n "${CP_INGRESS_NAMESPACE}" >/dev/null 2>&1; then
+          echo "Gateway ${_GATEWAY_NAME} found in namespace ${CP_INGRESS_NAMESPACE}"
+        elif kubectl get gateway "${_GATEWAY_NAME}" -n "istio-system" >/dev/null 2>&1; then
+          echo "Gateway ${_GATEWAY_NAME} found in namespace istio-system"
         else
-          echo "Gateway is selected but Gateway ${_INGRESS_CLASS} does not exist in namespaces: ${CP_INGRESS_NAMESPACE} or istio-system"
+          echo "Gateway is selected but Gateway ${_GATEWAY_NAME} does not exist in namespaces: ${CP_INGRESS_NAMESPACE} or istio-system"
           exit 1
         fi
       else
@@ -544,7 +565,7 @@ helmCharts:
     createNamespace: ${CP_CREATE_NAMESPACE}
     timeout: 1h
 - name: generic-chart # maildev helm chart
-  version: 1.1.0
+  version: 1.6.0
   condition: ${CP_INSTALL_MAILDEV}
   namespace: ${CP_EXT_NAMESPACE}
   releaseName: maildev
@@ -585,7 +606,7 @@ helmCharts:
             containerPort: 1025
             servicePort: 1025
       ingress:
-        enabled: ${CP_INSTALL_MAILDEV_INGRESS}
+        enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED}
         labels:
           app.cloud.tibco.com/created-by: pipeline
         annotations:
@@ -607,39 +628,29 @@ helmCharts:
                         name: ${CP_MAIL_MAILDEV_SERVICE_NAME}
                         port:
                           number: 1080
+      httpRoutes:
+        mail:
+          enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_GATEWAY_ENABLED}
+          name: maildev-generic-chart
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+          spec:
+            parentRefs:
+            - name: ${TP_GATEWAY_NAME}
+              namespace: ${CP_INGRESS_NAMESPACE}
+            hostnames:
+            - "mail.${CP_DNS_DOMAIN}"
+            rules:
+            - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+              backendRefs:
+              - name: ${CP_MAIL_MAILDEV_SERVICE_NAME}
+                port: 1080
   flags:
     createNamespace: true
     timeout: 1h
-  # needs to be removed when we have support for httproute in the chart
-  hooks:
-    postDeploy:
-      ignoreErrors: true
-      base64Encoded: false
-      skip: false
-      content: |
-        kubectl apply -f - <<EOF
-        apiVersion: gateway.networking.k8s.io/v1
-        kind: HTTPRoute
-        metadata:
-          name: maildev-generic-chart
-          namespace: ${CP_EXT_NAMESPACE}
-          labels:
-            app.cloud.tibco.com/created-by: pipeline
-        spec:
-          parentRefs:
-          - name: ${CP_INGRESS_CLASSNAME}
-            namespace: ${CP_INGRESS_NAMESPACE}
-          hostnames:
-          - "mail.${CP_DNS_DOMAIN}"
-          rules:
-          - matches:
-            - path:
-                type: PathPrefix
-                value: /
-            backendRefs:
-            - name: ${CP_MAIL_MAILDEV_SERVICE_NAME}
-              port: 1080
-        EOF
 - name: tibco-cp-base
   version: ${CP_PLATFORM_TIBCO_CP_BASE_VERSION}
   condition: ${CP_INSTALL_TIBCO_CP_BASE}
@@ -729,6 +740,7 @@ helmCharts:
           fromAndReplyToEmailAddress: "${CP_FROM_REPLY_TO_EMAIL}"
           # end
           adminInitialPassword: "${CP_ADMIN_PASSWORD}"
+          enable_api_based_initialization: ${CP_ENABLE_API_BASED_INITIALIZATION}
           admin:
             email: ${CP_ADMIN_EMAIL}
             firstname: "admin"
@@ -739,11 +751,11 @@ helmCharts:
       hybrid-proxy:
         resources:
           requests:
-            cpu: ${CP_RESOURCES_REQUEST_CPU}
-            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+            cpu: 250m
+            memory: 128Mi
           limits:
-            cpu: 1250m
-            memory: 1000Mi
+            cpu: 500m
+            memory: 512Mi
         ingress:
           enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_INGRESS_ENABLED}
           annotations:
@@ -759,7 +771,7 @@ helmCharts:
         gatewayRoute:
           enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_GATEWAY_ENABLED}
           parentRefs:
-            - name: ${CP_INGRESS_CLASSNAME}
+            - name: ${TP_GATEWAY_NAME}
               namespace: ${CP_INGRESS_NAMESPACE}
           hostnames:
             - '*.${CP_TUNNEL_DNS_DOMAIN}'
@@ -768,11 +780,11 @@ helmCharts:
       router-operator:
         resources:
           requests:
-            cpu: ${CP_RESOURCES_REQUEST_CPU}
-            memory: ${CP_RESOURCES_REQUEST_MEMORY}
+            cpu: 100m
+            memory: 128Mi
           limits:
-            cpu: 3000m
-            memory: 1000Mi
+            cpu: 500m
+            memory: 512Mi
         ingress:
           enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED}
           annotations:
@@ -789,7 +801,7 @@ helmCharts:
         gatewayRoute:
           enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_GATEWAY_ENABLED}
           parentRefs:
-            - name: ${CP_INGRESS_CLASSNAME}
+            - name: ${TP_GATEWAY_NAME}
               namespace: ${CP_INGRESS_NAMESPACE}
           hostnames:
             - '*.${CP_SERVICE_DNS_DOMAIN}'
@@ -801,30 +813,23 @@ helmCharts:
             cpu: ${CP_RESOURCES_REQUEST_CPU}
             memory: ${CP_RESOURCES_REQUEST_MEMORY}
           limits:
-            cpu: 1000m
-            memory: 1000Mi
+            cpu: 500m
+            memory: 512Mi
       otel-collector:
         enabled: ${CP_LOG_ENABLE}
+        autoscaling:
+          maxReplicas: 1
       tp-cp-infra:
         resources:
           infra-compute-services:
             requests:
-              cpu: ${CP_RESOURCES_REQUEST_CPU}
-              memory: ${CP_RESOURCES_REQUEST_MEMORY}
+              cpu: 100m
+              memory: 128Mi
             limits:
-              cpu: 1250m
-              memory: 1000Mi
+              cpu: 500m
+              memory: 512Mi
       tp-cp-core:
-        admin-webserver:
-          replicaCount: 1
-          cpadminwebserver:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 200m
-                memory: 200Mi
+        # --- light tier: stateless/lightweight services, use CP_RESOURCES_REQUEST_* variable ---
         cronjobs:
           replicaCount: 1
           cpcronjobservice:
@@ -832,76 +837,69 @@ helmCharts:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
-        email-service:
+        identity-provider:
           replicaCount: 1
-          cpemailservice:
+          tpcpidpservice:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
                 memory: ${CP_RESOURCES_REQUEST_MEMORY}
               limits:
                 cpu: 200m
-                memory: 200Mi
+                memory: 256Mi
+        # --- heavy tier: Java/core services with high baseline memory, hard-coded for stability ---
         identity-management:
           replicaCount: 1
           idm:
             resources:
               requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
+                cpu: 100m
+                memory: 384Mi
               limits:
-                cpu: 400m
-                memory: 800Mi
-        identity-provider:
-          replicaCount: 1
-          tp-cp-identity-provider:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-              limits:
-                cpu: 200m
-                memory: 200Mi
+                cpu: 500m
+                memory: 1024Mi
         orchestrator:
           replicaCount: 1
           cporchservice:
             resources:
               requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
+                cpu: 100m
+                memory: 128Mi
               limits:
-                cpu: 200m
-                memory: 200Mi
+                cpu: 300m
+                memory: 512Mi
         pengine:
           replicaCount: 1
           tpcppengineservice:
             resources:
               requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
+                cpu: 100m
+                memory: 256Mi
               limits:
-                cpu: 200m
-                memory: 200Mi
+                cpu: 500m
+                memory: 512Mi
         user-subscriptions:
           replicaCount: 1
           cpusersubservice:
             resources:
               requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
+                cpu: 100m
+                memory: 128Mi
               limits:
-                cpu: 200m
-                memory: 200Mi
+                cpu: 300m
+                memory: 512Mi
         web-server:
           replicaCount: 1
           cpwebserver:
+            aiAgent:
+              enabled: ${CP_ENABLE_AI_AGENT_CONFIG}
             resources:
               requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
+                cpu: 100m
+                memory: 256Mi
               limits:
-                cpu: 200m
-                memory: 200Mi
+                cpu: 300m
+                memory: 512Mi
           cpmcpserver:
             enabled: ${TP_AI_ENABLE_CP_MCP_SERVER}
             resources:
@@ -914,33 +912,39 @@ helmCharts:
           mcpHub:
             enabled: ${TP_AI_ENABLE_MCP_HUB}
       tp-cp-o11y:
-        o11ymcpserver: 
+        autoscaling:
+          maxReplicas: 1
+        o11ymcpserver:
           enabled: ${TP_AI_ENABLE_O11Y_MCP_SERVER}
+      tp-cp-prometheus:
+        server:
+          retention: "3d"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              cpu: 500m
+              memory: 2Gi
+      tp-cp-auditsafe:
+        autoscaling:
+          maxReplicas: 1
+        auditsafe:
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      tp-cp-integration-common:
+        fileserver:
+          hpa:
+            maxReplicas: 1
       tp-cp-core-finops:
-        finops-service:
-          finopsservice:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
         monitoring-service:
           replicaCount: "1"
           monitoringservice:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-          monitoringtibtunnel:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-          monitoringcapresources:
-            resources:
-              requests:
-                cpu: ${CP_RESOURCES_REQUEST_CPU}
-                memory: ${CP_RESOURCES_REQUEST_MEMORY}
-          monitoringhomepagemetrics:
             resources:
               requests:
                 cpu: ${CP_RESOURCES_REQUEST_CPU}
@@ -1142,6 +1146,14 @@ helmCharts:
             noProxy: "${CP_PROXY_NO_PROXY}"
       flogo-recipes:
         enabled: true
+        flogoprovisioner:
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
       flogo-webserver:
         enabled: true
         mcpserver:
@@ -1394,6 +1406,230 @@ helmCharts:
     wait: true
     timeout: 1h
     createNamespace: ${CP_CREATE_NAMESPACE}
+- name: generic-chart # keycloak external IdP for MCP Hub inbound-VS OAuth (test envs only)
+  version: 1.6.0
+  condition: ${CP_INSTALL_KEYCLOAK}
+  namespace: ${CP_EXT_NAMESPACE}
+  releaseName: keycloak
+  repo:
+    helm:
+      url: https://test-server.github.yyzd.me
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  values:
+    keepPrevious: true
+    content: |
+      deployment:
+        enabled: true
+        image:
+          repository: quay.io/keycloak/keycloak
+          tag: "26.1"
+        # production mode backed by the existing CP PostgreSQL (postgresql.tibco-ext), so
+        # realm/users/clients survive pod restarts (the DB is PVC-backed via its bitnami chart)
+        args: ["start", "--import-realm"]
+        env:
+          - name: KC_BOOTSTRAP_ADMIN_USERNAME
+            value: "admin"
+          - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+            value: "${CP_KEYCLOAK_ADMIN_PASSWORD}"
+          - name: KC_HOSTNAME
+            value: "https://${CP_KEYCLOAK_HOST}"
+          - name: KC_HTTP_ENABLED
+            value: "true"
+          - name: KC_PROXY_HEADERS
+            value: "xforwarded"
+          - name: KC_HEALTH_ENABLED
+            value: "true"
+          # persistent datastore: shared CP PostgreSQL, dedicated keycloak database
+          - name: KC_DB
+            value: "postgres"
+          - name: KC_DB_URL
+            value: "jdbc:postgresql://${CP_DB_HOST}:${CP_DB_PORT}/keycloak"
+          - name: KC_DB_USERNAME
+            value: "postgres"
+          - name: KC_DB_PASSWORD
+            value: "${CP_KEYCLOAK_DB_PASSWORD}"
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 8080
+        volumeMounts:
+          - name: realm-import
+            mountPath: /opt/keycloak/data/import
+            readOnly: true
+        volumes:
+          - name: realm-import
+            configMap:
+              name: keycloak-realm-mcp-inbound
+        podLabels:
+          app: keycloak
+      service:
+        enabled: true
+        name: keycloak
+        ports:
+          http:
+            enabled: true
+            protocol: TCP
+            containerPort: 8080
+            servicePort: 8080
+      ingress:
+        enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED}
+        labels:
+          app.cloud.tibco.com/created-by: pipeline
+        annotations:
+          nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+        spec:
+          ingressClassName: ${CP_INGRESS_CLASSNAME}
+          tls:
+          - hosts:
+            - '*.${CP_DNS_DOMAIN}'
+            secretName: ${TP_GENERATE_CERTIFICATE_NAME}
+          rules:
+            - host: '${CP_KEYCLOAK_HOST}'
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: keycloak
+                        port:
+                          number: 8080
+      httpRoutes:
+        keycloak:
+          enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_GATEWAY_ENABLED}
+          name: keycloak-generic-chart
+          labels:
+            app.cloud.tibco.com/created-by: pipeline
+          spec:
+            parentRefs:
+            - name: ${TP_GATEWAY_NAME}
+              namespace: ${CP_INGRESS_NAMESPACE}
+            hostnames:
+            - "${CP_KEYCLOAK_HOST}"
+            rules:
+            - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+              backendRefs:
+              - name: keycloak
+                port: 8080
+  hooks:
+    preDeploy:
+      ignoreErrors: false
+      base64Encoded: false
+      skip: false
+      content: |
+        # Create the namespace (helm createNamespace runs after this hook) and the
+        # realm import ConfigMap. Realm is defined inline here as the single source of
+        # truth - the recipe runs containerized with no adjacent files at deploy time.
+        kubectl create namespace ${CP_EXT_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+        # Ensure the dedicated keycloak database exists in the shared CP PostgreSQL.
+        # Keycloak (start mode) creates its tables but not its database, so create it here (idempotent).
+        _pg_pod=$(kubectl get pod -n ${CP_EXT_NAMESPACE} -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}')
+        if [[ -n "${_pg_pod}" ]]; then
+          kubectl exec -n ${CP_EXT_NAMESPACE} "${_pg_pod}" -- env PGPASSWORD="${CP_KEYCLOAK_DB_PASSWORD}" \
+            psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='keycloak'" | grep -q 1 \
+          || kubectl exec -n ${CP_EXT_NAMESPACE} "${_pg_pod}" -- env PGPASSWORD="${CP_KEYCLOAK_DB_PASSWORD}" \
+            psql -U postgres -c "CREATE DATABASE keycloak"
+        else
+          echo "WARN: no postgresql pod found in ${CP_EXT_NAMESPACE}; expecting ${CP_DB_HOST} reachable with a 'keycloak' database"
+        fi
+        cat > mcp-inbound-realm.json <<'KCREALM'
+        {
+          "realm": "mcp-inbound",
+          "enabled": true,
+          "displayName": "MCP Inbound OAuth (test)",
+          "sslRequired": "none",
+          "loginWithEmailAllowed": true,
+          "registrationAllowed": false,
+          "clients": [
+            {
+              "clientId": "mcp-test-client",
+              "name": "MCP Test Client",
+              "description": "Static public client for MCP inbound-VS OAuth testing (auth-code + PKCE / direct grant)",
+              "enabled": true,
+              "protocol": "openid-connect",
+              "publicClient": true,
+              "standardFlowEnabled": true,
+              "directAccessGrantsEnabled": true,
+              "redirectUris": ["*"],
+              "webOrigins": ["*"],
+              "attributes": { "pkce.code.challenge.method": "S256" },
+              "protocolMappers": [
+                {
+                  "name": "mcp-inbound-vs-audience",
+                  "protocol": "openid-connect",
+                  "protocolMapper": "oidc-audience-mapper",
+                  "consentRequired": false,
+                  "config": { "included.custom.audience": "mcp-inbound-vs", "id.token.claim": "false", "access.token.claim": "true" }
+                }
+              ]
+            }
+          ],
+          "users": [
+            { "username": "mcpuser", "email": "mcpuser@example.com", "emailVerified": true, "enabled": true, "firstName": "MCP", "lastName": "User", "credentials": [{ "type": "password", "value": "Tibco@123", "temporary": false }] },
+            { "username": "alice", "email": "alice@example.com", "emailVerified": true, "enabled": true, "firstName": "Alice", "lastName": "Example", "credentials": [{ "type": "password", "value": "Tibco@123", "temporary": false }] },
+            { "username": "bob", "email": "bob@example.com", "emailVerified": true, "enabled": true, "firstName": "Bob", "lastName": "Example", "credentials": [{ "type": "password", "value": "Tibco@123", "temporary": false }] },
+            { "username": "carol", "email": "carol@example.com", "emailVerified": true, "enabled": true, "firstName": "Carol", "lastName": "Example", "credentials": [{ "type": "password", "value": "Tibco@123", "temporary": false }] }
+          ]
+        }
+        KCREALM
+        kubectl create configmap keycloak-realm-mcp-inbound -n ${CP_EXT_NAMESPACE} \
+          --from-file=mcp-inbound-realm.json=mcp-inbound-realm.json \
+          --dry-run=client -o yaml | kubectl apply -f -
+    postDeploy:
+      ignoreErrors: true # DCR enablement is a convenience; a hiccup here must not fail the CP deploy
+      base64Encoded: false
+      skip: false
+      content: |
+        # Open DCR (test envs only): remove ALL anonymous client-registration policies so MCP clients
+        # (e.g. MCP Inspector / mcp-remote) can self-register WITH scopes. Keycloak 26.1 creates a set
+        # of these per realm and the realm import cannot suppress them: deleting only "Trusted Hosts"
+        # enables anonymous registration, but "Allowed Client Scopes" / "Allowed Protocol Mapper Types"
+        # still reject *scoped* DCR (insufficient_scope), so a real browser auth-code/PKCE flow can't
+        # start. We remove the whole anonymous set (idempotent). kubectl exec + in-pod kcadm.sh is used
+        # because the pipeline runner is a host container outside the cluster pod-network.
+        echo "waiting for keycloak pod to be ready..."
+        kubectl wait --for=condition=ready pod -l app=keycloak -n ${CP_EXT_NAMESPACE} --timeout=300s || true
+        _kcpod=$(kubectl get pod -n ${CP_EXT_NAMESPACE} -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
+        if [[ -z "${_kcpod}" ]]; then echo "ERROR: keycloak pod not found"; exit 1; fi
+        kubectl exec -n ${CP_EXT_NAMESPACE} "${_kcpod}" -- env KC_PW="${CP_KEYCLOAK_ADMIN_PASSWORD}" sh -c \
+          '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password "$KC_PW" >/dev/null 2>&1'
+        # Re-fetch and delete until none remain (a single kcadm delete can transiently return non-zero,
+        # which would otherwise leave a policy behind and keep rejecting scoped DCR).
+        for _pass in 1 2 3; do
+          _polids=$(kubectl exec -n ${CP_EXT_NAMESPACE} "${_kcpod}" -- /opt/keycloak/bin/kcadm.sh get components -r mcp-inbound 2>/dev/null \
+            | yq -p=json '.[] | select(.providerType == "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy" and .subType == "anonymous") | .id')
+          [[ -z "${_polids}" ]] && break
+          for _id in ${_polids}; do
+            kubectl exec -n ${CP_EXT_NAMESPACE} "${_kcpod}" -- /opt/keycloak/bin/kcadm.sh delete components/${_id} -r mcp-inbound 2>/dev/null || true
+            echo "open DCR: removed anonymous client-registration policy ${_id}"
+          done
+        done
+        # Stamp aud=mcp-inbound-vs on EVERY token by adding the audience mapper to the built-in
+        # "basic" client scope. Keycloak applies "basic" to all clients -- including DCR-registered
+        # clients that send an explicit scope/grant config in the registration request, which do NOT
+        # inherit the realm default client scopes (only "basic"). This covers static, bare-DCR, and
+        # scoped-DCR clients alike. Idempotent. Test envs only.
+        _basicid=$(kubectl exec -n ${CP_EXT_NAMESPACE} "${_kcpod}" -- /opt/keycloak/bin/kcadm.sh get client-scopes -r mcp-inbound --fields id,name --format csv --noquotes 2>/dev/null | awk -F, '$2=="basic"{print $1}')
+        if [[ -z "${_basicid}" ]]; then
+          echo "WARN: 'basic' client scope not found; clients may not receive aud=mcp-inbound-vs"
+        elif kubectl exec -n ${CP_EXT_NAMESPACE} "${_kcpod}" -- /opt/keycloak/bin/kcadm.sh get client-scopes/${_basicid}/protocol-mappers/models -r mcp-inbound 2>/dev/null | grep -q mcp-inbound-vs-audience; then
+          echo "open DCR: aud=mcp-inbound-vs mapper already present on the 'basic' client scope"
+        else
+          kubectl exec -n ${CP_EXT_NAMESPACE} "${_kcpod}" -- /opt/keycloak/bin/kcadm.sh create client-scopes/${_basicid}/protocol-mappers/models -r mcp-inbound \
+            -s name=mcp-inbound-vs-audience -s protocol=openid-connect -s protocolMapper=oidc-audience-mapper \
+            -s 'config."included.custom.audience"=mcp-inbound-vs' -s 'config."access.token.claim"=true' -s 'config."id.token.claim"=false' 2>/dev/null \
+            && echo "open DCR: added aud=mcp-inbound-vs mapper to the 'basic' client scope (all clients incl. DCR get the audience)"
+        fi
+        echo "  anonymous (scoped) registration at: https://${CP_KEYCLOAK_HOST}/realms/mcp-inbound/clients-registrations/openid-connect"
+  flags:
+    createNamespace: true
+    timeout: 1h
 - name: tibco-cp-mcp-hub
   version: ${CP_PLATFORM_MCP_HUB_VERSION}
   condition: ${CP_INSTALL_PLATFORM_MCP_HUB}

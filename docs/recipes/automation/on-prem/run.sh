@@ -176,7 +176,7 @@ function main() {
   # runner image
   export PIPELINE_DOCKER_IMAGE_RUNNER=${PIPELINE_DOCKER_IMAGE_RUNNER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.0-on-prem"}
   # tester image
-  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.2-tester-on-prem-jammy"}
+  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.4-tester-on-prem-jammy"}
 
   if [[ -f 05-tp-auto-deploy-dp.yaml ]]; then
     _IS_LOCAL_AUTOMATION=$(yq eval '.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT' 05-tp-auto-deploy-dp.yaml)
@@ -195,7 +195,7 @@ function main() {
   while true; do
     if [[ -z $choice ]]; then
       echo "Please select an option:"
-      echo "1. Deploy TP from scratch. (All steps: 2,5,6,3,6,4)"
+      echo "1. Deploy TP from scratch. (All steps: 2,8,5,6,3,6,4)"
       echo "2. Prepare TP cluster (Ingress, DB, storage, etc.)"
       echo "3. Deploy platform-bootstrap and platform-base only"
       echo "4. Deploy CP subscription (Admin, sub user, DP, app, etc.)"
@@ -215,6 +215,14 @@ function main() {
         if [[ $? -ne 0 ]]; then
           echo "Failed to deploy on-prem-base cluster."
           exit 1
+        fi
+        if [[ ${TP_AUTO_ENABLE_BMDP} == "true" ]]; then
+          echo "BMDP is enabled; deploy classic BW5"
+          deploy-tp-bw5-stack # 8
+          if [[ $? -ne 0 ]]; then
+            echo "Failed to deploy classic BW5 stack."
+            exit 1
+          fi
         fi
         deploy-tp-o11y-stack # 5
         if [[ $? -ne 0 ]]; then

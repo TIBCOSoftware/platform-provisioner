@@ -25,6 +25,8 @@ from page_object.po_dp_ems import PageObjectDataPlaneEMS
 from page_object.po_dp_flogo import PageObjectDataPlaneFlogo
 from page_object.po_dp_pulsar import PageObjectDataPlanePulsar
 from page_object.po_dp_tibcohub import PageObjectDataPlaneTibcoHub
+from page_object.po_dp_k8s_mcp_server import PageObjectDataPlaneK8sMcpServer
+from page_object.po_dp_springboot import PageObjectDataPlaneSpringBoot
 
 if __name__ == "__main__":
     page = Util.browser_launch()
@@ -42,13 +44,21 @@ if __name__ == "__main__":
         if ENV.TP_AUTO_IS_PROVISION_BWCE or ENV.TP_AUTO_IS_PROVISION_BW5CE:
             capability = "bw5ce" if ENV.TP_AUTO_IS_PROVISION_BW5CE else "bwce"
 
-            ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE else ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE
             fqdn = ENV.TP_AUTO_FQDN_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE else ENV.TP_AUTO_FQDN_BWCE
-            po_dp_config.dp_config_resources_ingress(
-                ENV.TP_AUTO_K8S_DP_NAME,
-                ENV.TP_AUTO_INGRESS_CONTROLLER, ingress_controller,
-                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, fqdn
-            )
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                gateway_resource = ENV.TP_AUTO_GATEWAY_CONTROLLER_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE else ENV.TP_AUTO_GATEWAY_CONTROLLER_BWCE
+                po_dp_config.dp_config_resources_gateway(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_GATEWAY_CONTROLLER, gateway_resource,
+                    ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, fqdn
+                )
+            else:
+                ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER_BW5CE if ENV.TP_AUTO_IS_PROVISION_BW5CE else ENV.TP_AUTO_INGRESS_CONTROLLER_BWCE
+                po_dp_config.dp_config_resources_ingress(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER, ingress_controller,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, fqdn
+                )
             po_dp_bwce = PageObjectDataPlaneBWCE(page, capability)
             po_dp_bwce.goto_left_navbar_dataplane()
             po_dp_bwce.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
@@ -65,11 +75,18 @@ if __name__ == "__main__":
 
         # for provision Flogo capability
         if ENV.TP_AUTO_IS_PROVISION_FLOGO:
-            po_dp_config.dp_config_resources_ingress(
-                ENV.TP_AUTO_K8S_DP_NAME,
-                ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
-                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
-            )
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                po_dp_config.dp_config_resources_gateway(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_FLOGO,
+                    ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_FLOGO
+                )
+            else:
+                po_dp_config.dp_config_resources_ingress(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_FLOGO,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_FLOGO
+                )
             po_dp_flogo = PageObjectDataPlaneFlogo(page)
             po_dp_flogo.goto_left_navbar_dataplane()
             po_dp_flogo.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
@@ -86,16 +103,57 @@ if __name__ == "__main__":
 
         # for provision TibcoHub capability
         if ENV.TP_AUTO_IS_PROVISION_TIBCOHUB:
-            po_dp_config.dp_config_resources_ingress(
-                ENV.TP_AUTO_K8S_DP_NAME,
-                ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB,
-                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_TIBCOHUB
-            )
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                po_dp_config.dp_config_resources_gateway(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_TIBCOHUB,
+                    ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_TIBCOHUB
+                )
+            else:
+                po_dp_config.dp_config_resources_ingress(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_TIBCOHUB
+                )
             po_dp_tibcohub = PageObjectDataPlaneTibcoHub(page)
             po_dp_tibcohub.goto_left_navbar_dataplane()
             po_dp_tibcohub.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
             po_dp_tibcohub.tibcohub_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
+
+        # for provision Kubernetes MCP Server capability
+        if ENV.TP_AUTO_IS_PROVISION_K8S_MCP_SERVER:
+            po_dp_config.dp_config_resources_ingress(
+                ENV.TP_AUTO_K8S_DP_NAME,
+                ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_K8S_MCP_SERVER,
+                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_K8S_MCP_SERVER
+            )
+            po_k8s_mcp = PageObjectDataPlaneK8sMcpServer(page)
+            po_k8s_mcp.goto_left_navbar_dataplane()
+            po_k8s_mcp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+            po_k8s_mcp.k8s_mcp_server_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+
+        # for provision Spring Boot capability
+        if ENV.TP_AUTO_IS_PROVISION_SPRINGBOOT:
+            if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+                po_dp_config.dp_config_resources_gateway(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_GATEWAY_CONTROLLER, ENV.TP_AUTO_GATEWAY_CONTROLLER_SPRINGBOOT,
+                    ENV.TP_AUTO_GATEWAY_NAME, ENV.TP_AUTO_GATEWAY_NAMESPACE, ENV.TP_AUTO_FQDN_SPRINGBOOT
+                )
+            else:
+                po_dp_config.dp_config_resources_ingress(
+                    ENV.TP_AUTO_K8S_DP_NAME,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_SPRINGBOOT,
+                    ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_SPRINGBOOT
+                )
+            po_dp_springboot = PageObjectDataPlaneSpringBoot(page)
+            po_dp_springboot.goto_left_navbar_dataplane()
+            po_dp_springboot.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+            po_dp_springboot.springboot_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+            po_dp_springboot.springboot_provision_connector(ENV.TP_AUTO_K8S_DP_NAME)
 
         po_auth.logout()
     except Exception as e:
