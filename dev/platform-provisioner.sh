@@ -182,9 +182,27 @@ if [[ -z ${PIPELINE_NAME} ]]; then
 fi
 echo "using pipeline: ${PIPELINE_NAME}"
 mkdir -p "${SCRIPTS}"
-helm pull --untar --untardir /tmp --version ^1.0.0 --repo https://${PIPELINE_CHART_REPO} common-dependency
+helm_pull_with_retry() {
+  local chart="$1" attempt=1 max_attempts=3 delay=5
+  if [[ ! "${chart}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+    echo "helm pull: refusing unsafe chart name: ${chart}"
+    return 1
+  fi
+  rm -rf "/tmp/${chart}" || { echo "helm pull: cannot clear /tmp/${chart}"; return 1; }
+  until helm pull --untar --untardir /tmp --version ^1.0.0 --repo "https://${PIPELINE_CHART_REPO}" "${chart}"; do
+    if [[ ${attempt} -ge ${max_attempts} ]]; then
+      echo "helm pull ${chart} failed after ${max_attempts} attempts"
+      return 1
+    fi
+    echo "helm pull ${chart} failed (attempt ${attempt}/${max_attempts}); retrying in ${delay}s..."
+    sleep "${delay}"
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+}
+helm_pull_with_retry common-dependency || exit 1
 cp -LR /tmp/common-dependency/scripts/* "${SCRIPTS}"
-helm pull --untar --untardir /tmp --version ^1.0.0 --repo https://${PIPELINE_CHART_REPO} ${PIPELINE_NAME}
+helm_pull_with_retry "${PIPELINE_NAME}" || exit 1
 cp -LR /tmp/${PIPELINE_NAME}/scripts/* "${SCRIPTS}"
 chmod +x "${SCRIPTS}"/*.sh
 cd "${SCRIPTS}"

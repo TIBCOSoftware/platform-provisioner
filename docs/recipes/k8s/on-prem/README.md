@@ -253,8 +253,8 @@ export GUI_TP_IS_CERT_SELF_SIGNED=true  # set if your cert is self-signed
 | `GUI_TP_AUTO_USE_CLI` | `true` | Use CLI mode for DP operations |
 | `GUI_TP_AUTO_ACTIVE_USER` | `true` | Activate user automatically |
 | `GUI_TP_AUTO_ENABLE_DP` | `true` | Enable Data Plane deployment |
-| `GUI_TP_AUTO_ENABLE_BWCE` | `true` | Enable BWCE |
-| `GUI_TP_AUTO_ENABLE_FLOGO` | `true` | Enable Flogo |
+| `GUI_TP_AUTO_ENABLE_BWCE` | follows `GUI_TP_AUTO_ENABLE_DP` | Provision BWCE in the Data Plane. The CP-side BWCE install is separate and stays enabled |
+| `GUI_TP_AUTO_ENABLE_FLOGO` | follows `GUI_TP_AUTO_ENABLE_DP` | Provision Flogo in the Data Plane |
 | `GUI_TP_AUTO_ENABLE_CONFIG_O11Y` | `true` | Enable O11y configuration |
 | `GUI_TP_AUTO_ENABLE_O11Y_WIDGET` | `true` | Enable O11y widget |
 | `GUI_TP_AUTO_ENABLE_BW5CE` | `false` | Enable BW5CE |

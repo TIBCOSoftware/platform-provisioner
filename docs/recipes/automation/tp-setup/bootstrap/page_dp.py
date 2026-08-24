@@ -17,10 +17,12 @@
 from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
+from utils.color_logger import ColorLogger
 from page_object.po_user_management import PageObjectUserManagement
 from page_object.po_auth import PageObjectAuth
 from page_object.po_dataplane import PageObjectDataPlane
 from page_object.po_dp_config import PageObjectDataPlaneConfiguration
+from page_object.po_dp_activespace import PageObjectDataPlaneActiveSpaces
 from page_object.po_dp_bwce import PageObjectDataPlaneBWCE
 from page_object.po_dp_ems import PageObjectDataPlaneEMS
 from page_object.po_dp_flogo import PageObjectDataPlaneFlogo
@@ -30,6 +32,41 @@ from page_object.po_dp_springboot import PageObjectDataPlaneSpringBoot
 
 if __name__ == "__main__":
     ENV.pre_check()
+
+    # Fail fast before the browser is launched: a capability can only be provisioned inside a
+    # Data Plane, so enabling one while creating no Data Plane can never succeed. Running on
+    # would silently skip every capability and still exit 0.
+    capability_findings = ENV.check_capabilities_require_dataplane()
+    if capability_findings:
+        # finding["setting"] is the variable the user can actually set; for a capability with no
+        # GUI variable (Pulsar) that IS the python flag, so the parenthetical is dropped rather
+        # than printing the same name twice.
+        capability_lines = "\n".join(
+            f"  - {finding['setting']}=true" +
+            ("" if finding["setting"] == finding["flag"] else f" (python flag {finding['flag']})")
+            for finding in capability_findings
+        )
+        ColorLogger.critical(
+            "Capability provisioning was requested, but this run creates no Data Plane.\n"
+            f"{capability_lines}\n"
+            # State only what is known here: TP_AUTO_IS_CREATE_DP evaluated false, which covers
+            # unset and malformed as well as an explicit false, so do not assert a value for
+            # GUI_TP_AUTO_ENABLE_DP. Naming it as the usual source still points at the right knob.
+            "  - TP_AUTO_IS_CREATE_DP is false (normally set from GUI_TP_AUTO_ENABLE_DP), "
+            f"so Data Plane '{ENV.TP_AUTO_K8S_DP_NAME}' will not be created.\n"
+            "A capability is provisioned inside a Data Plane, so the above can never be satisfied.\n"
+            "To fix this, either:\n"
+            f"  (a) set GUI_TP_AUTO_ENABLE_DP=true to create Data Plane '{ENV.TP_AUTO_K8S_DP_NAME}', "
+            "then deploy the capability, or\n"
+            "  (b) set the above capability flag(s) to false to run without capabilities.\n"
+            "No Data Plane or capability was modified."
+        )
+        Util.exit_error(
+            # Same rule as the banner above: assert only TP_AUTO_IS_CREATE_DP, never a value for
+            # GUI_TP_AUTO_ENABLE_DP, which this process cannot observe.
+            "Capability flag(s) enabled while TP_AUTO_IS_CREATE_DP is false: "
+            f"{', '.join(finding['setting'] for finding in capability_findings)}"
+        )
 
     page = Util.browser_launch()
     try:
@@ -163,6 +200,14 @@ if __name__ == "__main__":
 
                 po_dp_ems.ems_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_EMS_CAPABILITY_SERVER_NAME)
 
+            # for provision ActiveSpaces capability
+            if ENV.TP_AUTO_IS_PROVISION_AS:
+                po_dp_as = PageObjectDataPlaneActiveSpaces(page)
+                po_dp_as.goto_left_navbar_dataplane()
+                po_dp_as.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+                po_dp_as.as_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+
             # for provision Pulsar capability
             if ENV.TP_AUTO_IS_PROVISION_PULSAR:
                 po_dp_pulsar = PageObjectDataPlanePulsar(page)
@@ -194,9 +239,16 @@ if __name__ == "__main__":
                 if ENV.TP_AUTO_START_SPRINGBOOT_APP:
                     po_dp_springboot.springboot_app_start(ENV.TP_AUTO_K8S_DP_NAME)
 
-        po_dp.goto_left_navbar_dataplane()
-        po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
-        Util.screenshot_page(page, f"success-{ENV.TP_AUTO_K8S_DP_NAME}.png")
+            po_dp.goto_left_navbar_dataplane()
+            po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+            Util.screenshot_page(page, f"success-{ENV.TP_AUTO_K8S_DP_NAME}.png")
+        else:
+            ColorLogger.warning(
+                "TP_AUTO_IS_CREATE_DP is false, no Data Plane work was requested, "
+                f"only the Global Data Plane '{ENV.TP_AUTO_DP_NAME_GLOBAL}' observability configuration was applied."
+            )
+
+        # we logged in, so we log out even when there is no Data Plane to navigate to.
         po_auth.logout()
     except Exception as e:
         current_filename = Path(__file__).stem

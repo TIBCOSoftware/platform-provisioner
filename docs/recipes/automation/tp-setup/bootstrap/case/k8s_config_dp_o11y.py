@@ -18,7 +18,6 @@ from utils.util import Util
 from utils.env import ENV
 from page_object.po_user_management import PageObjectUserManagement
 from page_object.po_auth import PageObjectAuth
-from page_object.po_dataplane import PageObjectDataPlane
 from page_object.po_dp_config import PageObjectDataPlaneConfiguration
 
 if __name__ == "__main__":
@@ -31,15 +30,12 @@ if __name__ == "__main__":
         po_user_management = PageObjectUserManagement(page)
         po_user_management.set_user_permission()
 
-        po_dp = PageObjectDataPlane(page)
         po_dp_config = PageObjectDataPlaneConfiguration(page)
-        po_dp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
-        po_dp_config.goto_dataplane_config()
-        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG:
-            po_dp_config.goto_dataplane_config_sub_menu("Observability")
-            po_dp_config.switch_to_global_config(ENV.TP_AUTO_K8S_DP_NAME)
-        else:
-            po_dp_config.o11y_config_dataplane_resource(ENV.TP_AUTO_K8S_DP_NAME)
+        # PCP-23553: a data plane always SWITCHES to the Global observability resource.
+        # Never o11y_config_dataplane_resource() here - that creates a second, DP-local
+        # resource set. o11y_config_switch_to_global() self-navigates to the DP's
+        # Observability config.
+        po_dp_config.o11y_config_switch_to_global(ENV.TP_AUTO_K8S_DP_NAME)
         po_dp_config.o11y_config_activation(ENV.TP_AUTO_K8S_DP_NAME)
 
         po_auth.logout()

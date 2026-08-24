@@ -344,6 +344,15 @@ class TibcopBW5CE:
             ColorLogger.error("Failed to create build")
             return False
 
+        # NOTE (PCP-23045): create-build is asynchronous here too, so this flow shares
+        # Flogo's build/deploy race — BW5CE only wins it today because its builds finish
+        # faster. Flogo guards it with TibcopFlogo.wait_for_build(); BW5CE cannot, because
+        # the BW5CE DataPlane public API exposes NO build status: there is no
+        # /v1/dp/builds/{buildId}/status endpoint, the BuildInfo returned by list-builds
+        # has no status field, and tibcop has no bw5ce:get-build-status command. Waiting
+        # properly needs that TP-side gap closed (Flogo already has it); do not work
+        # around it here by parsing deploy-app's error text or by polling build pods.
+
         # Update deployment config with build ID
         try:
             with open(deploy_config_file, 'r') as f:

@@ -46,13 +46,16 @@ meta:
     GUI_TP_AUTO_ENABLE_BW5CE: false
     GUI_TP_AUTO_ENABLE_TIBCOHUB: false
     GUI_TP_AUTO_ENABLE_SB: false
+    GUI_TP_AUTO_ENABLE_BC: false
     GUI_TP_AUTO_ENABLE_EMS: false
+    GUI_TP_AUTO_ENABLE_AS: false
     GUI_TP_AUTO_ENABLE_BMDP: false
     GUI_TP_AUTO_IS_ENABLE_RVDM: true
     GUI_TP_AUTO_IS_ENABLE_EMSDM: true
     GUI_TP_AUTO_IS_ENABLE_BW6DM: true
     GUI_TP_AUTO_ENABLE_O11Y_WIDGET: false
     GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER: false
+    GUI_TP_AUTO_ENABLE_INFRA_MCP_SERVER: ""
     GUI_TP_AI_ENABLE_MCP_HUB: false
     GUI_TP_AUTO_ENABLE_E2E_TEST: false
     GUI_TP_AUTO_USE_CLI: false
@@ -71,7 +74,7 @@ meta:
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ""
-    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER: ""
+    GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_INFRA_MCP_SERVER: ""
     GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT: ""
     GUI_TP_AUTO_LOGIN_URL: ""
     GUI_TP_AUTO_MAIL_URL: ""
@@ -127,7 +130,7 @@ meta:
     GUI_TP_AUTO_FQDN_BW5CE: ""
     GUI_TP_AUTO_FQDN_FLOGO: ""
     GUI_TP_AUTO_FQDN_TIBCOHUB: ""
-    GUI_TP_AUTO_FQDN_K8S_MCP_SERVER: ""
+    GUI_TP_AUTO_FQDN_INFRA_MCP_SERVER: ""
     GUI_TP_AUTO_FQDN_SPRINGBOOT: ""
     GUI_TP_AUTO_FQDN_BMDP: "bmdp.dummy.hostname"
 
@@ -177,21 +180,25 @@ meta:
     TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL: ${GUI_TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL:-true}
     TP_AUTO_ENABLE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true}
     TP_AUTO_IS_CREATE_DP: ${GUI_TP_AUTO_ENABLE_DP:-true} # need this as global value
-    TP_AUTO_ENABLE_CONFIG_O11Y: ${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-true}
-    TP_AUTO_IS_CONFIG_O11Y: ${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-false} # need this as global value
+    # Observability: create the Global observability resource AND switch every data plane
+    # (k8s DP + BMDP) to it. This is the whole contract - it is never "create a resource
+    # set per data plane" (PCP-23553).
+    TP_AUTO_IS_CONFIG_O11Y: ${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-true} # need this as global value
     TP_AUTO_ENABLE_FLOGO: ${GUI_TP_AUTO_ENABLE_FLOGO:-true}
     TP_AUTO_ENABLE_BWCE: ${GUI_TP_AUTO_ENABLE_BWCE:-true}
     TP_AUTO_ENABLE_BW5CE: ${GUI_TP_AUTO_ENABLE_BW5CE:-true}
     TP_AUTO_ENABLE_TIBCOHUB: ${GUI_TP_AUTO_ENABLE_TIBCOHUB:-true}
     TP_AUTO_ENABLE_SB: ${GUI_TP_AUTO_ENABLE_SB:-false}
+    TP_AUTO_ENABLE_BC: ${GUI_TP_AUTO_ENABLE_BC:-false}
     TP_AUTO_ENABLE_EMS: ${GUI_TP_AUTO_ENABLE_EMS:-true}
+    TP_AUTO_ENABLE_AS: ${GUI_TP_AUTO_ENABLE_AS:-false}
     TP_AUTO_ENABLE_BMDP: ${GUI_TP_AUTO_ENABLE_BMDP:-false}
     TP_AUTO_IS_ENABLE_RVDM: ${GUI_TP_AUTO_IS_ENABLE_RVDM:-true}
     TP_AUTO_IS_ENABLE_EMSDM: ${GUI_TP_AUTO_IS_ENABLE_EMSDM:-true}
     TP_AUTO_IS_ENABLE_BW6DM: ${GUI_TP_AUTO_IS_ENABLE_BW6DM:-true}
     TP_AUTO_ENABLE_O11Y_WIDGET: ${GUI_TP_AUTO_ENABLE_O11Y_WIDGET:-false}
-    TP_AUTO_ENABLE_K8S_MCP_SERVER: ${GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER:-false}
-    TP_AUTO_IS_PROVISION_K8S_MCP_SERVER: ${GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER:-false} # need this as global value
+    TP_AUTO_ENABLE_INFRA_MCP_SERVER: ${GUI_TP_AUTO_ENABLE_INFRA_MCP_SERVER:-${GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER:-false}}
+    TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER: ${GUI_TP_AUTO_ENABLE_INFRA_MCP_SERVER:-${GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER:-false}} # need this as global value
     TP_AI_ENABLE_MCP_HUB: ${GUI_TP_AI_ENABLE_MCP_HUB:-false}
     TP_AUTO_ENABLE_E2E_TEST: ${GUI_TP_AUTO_ENABLE_E2E_TEST:-false}
     TP_AUTO_USE_CLI: ${GUI_TP_AUTO_USE_CLI:-false}
@@ -210,7 +217,7 @@ meta:
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE:-"bw5ce"}
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO:-"flogo"}
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB:-"tibcohub"}
-    TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER:-"k8smcp"}
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_INFRA_MCP_SERVER: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_INFRA_MCP_SERVER:-"k8smcp"}
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT: ${GUI_TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT:-"springboot"}
     TP_AUTO_LOGIN_URL: ${GUI_TP_AUTO_LOGIN_URL:-""}
     TP_AUTO_MAIL_URL: ${GUI_TP_AUTO_MAIL_URL:-""}
@@ -261,7 +268,7 @@ meta:
     TP_AUTO_FQDN_BW5CE: ${GUI_TP_AUTO_FQDN_BW5CE:-""}
     TP_AUTO_FQDN_FLOGO: ${GUI_TP_AUTO_FQDN_FLOGO:-""}
     TP_AUTO_FQDN_TIBCOHUB: ${GUI_TP_AUTO_FQDN_TIBCOHUB:-""}
-    TP_AUTO_FQDN_K8S_MCP_SERVER: ${GUI_TP_AUTO_FQDN_K8S_MCP_SERVER:-""}
+    TP_AUTO_FQDN_INFRA_MCP_SERVER: ${GUI_TP_AUTO_FQDN_INFRA_MCP_SERVER:-""}
     TP_AUTO_FQDN_SPRINGBOOT: ${GUI_TP_AUTO_FQDN_SPRINGBOOT:-""}
     TP_AUTO_FQDN_BMDP: ${GUI_TP_AUTO_FQDN_BMDP:-""}
 
@@ -298,7 +305,7 @@ meta:
     PYTHON_FILE_ENTRY_POINT_BMDP: page_bmdp.py
     PYTHON_FILE_ENTRY_POINT_O11Y: page_o11y.py
     PYTHON_FILE_ENTRY_POINT_SETTING: page_setting.py
-    PYTHON_FILE_ENTRY_POINT_K8S_MCP_SERVER: case/k8s_provision_k8s_mcp_server.py
+    PYTHON_FILE_ENTRY_POINT_INFRA_MCP_SERVER: case/k8s_provision_infra_mcp_server.py
     PYTHON_FILE_ENTRY_POINT_MCP_HUB: case/k8s_deploy_mcp_hub.py
     PYTHON_FILE_ENV_POINT: page_env.py
     TP_OVERWRITE_DNS: ${GUI_TP_OVERWRITE_DNS:-false}
@@ -392,7 +399,17 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
-      cd ${TP_AUTO_SCRIPT_FOLDER}
+      cd ${TP_AUTO_SCRIPT_FOLDER} || {
+        echo "[ERROR] TP_AUTO_SCRIPT_FOLDER '${TP_AUTO_SCRIPT_FOLDER}' does not exist."
+        exit 1
+      }
+      # PCP-23086: docker silently creates an empty folder when the host path of a -v mount is
+      # missing, so an unstaged source shows up here as a bare "No pyproject.toml found" from uv.
+      if [[ ! -f pyproject.toml ]]; then
+        echo "[ERROR] ${TP_AUTO_SCRIPT_FOLDER} does not contain the automation source (no pyproject.toml)."
+        echo "[ERROR] With TP_AUTO_USE_LOCAL_SCRIPT=true the caller must mount or stage the bootstrap folder there."
+        exit 1
+      fi
       if command -v uv >/dev/null 2>&1; then
         echo "[INFO] uv detected, using uv sync..."
         export UV_PROJECT_ENVIRONMENT="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"
@@ -507,6 +524,187 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit 0
+# Keep this task before cli-full-automation, create-dp and every deploy-* task; it is a pre-flight
+# for all of them and it is pointless once any of them has started.
+- condition: true
+  name: validate-dp-capability-flags
+  script:
+    # Both are spelled out rather than left to the runner defaults, because both are the point
+    # of this task: a misconfigured recipe must stop the pipeline instead of being skipped, and
+    # nothing checked here is transient, so a retry would only sleep before the same verdict.
+    ignoreErrors: false
+    retryCount: 0
+    # Pinned like the sibling tasks, and here it is load bearing: generic-runner::setup_script
+    # WRITES the body to .fileName defaulting to script.sh, but generic-runner::run_task resolves
+    # what it EXECUTES from .fileName, else ${PIPELINE_RUNNER_SCRIPT_NAME_SH}, else script.sh
+    # (charts/common-dependency/scripts/_funcs_generic_runner.sh:156-157 and :274-284). With
+    # PIPELINE_RUNNER_SCRIPT_NAME_SH set to anything else the body would land in script.sh, the
+    # `[[ -f ./${_task_file_name} ]]` at :333 would find nothing, and the task would exit 0 having
+    # run nothing - a silently vanishing guard is the worst outcome for a task whose only job is
+    # to fail the run.
+    fileName: script.sh
+    content: |
+      # A capability is provisioned INSIDE a Data Plane, so enabling a capability while this run
+      # creates no Data Plane can never be satisfied: the capability is silently skipped, or the
+      # task burns its retryCount looking for a Data Plane that does not exist.
+      #
+      # This task is the only place that sees every capability flag at once, so it names ALL of
+      # the conflicting flags in one message. The guard inside page_dp.py only ever sees the
+      # single flag its own deploy-* task exported, so without this a user fixes one capability,
+      # waits for the next task to fail, then fixes the next one.
+      #
+      # Scope: exactly the capabilities whose deploy-* task executes page_dp.py, because those are
+      # the ones that need create-dp to have run. deploy-infra-mcp-server and deploy-mcp-hub are
+      # deliberately NOT checked here: they run case/ modules (case.k8s_provision_infra_mcp_server,
+      # case.k8s_deploy_mcp_hub) against an ALREADY registered Data Plane, so "the Data Plane
+      # exists, now add this capability" is a supported TP_AUTO_ENABLE_DP=false run and must keep
+      # working. Adding one of them here would abort a run that has nothing wrong with it.
+      #
+      # Adding a page_dp.py capability to an already created Data Plane is still a
+      # GUI_TP_AUTO_ENABLE_DP=true run: create-dp short circuits on the report file when the Data
+      # Plane is already there.
+      #
+      # Comparison note: the two sides are compared DIFFERENTLY on purpose, because a DIFFERENT
+      # layer decides each of them.
+      #  - Capability side, exact == "true": whether a capability's deploy-* task is SCHEDULED is
+      #    decided by the runner, and charts/generic-runner/scripts/_funcs_pipeline.sh:99 is
+      #    [ "${_recipe_task_condition}" == "true" ] || { echo "Skipping task..."; continue; }.
+      #    A capability flag that is not exactly "true" is therefore never requested at all, so
+      #    flagging it would abort a run in which that capability was never going to execute.
+      #  - Data Plane side, case tolerant before comparing: whether the Data Plane gets CREATED is
+      #    decided by python, and docs/recipes/automation/tp-setup/bootstrap/utils/env.py:132 is
+      #    TP_AUTO_IS_CREATE_DP = os.environ.get("TP_AUTO_IS_CREATE_DP", "false").lower() == "true".
+      #    TP_AUTO_IS_CREATE_DP is a pipeline global (.meta.globalEnvVariable, taken straight from
+      #    GUI_TP_AUTO_ENABLE_DP) that the deploy-* tasks inherit rather than re-export, so with
+      #    TP_AUTO_ENABLE_DP=True the runner skips create-dp but deploy-flogo still runs page_dp.py,
+      #    python still reads that global as truthy, and page_dp.py creates the Data Plane itself.
+      #    That configuration works today; an exact match here would abort it.
+      # That asymmetry is deliberate and load bearing - do not collapse the two sides into one
+      # comparison.
+      #
+      # Syntax note, for whoever edits this next: a recipe task body is rendered through envsubst
+      # BEFORE bash ever sees it (common::replace_env_variables,
+      # charts/common-dependency/scripts/_functions.sh:909), so restrict it to plain ${VAR}
+      # references and POSIX-ish constructs. bash 4 case folding parameter expansions and bash
+      # arrays are NOT safe here: an envsubst that understands bash style expansions rewrites them
+      # at render time instead of leaving them for bash, and no other shipped recipe body depends
+      # on which envsubst is installed - so neither does this one. That is why each pipeline global
+      # is read into a local first, why the Data Plane comparison below is a `case` pattern, and
+      # why the accumulators below are newline delimited strings. The syntax to avoid is spelled
+      # out only in tests/unit/bats/test_dp_capability_flag_guard.bats, which asserts its absence -
+      # a comment showing it off is the obvious thing for the next editor to copy.
+      _enable_dp="${TP_AUTO_ENABLE_DP}"
+      _enable_flogo="${TP_AUTO_ENABLE_FLOGO}"
+      _enable_bwce="${TP_AUTO_ENABLE_BWCE}"
+      _enable_bw5ce="${TP_AUTO_ENABLE_BW5CE}"
+      _enable_tibcohub="${TP_AUTO_ENABLE_TIBCOHUB}"
+      _enable_sb="${TP_AUTO_ENABLE_SB}"
+      _enable_ems="${TP_AUTO_ENABLE_EMS}"
+      _enable_as="${TP_AUTO_ENABLE_AS}"
+      _dp_name="${TP_AUTO_K8S_DP_NAME}"
+      _report_path="${TP_AUTO_REPORT_PATH}"
+
+      # Housekeeping only, on every success path: TP_AUTO_REPORT_PATH is bind mounted to the host
+      # (docs/recipes/k8s/on-prem/scripts/headless/tp-install-on-prem.sh:436), so a breadcrumb left
+      # by an earlier failing run would sit next to a green run's artefacts and read as a current
+      # failure. Never allowed to fail the task - this guard reports on flags, not on files.
+      clear_misconfiguration_breadcrumb() {
+        if [[ -n "${_report_path}" ]]; then
+          rm -f "${_report_path}/misconfiguration.txt" 2>/dev/null || true
+        fi
+        return 0
+      }
+
+      # CLI mode is deliberately NOT exempt, and the reason is worth recording because the
+      # opposite is the intuitive guess. It is tempting to skip this check when
+      # TP_AUTO_USE_CLI=true on the grounds that cli-full-automation provisions through
+      # page_cli.py - which does skip DP work cleanly (page_cli.py:529 ->
+      # cli_object/orchestrator.py:77-78). But CLI mode does not REPLACE the deploy-* tasks, it
+      # runs ALONGSIDE them: cli-full-automation is gated on the TP_AUTO_USE_CLI condition while
+      # deploy-flogo is gated on the TP_AUTO_ENABLE_FLOGO condition ALONE, and deploy-flogo
+      # executes the shared PYTHON_FILE_ENTRY_POINT, which is page_dp.py (:298). Note the bare
+      # names: a ${...} reference even inside a comment would be rewritten by envsubst at render
+      # time. Normally deploy-flogo then
+      # short-circuits on the report file that cli-full-automation just wrote; with no Data Plane
+      # there is no such entry, so page_dp.py runs for real and hits exactly the PCP-22771 path.
+      # Exempting CLI mode would therefore not avoid the failure, only delay it past ten retries
+      # and hide it behind a comment that is not true.
+      #
+      # "enabled", not "will be created": with TP_AUTO_ENABLE_DP=True the runner skips create-dp,
+      # so the Data Plane is created by whichever deploy-* task runs page_dp.py - and if no
+      # capability is exactly "true" either, no task runs it and nothing is created. Nothing is
+      # unsatisfiable in that case, which is all this guard is here to decide.
+      #
+      # The case pattern matches exactly what python's .lower() == "true" matches - any casing of
+      # those four letters and nothing else - without a case folding parameter expansion and
+      # without a `tr` command substitution: the first is a bash 4 construct an envsubst may
+      # rewrite, and the second needs a command substitution, which this body also avoids.
+      case "${_enable_dp}" in
+        [Tt][Rr][Uu][Ee])
+          echo "===== Task Name: validate-dp-capability-flags, Data Plane creation is enabled for '${_dp_name}' (GUI_TP_AUTO_ENABLE_DP='${_enable_dp}'); nothing to validate ====="
+          clear_misconfiguration_breadcrumb
+          exit 0
+          ;;
+      esac
+
+      # Newline delimited accumulator, one "  - <flag>" line per offending capability. A plain
+      # string rather than a bash array, see the syntax note above.
+      _conflicts=""
+      collect_enabled_capability() { # $1: GUI variable a user sets, $2: pipeline global, $3: value
+        local _value="${3}"
+        if [[ "${_value}" == "true" ]]; then
+          printf -v _conflicts '%s  - %s=true (pipeline global %s)\n' "${_conflicts}" "${1}" "${2}"
+        fi
+      }
+
+      collect_enabled_capability "GUI_TP_AUTO_ENABLE_FLOGO" "TP_AUTO_ENABLE_FLOGO" "${_enable_flogo}"
+      collect_enabled_capability "GUI_TP_AUTO_ENABLE_BWCE" "TP_AUTO_ENABLE_BWCE" "${_enable_bwce}"
+      collect_enabled_capability "GUI_TP_AUTO_ENABLE_BW5CE" "TP_AUTO_ENABLE_BW5CE" "${_enable_bw5ce}"
+      collect_enabled_capability "GUI_TP_AUTO_ENABLE_TIBCOHUB" "TP_AUTO_ENABLE_TIBCOHUB" "${_enable_tibcohub}"
+      collect_enabled_capability "GUI_TP_AUTO_ENABLE_SB" "TP_AUTO_ENABLE_SB" "${_enable_sb}"
+      collect_enabled_capability "GUI_TP_AUTO_ENABLE_EMS" "TP_AUTO_ENABLE_EMS" "${_enable_ems}"
+      collect_enabled_capability "GUI_TP_AUTO_ENABLE_AS" "TP_AUTO_ENABLE_AS" "${_enable_as}"
+
+      if [[ -z "${_conflicts}" ]]; then
+        echo "===== Task Name: validate-dp-capability-flags, no Data Plane and no capability requested; nothing to validate ====="
+        clear_misconfiguration_breadcrumb
+        exit 0
+      fi
+
+      # Build the message once, so the log and the report file can never drift apart. Newline
+      # delimited like _conflicts above, and for the same reason.
+      _report=""
+      append_report_line() { # $1: the line to append to the verdict
+        printf -v _report '%s%s\n' "${_report}" "${1}"
+      }
+
+      append_report_line "Capability provisioning was requested, but this run creates no Data Plane."
+      _report="${_report}${_conflicts}"
+      # The value is echoed rather than assumed to be 'false': it may be empty, or a typo, and the
+      # user has to see what they actually typed. Any casing of 'true' took the early exit above.
+      append_report_line "  - GUI_TP_AUTO_ENABLE_DP='${_enable_dp}' (pipeline global TP_AUTO_ENABLE_DP) does not enable Data Plane creation, so Data Plane '${_dp_name}' will not be created."
+      append_report_line "A capability is provisioned inside a Data Plane, so the above can never be satisfied."
+      append_report_line "To fix this, either:"
+      append_report_line "  (a) set GUI_TP_AUTO_ENABLE_DP=true to create Data Plane '${_dp_name}', then deploy the capability, or"
+      append_report_line "  (b) set the above capability flag(s) to false to run without capabilities."
+      append_report_line "No Data Plane or capability was modified."
+
+      echo "----------------------------------------------------------------"
+      printf '%s' "${_report}"
+      echo "----------------------------------------------------------------"
+
+      # Best effort breadcrumb next to the run report. The pipeline must fail on the
+      # misconfiguration itself, never on whether this file could be written - hence the
+      # emptiness check and the `|| true`, matching clear_misconfiguration_breadcrumb above.
+      # (An empty _report_path cannot reach `/misconfiguration.txt`: `mkdir -p ""` fails and
+      # `&&` short-circuits before the redirection is set up. The check is here to keep this
+      # path consistent with the cleanup helper and to avoid a confusing `mkdir: cannot create
+      # directory ''` on stderr of a run that is already failing for another reason.)
+      if [[ -n "${_report_path}" ]]; then
+        mkdir -p "${_report_path}" && printf '%s' "${_report}" > "${_report_path}/misconfiguration.txt" || true
+      fi
+
+      exit 1
 - condition: ${TP_AUTO_USE_CLI} # CLI-based full automation: DP + BMDP + all capabilities
   name: cli-full-automation
   clusters:
@@ -521,14 +719,14 @@ tasks:
 
       # Map TP_AUTO_ENABLE_* to TP_AUTO_IS_PROVISION_* for Python code
       export TP_IS_CERT_SELF_SIGNED=${TP_IS_CERT_SELF_SIGNED}
-      export TP_AUTO_IS_CONFIG_O11Y=${TP_AUTO_ENABLE_CONFIG_O11Y}
       export TP_AUTO_IS_PROVISION_FLOGO=${TP_AUTO_ENABLE_FLOGO}
       export TP_AUTO_IS_PROVISION_BWCE=${TP_AUTO_ENABLE_BWCE}
       export TP_AUTO_IS_PROVISION_BW5CE=${TP_AUTO_ENABLE_BW5CE}
       export TP_AUTO_IS_PROVISION_TIBCOHUB=${TP_AUTO_ENABLE_TIBCOHUB}
       export TP_AUTO_IS_PROVISION_SPRINGBOOT=${TP_AUTO_ENABLE_SB}
       export TP_AUTO_IS_PROVISION_EMS=${TP_AUTO_ENABLE_EMS}
-      export TP_AUTO_IS_PROVISION_K8S_MCP_SERVER=${TP_AUTO_ENABLE_K8S_MCP_SERVER}
+      export TP_AUTO_IS_PROVISION_AS=${TP_AUTO_ENABLE_AS}
+      export TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER=${TP_AUTO_ENABLE_INFRA_MCP_SERVER}
       export TP_AUTO_IS_CREATE_BMDP=${TP_AUTO_ENABLE_BMDP}
       export TP_AUTO_START_FLOGO_APP=${TP_AUTO_START_FLOGO_APP}
       export TP_AUTO_START_BWCE_APP=${TP_AUTO_START_BWCE_APP}
@@ -703,8 +901,8 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
-- condition: ${TP_AUTO_ENABLE_K8S_MCP_SERVER} # only deploy Kubernetes MCP Server
-  name: deploy-k8s-mcp-server
+- condition: ${TP_AUTO_ENABLE_INFRA_MCP_SERVER} # only deploy Infra MCP Server
+  name: deploy-infra-mcp-server
   clusters:
     - name: ${TP_CLUSTER_NAME}
   script:
@@ -714,11 +912,11 @@ tasks:
     fileName: script.sh
     content: |
       source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
-      export TP_AUTO_IS_PROVISION_K8S_MCP_SERVER=${TP_AUTO_ENABLE_K8S_MCP_SERVER}
+      export TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER=${TP_AUTO_ENABLE_INFRA_MCP_SERVER}
       cd ${TP_AUTO_SCRIPT_FOLDER}
 
       export dp_name=${TP_AUTO_K8S_DP_NAME}
-      export capability="k8smcpserver"
+      export capability="inframcpserver"
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
         capability_status="$(
@@ -738,11 +936,11 @@ tasks:
         fi
       fi
 
-      echo "===== Task Name: deploy-k8s-mcp-server, Running file ${PYTHON_FILE_ENTRY_POINT_K8S_MCP_SERVER} ====="
+      echo "===== Task Name: deploy-infra-mcp-server, Running file ${PYTHON_FILE_ENTRY_POINT_INFRA_MCP_SERVER} ====="
       if command -v uv >/dev/null 2>&1; then
-        uv run --active python -m case.k8s_provision_k8s_mcp_server
+        uv run --active python -m case.k8s_provision_infra_mcp_server
       else
-        python -m case.k8s_provision_k8s_mcp_server
+        python -m case.k8s_provision_infra_mcp_server
       fi
       _result=$?
       echo "python return code: ${_result}"
@@ -882,6 +1080,51 @@ tasks:
       _result=$?
       echo "python return code: ${_result}"
       exit ${_result}
+- condition: ${TP_AUTO_ENABLE_AS} # only deploy ActiveSpaces
+  name: deploy-as
+  clusters:
+    - name: ${TP_CLUSTER_NAME}
+  script:
+    ignoreErrors: false
+    retryCount: 10
+    retryDelay: 10
+    fileName: script.sh
+    content: |
+      source "${TP_AUTO_SCRIPT_PY_ENV_FOLDER}/bin/activate"
+      export TP_AUTO_IS_PROVISION_AS=${TP_AUTO_ENABLE_AS}
+      cd ${TP_AUTO_SCRIPT_FOLDER}
+
+      export dp_name=${TP_AUTO_K8S_DP_NAME}
+      export capability="as"
+      _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
+      if [[ -f "$_report_file" ]]; then
+        capability_status="$(
+          yq e -r '[.dataPlane[] | select(.name == env(dp_name)) |
+                    .capability[] | select(.name == env(capability))
+                  ] | any
+                   ' "$_report_file"
+            )"
+        if [[ "$capability_status" = "true" ]]; then
+          echo "----------------------------------------------------------------"
+          echo "dataPlane[${dp_name}] -> ${capability} already exists. Exiting..."
+          echo "----------------------------------------------------------------"
+          exit 0
+        else
+          # Only the path - the report yaml also holds CP/user/Elastic/Prometheus
+          # passwords (Util.set_cp_env), so its contents must not reach the logs.
+          echo "_report_file: ${_report_file}"
+        fi
+      fi
+
+      echo "===== Task Name: deploy-as, Running file ${PYTHON_FILE_ENTRY_POINT} ====="
+      if command -v uv >/dev/null 2>&1; then
+        uv run --active ${PYTHON_FILE_ENTRY_POINT}
+      else
+        python ${PYTHON_FILE_ENTRY_POINT}
+      fi
+      _result=$?
+      echo "python return code: ${_result}"
+      exit ${_result}
 - condition: ${TP_AUTO_ENABLE_SB} # only deploy springboot
   name: deploy-sb
   clusters:
@@ -935,7 +1178,10 @@ tasks:
     - name: ${TP_CLUSTER_NAME}
   script:
     ignoreErrors: false
-    retryCount: 10
+    # Matches the in-process bound in page_object/po_dataplane.py, which gives up on an unhealthy
+    # BMDP after 3 attempts: a higher budget here only replays a registration that the python layer
+    # has already decided is not going to converge.
+    retryCount: 3
     retryDelay: 10
     fileName: script.sh
     content: |
@@ -944,10 +1190,25 @@ tasks:
       cd ${TP_AUTO_SCRIPT_FOLDER}
       _report_file="${TP_AUTO_REPORT_PATH}/${TP_AUTO_REPORT_YAML_FILE}"
       if [[ -f "$_report_file" ]]; then
-        dp_name=$(yq '.dataPlane[] | select(.name == env(TP_AUTO_K8S_BMDP_NAME)) | .name' "$_report_file")
-        if [[ -n "$dp_name" ]]; then
+        # A name in the report only proves that a registration was attempted: the entry is written
+        # as soon as a card with that name is seen. Key on completion evidence instead, so a
+        # half-registered BMDP is registered again here rather than reported green.
+        # Two registration paths write two different markers and both are genuine: the browser
+        # flow writes .status once page_object/po_dataplane.py has proven the cluster workload,
+        # and the CLI flow (cli_object/orchestrator.py, which runs BEFORE this task) writes
+        # .healthStatus only after the data plane has gone green. Accepting only one of them
+        # would make the other path replay a registration that already succeeded.
+        bmdp_status="$(
+          yq e -r '[.dataPlane[] |
+                   select(.name == env(TP_AUTO_K8S_BMDP_NAME) and
+                          (.status == "Running successfully" or (.healthStatus | . == "green"))) |
+                   (.status // ("healthStatus: " + .healthStatus))
+                   ][0] // ""
+                   ' "$_report_file"
+            )"
+        if [[ -n "$bmdp_status" ]]; then
           echo "----------------------------------------------------------------"
-          echo "dataPlane[$dp_name] already exists. Exiting..."
+          echo "dataPlane[${TP_AUTO_K8S_BMDP_NAME}].status: '${bmdp_status}' already exists. Exiting..."
           echo "----------------------------------------------------------------"
           exit 0
         else
@@ -1005,6 +1266,9 @@ tasks:
       fi
       _result=$?
       echo "python return code: ${_result}"
+      if [[ "${_result}" -ne 0 ]]; then
+        echo "[WARNING] add-card-to-o11y: page_o11y.py exited ${_result} — o11y dashboard cards were not configured, continuing anyway"
+      fi
       exit 0
 - condition: true
   name: print-report

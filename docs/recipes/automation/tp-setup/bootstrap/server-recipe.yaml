@@ -113,7 +113,17 @@ tasks:
     ignoreErrors: false
     fileName: script.sh
     content: |
-      cd ${TP_AUTO_SCRIPT_FOLDER}
+      cd ${TP_AUTO_SCRIPT_FOLDER} || {
+        echo "[ERROR] TP_AUTO_SCRIPT_FOLDER '${TP_AUTO_SCRIPT_FOLDER}' does not exist."
+        exit 1
+      }
+      # PCP-23086: docker silently creates an empty folder when the host path of a -v mount is
+      # missing, so an unstaged source shows up here as a bare "No pyproject.toml found" from uv.
+      if [[ ! -f pyproject.toml ]]; then
+        echo "[ERROR] ${TP_AUTO_SCRIPT_FOLDER} does not contain the automation source (no pyproject.toml)."
+        echo "[ERROR] With TP_AUTO_USE_LOCAL_SCRIPT=true the caller must mount or stage the bootstrap folder there."
+        exit 1
+      fi
       if command -v uv >/dev/null 2>&1; then
         echo "[INFO] uv detected, using uv sync..."
         export UV_PROJECT_ENVIRONMENT="${TP_AUTO_SCRIPT_PY_ENV_FOLDER}"

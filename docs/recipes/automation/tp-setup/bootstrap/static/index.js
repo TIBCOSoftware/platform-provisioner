@@ -28,6 +28,7 @@ window.onload = function () {
 
   initTab();
   loadCliSetting();
+  loadGuiSetting();
   initAdvancedModeToggle();
 };
 
@@ -381,13 +382,14 @@ function stopScript(currentElement) {
 
 function handleGuiSpecialCase(params) {
   const provisionCaseMapping = {
+    "provision_as": "TP_AUTO_IS_PROVISION_AS",
     "provision_bwce": "TP_AUTO_IS_PROVISION_BWCE",
     "provision_bw5ce": "TP_AUTO_IS_PROVISION_BW5CE",
     "provision_ems": "TP_AUTO_IS_PROVISION_EMS",
     "provision_flogo": "TP_AUTO_IS_PROVISION_FLOGO",
     "provision_pulsar": "TP_AUTO_IS_PROVISION_PULSAR",
     "provision_tibcohub": "TP_AUTO_IS_PROVISION_TIBCOHUB",
-    "provision_k8s_mcp_server": "TP_AUTO_IS_PROVISION_K8S_MCP_SERVER",
+    "provision_infra_mcp_server": "TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER",
     "provision_springboot": "TP_AUTO_IS_PROVISION_SPRINGBOOT"
   };
 
@@ -504,6 +506,7 @@ function handleFieldsAction() {
         break;
       case "case.k8s_create_and_start_springboot_app":
         toggleField([".SPRINGBOOT_APP_NAME"], true);
+        toggleField([".GITHUB_TOKEN"], true);
         toggleField([".app_file"], true);
         cleanAppFileInput();
         break;
@@ -932,6 +935,7 @@ function hideFields() {
     ".BW5CE_APP_NAME",
     ".FLOGO_APP_NAME",
     ".SPRINGBOOT_APP_NAME",
+    ".GITHUB_TOKEN",
     ".app_file",
     ".TP_BW5_CHART_REPO_USER_NAME",
     ".TP_BW5_JFROG_TOKEN",
@@ -1010,6 +1014,50 @@ function loadCliSetting() {
     const parsedSettings = JSON.parse(settings);
     initInputValue(parsedSettings);
   }
+}
+
+// GUI Automation secret pre-fill (PCP-22623). TPSEC-124 (f024) removed secrets from /get_env
+// on purpose, so Admin/User Password can no longer be served by the backend. Mirror the CLI
+// "Save to Local" pattern above to persist them per-browser via localStorage — no server-side
+// secret exposure.
+const guiSettingKeys = [
+  "CP_ADMIN_PASSWORD",
+  "DP_USER_PASSWORD"
+];
+const GUI_SETTING_KEY = "tibcoGuiSettings";
+
+function saveGuiSetting() {
+  // Merge into the existing stored object so saving from one password row while the other
+  // field is hidden/empty for the selected case never clobbers a previously saved secret.
+  let stored;
+  try {
+    stored = JSON.parse(localStorage.getItem(GUI_SETTING_KEY) || "{}");
+  } catch (e) {
+    stored = {};  // corrupted entry — start fresh instead of throwing on the save click
+  }
+  guiSettingKeys.forEach(key => {
+    const element = document.getElementById(key);
+    const value = element ? (element.value || "") : "";
+    if (value) stored[key] = value;
+  });
+  localStorage.setItem(GUI_SETTING_KEY, JSON.stringify(stored));
+}
+function loadGuiSetting() {
+  const settings = localStorage.getItem(GUI_SETTING_KEY);
+  if (!settings) return;
+  let parsedSettings;
+  try {
+    parsedSettings = JSON.parse(settings);
+  } catch (e) {
+    localStorage.removeItem(GUI_SETTING_KEY);  // corrupted entry — drop it so onload can't break
+    return;
+  }
+  // Only apply the known secret keys, never arbitrary element ids from a tampered entry.
+  const safe = {};
+  guiSettingKeys.forEach(key => {
+    if (parsedSettings[key] !== undefined) safe[key] = parsedSettings[key];
+  });
+  initInputValue(safe);
 }
 
 // Show/hide progress indicator

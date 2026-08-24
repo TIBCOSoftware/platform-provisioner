@@ -63,7 +63,13 @@
 
               <div class="row CP_ADMIN_PASSWORD">
                 <div class="col-sm-3"><label for="CP_ADMIN_PASSWORD">Admin Password</label></div>
-                <div class="col-sm-9"><input type="text" id="CP_ADMIN_PASSWORD"></div>
+                <div class="col-sm-6"><input type="text" id="CP_ADMIN_PASSWORD"></div>
+                <div class="col-sm-3" style="text-align: right;">
+                  <button type="button" class="button primary" onclick="saveGuiSetting()"
+                    title="Save Admin/User Password to browser local storage">
+                    <i class="fas fa-save"></i> Save to Local
+                  </button>
+                </div>
               </div>
 
               <div class="row TP_AUTO_LOGIN_URL">
@@ -82,7 +88,13 @@
 
               <div class="row">
                 <div class="col-sm-3"><label for="DP_USER_PASSWORD">User Password</label></div>
-                <div class="col-sm-9"><input type="text" id="DP_USER_PASSWORD"></div>
+                <div class="col-sm-6"><input type="text" id="DP_USER_PASSWORD"></div>
+                <div class="col-sm-3" style="text-align: right;">
+                  <button type="button" class="button primary" onclick="saveGuiSetting()"
+                    title="Save Admin/User Password to browser local storage">
+                    <i class="fas fa-save"></i> Save to Local
+                  </button>
+                </div>
               </div>
 
               <div class="row TP_AUTO_MAIL_URL">
@@ -139,20 +151,21 @@
                     <option value="page_env">Show Current Environment (Login CP/Elastic Credentials)</option>
                     <option value="page_setting">Create OAuth Token (Config MCP Server)</option>
                     <option value="page_auth">Create new subscription with User Email</option>
-                    <option value="page_o11y">Config o11y widget</option>
-                    <option value="case.create_global_config">Config Global O11y</option>
+                    <option value="page_o11y">Config o11y Dashboard Widgets (Add card to different dashboard)</option>
+                    <option value="case.create_global_config">Config Global O11y Resource (logs/metrics/traces servers)</option>
                     <optgroup label="DataPlane(k8s)">
                       <option value="case.k8s_create_dp">Create K8s DataPlane (Include run helm command)</option>
                       <option value="case.k8s_config_dp_o11y">Config DataPlane O11y (or link to global o11y configuration)</option>
                       <option value="case.k8s_delete_dp">Delete DataPlane (Include run helm command)</option>
                     </optgroup>
                     <optgroup label="Provision Capability">
+                      <option value="provision_as">Provision ActiveSpaces</option>
                       <option value="provision_bwce">Provision BW6(BWCE)</option>
                       <option value="provision_bw5ce">Provision BW5(BW5CE)</option>
                       <option value="provision_ems">Provision EMS</option>
                       <option value="provision_flogo">Provision Flogo</option>
                       <option value="provision_tibcohub">Provision Hub</option>
-                      <option value="provision_k8s_mcp_server">Provision Kubernetes MCP Server</option>
+                      <option value="provision_infra_mcp_server">Provision Infra MCP Server</option>
                       <option value="provision_springboot">Provision Spring Boot</option>
                     </optgroup>
                     <optgroup label="Create And Start app">
@@ -219,8 +232,8 @@
               </div>
 
               <div class="row GITHUB_TOKEN">
-                <div class="col-sm-3"><label for="GITHUB_TOKEN">GitHub Token<span class="required">(*Required)</span></label></div>
-                <div class="col-sm-9"><input type="text" id="GITHUB_TOKEN"></div>
+                <div class="col-sm-3"><label for="GITHUB_TOKEN">GitHub Token<span class="optional">(Optional)</span></label></div>
+                <div class="col-sm-9"><input type="text" id="GITHUB_TOKEN" title="Only needed to pull the Spring Boot app from a private GitHub Release"></div>
               </div>
 
               <div class="row TP_BW5_CHART_REPO_USER_NAME">

@@ -25,7 +25,9 @@ Extracts CLI orchestration logic from page_cli.py:
 GUI-dependent steps use callbacks so this module has no Playwright dependency.
 """
 
+import json
 import os
+import tempfile
 import threading
 import traceback
 import time
@@ -37,6 +39,106 @@ from utils.report import ReportYaml
 
 
 THREAD_STAGGER_DELAY = 5  # seconds between each thread start
+
+
+def prepare_deploy_config(deploy_config_file, start_enabled, scratch_dir):
+    """Copy a deploy config into a run-scoped file and align it with the 'Start App' toggle.
+
+    GUI mode gates only *_app_start / *_app_test_endpoint on the toggle, so a
+    disabled app is still built, deployed and configured — it just never runs.
+    CLI mode has no separate start step: `deploy-app` brings the app up with the
+    'replicas' from the deploy config (the shipped payloads hardcode 1). Writing
+    0 there reproduces the GUI outcome: deployed, not running.
+
+    The mutation lands on a COPY, never on the source. upload/{bwce,bw5ce,flogo}-payload.json
+    are checked into the repo and shared by every run, whereas 'replicas' is per-run policy
+    read from an env var. Persisting it into the tracked file leaves a dirty working tree,
+    invites committing a 'replicas: 0', and makes each run's starting point depend on the
+    previous run's toggle. build_and_deploy_app stamps buildId into whatever path it is
+    given, so handing it the copy keeps upload/ pristine for the whole flow.
+
+    Args:
+        deploy_config_file: Path to the tracked deployment config JSON file (read-only here)
+        start_enabled: True when the app should come up running
+        scratch_dir: Run-scoped directory the copy is written into
+
+    Returns:
+        Path to the run-scoped config, or None if it could not be produced.
+    """
+    try:
+        with open(deploy_config_file, 'r') as f:
+            config = json.load(f)
+    except (OSError, ValueError) as e:
+        ColorLogger.warning(f"Could not read deploy config '{deploy_config_file}': {e}")
+        return None
+
+    if not isinstance(config, dict):
+        # A deploy config whose JSON root is not an object is unusable anyway; say so
+        # here rather than raising an AttributeError out of a function documented to
+        # report failure by returning None.
+        ColorLogger.warning(f"Deploy config '{deploy_config_file}' is not a JSON object, "
+                            f"cannot prepare a deploy config from it")
+        return None
+
+    if start_enabled:
+        # Only lift a stopped app back to 1; an explicit >1 is kept as-is.
+        current = config.get('replicas')
+        config['replicas'] = current if isinstance(current, int) and current > 0 else 1
+    else:
+        config['replicas'] = 0
+        # replicas: 0 does not stop an app whose HPA floor is >= 1. The shipped
+        # upload/{bwce,bw5ce}-payload-full.json are enableAutoscaling: true with
+        # minReplicas: 1, and they are reachable via TP_AUTO_BWCE_APP_PAYLOAD_JSON and the
+        # /save-{bwce,flogo}-payload editor endpoints — leaving autoscaling on there lets
+        # the HPA scale the stopped app straight back up, turning the toggle into the very
+        # no-op PCP-23440 fixed.
+        if config.get('enableAutoscaling'):
+            config['enableAutoscaling'] = False
+            ColorLogger.info("Disabled autoscaling too, so the HPA cannot scale the stopped app back up")
+
+    run_config_file = os.path.join(scratch_dir, os.path.basename(deploy_config_file))
+    try:
+        with open(run_config_file, 'w') as f:
+            json.dump(config, f, indent=2)
+    except OSError as e:
+        ColorLogger.warning(f"Could not write run-scoped deploy config '{run_config_file}': {e}")
+        return None
+
+    ColorLogger.info(f"Prepared a run-scoped '{os.path.basename(deploy_config_file)}' with "
+                     f"replicas: {config['replicas']} (the tracked payload is left untouched)")
+    return run_config_file
+
+
+def recorded_bool(recorded):
+    """Read back a boolean a previous run recorded in the report.
+
+    ReportYaml round-trips through yq, so a recorded value comes back as the string
+    'true'/'false' rather than a bool.
+
+    Returns None when the field is ABSENT, which means UNKNOWN and is deliberately not a
+    default. Only a report written before these fields existed lacks them, and it cannot
+    say what it did not record — see _deploy_worker for why guessing is wrong in both
+    directions. The caller converges by re-deploying once instead.
+    """
+    if recorded is None:
+        return None
+    return str(recorded).strip().lower() == "true"
+
+
+def select_endpoint_test_tasks(cap_tasks, deploy_results):
+    """Pick the tasks whose app pods should be waited on and endpoint tested.
+
+    Skips tasks that failed to deploy, tasks without an endpoint (provision-only
+    capabilities such as TIBCOHUB) and tasks whose 'Start <capability> App'
+    toggle is off — a stopped app has no pods to wait for, so testing it would
+    only burn the wait_for_app_pods timeout and log a misleading warning.
+    """
+    return [
+        task for task in cap_tasks
+        if deploy_results.get(task['key'])
+        and task.get('endpoint_path')
+        and task.get('start_enabled', True)
+    ]
 
 
 class TibcopOrchestrator:
@@ -346,10 +448,12 @@ class TibcopOrchestrator:
             if not dp_activation:
                 ColorLogger.warning(f"No activation found for DataPlane '{dp_name}', skipping endpoint testing")
             else:
-                test_tasks = [
-                    task for task in cap_tasks
-                    if deploy_results.get(task['key']) and task.get('endpoint_path')
-                ]
+                # Reading the live toggle here is safe: _deploy_worker re-deploys whenever
+                # the report's recorded startEnabled disagrees with it, so by this point
+                # the deployed replicas and this filter always agree. No "skipped because
+                # stopped" log — _deploy_worker already logs the skip where the toggle is
+                # actually applied.
+                test_tasks = select_endpoint_test_tasks(cap_tasks, deploy_results)
                 if test_tasks:
                     ColorLogger.info("=" * 60)
                     ColorLogger.info("CLI Mode - Step 7c: Wait for app pods & test endpoints (concurrent)")
@@ -408,13 +512,46 @@ class TibcopOrchestrator:
         key = task['key']
         report_name = task['report_name']
         app_name = task['app_name']
+        start_enabled = task.get('start_enabled', True)
         try:
-            # Check report: skip if status already recorded
-            app_status = ReportYaml.get_capability_app_info(dp_name, report_name, app_name, "status")
-            if app_status:
+            # Skip ONLY if the last run deployed this app SUCCESSFULLY and with THIS SAME
+            # toggle. Both come from fields this code writes; 'status' is the platform's
+            # own wording (an unbounded _get_app_state string) and is deliberately NOT a
+            # decision input — keying on it made a 'Failure' read as done, and any other
+            # failure spelling would read as success. See the PCP-23459 CHANGELOG entry for
+            # why a healthy-state whitelist is worse than either.
+            #
+            # The reads take report_lock because report.yaml is one document mutated through
+            # yq: a sibling capability's worker can be mid-write to the same FILE. Per-key
+            # ownership makes the VALUE uncontended, which is a different thing. Holding it
+            # across all three also makes them a consistent snapshot, which matters because
+            # the condition below compares two of them.
+            with self.report_lock:
+                app_status = ReportYaml.get_capability_app_info(dp_name, report_name, app_name, "status")
+                deploy_ok = recorded_bool(
+                    ReportYaml.get_capability_app_info(dp_name, report_name, app_name, "deploySucceeded"))
+                recorded = recorded_bool(
+                    ReportYaml.get_capability_app_info(dp_name, report_name, app_name, "startEnabled"))
+            if app_status and deploy_ok is True and recorded == start_enabled:
                 ColorLogger.success(f"[{key}] App '{app_name}' status already recorded: '{app_status}' (from report), skipping")
                 results[key] = True
                 return
+            if app_status:
+                if deploy_ok is False:
+                    reason = "its last deploy failed"
+                elif deploy_ok is None or recorded is None:
+                    # A report written before these fields existed cannot say what it did
+                    # not record, and neither direction is safe to assume: a pre-PCP-23440
+                    # run ignored the toggle and always deployed the app running, but a
+                    # PCP-23440 run (release 1.7.80) already honoured it and could have left
+                    # the app at replicas: 0 without recording why. Guessing 'was running'
+                    # would leave exactly that app stopped on a toggle-ON run — the defect
+                    # this change exists to fix. Converge once instead; the re-deploy writes
+                    # both fields, so it costs one run per report, not one per run.
+                    reason = "it predates the report's 'deploySucceeded'/'startEnabled' fields, so what the last run did is unknown"
+                else:
+                    reason = f"it was deployed with 'Start app' {recorded} but that is now {start_enabled}"
+                ColorLogger.info(f"[{key}] Re-deploying app '{app_name}' to converge: {reason}")
 
             app_file = Helper.get_file_fullpath_in_upload_folder(task['app_file'])
             deploy_config = Helper.get_file_fullpath_in_upload_folder(task['deploy_config'])
@@ -424,20 +561,51 @@ class TibcopOrchestrator:
                 results[key] = False
                 return
 
-            ColorLogger.info(f"[{key}] Building and deploying app...")
-            success = task['deploy_func'](dp_name, app_file, deploy_config, dp_namespace)
+            # Honour the 'Start <capability> App' toggle: CLI mode has no separate start
+            # step, so a stopped app must be deployed with replicas: 0. The toggle is
+            # applied to a run-scoped copy that lives only for this deploy, so the tracked
+            # payload under upload/ is never written to — not by us, and not by the buildId
+            # stamp inside deploy_func either.
+            # ignore_cleanup_errors: the deploy is done by the time __exit__ runs, so a
+            # lingering handle (Windows/VDI local dev, AV scanner) must not turn a
+            # successful deploy into a PermissionError out of the temp-dir teardown.
+            with tempfile.TemporaryDirectory(prefix=f"tp-auto-{key.lower()}-",
+                                             ignore_cleanup_errors=True) as scratch_dir:
+                run_config = prepare_deploy_config(deploy_config, start_enabled, scratch_dir)
+                if run_config is None:
+                    # There is no config to deploy with; deploying the tracked payload
+                    # instead would run the app at whatever replicas it happens to hold,
+                    # which is the silent no-op this whole path exists to prevent.
+                    ColorLogger.error(f"[{key}] Could not prepare the deploy config, skipping deploy")
+                    results[key] = False
+                    return
+
+                if not start_enabled:
+                    ColorLogger.info(f"[{key}] Start app is disabled, deploying with replicas: 0 (not running)")
+
+                ColorLogger.info(f"[{key}] Building and deploying app...")
+                success = task['deploy_func'](dp_name, app_file, run_config, dp_namespace)
+
             if success:
                 # Query actual app state from platform
                 app_state = self._get_app_state(dp_name, key, app_name)
                 with self.report_lock:
                     ReportYaml.set_capability_app(dp_name, report_name, app_name)
+                    # status is the platform's word, for a human reading the report;
+                    # deploySucceeded is this run's own verdict, and is what the resume
+                    # short-circuit keys on. Keeping them separate is what stops the skip
+                    # from depending on the platform's failure vocabulary.
                     ReportYaml.set_capability_app_info(dp_name, report_name, app_name, "status", app_state or "Deployed")
+                    ReportYaml.set_capability_app_info(dp_name, report_name, app_name, "deploySucceeded", True)
+                    ReportYaml.set_capability_app_info(dp_name, report_name, app_name, "startEnabled", start_enabled)
                 ColorLogger.success(f"[{key}] App '{app_name}' built and deployed, status: {app_state or 'Deployed'}")
                 results[key] = True
             else:
                 with self.report_lock:
                     ReportYaml.set_capability_app(dp_name, report_name, app_name)
                     ReportYaml.set_capability_app_info(dp_name, report_name, app_name, "status", "Failure")
+                    ReportYaml.set_capability_app_info(dp_name, report_name, app_name, "deploySucceeded", False)
+                    ReportYaml.set_capability_app_info(dp_name, report_name, app_name, "startEnabled", start_enabled)
                 ColorLogger.error(f"[{key}] App build and deploy failed")
                 results[key] = False
         except Exception as e:

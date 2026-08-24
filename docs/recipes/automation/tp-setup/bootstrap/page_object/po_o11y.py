@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from page_object.po_global import PageObjectGlobal
 from utils.color_logger import ColorLogger
 from utils.e2e_util import E2EUtils
@@ -44,7 +46,8 @@ class PageObjectO11y(PageObjectGlobal):
                 ColorLogger.warning("Add Card button is visible but disabled")
             return is_visible and is_enabled
 
-        except TimeoutError:
+        except PlaywrightTimeoutError:
+            # wait_for raises Playwright's TimeoutError (not the builtin TimeoutError).
             ColorLogger.warning("Add Card button not found or not visible")
             return False
 
@@ -90,6 +93,29 @@ class PageObjectO11y(PageObjectGlobal):
             selector = ".categories-menu-panel .p-treenode-label"
         return selector
 
+    def selector_dialog_left_sub_menu(self, level1_menu):
+        """Level-2 tree nodes SCOPED to their level-1 parent.
+
+        CP 1.20 added root category nodes ('Integration Applications',
+        'Messaging / Data Grid') whose leaf labels are no longer unique across the
+        tree: 'General' is BOTH a root node and a leaf under 'Messaging / Data Grid',
+        and it is also a substring of 'Integration General'. An unscoped has_text
+        match therefore resolves to several nodes and trips Playwright strict mode.
+        Scoping to the parent node makes each level-2 label unambiguous, and is a
+        no-op on the older, flat trees.
+        """
+        label_class = self.selector_dialog_left_menu(level1_menu).rsplit(" ", 1)[-1]
+        # A node renders as <li><div class="...-content"> … <span class="...-label">,
+        # so `> div` pins the match to the node's OWN header (its children live in a
+        # sibling <ul>) and the trailing `ul <label>` then yields only its level-2
+        # nodes. The text is matched on a DESCENDANT of that header rather than on the
+        # label element itself: Playwright's :text-is resolves to the SMALLEST element
+        # holding the text, which for a root category is an inner <div class=
+        # "tree-node-root">, not the label span - anchoring on the label directly
+        # matches nothing. Searching the header covers both shapes, including older
+        # control planes whose label carries the text as a direct child.
+        return f'.categories-menu-panel li:has(> div :text-is("{level1_menu}")) ul {label_class}'
+
     def is_data_plane_in_list(self, dp_name):
         self.page.locator(self.selector_data_plane_dropdown()).click()
         is_available = self.page.locator(self.selector_none_disabled_data_plane(dp_name), has_text=dp_name).count() > 0
@@ -111,8 +137,17 @@ class PageObjectO11y(PageObjectGlobal):
 
     # action menu: "Save Snapshot", "Revert to Snapshot", "Reset Layout"
     def click_action_menu(self, action_item, confirmation=False):
-        self.page.locator(".dashboard-actions-row button.test-reset-layout").wait_for(state="visible")
-        self.page.locator(".dashboard-actions-row button.test-reset-layout").click()
+        # tp-o11y-service PCP-21299 (Fresco) wraps this button in a <tibco-button> host,
+        # so the .test-reset-layout class moved onto that host and no longer identifies
+        # the real <button>. data-testid="widget-more-option-button" is unchanged across
+        # the migration (present on both the old <button> and the new <tibco-button>),
+        # matching this file's own convention for the sibling Add/Save dashboard buttons
+        # (selector_add_dashboard_button / widget-save-dashboard-button below). Scoped to
+        # .dashboard-actions-row (its real parent) + .first as a strict-mode safety net,
+        # in case any other widget-level control ever reuses the same test-id.
+        selector = '.dashboard-actions-row [data-testid="widget-more-option-button"]'
+        self.page.locator(selector).first.wait_for(state="visible")
+        self.page.locator(selector).first.click()
         print(f"Clicked '...' icon")
         self.page.locator(".p-menu-list li span", has_text=action_item).wait_for(state="visible")
         self.page.locator(".p-menu-list li span", has_text=action_item).click()
@@ -128,15 +163,37 @@ class PageObjectO11y(PageObjectGlobal):
         self.page.locator("card-catalog-modal").wait_for(state="visible")
         print(f"'Select card to add' dialog is visible")
 
-    def click_widget_dialog_left_menu(self, level1_menu, level2_menu = None):
-        self.page.locator(self.selector_dialog_left_menu(level1_menu), has_text=level1_menu).wait_for(state="visible")
-        self.page.locator(self.selector_dialog_left_menu(level1_menu), has_text=level1_menu).click()
+    def click_widget_dialog_left_menu(self, level1_menu, level2_menu=None):
+        """Navigate the Add Card catalog left tree. Returns True when the requested
+        node(s) were found and clicked, False when a node is absent (e.g. the
+        'Control Tower' sub-node on a cluster without HAWKCONSOLE/BMDP installed) so
+        callers can skip + log gracefully instead of aborting the whole flow. The
+        node appears as part of normal page flow, so a bounded wait_for is fine; a
+        missing node is the graceful-skip case we catch."""
+        # Keep the selector STRING (not the locator object) and re-query each line,
+        # per the project's locator convention (CLAUDE.md: never cache a locator).
+        sel1 = self.selector_dialog_left_menu(level1_menu)
+        try:
+            self.page.locator(sel1, has_text=level1_menu).wait_for(state="visible", timeout=15000)
+        except PlaywrightTimeoutError:
+            # Only a timeout means the node is genuinely absent (graceful skip). Other
+            # errors (page closed, bad selector) must surface, not be swallowed as a skip.
+            ColorLogger.warning(f"Left menu '{level1_menu}' not found in catalog; skip")
+            return False
+        self.page.locator(sel1, has_text=level1_menu).click()
         print(f"Clicked 'Left side bar' -> '{level1_menu}' menu")
 
         if level2_menu:
-            self.page.locator(self.selector_dialog_left_menu(level2_menu), has_text=level2_menu).wait_for(state="visible")
-            self.page.locator(self.selector_dialog_left_menu(level2_menu), has_text=level2_menu).click()
+            sel2 = self.selector_dialog_left_sub_menu(level1_menu)
+            try:
+                self.page.locator(sel2, has_text=level2_menu).wait_for(state="visible", timeout=10000)
+            except PlaywrightTimeoutError:
+                # Timeout = sub-node absent (capability not installed) -> graceful skip.
+                ColorLogger.warning(f"Left sub-menu '{level1_menu}' -> '{level2_menu}' not found (capability not installed?); skip")
+                return False
+            self.page.locator(sel2, has_text=level2_menu).click()
             print(f"Clicked 'Left side bar' -> '{level1_menu}' -> '{level2_menu}' menu")
+        return True
 
     def click_widget_dialog_middle_menu(self, middle_menu, data_plane_type=None):
         item_selector = f"li.widget-list-item:has-text('{middle_menu}')"
@@ -157,26 +214,129 @@ class PageObjectO11y(PageObjectGlobal):
         print(f"Clicked 'Add to Dashboard' button")
 
     def add_widget(self, level1_menu, level2_menu, middle_menu, data_plane_type=None):
+        """Add a single catalog card. Returns True on success, False when the card
+        can't be added: the 'Add Card' button is disabled (per-dashboard 15-card
+        limit) or the requested left-menu node is absent (capability not installed)."""
         if self.get_add_card_button().is_disabled():
             ColorLogger.warning("Add Card button is disabled, cannot add widget")
-            return
+            return False
         self.click_add_widget_button()
-        self.click_widget_dialog_left_menu(level1_menu, level2_menu)
+        if not self.click_widget_dialog_left_menu(level1_menu, level2_menu):
+            self.close_add_widget_dialog()
+            return False
         self.click_widget_dialog_middle_menu(middle_menu, data_plane_type)
         self.page.locator("card-catalog-modal").wait_for(state="detached")
         print(f"'Select card to add' dialog is hidden")
         ColorLogger.success(
-            f"Add '{level1_menu}' -> '{level2_menu}' -> '{middle_menu}'"
-            + (f" -> '{data_plane_type}'" if data_plane_type else "") +
-            " Card successfully"
+            f"Add '{level1_menu}'"
+            + (f" -> '{level2_menu}'" if level2_menu else "")
+            + f" -> '{middle_menu}'"
+            + (f" -> '{data_plane_type}'" if data_plane_type else "")
+            + " Card successfully"
         )
+        return True
 
     def add_widgets(self, level1_menu, level2_menu, cards, data_plane_type=None):
         """Batch wrapper over add_widget() for a list of cards sharing the same
-        left-menu path. add_widget() already guards against the disabled 'Add Card'
-        button (per-dashboard 15-card limit), so cards beyond the limit are skipped."""
-        for middle_menu in cards:
-            self.add_widget(level1_menu, level2_menu, middle_menu, data_plane_type)
+        left-menu path. Stops early on the first failure: a disabled 'Add Card'
+        button (15-card limit) or a missing left-menu node (e.g. 'Control Tower'
+        absent on a non-BMDP cluster) applies to every remaining card in the group,
+        so the rest are skipped with a single clear log line instead of retrying."""
+        for index, middle_menu in enumerate(cards):
+            if not self.add_widget(level1_menu, level2_menu, middle_menu, data_plane_type):
+                # The failed card plus every card after it won't be added.
+                not_added = len(cards) - index
+                ColorLogger.warning(
+                    f"Cannot add under '{level1_menu}'"
+                    + (f" -> '{level2_menu}'" if level2_menu else "")
+                    + f"; {not_added} card(s) in this group were not added"
+                )
+                return
+
+    def _open_promql_editor(self, level1_menu, level2_menu, card_name, query):
+        """Add a PromQL catalog card and fill its auto-opened query editor. A PromQL
+        card auto-opens the custom-metrics-filter dialog because it can't be saved
+        without a query. Returns True with the editor open (ready for Apply / further
+        config), False if the card couldn't be added or the editor didn't open."""
+        if self.get_add_card_button().is_disabled():
+            ColorLogger.warning("Add Card button is disabled, cannot add PromQL widget")
+            return False
+        self.click_add_widget_button()
+        if not self.click_widget_dialog_left_menu(level1_menu, level2_menu):
+            self.close_add_widget_dialog()
+            return False
+        self.click_widget_dialog_middle_menu(card_name)
+        self.page.locator("card-catalog-modal").wait_for(state="detached")
+
+        # The freshly added PromQL card auto-opens its query editor on the next tick.
+        filter_dialog = ".widget-filter-dialog-v2"
+        if not Util.check_dom_visibility(self.page, self.page.locator(filter_dialog), 2, 15):
+            Util.warning_screenshot(f"PromQL query editor did not open for '{card_name}'", self.page, f"o11y-promql-{card_name}.png")
+            return False
+
+        # The editor is a CodeMirror instance; type into its contenteditable content.
+        # insert_text inserts the whole string in one input event (like a paste), which
+        # avoids triggering the per-keystroke autocomplete dropdown that could overlap Apply.
+        editor = f"{filter_dialog} .cm-content"
+        self.page.locator(editor).click()
+        self.page.locator(editor).fill("")
+        self.page.keyboard.insert_text(query)
+        print(f"Filled PromQL query for '{card_name}': {query}")
+        return True
+
+    def apply_filter_dialog(self, label):
+        """Wait for the filter dialog's 'Apply' to be ENABLED (it enables only once a
+        non-empty query is present, so this also confirms the query landed), click it,
+        and wait for the dialog to close. Returns True on success. Re-query + .first
+        each poll (avoids stale locators / a strict-mode match on any other 'Apply')."""
+        filter_dialog = ".widget-filter-dialog-v2"
+        apply_locator = lambda: self.page.locator(f"{filter_dialog} button", has_text="Apply").first
+        for _ in range(16):
+            btn = apply_locator()
+            if btn.is_visible() and btn.is_enabled():
+                apply_locator().click()
+                self.page.locator(filter_dialog).wait_for(state="detached")
+                ColorLogger.success(f"Applied PromQL card '{label}'")
+                return True
+            self.page.wait_for_timeout(500)
+        Util.warning_screenshot(f"PromQL 'Apply' did not enable for '{label}' (query not accepted?)", self.page, f"o11y-promql-apply-{label}.png")
+        self.page.keyboard.press("Escape")  # close the editor so it doesn't block the next card
+        return False
+
+    def select_instant_chart_type(self, chart_type):
+        """On the open PromQL Instant editor, switch to the 'Chart Presentation' tab
+        and pick the given Chart Type (Single Stat / Bar / Gauge / Pie / Table). The
+        p-select renders its options in an overlay appended to <body>."""
+        filter_dialog = ".widget-filter-dialog-v2"
+        self.page.locator(f"{filter_dialog} .menu-item", has_text="Chart Presentation").click()
+        print("Clicked 'Chart Presentation' tab")
+        chart_select = f"{filter_dialog} .instant-chart-type-section p-select"
+        self.page.locator(chart_select).wait_for(state="visible")
+        self.page.locator(chart_select).click()
+        option = self.page.locator(
+            ".p-select-overlay .p-select-option, .p-dropdown-panel .p-dropdown-item, [role='option']",
+            has_text=chart_type,
+        ).first
+        option.wait_for(state="visible")
+        option.click()
+        print(f"Selected Chart Type '{chart_type}'")
+
+    def add_promql_widget(self, level1_menu, level2_menu, card_name, query):
+        """Add a PromQL Range card (PCP-20424): fill the auto-opened query editor and
+        Apply. Initialises the card to a valid, runnable query."""
+        if not self._open_promql_editor(level1_menu, level2_menu, card_name, query):
+            return False
+        return self.apply_filter_dialog(card_name)
+
+    def add_promql_instant_widget(self, level1_menu, level2_menu, card_name, query, chart_type, title):
+        """Add a PromQL Instant card (PCP-20424) set to a specific Chart Type and
+        renamed to `title`, so multiple instant cards (one per chart type) are
+        distinguishable on the dashboard."""
+        if not self._open_promql_editor(level1_menu, level2_menu, card_name, query):
+            return False
+        self.input_filter_dialog_card_name(card_name, title)
+        self.select_instant_chart_type(chart_type)
+        return self.apply_filter_dialog(title)
 
     # ---------------------------------------------------------------------------
     # Dashboard management (PCP-20053)
@@ -228,7 +388,12 @@ class PageObjectO11y(PageObjectGlobal):
         if self.get_add_card_button().is_disabled():
             return False
         self.click_add_widget_button()
-        self.click_widget_dialog_left_menu(level1_menu, level2_menu)
+        # If the left-menu path is absent the card cannot exist under it; honor the
+        # nav return value rather than counting cards under whatever panel is showing.
+        if not self.click_widget_dialog_left_menu(level1_menu, level2_menu):
+            self.close_add_widget_dialog()
+            print(f"Card '{card_name}' under '{level1_menu}' available: False (menu not found)")
+            return False
         present = self.page.locator("li.widget-list-item", has_text=card_name).count() > 0
         self.close_add_widget_dialog()
         print(f"Card '{card_name}' under '{level1_menu}' available: {present}")

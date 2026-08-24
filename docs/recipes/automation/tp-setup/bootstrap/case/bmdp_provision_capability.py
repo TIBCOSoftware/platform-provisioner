@@ -18,6 +18,7 @@ from pathlib import Path
 from utils.util import Util
 from utils.env import ENV
 from page_object.po_auth import PageObjectAuth
+from page_object.po_user_management import PageObjectUserManagement
 from page_object.po_dataplane import PageObjectDataPlane
 from page_object.po_dp_config import PageObjectDataPlaneConfiguration
 from page_object.po_bmdp_config import PageObjectBMDPConfiguration
@@ -29,6 +30,14 @@ if __name__ == "__main__":
         po_auth.login()
         po_dp = PageObjectDataPlane(page)
         po_bmdp_config = PageObjectBMDPConfiguration(page)
+
+        # This case runs stand-alone against an existing BMDP, so nothing has established the base
+        # policies yet; without them the BW5/BW6 product cards stay disabled and every capability
+        # step below is rejected. Grant the product permission here, as the CLI/API path does.
+        po_auth.login_check()
+        PageObjectUserManagement(page).set_user_permission()
+        po_bmdp_config.ensure_bmdp_product_permissions(ENV.TP_AUTO_K8S_BMDP_NAME)
+
         # for provision RVDM capability
         if ENV.TP_AUTO_IS_ENABLE_RVDM:
             po_dp.goto_dataplane(ENV.TP_AUTO_K8S_BMDP_NAME)

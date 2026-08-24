@@ -24,8 +24,13 @@ import pytest
 def test_widget_action_buttons_visibility(setup_refresh_o11y):
     page, _ = setup_refresh_o11y(False)
     expect(page.locator(".dashboard-actions-row button", has_text='Add Card')).to_be_visible()
-    expect(page.locator(".dashboard-actions-row button.test-reset-layout")).to_be_visible()
-    page.locator(".dashboard-actions-row button.test-reset-layout").click()
+    # data-testid="widget-more-option-button" is unchanged across the tp-o11y-service
+    # PCP-21299 Fresco migration (present on both the old <button> and the new
+    # <tibco-button> host), unlike the class-based .test-reset-layout selector.
+    # Scoped to .dashboard-actions-row + .first as a strict-mode safety net.
+    options_button_selector = '.dashboard-actions-row [data-testid="widget-more-option-button"]'
+    expect(page.locator(options_button_selector).first).to_be_visible()
+    page.locator(options_button_selector).first.click()
     page.wait_for_timeout(500)
     expect(page.locator(".dashboard-actions-row .p-menuitem-link span", has_text='Save Snapshot')).to_be_visible()
     expect(page.locator(".dashboard-actions-row .p-menuitem-link span", has_text='Revert to Snapshot')).to_be_visible()

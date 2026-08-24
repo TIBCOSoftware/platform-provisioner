@@ -23,6 +23,7 @@ This module provides the foundation for all tibcop CLI operations:
 """
 
 import os
+import shlex
 import subprocess
 from utils.env import ENV
 from utils.helper import Helper
@@ -64,7 +65,10 @@ class TibcopBase:
             custom_env: Optional dictionary of custom environment variables
                        to merge with system environment when running commands
         """
-        self.TIBCOP_CLI_PATH = "export NODE_TLS_REJECT_UNAUTHORIZED=0 && tibcop"
+        # tibcop is invoked WITHOUT a shell (TPSEC-134), so the NODE_TLS flag is passed
+        # via the child environment in run_command, not as a shell `export ... &&` prefix
+        # (that prefix was the only reason the sink needed shell=True).
+        self.TIBCOP_CLI_PATH = "tibcop"
         self.CUSTOM_ENV = custom_env or {}
 
     @staticmethod
@@ -143,6 +147,10 @@ class TibcopBase:
 
         # Ensure TIBCO Platform CLI environment variables are set for tibcop commands
         if command.strip().startswith('tibcop'):
+            # NODE_TLS_REJECT_UNAUTHORIZED was previously prepended to the command as a
+            # shell `export ... &&`; move it into the child env so tibcop can run without
+            # a shell (TPSEC-134). tibcop is a Node CLI and reads this at startup.
+            env_vars["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
             # Check if TIBCO CLI environment variables are already in env_vars
             # If not, try to get from system environment
             if "TIBCOP_CLI_CPURL" not in env_vars:
@@ -163,9 +171,26 @@ class TibcopBase:
             print(f"Running script:")
             print(command)
 
+        # Run WITHOUT a shell so shell metacharacters in request-derived arguments
+        # (TIBCOP_CLI_OTHER_ARGS and the structured params) are inert literal argv
+        # tokens instead of shell syntax (TPSEC-134/f023). run_command executes a
+        # SINGLE command; shell pipelines belong in Helper.get_command_output /
+        # run_shell_file. NOTE: shlex.split is POSIX — a server run locally on Windows
+        # would mis-tokenize backslash paths; the deployed/attack surface is the Linux
+        # container (paths like /app/upload/...). See TPSEC-134.
+        try:
+            argv = shlex.split(command)
+        except ValueError as e:
+            # Unbalanced quotes etc.: previously the shell failed and run_command
+            # returned None — preserve that contract instead of raising in the worker.
+            print(f"Command could not be parsed and was not run: {e}")
+            return None
+        if not argv:
+            return None
+
         result = subprocess.run(
-            command,
-            shell=True,
+            argv,
+            shell=False,
             capture_output=True,
             text=True,
             env=env_vars

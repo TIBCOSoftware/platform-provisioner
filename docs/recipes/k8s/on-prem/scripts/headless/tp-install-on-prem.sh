@@ -28,10 +28,10 @@
 #   GUI_TP_TLS_KEY: (optional) the SSL key in base64. If empty, a self-signed cert will be generated
 #   GUI_TP_ENABLE_HYBRID_CONNECTIVITY: true to enable hybrid connectivity (use tibtunnel) for DP. Default is false, this is a new feature 1.15+. 
 #   GUI_TP_AUTO_USE_CLI: the flag to use CLI mode for DP operations. default is true
-#   GUI_TP_AUTO_ENABLE_BWCE: the flag to enable BWCE. default is true
+#   GUI_TP_AUTO_ENABLE_BWCE: the flag to enable BWCE. default follows GUI_TP_AUTO_ENABLE_DP
 #   GUI_TP_AUTO_ACTIVE_USER: activate user automatically. default is true
 #   GUI_TP_AUTO_ENABLE_CONFIG_O11Y: enable O11y config. default is true
-#   GUI_TP_AUTO_ENABLE_FLOGO: enable Flogo. default is true
+#   GUI_TP_AUTO_ENABLE_FLOGO: enable Flogo. default follows GUI_TP_AUTO_ENABLE_DP
 #   GUI_TP_AUTO_ENABLE_BW5CE: enable BW5CE. default is false
 #   GUI_TP_AUTO_ENABLE_TIBCOHUB: enable TIBCO Hub. default is false
 #   GUI_TP_AUTO_ENABLE_SB: enable SpringBoot. default is false
@@ -139,6 +139,45 @@ function customize-tp() {
   export GUI_CP_CONTAINER_REGISTRY_USERNAME=${GUI_CP_CONTAINER_REGISTRY_USERNAME:-""}
   export GUI_CP_CONTAINER_REGISTRY_PASSWORD=${GUI_CP_CONTAINER_REGISTRY_PASSWORD:-""}
 
+  # PCP-22771: a capability is provisioned inside a Data Plane, so the capability flags must
+  # not silently default ON when DP creation is off; the CP-only install
+  # (GUI_TP_AUTO_ENABLE_DP=false) would otherwise ask the automation to deploy capabilities the
+  # user never asked for into a Data Plane that is never created. Resolve the DP flag first, so
+  # the capability defaults below can follow it. An explicitly set capability value always wins.
+  #
+  # Normalised here, ONCE, before anything derives from it, because the value is load-bearing all
+  # the way down: yq writes it into .meta.guiEnv verbatim (casing and all), the recipe turns it
+  # into a task condition, and charts/generic-runner/scripts/_funcs_pipeline.sh:99 compares that
+  # condition with EXACT string equality - [ "${_recipe_task_condition}" == "true" ]. So
+  # GUI_TP_AUTO_ENABLE_DP=True would deschedule create-dp and, now that the capability defaults
+  # below follow it, deploy-flogo and deploy-bwce as well: a green pipeline that provisioned
+  # nothing. Whitespace goes for the same reason, and specifically the trailing \r of a CRLF env
+  # file on the Windows/Git-Bash path this script supports - the activation-file handling above
+  # already strips CR (`base64 ... | tr -d '\n\r'`) for exactly that reason. Lowercased with tr
+  # rather than a bash 4 case-folding parameter expansion, because this script must still parse
+  # under the bash 3.2 that macOS ships.
+  GUI_TP_AUTO_ENABLE_DP=$(printf '%s' "${GUI_TP_AUTO_ENABLE_DP:-true}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+  # ...and then VALIDATED, because normalising alone stopped being enough once three flags derive
+  # from this one. GUI_TP_AUTO_ENABLE_DP=yes normalises to 'yes', which is exactly equal to
+  # neither task condition, so create-dp AND deploy-flogo AND deploy-bwce are all descheduled and
+  # the pre-flight in tp-automation-o11y.yaml sees no capability that is exactly "true" and exits
+  # 0: a green run that provisioned nothing, which is the silent no-op class PCP-22771 exists to
+  # remove. Before the capability flags were derived, a typo here still left deploy-flogo
+  # scheduled and it failed loudly, so refusing the typo is what keeps that property.
+  # An empty value is NOT a typo: `:-` above has already turned it into the documented default,
+  # the same as every other GUI_* flag in this script.
+  case "${GUI_TP_AUTO_ENABLE_DP}" in
+    true|false) ;;
+    *)
+      echo "ERROR: GUI_TP_AUTO_ENABLE_DP must be 'true' or 'false' (any casing), got: '${GUI_TP_AUTO_ENABLE_DP}'"
+      exit 1
+      ;;
+  esac
+  export GUI_TP_AUTO_ENABLE_DP
+  # GUI_TP_AUTO_ENABLE_BWCE also drives the CP side (02-tp-cp-on-prem.yaml) and is defaulted
+  # there first, so remember what the caller actually set for the DP side to use below.
+  local _gui_tp_auto_enable_bwce_requested="${GUI_TP_AUTO_ENABLE_BWCE:-}"
+
   # Generate self-signed cert if not provided
   generate-self-signed-cert
 
@@ -185,11 +224,14 @@ function customize-tp() {
     export GUI_TP_AUTO_USE_CLI=${GUI_TP_AUTO_USE_CLI:-"true"}
     yq eval -i '(.meta.guiEnv.GUI_CP_ENABLE_API_BASED_INITIALIZATION = env(GUI_TP_AUTO_USE_CLI))' "$_recipe_file_name"
 
-    # Enable BWCE by default for headless
+    # Enable BWCE by default for headless; BW5CE is off by default
     export GUI_TP_AUTO_ENABLE_BWCE=${GUI_TP_AUTO_ENABLE_BWCE:-"true"}
+    export GUI_TP_AUTO_ENABLE_BW5CE=${GUI_TP_AUTO_ENABLE_BW5CE:-"false"}
     yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW = env(GUI_TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
     yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BWCE_UTILITIES = env(GUI_TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
-    yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES = env(GUI_TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
+    # BW5CE utilities must follow the BW5CE enable flag, not BWCE (only bites the
+    # BWCE=false & BW5CE=true case). Mirrors the SaaS gcp-install-tp.sh fix (PCP-14123).
+    yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_INTEGRATION_BW5CE_UTILITIES = env(GUI_TP_AUTO_ENABLE_BW5CE))' "$_recipe_file_name"
 
     # Update the platform version (CP >= 1.14)
     if [[ -n "$GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION" ]]; then
@@ -258,10 +300,14 @@ function customize-tp() {
     export GUI_TP_AUTO_ENABLE_CONFIG_O11Y=${GUI_TP_AUTO_ENABLE_CONFIG_O11Y:-"true"}
     yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_CONFIG_O11Y = env(GUI_TP_AUTO_ENABLE_CONFIG_O11Y))' "$_recipe_file_name"
 
-    export GUI_TP_AUTO_ENABLE_FLOGO=${GUI_TP_AUTO_ENABLE_FLOGO:-"true"}
+    # PCP-22771: these two default to the DP flag resolved at the top of customize-tp, so a
+    # CP-only install does not request capabilities the user never enabled.
+    export GUI_TP_AUTO_ENABLE_FLOGO=${GUI_TP_AUTO_ENABLE_FLOGO:-"${GUI_TP_AUTO_ENABLE_DP}"}
     yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_FLOGO = env(GUI_TP_AUTO_ENABLE_FLOGO))' "$_recipe_file_name"
 
-    export GUI_TP_AUTO_ENABLE_BWCE=${GUI_TP_AUTO_ENABLE_BWCE:-"true"}
+    # Only the DP side of BWCE follows the DP flag; the CP side above keeps installing BWCE by
+    # default, so the capability stays available for a Data Plane registered later by hand.
+    export GUI_TP_AUTO_ENABLE_BWCE=${_gui_tp_auto_enable_bwce_requested:-"${GUI_TP_AUTO_ENABLE_DP}"}
     yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_BWCE = env(GUI_TP_AUTO_ENABLE_BWCE))' "$_recipe_file_name"
 
     export GUI_TP_AUTO_ENABLE_BW5CE=${GUI_TP_AUTO_ENABLE_BW5CE:-"false"}
@@ -304,8 +350,8 @@ function customize-tp() {
       yq eval -i '(.meta.guiEnv.GUI_TP_ACTIVATION_ZIP_FILE_BASE64 = env(GUI_TP_ACTIVATION_ZIP_FILE_BASE64))' "$_recipe_file_name"
     fi
 
-    # Enable/disable DP
-    export GUI_TP_AUTO_ENABLE_DP=${GUI_TP_AUTO_ENABLE_DP:-"true"}
+    # Enable/disable DP; the default is resolved at the top of customize-tp (PCP-22771), because
+    # the capability flags above are derived from it.
     yq eval -i '(.meta.guiEnv.GUI_TP_AUTO_ENABLE_DP = env(GUI_TP_AUTO_ENABLE_DP))' "$_recipe_file_name"
     # Self-signed certificate support for DP registration
     yq eval -i '(.meta.guiEnv.GUI_TP_IS_CERT_SELF_SIGNED = env(GUI_TP_IS_CERT_SELF_SIGNED))' "$_recipe_file_name"

@@ -107,20 +107,64 @@ class PageObjectAuth(PageObjectGlobal):
 
         new_page.close()
 
+    @staticmethod
+    def _reset_form_present(page):
+        """True if the 'Reset Password' form (its two password fields) is on screen.
+        This form appears on an account's FIRST login (forced reset) and on the
+        email-based reset flow; the same #passwordInput/#confirmPasswordInput IDs are
+        also reused by other flows (e.g. the email activation form in
+        active_user_in_mail). It never shows on a normal username/password login, so
+        this guard keeps the patient poll below from waiting on an ordinary login."""
+        try:
+            return (page.query_selector("#passwordInput") is not None
+                    and page.query_selector("#confirmPasswordInput") is not None)
+        except Exception:
+            return False
+
     def reset_password_on_first_login(self, page, password, label="user"):
-        """Handle the forced 'Reset Password' page that CP shows on first login.
-        Same DOM for admin and regular DP user: only #passwordInput, #confirmPasswordInput,
-        and #ta-sign-in-button (text 'Reset Password', initially disabled until both
-        passwords pass the policy check).
-        Returns True if the reset was performed, False if the reset page wasn't shown.
+        """Handle the 'Reset Password' page CP shows on an account's FIRST login
+        (admin via chart adminInitialPassword; DP user via API initialPassword) and on
+        the email-based reset flow (the /forgot-password/reset URL opened from
+        reactive_admin). Detected either by the reset form being present or by a
+        /forgot-password/reset URL. The new password is set to the SAME value (e.g.
+        Tibco@123 in / Tibco@123 out) so the credential stays stable, then submitted;
+        CP redirects back to the /sso login form so the caller re-authenticates.
+
+        The reset flow is SLOW (each redirect can take ~15s). Poll patiently for the
+        reset form to appear instead of giving up after a few seconds — the previous
+        short wait was why admin first-login resets were missed and login never reached
+        the welcome page. Returns True if a reset was performed, False if it wasn't shown
+        (already-active account). DOM: #passwordInput, #confirmPasswordInput,
+        #ta-sign-in-button (text 'Reset Password', disabled until both pass the policy).
         """
-        self.page.wait_for_timeout(1000)
-        if not Util.check_dom_visibility(page, page.locator(".title", has_text="Reset Password"), 3, 6):
+        reset_present = self._reset_form_present(page)
+        for _ in range(80):  # poll up to ~40s for the slow forced-reset redirect
+            if reset_present:
+                break
+            try:
+                url = page.url or ""
+            except Exception:
+                url = ""
+            if "/forgot-password/reset" in url:
+                reset_present = True
+                break
+            # Already authenticated (admin/DP user landed on its app) -> no reset needed.
+            if "/admin/app" in url or "/cp/app" in url:
+                return False
+            page.wait_for_timeout(500)
+            reset_present = self._reset_form_present(page)
+        if not reset_present:
             return False
         page.fill("#passwordInput", password)
         page.fill("#confirmPasswordInput", password)
         Util.click_button_until_enabled(page, page.locator("#ta-sign-in-button", has_text="Reset Password"))
-        print(f"Reset {label} password and clicked 'Reset Password' button.")
+        print(f"Reset {label} password (reusing the same password) and clicked 'Reset Password' button.")
+        # The reset redirects back to the /sso login form (slow) — wait for it so the
+        # caller's re-login finds the form rather than a mid-redirect page.
+        try:
+            page.wait_for_selector("#user-email", state="visible", timeout=45000)
+        except Exception:
+            print(f"Login form (#user-email) did not appear within 45s after {label} reset; continuing.")
         return True
 
     def reactive_admin(self):
@@ -463,8 +507,33 @@ class PageObjectAuth(PageObjectGlobal):
 
     def logout(self):
         ColorLogger.info(f"Logging out user {ENV.DP_USER_EMAIL}...")
-        self.goto_left_navbar("Sign Out")
-        self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").wait_for(state="visible")
-        self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").click()
-        ColorLogger.success(f"Clicked Sign Out button, User {ENV.DP_USER_EMAIL} logout.")
-        self.page.wait_for_timeout(1000)
+        # Logout is a best-effort TEARDOWN: every case calls it LAST, after its real work has
+        # already succeeded, so a logout failure must NEVER abort the run — turning a green case
+        # RED and triggering full re-deploy retries (PCP-20999). It must also be robust to WHERE
+        # the flow ended: post-#372 the MCP Hub deploy ends on the gateway detail MFE
+        # (/cp/mcphub/gateways/{id}), whose React view/overlay leaves the CP-shell left-nav
+        # "Sign Out" present-but-unclickable (a 30s Locator.click timeout that used to crash the
+        # case). So first re-navigate to the CP entry: when a session exists this re-mounts the
+        # shell + left-nav and drops any lingering MFE dialog/overlay (if it instead shows the
+        # login form, the poll below simply warn-returns — the non-fatal wrapper, not the
+        # redirect, is the guarantee). The nav interaction is INLINED (not via goto_left_navbar)
+        # so no Util.exit_error/SystemExit is reachable here, and the whole body — re-nav
+        # included — is wrapped so ANY failure warns instead of aborting the caller.
+        try:
+            self.page.goto(ENV.TP_AUTO_LOGIN_URL, wait_until="domcontentloaded")
+            self.page.wait_for_timeout(1000)
+            if not Util.check_dom_visibility(self.page, self.page.locator(".nav-bar-pointer", has_text="Sign Out"), 3, 30):
+                Util.warning_screenshot(
+                    f"'Sign Out' left-nav not reachable; skipping logout for {ENV.DP_USER_EMAIL} (non-fatal teardown).",
+                    self.page, "logout.png")
+                return
+            self.page.locator(".nav-bar-pointer", has_text="Sign Out").click()
+            self.page.wait_for_timeout(500)
+            self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").wait_for(state="visible")
+            self.page.locator(".nav-bar-display-block #confirm-button", has_text="Sign Out").click()
+            ColorLogger.success(f"Clicked Sign Out button, User {ENV.DP_USER_EMAIL} logout.")
+            self.page.wait_for_timeout(1000)
+        except Exception as e:
+            Util.warning_screenshot(
+                f"Logout did not complete for {ENV.DP_USER_EMAIL} (non-fatal teardown): {e}",
+                self.page, "logout.png")

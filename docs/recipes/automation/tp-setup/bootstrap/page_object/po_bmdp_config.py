@@ -15,13 +15,21 @@
 #
 import re
 
-from page_object.po_user_management import PageObjectUserManagement
+from page_object.po_user_management import PageObjectUserManagement, GRANT_DONE, GRANT_ALREADY, GRANT_FAILED
 from utils.color_logger import ColorLogger
 from utils.util import Util
-from utils.helper import Helper
+from utils.helper import Helper, O11Y_LOG_INDEX_PREFIX
 from utils.env import ENV
 from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
+
+# (dp_name, product) pairs whose Product Permission already converged in THIS process.
+# Purely a performance optimisation - deleting it must never change correctness, only
+# make a later caller walk the Assign Permissions wizard again for a grant that is
+# already in place. Deliberately NOT persisted to report.yaml: that file has three
+# different lifecycles (pipeline / Automation Hub / run-case-in-gcp), so a persisted
+# marker would make an idempotency re-run skip the very code it is meant to verify.
+_GRANTED_IN_RUN: set[tuple[str, str]] = set()
 
 class PageObjectBMDPConfiguration(PageObjectDataPlane):
 
@@ -50,7 +58,7 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             print(f"{product_name} Card is Disabled, need to set user permission first.")
             self.page.locator(f".product-card.disabled-card", has=self.page.locator(f".product-card__title", has_text=product_name)).hover()
             print(f"Hovered on Disabled {product_name} Card to check tooltip message.")
-            if self.page.locator(".pl-tooltip__content", has_text="You need Product permission to perform this action.").is_visible():
+            if self.page.locator(".pl-tooltip__content:visible", has_text="You need Product permission to perform this action.").is_visible():
                 print("Tooltip message is visible, proceed to set user permission.")
                 po_user_management = PageObjectUserManagement(self.page)
                 po_user_management.grant_product_permission(ENV.TP_AUTO_K8S_BMDP_NAME, product_name)
@@ -66,6 +74,85 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         else:
             Util.warning_screenshot(f"{product_name} Card is not visible.", self.page, "goto_Products.png")
             return False
+
+    def ensure_bmdp_product_permissions(self, dp_name=None) -> dict[str, str]:
+        """Grant the user Product Permission on the BMDP for every product this run
+        will configure, before anything needs it.
+
+        The browser path only ever granted reactively, once goto_products found a
+        disabled product card; the CLI path grants up front (page_cli._run_api_bmdp_config).
+        Doing it here makes both paths leave the same permissions behind, and gets the
+        grant in while the BMDP is still fresh instead of mid capability config.
+
+        Returns {product: result}, result being one of the GRANT_* strings. This method
+        never raises and never calls Util.exit_error - a grant that could not be made is
+        reported and the caller carries on.
+        """
+        dp_name = dp_name or ENV.TP_AUTO_K8S_BMDP_NAME
+
+        # Same gating as the CLI path: BW5 and BW6 are the only products behind Product
+        # Permission, and only the ones whose domains this run registers are worth a
+        # wizard round trip. EMS / BE / Messaging are not gated by it at all.
+        products = []
+        if ENV.TP_AUTO_IS_ENABLE_RVDM or ENV.TP_AUTO_IS_ENABLE_EMSDM:
+            products.append("BW5")
+        if ENV.TP_AUTO_IS_ENABLE_BW6DM:
+            products.append("BW6")
+        if not products:
+            print("No BW5 or BW6 domain is enabled, no Product Permission is needed.")
+            return {}
+
+        ColorLogger.info(f"Ensuring Product Permission on '{dp_name}' for: {', '.join(products)}")
+        results = {}
+        for product in products:
+            if (dp_name, product) in _GRANTED_IN_RUN:
+                results[product] = GRANT_ALREADY
+                print(f"Product permission {dp_name} => {product}: {GRANT_ALREADY}")
+                continue
+
+            result = GRANT_FAILED
+            # Two attempts, no more. In the pipeline this grant gets exactly ONE chance per
+            # instance lifetime: the create-bmdp task exits 0 as soon as the BMDP shows up
+            # in .dataPlane[], so there is no "it will self-heal on the next run".
+            # grant_product_permission cancels out of the wizard before it reports a
+            # failure and goto_assign_permissions re-enters from scratch, so attempt 2
+            # never inherits a half ticked wizard.
+            for attempt in range(2):
+                try:
+                    po_user_management = PageObjectUserManagement(self.page)
+                    result = po_user_management.grant_product_permission(dp_name, product)
+                except (Exception, SystemExit) as e:
+                    # Util.exit_error deep in a shared helper raises SystemExit, a
+                    # BaseException that sails straight past "except Exception". Nothing in
+                    # a best effort grant may abort the caller, so catch it explicitly.
+                    # No screenshot here on purpose: Util.warning_screenshot itself raises
+                    # when the page is already gone, which would break the no-raise contract.
+                    ColorLogger.warning(f"Product Permission attempt {attempt + 1} for '{product}' on '{dp_name}' raised: {e}")
+                    result = GRANT_FAILED
+                if result != GRANT_FAILED:
+                    break
+
+            results[product] = result
+            # Memoise a converged grant only. A skip or a failure has to stay retryable for
+            # a later caller in the same process.
+            if result in (GRANT_DONE, GRANT_ALREADY):
+                _GRANTED_IN_RUN.add((dp_name, product))
+            print(f"Product permission {dp_name} => {product}: {result}")
+            if result == GRANT_FAILED:
+                ColorLogger.warning(f"Could not grant Product Permission '{product}' on '{dp_name}', will continue with remaining tasks.")
+
+        # The wizard lives under User Management, so put the browser back on the data plane
+        # page the caller expects, the same way goto_products does after its reactive grant.
+        try:
+            print(f"Go back to Data Plane '{dp_name}' page after setting user permission.")
+            self.goto_left_navbar_dataplane()
+            self.goto_dataplane(dp_name)
+        except (Exception, SystemExit) as e:
+            # Same SystemExit trap as above: a navigation hiccup on the way out must not
+            # kill an install task, the caller navigates for itself anyway.
+            ColorLogger.warning(f"Could not navigate back to Data Plane '{dp_name}' after setting Product Permission: {e}")
+
+        return results
 
     def dp_config_bw5_rvdm(self, domain_name):
         if ReportYaml.get_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "BW5", domain_name) in ("Added", "Connected"):
@@ -371,11 +458,15 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         if ReportYaml.get_dataplane_info(dp_name, "switchGlobal") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, switch to Global is already set in DataPlane '{dp_name}'.")
             return
+        # WHETHER to configure o11y at all, in the same place as the sibling
+        # o11y_config_dataplane_resource that this method replaced for data planes
+        # (PCP-23553). Without it, driving case/bmdp_config_dp_o11y.py directly with the
+        # flag off used to be a no-op and would silently start performing the switch.
+        if not ENV.TP_AUTO_IS_CONFIG_O11Y:
+            ColorLogger.warning("TP_AUTO_IS_CONFIG_O11Y is false, skip switch to Global Observability Resource.")
+            return
         ColorLogger.info(f"Switch dataplane {dp_name} configuration to Global...")
-        self.goto_left_navbar_dataplane()
-        self.goto_dataplane(dp_name)
-        self.goto_dataplane_config()
-        self.goto_dataplane_config_sub_menu("Observability")
+        self.goto_dataplane_o11y_config(dp_name)
         self.switch_to_global_config(dp_name)
 
     def o11y_config_dataplane_resource(self, dp_name):
@@ -540,6 +631,8 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
                 # for PCP-16998
                 elif tab_sub_name == "Business Activities Query Service" or tab_sub_name == "Business Activities Exporter":
                     log_index = f"{dp_title.lower()}-ba-log-index"
+                # prepend the fixed prefix to every log index (shared constant; CLI path in api_object/resources.py uses the same)
+                log_index = f"{O11Y_LOG_INDEX_PREFIX}{log_index}"
                 self.page.fill("#log-index-input", log_index)
                 print(f"Fill Log Index: {log_index}")
 

@@ -17,9 +17,11 @@ Includes:
 import json
 import os
 import subprocess
+from urllib.parse import urlparse
 from api_object.client import ConsoleApiClient
 from utils.color_logger import ColorLogger
 from utils.env import ENV
+from utils.helper import O11Y_LOG_INDEX_PREFIX
 
 
 # (resource_type, instance_name, backend_kind, backend_key)
@@ -135,12 +137,12 @@ class OllyApi:
             dp_id = None
             scope_label = "SUBSCRIPTION"
             name_prefix = "global-"
-            log_index = "global-log-index"
+            log_index = f"{O11Y_LOG_INDEX_PREFIX}global-log-index"
         else:
             dp_id, dp_name = self._resolve_dp(target)
             scope_label = "DATA_PLANE"
             name_prefix = f"{dp_name}-"
-            log_index = f"{dp_name}-log-index"
+            log_index = f"{O11Y_LOG_INDEX_PREFIX}{dp_name}-log-index"
 
         ColorLogger.info(f"O11Y creating resources at scope={scope_label} dp_id={dp_id}")
         created, skipped = [], []
@@ -164,6 +166,38 @@ class OllyApi:
         return {"created": created, "skipped": skipped, "scope": scope_label, "dp_id": dp_id}
 
 
+def _expected_cp_host():
+    """The only host the live CP bearer token may ever be sent to.
+
+    Mirrors the /cp_api host pin (server.py) and ConsoleApiClient.from_auto_token:
+    the tenant CP is always https://{DP_HOST_PREFIX}.{TP_AUTO_CP_SERVICE_DNS_DOMAIN}.
+    Resolved from ENV at call time so a late CP-DNS re-detection is honored.
+    """
+    return f"{ENV.DP_HOST_PREFIX}.{ENV.TP_AUTO_CP_SERVICE_DNS_DOMAIN}".lower()
+
+
+def is_cp_url_allowed(cp_url):
+    """Return True iff cp_url is https and points at the tenant CP host.
+
+    Security (TPSEC-166): TIBCOP_CLI_CPURL is request-controllable on the
+    unauthenticated helper server, so before sending the live CP cluster-admin
+    bearer token we authorize the request target: scheme must be https (never
+    plain http — that would leak the bearer in cleartext even to the right host)
+    and the host must be the tenant CP. Uses urlparse().hostname (never netloc)
+    so a userinfo trick such as https://<cp-host>@evil.com resolves to `evil.com`
+    and is rejected; .hostname is read inside the try because it can also raise
+    ValueError on a malformed bracketed IPv6 netloc.
+    """
+    try:
+        parsed = urlparse(cp_url or "")
+        host = parsed.hostname
+    except ValueError:
+        return False
+    if parsed.scheme != "https":
+        return False
+    return (host or "").lower() == _expected_cp_host()
+
+
 class LicenseApi:
     """Upload license/activation files via REST API."""
 
@@ -182,6 +216,17 @@ class LicenseApi:
         Returns:
             Response dict or None on error
         """
+        # Security gate (TPSEC-166): never send the live CP bearer token to a host
+        # other than the tenant CP. cp_url is request-derived via TIBCOP_CLI_CPURL,
+        # so an off-host value (e.g. https://evil.com) would exfiltrate the token.
+        if not is_cp_url_allowed(self.cp_url):
+            ColorLogger.error(
+                f"Refusing license upload: cp_url host is not the tenant CP "
+                f"'{_expected_cp_host()}' (got {self.cp_url!r}). Blocked "
+                f"request-controlled TIBCOP_CLI_CPURL SSRF (TPSEC-166)."
+            )
+            return None
+
         if not os.path.isfile(file_path):
             ColorLogger.error(f"License file not found: {file_path}")
             return None
@@ -195,13 +240,28 @@ class LicenseApi:
 
         ColorLogger.info(f"Uploading license file to {scope}: {file_path}")
 
-        curl_cmd = (
-            f"curl -sk -X PUT '{self.cp_url}{endpoint}' "
-            f"-H 'Authorization: Bearer {self.token}' "
-            f"-F 'files=@\"{file_path}\"'"
-        )
+        # Connect to the tenant CP reconstructed from ENV (https + canonical host),
+        # NOT the raw request string (TPSEC-166): the gate above validated the parsed
+        # host, so building the connection URL from the same trusted source makes
+        # "validated host" and "connected host" provably identical — no parser
+        # differential, no attacker-chosen port, no cleartext downgrade. Mirrors the
+        # /cp_api host pin in server.py.
+        base_url = f"https://{_expected_cp_host()}"
+        # Build the curl invocation as an argv list run WITHOUT a shell so that
+        # token / file_path cannot break out of shell quoting and inject commands
+        # (TPSEC-134/f023). TLS verification stays ON by default; -k is added only for
+        # a self-signed CP (TPSEC-166), matching the ENV.TP_IS_CERT_SELF_SIGNED idiom
+        # used by call_cp_rest_api.py — never the unconditional -sk that disabled it.
+        curl_cmd = ["curl", "-s"]
+        if ENV.TP_IS_CERT_SELF_SIGNED:
+            curl_cmd.append("-k")
+        curl_cmd += [
+            "-X", "PUT", "--url", f"{base_url}{endpoint}",
+            "-H", f"Authorization: Bearer {self.token}",
+            "-F", f'files=@"{file_path}"',
+        ]
         try:
-            result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(curl_cmd, shell=False, capture_output=True, text=True, timeout=60)
             if result.returncode != 0:
                 ColorLogger.error(f"License upload failed: {result.stderr}")
                 return None

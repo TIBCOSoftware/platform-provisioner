@@ -33,7 +33,12 @@
 #######################################
 
 export CURRENT_PATH=$(pwd)
-export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="-v /${CURRENT_PATH}/report:/tmp/auto/report"
+# PCP-23086: the caller may already mount the report folder (the SaaS pipeline exports it over ssh
+# before calling this script), so keep its value instead of overwriting it. Only add the default
+# mount when nothing is mounted on /tmp/auto/report yet - docker rejects duplicate mount targets.
+if [[ "${PIPELINE_CONTAINER_OPTIONAL_PARAMETER:-}" != *":/tmp/auto/report"* ]]; then
+  export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="${PIPELINE_CONTAINER_OPTIONAL_PARAMETER:-} -v /${CURRENT_PATH}/report:/tmp/auto/report"
+fi
 # retry count for outer deploy-subscription loop
 export TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT=${TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT:-${TP_AUTO_SUBSCRIPTION_DEPLOY_RETRY_COUNT:-3}}
 export _PIPELINE_PUBLIC_SCRIPT='/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/TIBCOSoftware/platform-provisioner/main/dev/platform-provisioner.sh)"'
@@ -181,11 +186,14 @@ function main() {
   if [[ -f 05-tp-auto-deploy-dp.yaml ]]; then
     _IS_LOCAL_AUTOMATION=$(yq eval '.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT' 05-tp-auto-deploy-dp.yaml)
     if [[ "${_IS_LOCAL_AUTOMATION}" = "true" ]]; then
-      PIPELINE_SCRIPT="$(realpath "../../../../dev/platform-provisioner.sh")"
+      # PCP-22713: the defaults below only resolve inside a full git checkout, so let a caller override them
+      PIPELINE_SCRIPT="${PIPELINE_SCRIPT:-$(realpath -m "../../../../dev/platform-provisioner.sh")}"
       echo "Using local automation script: ${PIPELINE_SCRIPT}"
+      _LOCAL_AUTO_PATH="${TP_AUTO_LOCAL_SCRIPT_PATH:-$(realpath -m '../tp-setup/bootstrap/')}"
       # PCP-15474: Windows Docker + Git Bash need double slash for mounting local folder into pod
       # double / also works for linux and Mac
-      export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="-v /$(realpath '../tp-setup/bootstrap/'):/tmp/auto"
+      # PCP-22713: append, not replace - the caller may already mount the report folder
+      export PIPELINE_CONTAINER_OPTIONAL_PARAMETER="${PIPELINE_CONTAINER_OPTIONAL_PARAMETER} -v /${_LOCAL_AUTO_PATH}:/tmp/auto"
     fi
   fi
 

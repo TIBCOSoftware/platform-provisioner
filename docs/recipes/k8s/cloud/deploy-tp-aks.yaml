@@ -157,8 +157,11 @@ preTasks:
       echo "listing az extensions"
       az extension list
       echo "installing az extensions aks-preview"
-      az extension add --name aks-preview
-      az extension update --name aks-preview
+      # Pin aks-preview to the version compatible with the image's azure-cli core
+      # (see docker/Dockerfile AKS_PREVIEW_VERSION / AZURE_CLI_VERSION). Do NOT
+      # `az extension update`: it pulls the latest aks-preview, and if it outpaces the
+      # base core `az aks create` fails with "too many values to unpack".
+      az extension add --name aks-preview --version "${AKS_PREVIEW_VERSION:-21.0.0b10}" --upgrade
       chmod +x create-aks.sh
       ./create-aks.sh
 - condition: ${TP_INSTALL_K8S}
@@ -405,8 +408,11 @@ helmCharts:
             networking.platform.tibco.com/non-cp-ns: enable
         EOF
         
-        # install gateway api crd
-        kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
+        # install gateway api crd (only needed for nginx-gateway-fabric's Gateway object;
+        # other ingress classes use plain Ingress resources and do not require these CRDs)
+        if [[ "${TP_ENABLE_NGINX_GATEWAY_FABRIC}" == "true" ]]; then
+          kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
+        fi
 
         # create a certificate for the main ingress
         kubectl apply -f - << EOF
@@ -428,6 +434,13 @@ helmCharts:
       base64Encoded: false
       skip: false
       content: |
+        # The Gateway and ClientSettingsPolicy below are nginx-gateway-fabric specific.
+        # The ClientSettingsPolicy CRD (gateway.nginx.org/v1alpha1) only ships with
+        # nginx-gateway-fabric, so only apply these when it is the selected ingress class.
+        # Otherwise (nginx, traefik, haproxy, ...) skip them to avoid a "no matches for
+        # kind ClientSettingsPolicy" failure.
+        if [[ "${TP_ENABLE_NGINX_GATEWAY_FABRIC}" == "true" ]]; then
+
         # Create Gateway object for nginx-gateway-fabric
         kubectl apply -f - <<EOF
         apiVersion: gateway.networking.k8s.io/v1
@@ -455,7 +468,7 @@ helmCharts:
                 name: tp-certificate-main-ingress
               mode: Terminate
         EOF
-        
+
         # Create clientSettingsPolicy for nginx-gateway-fabric to increase file upload size
         kubectl apply -f - <<EOF
         apiVersion: gateway.nginx.org/v1alpha1
@@ -471,6 +484,10 @@ helmCharts:
           body:
             maxSize: "200m"
         EOF
+
+        else
+          echo "Ingress class '${TP_INGRESS_CLASS}' is not nginx-gateway-fabric; skipping Gateway and ClientSettingsPolicy creation."
+        fi
 # Istio installation: istio-base and istiod MUST be in istio-system namespace due to hardcoded references in CRDs, webhooks, and RBAC
 # Gateway resource (data plane) is deployed to ingress-system via postDeploy hook
 - condition: ${TP_ENABLE_ISTIO_GATEWAY}

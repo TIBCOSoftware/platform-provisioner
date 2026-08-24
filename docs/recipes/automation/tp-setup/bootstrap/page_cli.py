@@ -18,13 +18,15 @@
 # This script mirrors the workflow of page_dp.py but uses the tibcop CLI
 # for DP operations instead of GUI (Playwright) automation where possible.
 #
-# Steps that use GUI (Playwright): EMS capability provisioning
-#   (BMDP domain configs now use REST via _run_api_bmdp_config; app-level
+# Steps that use GUI (Playwright): EMS capability provisioning, all O11Y resource
+#   configuration — Global resource creation plus switching the k8s DP and the BMDP to
+#   it (see O11Y_CONFIG_VIA_UI)
+#   (BMDP domain configs use REST via _run_api_bmdp_config; app-level
 #    status verification is deferred — only registration-level "Connected"
 #    is recorded, pending ct-auth-token sourcing for the BW5 v1 API)
 # Steps that use REST API: OAuth token bootstrap (IAT -> client -> token),
-#   Global + DP-scoped O11Y resource creation, Global + DP activation file upload,
-#   BMDP domain/agent/EMS-server registration, app endpoint testing
+#   Global + DP activation file upload, BMDP domain/agent/EMS-server registration,
+#   app endpoint testing
 # Steps that use CLI (tibcop): DP registration, resource creation,
 #   capability provisioning, app build & deploy, BMDP registration
 #
@@ -57,6 +59,8 @@ from api_object import (
 from cli_object.facade import TibcopCLI
 from cli_object.orchestrator import THREAD_STAGGER_DELAY
 from page_object.po_auth import PageObjectAuth
+from page_object.po_bmdp_config import PageObjectBMDPConfiguration
+from page_object.po_dp_config import PageObjectDataPlaneConfiguration
 from page_object.po_dp_ems import PageObjectDataPlaneEMS
 from utils.color_logger import ColorLogger
 from utils.env import ENV
@@ -67,6 +71,60 @@ from utils.util import Util
 # Serialize all GUI (Playwright) callbacks so concurrent threads
 # don't stomp on the shared browser/tracing/video state in Util.
 _gui_lock = threading.Lock()
+
+# O11Y configuration goes through the UI BY DESIGN (PCP-22010, pinned by PCP-23553).
+#
+# The contract a deploy must satisfy is: create ONE Global observability resource, then
+# switch every data plane (k8s DP and BMDP) TO that global resource. Only the UI can do
+# the second half — OllyApi exposes create_o11y_resources() and nothing that links a data
+# plane to the global resource. Taking the API path for a data plane therefore cannot
+# satisfy the contract; it can only create a second, DP-local resource set (the silent
+# degradation PCP-23553 was raised for).
+#
+# This is a code constant on purpose: it is deliberately NOT exposed as a recipe/guiEnv
+# key or an env var, so it cannot be misconfigured from the provisioner UI. It answers
+# HOW o11y is configured; GUI_TP_AUTO_ENABLE_CONFIG_O11Y (-> TP_AUTO_IS_CONFIG_O11Y)
+# answers WHETHER to configure it at all.
+#
+# The API branches below are kept (not deleted) so the structure is ready when the API
+# gains a switch-to-global operation. Do NOT flip this constant to False before that
+# operation exists — the data-plane API branches raise NotImplementedError rather than
+# silently falling back to create-local.
+O11Y_CONFIG_VIA_UI = True
+
+
+def _assert_dataplane_o11y_via_ui(dp_name):
+    """Guard the retained data-plane API branch (PCP-23553).
+
+    Fail loudly instead of falling back to create-local. `OllyApi` only exposes
+    `create_o11y_resources()`; for a data plane that creates a SECOND, DP-local resource
+    set rather than linking it to the Global one — the regression this ticket pins down.
+    Delete this guard only together with a real API switch-to-global implementation.
+
+    The Global subject is unaffected: creating the Global resource over the API is
+    correct and stays functional (see `_run_api_steps` Step 2).
+    """
+    if O11Y_CONFIG_VIA_UI:
+        return
+    raise NotImplementedError(
+        f"PCP-23553: cannot configure o11y for data plane '{dp_name}' over the API - "
+        "OllyApi has no switch-to-global operation, only create_o11y_resources(), which "
+        "would create a second DP-local resource set instead of linking the data plane "
+        "to the Global resource. Keep O11Y_CONFIG_VIA_UI = True until the API supports it."
+    )
+
+
+def _assert_o11y_recorded(dp_name, report_key, failure_message):
+    """Fail unless the o11y wizard recorded `report_key` for `dp_name` (PCP-23553).
+
+    The page-object wizards signal failure with a warning + screenshot and then simply
+    return; only a confirmed success writes its report key. So the key is the outcome,
+    and "no exception was raised" is not.
+    """
+    if str(ReportYaml.get_dataplane_info(dp_name, report_key)).lower() == "true":
+        return
+    raise RuntimeError(f"{failure_message} ({report_key} not recorded)")
+
 
 def _run_api_steps():
     """Browser-free replacement for the old GUI bootstrap path.
@@ -102,19 +160,35 @@ def _run_api_steps():
         ColorLogger.info("Step 2/3: TP_AUTO_IS_CONFIG_O11Y=false, skipping Global O11Y + activation")
         return
 
+    # cp_url is still needed by Step 3 (activation) regardless of the o11y path.
     cp_url = os.environ.get("TIBCOP_CLI_CPURL", "").rstrip("/") or (ApiAuth.get_subscription_url() or "").rstrip("/")
-    if not cp_url:
-        raise RuntimeError("TIBCOP_CLI_CPURL or cp-iat subscription-url required for API-based O11Y config")
 
-    client = ConsoleApiClient(cp_url, token)
-    ColorLogger.info("Step 2: Creating Global O11Y resources via API")
-    OllyApi(client).create_o11y_resources("global")
-    ReportYaml.set_dataplane(ENV.TP_AUTO_DP_NAME_GLOBAL)
-    ReportYaml.set_dataplane_info(ENV.TP_AUTO_DP_NAME_GLOBAL, "o11yConfig", True)
+    if O11Y_CONFIG_VIA_UI:
+        # Assemble Global o11y through the UI wizard, not the API (O11Y_CONFIG_VIA_UI).
+        # The wizard (o11y_config_dataplane_resource) writes ReportYaml o11yConfig itself.
+        ColorLogger.info("Step 2: Creating Global O11Y resources via UI (O11Y_CONFIG_VIA_UI)")
+        # Raise on failure: every data plane later SWITCHES to this resource, so
+        # continuing without it guarantees the PCP-23553 failure mode (each DP falling
+        # back to, or being reported as, something that is not the Global resource).
+        if not _run_gui_o11y(ENV.TP_AUTO_DP_NAME_GLOBAL):
+            raise RuntimeError("Global o11y UI configuration failed; data planes have nothing to switch to")
+    else:
+        if not cp_url:
+            raise RuntimeError("TIBCOP_CLI_CPURL or cp-iat subscription-url required for API-based O11Y config")
+        client = ConsoleApiClient(cp_url, token)
+        ColorLogger.info("Step 2: Creating Global O11Y resources via API")
+        OllyApi(client).create_o11y_resources("global")
+        ReportYaml.set_dataplane(ENV.TP_AUTO_DP_NAME_GLOBAL)
+        ReportYaml.set_dataplane_info(ENV.TP_AUTO_DP_NAME_GLOBAL, "o11yConfig", True)
 
     # Step 3: Global activation license file (optional)
     license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
-    if license_path and os.path.isfile(license_path):
+    if license_path and os.path.isfile(license_path) and not cp_url:
+        # Surface the skip: a configured license file is present but no cp_url was
+        # resolved (e.g. o11y went via UI so cp_url was never required) — the upload
+        # is skipped rather than silently dropped.
+        ColorLogger.warning(f"Step 3: license file {license_path} present but no cp_url resolved; skipping Global activation upload")
+    if license_path and os.path.isfile(license_path) and cp_url:
         ColorLogger.info(f"Step 3: Uploading Global activation file via API: {license_path}")
         result = LicenseApi(cp_url, token).upload_license_file(license_path, dp_id=None)
         if result:
@@ -134,9 +208,12 @@ def _bootstrap_oauth_token_via_iat():
 def _run_dp_o11y(cli, dp_name):
     """DP-level O11Y configuration after DP is created via CLI.
 
-    Two API calls (no GUI needed):
-      1. O11Y resources: POST /cp/api/v1/data-planes/{dpId}/resources/instances/{type}
-      2. Activation file: PUT /cp/api/v1/data-planes/{dpId}/license
+    O11Y resources: the DP is switched to the Global observability resource through the
+    UI (see O11Y_CONFIG_VIA_UI). Activation file: PUT /cp/api/v1/data-planes/{dpId}/license
+    over REST.
+
+    The two are INDEPENDENT and are sequenced, not nested: a failed o11y switch must never
+    skip the activation upload (PCP-23558).
     """
     if not ENV.TP_AUTO_IS_CONFIG_O11Y:
         ColorLogger.info("TP_AUTO_IS_CONFIG_O11Y is false, skipping DP-level O11Y config")
@@ -148,24 +225,62 @@ def _run_dp_o11y(cli, dp_name):
         ColorLogger.success(f"DP '{dp_name}' O11Y already configured (report: o11yResources={o11y_done}, activation={activation}), skipping")
         return
 
-    ColorLogger.info("=" * 60)
-    ColorLogger.info(f"CLI Mode - DP O11Y resources for '{dp_name}' (REST via cli.resource)")
-    ColorLogger.info("=" * 60)
+    # Raised outside the try below on purpose: a misconfigured path must abort the DP
+    # thread, not be logged as one more recoverable o11y warning.
+    _assert_dataplane_o11y_via_ui(dp_name)
+
+    report_lock = getattr(getattr(cli, "orchestrator", None), "report_lock", None)
     try:
-        report_lock = getattr(getattr(cli, "orchestrator", None), "report_lock", None)
-        if cli.resource.create_o11y_resources(dp_name) is None:
-            raise RuntimeError("create_o11y_resources returned None")
+        ColorLogger.info("=" * 60)
+        ColorLogger.info(f"CLI Mode - DP O11Y switch to Global for '{dp_name}' (UI, O11Y_CONFIG_VIA_UI)")
+        ColorLogger.info("=" * 60)
+        if not _run_gui_o11y(dp_name):
+            raise RuntimeError("o11y UI config returned False")
+        # Record o11yResources so the idempotency guard above short-circuits on re-run,
+        # regardless of which path (API or UI) configured it.
         if report_lock:
             with report_lock:
                 ReportYaml.set_dataplane_info(dp_name, "o11yResources", True)
         else:
             ReportYaml.set_dataplane_info(dp_name, "o11yResources", True)
-    except Exception as e:
+    except (Exception, SystemExit) as e:
+        # SystemExit is caught EXPLICITLY, same trap as po_bmdp_config.py:124/150.
+        # Util.exit_error() deep in a shared navigation helper (goto_dataplane ->
+        # refresh_until_success miss) calls sys.exit(1), and SystemExit is a
+        # BaseException that sails straight past "except Exception" - it would exit this
+        # function without ever reaching the activation upload, which is exactly the
+        # PCP-23558 failure mode arriving through a second door. Reachable from the o11y
+        # step both on the way in (o11y_config_switch_to_global navigates) and now on the
+        # way out (recheck_linked_to_global_config re-navigates). Deliberately NOT
+        # BaseException: KeyboardInterrupt must still abort the run.
+        #
+        # DELIBERATELY non-fatal, unlike the Global path in _run_api_steps (PCP-23553,
+        # reviewed decision). A missing Global resource means every data plane has
+        # nothing to switch to, so the whole deploy is void; one data plane failing to
+        # link is a localised o11y gap on an otherwise working deploy, and the
+        # pre-existing behaviour is to keep going. What PCP-23553 fixed here is the
+        # lying report: o11yResources is only written on the success path above, so a
+        # failed link is no longer recorded as configured and no longer short-circuits
+        # the next run. The exit code still does not reflect it - if that should change,
+        # append to the caller's `errors` list rather than widening this except.
+        #
+        # It must NOT `return`: the activation upload below is a separate concern that a
+        # localised o11y gap has no business skipping (PCP-23558 - it left the DP with no
+        # tp-dp-license-file, so every Flogo app CrashLooped on license validation while
+        # the pipeline still reported SUCCESS).
         ColorLogger.error(f"DP-level O11Y resource create failed: {e}")
         traceback.print_exc()
-        return
 
-    # Upload activation file via REST API (if available)
+    _run_dp_activation_upload(cli, dp_name, report_lock)
+
+
+def _run_dp_activation_upload(cli, dp_name, report_lock):
+    """Upload the DP activation (license) file via PUT /cp/api/v1/data-planes/{dpId}/license.
+
+    Split out of _run_dp_o11y so it runs whatever the o11y step did (PCP-23558). Without
+    the license file the DP never gets the tp-dp-license-file capability and every Flogo
+    app fails to start with "does not have entitlement to TIBCO_FLOGO_CCS".
+    """
     license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
     if license_path and os.path.isfile(license_path):
         ColorLogger.info("=" * 60)
@@ -234,8 +349,76 @@ def _run_gui_ems_provision(dp_name):
             Util.browser_close()
 
 
+def _run_gui_o11y(dp_name, is_bmdp=False):
+    """Configure o11y for dp_name through the UI (browser).
+
+    The contract (PCP-23553), identical to the browser-mode paths page_dp.py /
+    page_bmdp.py already implement:
+      - Global  -> CREATE the one observability resource set (o11y_config_dataplane_resource)
+      - any DP  -> SWITCH that data plane to the Global resource (o11y_config_switch_to_global)
+
+    A non-Global subject must NEVER go through o11y_config_dataplane_resource: that
+    creates a second, DP-local resource set instead of linking to the Global one.
+
+    `is_bmdp` selects the BMDP page object, whose config pages differ from a k8s DP's.
+    Both switch helpers self-navigate (data plane list -> DP -> Configuration ->
+    Observability), so no navigation prelude is needed here.
+
+    Mirrors _run_gui_ems_provision (browser_launch + login + page object + logout) and
+    drives the same page objects as the standalone cases (case/create_global_config.py,
+    case/k8s_config_dp_o11y.py, case/bmdp_config_dp_o11y.py).
+
+    Acquires _gui_lock to prevent concurrent browser sessions. Returns True on
+    success, False on failure (caller decides how to record/report).
+    """
+    with _gui_lock:
+        ColorLogger.info("=" * 60)
+        ColorLogger.info(f"CLI Mode - Configure o11y for '{dp_name}' (GUI, O11Y_CONFIG_VIA_UI)")
+        ColorLogger.info("=" * 60)
+
+        page = Util.browser_launch()
+        try:
+            po_auth = PageObjectAuth(page)
+            po_auth.login()
+            po_auth.login_check()
+
+            # Both wizards report failure by warning + returning, NOT by raising, so
+            # "nothing threw" does not mean "it worked". Each records its own report key
+            # ONLY on a confirmed success, so that key - not the absence of an exception
+            # - is what this function keys on. Without it a data plane that never got
+            # linked is still written down as o11yResources: true, which is the
+            # silent-green half of PCP-23553.
+            po_config = PageObjectBMDPConfiguration(page) if is_bmdp else PageObjectDataPlaneConfiguration(page)
+            if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
+                # Global: the wizard self-navigates (Global configuration -> Observability),
+                # mirroring case/create_global_config.py. o11yConfig is written only after
+                # the wizard saves without a .pl-notification--error.
+                po_config.o11y_config_dataplane_resource(dp_name)
+                _assert_o11y_recorded(dp_name, "o11yConfig", "the Global observability resource was not created")
+            else:
+                # switchGlobal is written only once "View in Global Configuration" is
+                # visible, i.e. the data plane really is linked to the Global resource.
+                po_config.o11y_config_switch_to_global(dp_name)
+                _assert_o11y_recorded(dp_name, "switchGlobal",
+                                      f"'{dp_name}' was not linked to the Global observability resource")
+
+            po_auth.logout()
+            ColorLogger.success(f"o11y configured via UI for '{dp_name}'")
+            return True
+        except Exception as e:
+            ColorLogger.error(f"o11y UI config failed for '{dp_name}': {e}")
+            traceback.print_exc()
+            return False
+        finally:
+            Util.browser_close()
+
+
 def _run_api_bmdp_config(bmdp_name, report_lock):
-    """API-based BMDP configuration. Sequential, browser-free.
+    """API-based BMDP configuration. Sequential.
+
+    Browser-free except for the o11y step, which switches the BMDP to the Global
+    observability resource through the UI (PCP-23553 — the API cannot link a data plane
+    to the Global resource, only create a BMDP-local set).
 
     Writes domain-/server-level ReportYaml entries (`capability` +
     `capability_info` with value "Connected") only when the underlying API
@@ -349,29 +532,51 @@ def _run_api_bmdp_config(bmdp_name, report_lock):
             ColorLogger.error(f"BW6 Agent registration failed: {e}")
             traceback.print_exc()
 
-    # --- O11Y — mirror DP: dataplane-scope create + activation upload ---
+    # --- O11Y — mirror DP: switch to the Global resource (UI) + activation upload ---
     if ENV.TP_AUTO_IS_CONFIG_O11Y:
+        # PCP-23553: the BMDP used to create its own resource set over REST, bypassing the
+        # UI detour entirely and leaving a third, BMDP-local set. Same guard as the DP —
+        # raised outside the try so a misconfigured path aborts instead of being logged.
+        _assert_dataplane_o11y_via_ui(bmdp_name)
         try:
-            OllyApi(client).create_o11y_resources(bmdp_name)
+            if not _run_gui_o11y(bmdp_name, is_bmdp=True):
+                raise RuntimeError("o11y UI config returned False")
             with report_lock:
                 ReportYaml.set_dataplane_info(bmdp_name, "o11yResources", True)
-
-            license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
-            if license_path and os.path.isfile(license_path):
-                token = Helper.get_auto_token()
-                if LicenseApi(client.base_url, token).upload_license_file(license_path, dp_id):
-                    with report_lock:
-                        ReportYaml.set_dataplane_info(bmdp_name, "activation", "uploaded")
-                    ColorLogger.success(f"BMDP activation file uploaded for '{bmdp_name}'")
-                else:
-                    ColorLogger.warning(f"License file upload failed for '{bmdp_name}'")
-            else:
-                ColorLogger.info(f"License file not found at {license_path}, skipping BMDP activation upload")
-        except Exception as e:
+        except (Exception, SystemExit) as e:
+            # Same shape, same reasoning as _run_dp_o11y (PCP-23558): the activation
+            # upload used to live INSIDE this try, after the raise above, so a failed
+            # BMDP switch skipped the BMDP's license file exactly the way it skipped the
+            # k8s DP's. It is now sequenced after this block instead of nested in it.
+            # SystemExit is caught explicitly for the same reason as there
+            # (Util.exit_error -> sys.exit(1) is a BaseException); KeyboardInterrupt is
+            # deliberately still fatal.
             ColorLogger.error(f"BMDP O11Y configuration failed: {e}")
             traceback.print_exc()
 
+        _run_bmdp_activation_upload(client, bmdp_name, dp_id, report_lock)
+
     ColorLogger.success(f"BMDP API configuration completed for '{bmdp_name}'")
+
+
+def _run_bmdp_activation_upload(client, bmdp_name, dp_id, report_lock):
+    """Upload the BMDP activation (license) file. The BMDP mirror of
+    _run_dp_activation_upload — runs whatever the o11y step did (PCP-23558)."""
+    license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
+    if not (license_path and os.path.isfile(license_path)):
+        ColorLogger.info(f"License file not found at {license_path}, skipping BMDP activation upload")
+        return
+    try:
+        token = Helper.get_auto_token()
+        if LicenseApi(client.base_url, token).upload_license_file(license_path, dp_id):
+            with report_lock:
+                ReportYaml.set_dataplane_info(bmdp_name, "activation", "uploaded")
+            ColorLogger.success(f"BMDP activation file uploaded for '{bmdp_name}'")
+        else:
+            ColorLogger.warning(f"License file upload failed for '{bmdp_name}'")
+    except (Exception, SystemExit) as e:
+        ColorLogger.error(f"BMDP activation upload failed: {e}")
+        traceback.print_exc()
 
 
 def _run_dp_setup(cli, errors):
@@ -421,9 +626,13 @@ def run():
     try:
         _run_api_steps()
     except Exception as e:
+        # Exit non-zero, matching the errors branch at the end of this function. A
+        # bootstrap failure means no OAuth token and/or no Global o11y resource, so
+        # nothing below can run and no data plane is created - returning 0 here reported
+        # a green pipeline for a deploy that did nothing (PCP-23553).
         ColorLogger.error(f"API bootstrap failed: {e}")
         traceback.print_exc()
-        return
+        sys.exit(1)
 
     # Phase 2: CLI steps
     cli = TibcopCLI.from_env()

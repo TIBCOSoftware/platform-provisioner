@@ -28,6 +28,11 @@ from api_object.client import ConsoleApiClient
 from utils.color_logger import ColorLogger
 from utils.env import ENV
 
+# Roles scoped to a whole dataplane rather than to an instance within it. CP returns
+# them from the GET carrying an instanceId, but rejects that same instanceId on the
+# POST, so it has to be stripped before the set is written back.
+DATAPLANE_LEVEL_ROLES = frozenset({"PLATFORM_OPS"})
+
 
 class ApiUserPermission:
     """Read-modify-write a CP user's permissions via /cp/v1/users-permissions."""
@@ -66,12 +71,23 @@ class ApiUserPermission:
                 perms.append({"roleId": role_id, "exclude": exclude})
             else:
                 for detail in details:
-                    perms.append({
-                        "roleId": detail.get("roleId", role_id),
+                    detail_role = detail.get("roleId", role_id)
+                    entry = {
+                        "roleId": detail_role,
                         "exclude": detail.get("exclude", exclude),
                         "dataplaneId": detail.get("dataplaneId"),
                         "instanceId": detail.get("instanceId"),
-                    })
+                    }
+                    # Dataplane-level roles are scoped by dataplaneId alone. CP rejects the
+                    # whole POST with "'instanceId' is not applicable for role '<role>'" if
+                    # one is sent, while still requiring dataplaneId - so the entry has to
+                    # be echoed back minus instanceId, not dropped. The GET hands these to
+                    # us with an instanceId anyway, so re-posting the response verbatim
+                    # fails for any user holding one, which is every user the automation
+                    # sets up (Data plane Manager is PLATFORM_OPS).
+                    if detail_role in DATAPLANE_LEVEL_ROLES:
+                        entry.pop("instanceId", None)
+                    perms.append(entry)
         return perms
 
     # ----- grant -----

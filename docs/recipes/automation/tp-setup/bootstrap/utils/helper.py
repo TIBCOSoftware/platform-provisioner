@@ -20,9 +20,15 @@ import sys
 import json
 import platform
 import zipfile
+import yaml
 from pathlib import Path
 
 from utils.color_logger import ColorLogger
+
+# Fixed prefix prepended to every o11y Elasticsearch log index, on BOTH the UI
+# wizard and the CLI/API path. Single source of truth so a future change is one
+# edit — used by page_object/po_dp_config.py, po_bmdp_config.py, api_object/resources.py.
+O11Y_LOG_INDEX_PREFIX = "user-app-"
 
 # do not import env.py or util.py in this file
 class Helper:
@@ -52,16 +58,25 @@ class Helper:
 
         try:
             command = [script_path]
-            if platform.system() == "Windows":
-                bash_path = Helper.get_windows_bash()
-                print(f"Run Windows command: {bash_path} -c {script_path}")
-                command = [bash_path, script_path]
-            # Execute the shell script using subprocess
-            print(f"Running script: {script_path}")
             env_vars = {
                 **Helper.get_env_vars(),
                 **(custom_env_dict or {})
             }
+            if platform.system() == "Windows":
+                bash_path = Helper.get_windows_bash()
+                print(f"Run Windows command: {bash_path} -c {script_path}")
+                command = [bash_path, script_path]
+                # Disable MSYS (Git Bash) automatic Unix->Windows path conversion so that
+                # argument values beginning with '/' are passed through verbatim. Otherwise a
+                # helm '--set ...accessKey=/<base64>' whose key starts with '/' is mistaken for
+                # a Unix path and rewritten to 'accessKey=C:/Program Files/Git/<base64>',
+                # corrupting the tp-tibtunnel access key and breaking the DataPlane tunnel
+                # (PCP-20701). Scripts that must hand a Unix path to a native Windows exe
+                # convert it explicitly with `cygpath -w` (see the self-signed cert secret).
+                env_vars["MSYS_NO_PATHCONV"] = "1"
+                env_vars["MSYS2_ARG_CONV_EXCL"] = "*"
+            # Execute the shell script using subprocess
+            print(f"Running script: {script_path}")
             result = subprocess.run(
                 command,             # Path to the script
                 shell=False,               # Run without invoking the shell for added security
@@ -124,10 +139,97 @@ class Helper:
             tp_auto_kubeconfig = os.path.expanduser(tp_auto_kubeconfig)
             if not os.path.exists(tp_auto_kubeconfig):
                 ColorLogger.error(f"TP_AUTO_KUBECONFIG does not exist: {tp_auto_kubeconfig}.")
-                sys.exit()
+                sys.exit(1)  # non-zero so a bad kubeconfig is a failure, not a false-green success
 
             env_vars["KUBECONFIG"] = tp_auto_kubeconfig
+        # TPSEC-163: validate the EFFECTIVE kubeconfig (set via TP_AUTO_KUBECONFIG above, or a
+        # pre-existing / request-injected KUBECONFIG) before it is handed to kubectl/helm, so an
+        # attacker-controllable kubeconfig cannot trigger a credential-plugin exec RCE.
+        effective_kubeconfig = env_vars.get("KUBECONFIG")
+        if effective_kubeconfig:
+            Helper._validate_kubeconfig(effective_kubeconfig)
         return env_vars
+
+    @staticmethod
+    def _validate_kubeconfig(kubeconfig_value):
+        """TPSEC-163: refuse an attacker-controllable kubeconfig before it becomes KUBECONFIG.
+
+        KUBECONFIG may be an os.pathsep-separated LIST of files that kubectl/helm MERGE, so
+        every existing component is validated (a single-path value is a one-element list).
+        Two layered, fail-closed controls (ColorLogger.error + sys.exit(1) so a refusal is a
+        non-zero failure, not a false-green success):
+          A. reject a component resolving inside the unauthenticated-writable upload folder;
+          B. reject a component declaring a credential-plugin that executes a command
+             (users[].user.exec, or the legacy users[].user.auth-provider cmd-path).
+        A missing component is skipped (it cannot exec; kubectl ignores/errs on it), so a stale
+        bare KUBECONFIG is not newly hard-exited. Malformed YAML / shape fails closed.
+
+        Scope: this is the sink for /run-gui-script and every Helper kubectl/helm call (and the
+        MCP automation_executor, which spawns the same case modules). The bare-KUBECONFIG
+        request-param denylist and the /run-cli-script env restriction are TPSEC-134 (#393);
+        /upload path traversal is TPSEC-128. Exec-based (cloud) kubeconfigs are unsupported here.
+        """
+        # A KUBECONFIG value never legitimately contains a double-quote in this automation. On
+        # Windows, Go's filepath.SplitList (used by kubectl/client-go) strips surrounding quotes
+        # and treats a quoted os.pathsep as non-separating — which Python's str.split does not
+        # mirror — so a quoted value could be validated differently than kubectl parses it. Fail
+        # closed on any quote to remove that parsing-differential bypass on all platforms. (On
+        # Linux, the deploy target, unquoted split(os.pathsep) already matches SplitList exactly.)
+        if '"' in kubeconfig_value:
+            ColorLogger.error(f"Refusing KUBECONFIG containing a quote character: {kubeconfig_value}")
+            sys.exit(1)
+        # Do NOT strip components: kubectl/helm use each os.pathsep-separated entry as a
+        # VERBATIM path (Go filepath.SplitList does not trim), so stripping here would let a
+        # file named with surrounding whitespace be validated as a different (missing) path
+        # while kubectl opens the real one. Skip only truly-empty entries (kubectl ignores those).
+        for component in kubeconfig_value.split(os.pathsep):
+            if component:
+                Helper._validate_kubeconfig_file(component)
+
+    @staticmethod
+    def _validate_kubeconfig_file(path):
+        real = os.path.realpath(path)
+        if not os.path.exists(real):
+            return
+        real_path = Path(real)
+        # Control A (defense-in-depth) first: a path check, before parsing any file content.
+        upload_dir = Path(os.path.realpath(Path(__file__).resolve().parent.parent / "upload"))
+        if real_path == upload_dir or upload_dir in real_path.parents:
+            ColorLogger.error(
+                f"Refusing kubeconfig inside the upload folder: {path}. "
+                f"TP_AUTO_KUBECONFIG/KUBECONFIG must not point into {upload_dir}."
+            )
+            sys.exit(1)
+        # Control B (mandatory): reject credential-plugin command execution, wherever the file lives.
+        try:
+            with open(real, "r", encoding="utf-8") as fh:
+                doc = yaml.safe_load(fh)
+        except Exception as e:
+            ColorLogger.error(f"Refusing unparseable kubeconfig {path}: {e}")
+            sys.exit(1)
+        if not isinstance(doc, dict):
+            ColorLogger.error(f"Refusing malformed kubeconfig (not a mapping): {path}")
+            sys.exit(1)
+        users = doc.get("users")
+        if users is not None and not isinstance(users, list):
+            ColorLogger.error(f"Refusing malformed kubeconfig ('users' is not a list): {path}")
+            sys.exit(1)
+        for entry in (users or []):
+            if not isinstance(entry, dict):
+                ColorLogger.error(f"Refusing malformed kubeconfig ('users' entry is not a mapping): {path}")
+                sys.exit(1)
+            user = entry.get("user")
+            if user is None:
+                continue
+            if not isinstance(user, dict):
+                ColorLogger.error(f"Refusing malformed kubeconfig ('user' is not a mapping): {path}")
+                sys.exit(1)
+            if "exec" in user or "auth-provider" in user:
+                ColorLogger.error(
+                    f"Refusing kubeconfig with a credential-plugin (exec/auth-provider): {path}. "
+                    f"Exec-based kubeconfigs are not supported (potential command execution)."
+                )
+                sys.exit(1)
 
     @staticmethod
     def get_cp_dns_domain():
@@ -183,13 +285,50 @@ class Helper:
         return str(Path(__file__).resolve().parent.parent / "upload" / file_name)
 
     @staticmethod
+    def is_within(base, target):
+        """Return True iff `target` resolves inside `base` (both realpath'd first).
+
+        Single source of truth for the TPSEC-128 containment guard used by BOTH the
+        /upload save-path check (server.py) and the zip-slip member check below, so the
+        security-critical predicate can't drift between the two. A cross-drive/-root
+        pair (e.g. Windows "C:\\.." vs "D:\\") makes os.path.commonpath raise
+        ValueError — treat that as "outside". Lives on Helper (not Util) because
+        helper.py must not import util.py (util already imports helper).
+        """
+        real_base = os.path.realpath(base)
+        real_target = os.path.realpath(target)
+        try:
+            return os.path.commonpath([real_base, real_target]) == real_base
+        except ValueError:
+            return False
+
+    @staticmethod
     def extract_activation_license(zip_path):
         """Unzip an activation zip and rename the contained .bin to license-file.bin
         (placed next to the zip). Returns True on success."""
         upload_dir = os.path.dirname(zip_path)
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(upload_dir)
+                # Guard against zip-slip (TPSEC-128): ZipFile.extractall() blindly
+                # honors entry names, so a member like "../../etc/cron.d/evil" or an
+                # absolute path escapes upload_dir and writes an arbitrary file. Verify
+                # every member resolves inside upload_dir before extracting anything.
+                real_dir = os.path.realpath(upload_dir)
+                for info in zip_ref.infolist():
+                    # Reject symlink members (S_IFLNK in the top 16 bits of external_attr).
+                    # Python's zipfile currently extracts these as regular files (it does
+                    # not restore symlinks), but rejecting them keeps the guard correct
+                    # regardless of the extractor and blocks the symlink-then-write-through
+                    # escape a symlink-honoring extractor would allow.
+                    if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                        # !r quotes/escapes the attacker-controlled member name so an
+                        # embedded newline/control char cannot forge or split log lines.
+                        ColorLogger.error(f"Refusing to extract symlink zip entry: {info.filename!r}")
+                        return False
+                    if not Helper.is_within(real_dir, os.path.join(real_dir, info.filename)):
+                        ColorLogger.error(f"Refusing to extract unsafe zip entry (path traversal): {info.filename!r}")
+                        return False
+                zip_ref.extractall(real_dir)
 
             # Find and rename .bin file to license-file.bin
             for item in os.listdir(upload_dir):

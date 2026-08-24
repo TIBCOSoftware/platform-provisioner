@@ -21,8 +21,13 @@ Versions refer to Helm chart releases. See [tags](https://github.com/TIBCOSoftwa
 - E2E test recipe for retry functionality (`test-retry.yaml`)
 - Coverage and test badges in README
 
+### Changed
+- [PCP-20335] Rename K8s MCP Server automation vocabulary to Infra MCP Server (recipe flags, env vars, Playwright page object/case, GUI form) to align with the CP web-UI/chart rename; adds GUI_TP_AUTO_ENABLE_INFRA_MCP_SERVER with backward-compatible fallback to GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER.
+
 ### Fixed
 - `common::replace_env_variables` not writing output file when `REPLACE_RECIPE != true`, causing downstream pipeline steps to read empty/stale recipe content
+- o11y automation (`create_global_config`): wait for async-rendered wizard toggles before reading/clicking them, so a slow/cold CP render no longer misses `#traces-toggle-system-config` and falls into the manual-config branch that times out on the disabled `traces-proxy` toggle (Step 3), which left the global observability resource uncreated and the Data Plane not green (PCP-21866)
+- mcp-hub automation (`deploy-mcp-hub`): match the Register-Gateway wizard Review-step submit button on MCP Hub 1.20.0-alpha.27/alpha.29, which relabelled it from `Register & Deploy` (ampersand) to `Register and Deploy` (the word "and") with no `register-review-submit` test-id, causing `#11 deploy-mcp-hub` to abort with `Register wizard forward button not found`; `_register_footer_button` now treats ` & ` and ` and ` as equivalent so either render matches (automation image 1.7.62) (PCP-22439)
 
 ## [common-dependency-1.0.19] — 2026-03-24
 
