@@ -20,12 +20,13 @@ from utils.env import ENV
 from page_object.po_auth import PageObjectAuth
 from page_object.po_dataplane import PageObjectDataPlane
 from page_object.po_dp_config import PageObjectDataPlaneConfiguration
+from page_object.po_dp_activespace import PageObjectDataPlaneActiveSpaces
 from page_object.po_dp_bwce import PageObjectDataPlaneBWCE
 from page_object.po_dp_ems import PageObjectDataPlaneEMS
 from page_object.po_dp_flogo import PageObjectDataPlaneFlogo
 from page_object.po_dp_pulsar import PageObjectDataPlanePulsar
 from page_object.po_dp_tibcohub import PageObjectDataPlaneTibcoHub
-from page_object.po_dp_k8s_mcp_server import PageObjectDataPlaneK8sMcpServer
+from page_object.po_dp_infra_mcp_server import PageObjectDataPlaneInfraMcpServer
 from page_object.po_dp_springboot import PageObjectDataPlaneSpringBoot
 
 if __name__ == "__main__":
@@ -72,6 +73,14 @@ if __name__ == "__main__":
             po_dp_ems.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
             po_dp_ems.ems_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_EMS_CAPABILITY_SERVER_NAME)
+
+        # for provision ActiveSpaces capability
+        if ENV.TP_AUTO_IS_PROVISION_AS:
+            po_dp_as = PageObjectDataPlaneActiveSpaces(page)
+            po_dp_as.goto_left_navbar_dataplane()
+            po_dp_as.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+
+            po_dp_as.as_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
 
         # for provision Flogo capability
         if ENV.TP_AUTO_IS_PROVISION_FLOGO:
@@ -121,18 +130,13 @@ if __name__ == "__main__":
 
             po_dp_tibcohub.tibcohub_provision_capability(ENV.TP_AUTO_K8S_DP_NAME, ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
 
-        # for provision Kubernetes MCP Server capability
-        if ENV.TP_AUTO_IS_PROVISION_K8S_MCP_SERVER:
-            po_dp_config.dp_config_resources_ingress(
-                ENV.TP_AUTO_K8S_DP_NAME,
-                ENV.TP_AUTO_INGRESS_CONTROLLER, ENV.TP_AUTO_INGRESS_CONTROLLER_K8S_MCP_SERVER,
-                ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME, ENV.TP_AUTO_FQDN_K8S_MCP_SERVER
-            )
-            po_k8s_mcp = PageObjectDataPlaneK8sMcpServer(page)
-            po_k8s_mcp.goto_left_navbar_dataplane()
-            po_k8s_mcp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
+        # for provision Infra MCP Server capability
+        if ENV.TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER:
+            po_infra_mcp = PageObjectDataPlaneInfraMcpServer(page)
+            po_infra_mcp.goto_left_navbar_dataplane()
+            po_infra_mcp.goto_dataplane(ENV.TP_AUTO_K8S_DP_NAME)
 
-            po_k8s_mcp.k8s_mcp_server_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
+            po_infra_mcp.infra_mcp_server_provision_capability(ENV.TP_AUTO_K8S_DP_NAME)
 
         # for provision Spring Boot capability
         if ENV.TP_AUTO_IS_PROVISION_SPRINGBOOT:

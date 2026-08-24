@@ -19,6 +19,7 @@ from utils.env import ENV
 from page_object.po_user_management import PageObjectUserManagement
 from page_object.po_auth import PageObjectAuth
 from page_object.po_dataplane import PageObjectDataPlane
+from page_object.po_bmdp_config import PageObjectBMDPConfiguration
 
 if __name__ == "__main__":
     page = Util.browser_launch()
@@ -33,6 +34,11 @@ if __name__ == "__main__":
         po_dp = PageObjectDataPlane(page)
         po_dp.goto_left_navbar_dataplane()
         po_dp.k8s_create_bmdp(ENV.TP_AUTO_K8S_BMDP_NAME)
+
+        # A fresh BMDP renders its BW5/BW6 product cards disabled until the user holds the product
+        # grant, so grant it here as the CLI/API path does, after the base policies are in place.
+        po_bmdp_config = PageObjectBMDPConfiguration(page)
+        po_bmdp_config.ensure_bmdp_product_permissions(ENV.TP_AUTO_K8S_BMDP_NAME)
 
         po_auth.logout()
     except Exception as e:

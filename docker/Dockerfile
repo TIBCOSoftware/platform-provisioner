@@ -47,7 +47,7 @@ RUN apk add --no-cache \
 
 FROM python:3.12.11-alpine3.22 AS builder-azure
 ARG AZURE_CLI_VERSION
-ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.81.0"}
+ENV AZURE_CLI_VERSION=${AZURE_CLI_VERSION:-"2.88.0"}
 WORKDIR /azure
 RUN apk add --no-cache --update python3 py3-pip && \
     apk add --no-cache --update --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make && \
@@ -104,11 +104,18 @@ RUN ln -s /usr/bin/python3 /usr/local/bin/python && ln -s /azure/.venv/bin/az /u
 # Azure CLI Bicep https://github.com/Azure/bicep/releases
 ARG AZURE_CLI_BICEP_VERSION
 ENV AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION:-"v0.39.26"}
-RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION}" && \
+# aks-preview and AZURE_CLI_VERSION MUST be a compatible pair. `az aks create` unpacks the
+# ACNS tuple returned by the extension; a mismatch fails with e.g.
+# "ValueError: too many values to unpack (expected 3)". core 2.88.0 + aks-preview 21.0.0b10
+# are a verified pair (both use the 4-tuple get_acns_enablement_with_perf form). Pin the
+# extension and do NOT `az extension update` (pulls latest). When bumping AZURE_CLI_VERSION,
+# bump AKS_PREVIEW_VERSION to a matching version too.
+ARG AKS_PREVIEW_VERSION
+ENV AKS_PREVIEW_VERSION=${AKS_PREVIEW_VERSION:-"21.0.0b10"}
+RUN echo "AZURE_CLI_BICEP_VERSION=${AZURE_CLI_BICEP_VERSION} AKS_PREVIEW_VERSION=${AKS_PREVIEW_VERSION}" && \
     az --version && \
     az bicep install --version ${AZURE_CLI_BICEP_VERSION} && \
-    az extension add --name aks-preview && \
-    az extension update --name aks-preview
+    az extension add --name aks-preview --version ${AKS_PREVIEW_VERSION}
 
 # gcloud cli https://cloud.google.com/sdk/docs/release-notes
 ARG CLOUD_SDK_VERSION

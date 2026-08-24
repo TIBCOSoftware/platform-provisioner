@@ -62,13 +62,20 @@ if __name__ == "__main__":
         # Wait until the gateway is deployed (deterministic Hub API mcpgatewayDeployed
         # + detail view operable) so the servers tab renders before installing servers.
         # Pass dp_name so an empty/unresolved gateway_id can still resolve by name.
-        po_mcp.wait_for_gateway_deployed(gateway_id, dp_name=dp_name)
+        # PCP-19765: the deploy POST returns a PLACEHOLDER gateway id the backend re-keys
+        # (supersedes) after async provision; wait_for_gateway_deployed re-resolves the
+        # CURRENT id and returns it, so reassign gateway_id here to stop propagating the
+        # stale placeholder to add_mcp_server / push_to_gateway / verify_tools.
+        gateway_id = po_mcp.wait_for_gateway_deployed(gateway_id, dp_name=dp_name) or gateway_id
 
         for server_name in MCP_SERVERS_TO_INSTALL:
             po_mcp.add_mcp_server(name=server_name, token=token, gateway_id=gateway_id)
 
-        po_mcp.push_to_gateway(gateway_id=gateway_id)
-        tools_count = po_mcp.verify_tools(gateway_id=gateway_id)
+        # min_tools=1 = "the gateway discovered at least something" (the alpha.49 guard).
+        # push_to_gateway owns the hard gate via /sync/refresh; verify_tools is confirmatory.
+        # dp_name lets push recover a late supersede of the gateway id (PCP-19765).
+        po_mcp.push_to_gateway(gateway_id=gateway_id, min_tools=1, dp_name=dp_name)
+        tools_count = po_mcp.verify_tools(gateway_id=gateway_id, min_tools=1)
         ColorLogger.success(f"MCP Hub deployment complete! {tools_count} tools discovered.")
 
         po_auth.logout()

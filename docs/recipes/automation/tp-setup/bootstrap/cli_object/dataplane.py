@@ -299,10 +299,15 @@ class TibcopDataPlane:
 
         if ENV.TP_IS_CERT_SELF_SIGNED:
             ColorLogger.info("Self-signed certificate detected, inserting cert secret creation...")
+            # cert_path is the form handed to the native kubectl: on Windows (Git Bash) MSYS
+            # path conversion is disabled (PCP-20701), so convert /tmp to a Windows path with
+            # `cygpath -w`; on Linux cygpath is absent and we keep /tmp as-is.
             secret_cmd = (
-                f'kubectl get secret default-certificate -n ingress-system -o jsonpath="{{.data.tls\\.crt}}" | base64 --decode > /tmp/cp-cert.pem\n'
-                f'kubectl create secret generic self-signed-cert -n {dp_namespace} --from-file=cert=/tmp/cp-cert.pem\n'
-                f'rm -f /tmp/cp-cert.pem\n'
+                f'cert_file=/tmp/cp-cert.pem\n'
+                f'cert_path="$(cygpath -w "$cert_file" 2>/dev/null || echo "$cert_file")"\n'
+                f'kubectl get secret default-certificate -n ingress-system -o jsonpath="{{.data.tls\\.crt}}" | base64 --decode > "$cert_file"\n'
+                f'kubectl create secret generic self-signed-cert -n "{dp_namespace}" --from-file=cert="$cert_path"\n'
+                f'rm -f "$cert_file"\n'
             )
             script_content = script_content.replace('helm upgrade', secret_cmd + 'helm upgrade', 1)
 

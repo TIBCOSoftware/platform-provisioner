@@ -506,6 +506,11 @@ legend {
   font-weight: 600;
 }
 
+.container .row .row label span.optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .container .row .row label.flex-column {
   flex-direction: column;
   align-items: flex-start;

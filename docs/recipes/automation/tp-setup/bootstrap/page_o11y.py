@@ -31,6 +31,7 @@ from o11y_dashboard_config import (
     LOG_CARDS,
     LOG_DASHBOARD_NAME,
     CAPABILITY_DASHBOARDS,
+    PROMQL_DASHBOARD,
 )
 
 
@@ -79,12 +80,36 @@ def configure_capability_dashboards(po_o11y, labels):
             po_o11y.add_widgets(capability, level2_menu, cards)
 
 
+def configure_promql_dashboard(po_o11y, labels):
+    """Step 4 (PCP-20424): create the dedicated PromQL dashboard. One Range card plus
+    one Instant card per concrete chart type (renamed so they're distinguishable).
+    PromQL cards auto-open a query editor, so they go through add_promql_*widget."""
+    spec = PROMQL_DASHBOARD
+    name, capability, submenu = spec["name"], spec["capability"], spec["submenu"]
+    print(f"===== Step 4: configure '{name}' dashboard =====")
+    if capability not in labels:
+        ColorLogger.warning(f"Capability '{capability}' not installed; skip dashboard '{name}'")
+        return
+    if po_o11y.is_dashboard_exists(name):
+        ColorLogger.warning(f"Dashboard '{name}' already exists; skip creation")
+        return
+    if not po_o11y.create_dashboard(name):
+        Util.warning_screenshot(f"Failed to create dashboard '{name}'", po_o11y.page, f"o11y-create-{name}.png")
+        return
+    for card_name, query in spec["range_cards"]:
+        po_o11y.add_promql_widget(capability, submenu, card_name, query)
+    for card_name, query, chart_type, title in spec["instant_cards"]:
+        po_o11y.add_promql_instant_widget(capability, submenu, card_name, query, chart_type, title)
+
+
 def configure_dashboards(po_o11y):
-    """New PCP-20053 flow: populate Default + logs_dashboard + per-capability dashboards."""
+    """PCP-20053 + PCP-20424 flow: populate Default + logs_dashboard + per-capability
+    dashboards + the dedicated PromQL dashboard."""
     labels = po_o11y.get_catalog_menu_labels()
     configure_default_dashboard(po_o11y)
     configure_logs_dashboard(po_o11y)
     configure_capability_dashboards(po_o11y, labels)
+    configure_promql_dashboard(po_o11y, labels)
 
 
 def configure_legacy_widgets(po_o11y):

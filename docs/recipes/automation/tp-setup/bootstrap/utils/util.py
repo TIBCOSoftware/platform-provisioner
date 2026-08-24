@@ -553,6 +553,129 @@ class Util:
         return False
 
     @staticmethod
+    def check_dom_enabled(page, dom_selector, interval=2, max_wait=60):
+        """Poll until a (present/visible) DOM element becomes ENABLED — mirrors
+        check_dom_visibility's logged-polling contract but keys on is_enabled().
+
+        For fields that render visible-but-disabled while the UI awaits async
+        readiness — e.g. the Register-Gateway wizard's gateway-name input, which
+        stays disabled with aria-describedby="register-name-awaiting-dp" until the
+        wizard's target-DP list resolves (PCP-21482). Playwright's .fill()/.click()
+        auto-wait for editability and blow the default 30s timeout on a field that
+        is still disabled; polling is_enabled() first lets the caller screenshot and
+        exit gracefully instead. Call only AFTER the element is visible (is_enabled()
+        needs the element to exist). Returns True as soon as it is enabled, False
+        after max_wait.
+        """
+        total_attempts = max_wait // interval
+        timeout = interval if interval < 5 else 5
+        print(f"Check dom enabled, wait {timeout} seconds first, then loop to check for {max_wait} seconds.")
+        page.wait_for_timeout(timeout * 1000)
+        selector = None
+        try:
+            m = re.search(r"selector=(['\"])(.*?)\1", repr(dom_selector))
+            selector = m.group(2) if m else None
+        except Exception as e:
+            print(f"Error extracting selector: {e}")
+
+        for attempt in range(total_attempts):
+            if selector: print(f"Checking dom enabled: {selector}")
+
+            # is_enabled() RAISES when the locator resolves to no element (unlike
+            # is_visible(), which returns False) — e.g. a transient *ngIf detach at
+            # poll time. Swallow it and keep polling so this helper honours its
+            # boolean contract (never raises) and the caller's graceful
+            # screenshot/exit path still runs.
+            try:
+                if dom_selector.is_enabled():
+                    print("Dom is now enabled.")
+                    return True
+            except Exception as e:
+                print(f"is_enabled() not resolvable yet ({e}); will retry...")
+
+            print(f"--- Attempt {attempt + 1}/{total_attempts}, Loop to check: Checking if dom is enabled...")
+            if attempt < total_attempts - 1:  # no need to sleep after the final check
+                print(f"Dom not enabled. Waiting for {interval} seconds before retrying...")
+                page.wait_for_timeout(interval * 1000)
+
+        ColorLogger.warning(f"Dom is still not enabled after waiting for {max_wait} seconds.")
+        return False
+
+    @staticmethod
+    def check_dom_attribute(page, dom_selector, attribute, expected, interval=1, max_wait=6) -> bool:
+        """Poll until a DOM element's ATTRIBUTE equals expected — mirrors
+        check_dom_visibility / check_dom_enabled's logged-polling contract but keys
+        on get_attribute().
+
+        For state the UI publishes through an attribute that is written
+        asynchronously. The Assign-Permissions wizard is the motivating case: the
+        wildcard-domains checkbox exposes its state via aria-checked, but the
+        component pre-seeds that to "false" and only writes the real value inside
+        the resource-instances XHR callback. The attribute is therefore PRESENT and
+        wrong for a short window, so a zero-wait get_attribute() — how the existing
+        bug reads it — sees stale state and makes the caller click a checkbox that
+        was already ticked, toggling an existing grant back OFF.
+
+        DELIBERATE DEVIATION from both siblings: this does an IMMEDIATE first read
+        BEFORE any wait, and only then sleeps interval between attempts.
+        check_dom_visibility opens with a blind min(interval, 5)s sleep; here the
+        caller has already deterministically settled on the XHR, so a leading blind
+        wait buys nothing and is pure cost on an install task that already carries
+        retryCount:10.
+
+        Returns True as soon as the attribute equals expected, False after max_wait.
+        Never raises.
+        """
+        # Read at least once even when max_wait < interval, so the "immediate first
+        # read" contract holds for every caller-supplied timing. Round the attempt
+        # count UP so max_wait stays a true upper bound rather than being truncated
+        # away when it is not an exact multiple of interval, and floor interval at 1
+        # so a caller passing 0 gets a busy-free poll instead of ZeroDivisionError -
+        # this helper's whole contract is that it never raises.
+        interval = max(1, interval)
+        total_attempts = max(1, -(-max_wait // interval))
+        print(f"Check dom attribute '{attribute}' == '{expected}', check immediately, then loop to check for {max_wait} seconds.")
+        selector = None
+        try:
+            m = re.search(r"selector=(['\"])(.*?)\1", repr(dom_selector))
+            selector = m.group(2) if m else None
+        except Exception as e:
+            print(f"Error extracting selector: {e}")
+
+        for attempt in range(total_attempts):
+            if selector: print(f"Checking dom attribute: {selector}")
+
+            # get_attribute() RAISES when the locator resolves to no element (a
+            # transient *ngIf detach while the wizard re-renders). Swallow it and
+            # keep polling so this helper honours its boolean contract.
+            try:
+                # Bound the read explicitly: get_attribute() forwards Playwright's 30s
+                # default when the locator resolves to nothing, so an unbounded call would
+                # make max_wait a per-attempt budget instead of the wall-clock cap callers
+                # rely on to stay inert quickly.
+                actual = dom_selector.get_attribute(attribute, timeout=interval * 1000)
+                if actual == expected:
+                    print(f"Dom attribute '{attribute}' is now '{expected}'.")
+                    return True
+                print(f"Dom attribute '{attribute}' is '{actual}', expected '{expected}'.")
+            except Exception as e:
+                print(f"get_attribute() not resolvable yet ({e}); will retry...")
+
+            print(f"--- Attempt {attempt + 1}/{total_attempts}, Loop to check: Checking dom attribute...")
+            if attempt < total_attempts - 1:  # no need to sleep after the final check
+                print(f"Dom attribute not matched. Waiting for {interval} seconds before retrying...")
+                try:
+                    page.wait_for_timeout(interval * 1000)
+                except Exception as e:
+                    # a torn-down page/context raises here; stop polling and report the
+                    # miss rather than break the never-raises contract on the way out
+                    print(f"Page is no longer waitable ({e}); stopping the poll.")
+                    break
+
+        ColorLogger.warning(f"Dom attribute '{attribute}' is still not '{expected}' after waiting for {max_wait} seconds.")
+        return False
+
+    @staticmethod
     def click_button_until_enabled(page, button_selector):
         button_selector.wait_for(state="visible")
         page.wait_for_function(

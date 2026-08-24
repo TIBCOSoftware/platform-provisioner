@@ -167,7 +167,7 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_DP"
   description: |
-    Set to true to create DP
+    Set to true to create DP. For a Control Plane only run, untick the capability checkboxes below (Deploy Flogo, Deploy BWCE, ...) as well: a capability is provisioned inside a Data Plane, so leaving one ticked stops the pipeline with a configuration error naming it. Note that a Control Plane only run also skips Global observability configuration and licence activation, because in non-CLI mode those are performed by the same page_dp.py task the capability checkboxes schedule.
 - name: "Configure DP O11Y"
   groupIndex: 6
   type: boolean
@@ -203,13 +203,13 @@ options:
   reference: "meta.guiEnv.GUI_TP_AI_ENABLE_MCP_HUB"
   description: |
     Set to true to deploy MCP Hub (MCP Gateway + CP MCP Server + push to gateway)
-- name: "Deploy Kubernetes MCP Server"
+- name: "Deploy Infra MCP Server"
   groupIndex: 6
   type: boolean
   guiType: checkbox
-  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_K8S_MCP_SERVER"
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_INFRA_MCP_SERVER"
   description: |
-    Set to true to deploy Kubernetes MCP Server capability
+    Set to true to deploy Infra MCP Server capability
 - name: "Deploy TIBCO Hub"
   groupIndex: 6
   type: boolean
@@ -224,6 +224,14 @@ options:
   reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_EMS"
   description: |
     Set to true to deploy EMS
+- name: "Deploy ActiveSpaces"
+  groupIndex: 6
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_TP_AUTO_ENABLE_AS"
+  description: |
+    Set to true to deploy the TIBCO ActiveSpaces capability.
+    Requires a control plane with tibco-cp-messaging 1.19.15 or later.
 - name: "Enable hybrid connectivity"
   groupIndex: 6
   type: boolean

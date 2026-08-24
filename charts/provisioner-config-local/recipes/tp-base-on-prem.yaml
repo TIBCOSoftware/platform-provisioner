@@ -65,6 +65,11 @@ meta:
     GUI_TP_PROVISIONER_UI_NAMESPACE: tekton-tasks
     GUI_TP_AUTOMATION_INSTALL: false
     GUI_TP_AUTOMATION_NAMESPACE: automation
+    # DEV opt-in (default false). When true, the Automation Hub's /get_env ALSO serves the
+    # Admin/User Password + CLI OAuth token so the UI fields pre-fill on load. Default false
+    # preserves the TPSEC-124 default-deny — never expose secrets unless explicitly opted in
+    # on a trusted dev instance.
+    GUI_TP_AUTO_GET_ENV_EXPOSE_SECRETS: false
     GUI_TP_IS_CERT_SELF_SIGNED: false
 
     # third party tools version
@@ -91,7 +96,7 @@ meta:
 
     # CP automation
     GUI_TP_AUTOMATION_DOCKER_IMAGE_REPO: "ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner"
-    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.7.47-auto-on-prem-jammy
+    GUI_TP_AUTOMATION_DOCKER_IMAGE_TAG: 1.7.83-auto-on-prem-jammy
 
     # gateway name for Gateway API implementations
     GUI_TP_GATEWAY_NAME: "nginx-gateway"
@@ -161,6 +166,7 @@ meta:
     TP_PROVISIONER_UI_INGRESS_CLASSNAME: ${GUI_TP_PROVISIONER_UI_INGRESS_CLASSNAME:-"nginx"}
     TP_AUTOMATION_INSTALL: ${GUI_TP_AUTOMATION_INSTALL:-false}
     TP_AUTOMATION_NAMESPACE: ${GUI_TP_AUTOMATION_NAMESPACE:-"automation"}
+    TP_AUTO_GET_ENV_EXPOSE_SECRETS: ${GUI_TP_AUTO_GET_ENV_EXPOSE_SECRETS:-"false"}
     TP_INGRESS_OBJECT: ${GUI_TP_INGRESS_OBJECT:-"ingress"}
     TP_AUTOMATION_INGRESS_ENABLED: $(if [[ "${TP_INGRESS_OBJECT}" == "ingress" ]]; then echo true; else echo false; fi)
     TP_AUTOMATION_GATEWAY_ENABLED: $(if [[ "${TP_INGRESS_OBJECT}" == "gateway" ]]; then echo true; else echo false; fi)
@@ -918,6 +924,8 @@ helmCharts:
           value: "false"
         - name: TP_AUTO_TASK_FROM_LOCAL_SOURCE
           value: "false"
+        - name: TP_AUTO_GET_ENV_EXPOSE_SECRETS
+          value: "${TP_AUTO_GET_ENV_EXPOSE_SECRETS}"
         - name: TP_IS_CERT_SELF_SIGNED
           value: "${TP_IS_CERT_SELF_SIGNED}"
         others:

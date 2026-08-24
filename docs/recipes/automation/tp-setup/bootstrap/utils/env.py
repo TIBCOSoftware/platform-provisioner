@@ -21,6 +21,90 @@ from dataclasses import dataclass
 from datetime import datetime
 from utils.color_logger import ColorLogger
 from utils.helper import Helper
+# Note: do NOT import utils.util here, it imports utils.report and is itself imported by
+# page_dp.py -> that would be a circular import.
+
+_PROVISION_FLAG_PREFIX = "TP_AUTO_IS_PROVISION_"
+
+# TP_AUTO_IS_PROVISION_* flags that must never make a run look like it wants a Data Plane.
+# Two DIFFERENT reasons live here, both load-bearing:
+#
+# (1) "not a capability at all" - TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL gates a user creation
+#     mode. It defaults to "true" below, and
+#     charts/provisioner-config-local/recipes/tp-automation-o11y.yaml exports it as a pipeline
+#     global that also defaults to true. Without this entry the guard would refuse 100% of
+#     TP_AUTO_IS_CREATE_DP=false runs, including the legitimate CP-only ones - a worse outage
+#     than the bug it is meant to catch.
+#
+# (2) "a capability, but not one page_dp.py can provision" - page_dp.py's capability blocks are
+#     Flogo, BWCE/BW5CE, EMS, Pulsar, TibcoHub and SpringBoot only. The Infra MCP Server is
+#     provisioned by case/k8s_provision_infra_mcp_server.py against an ALREADY registered Data
+#     Plane (the deploy-infra-mcp-server task runs that module, not page_dp.py), so
+#     TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER can never make a page_dp.py run unsatisfiable. Only
+#     page_dp.py consults this guard, so refusing on that flag would abort a run whose
+#     capability work is done elsewhere, against a Data Plane that already exists.
+_OUT_OF_SCOPE_PROVISION_FLAGS = frozenset({
+    "TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL",  # (1) not a capability
+    "TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER",      # (2) not provisioned by page_dp.py
+})
+
+# python flag name -> GUI variable a user actually sets, for the non-mechanical cases only.
+# Everything else is derived as TP_AUTO_IS_PROVISION_X -> GUI_TP_AUTO_ENABLE_X.
+_PROVISION_FLAG_GUI_OVERRIDES = {
+    "TP_AUTO_IS_PROVISION_SPRINGBOOT": "GUI_TP_AUTO_ENABLE_SB",
+}
+
+# Capabilities with NO GUI variable at all. The derivation above is mechanical, so without this
+# set it would invent a name: GUI_TP_AUTO_ENABLE_PULSAR exists nowhere - not in
+# charts/provisioner-config-local/recipes/tp-automation-o11y.yaml, not in
+# charts/provisioner-config-local/config/pp-maintain-tp-automation-o11y.yaml (the Provisioner UI
+# descriptor), and not in docs/recipes/k8s/on-prem/scripts/headless/tp-install-on-prem.sh. Pulsar
+# is reachable only through the raw TP_AUTO_IS_PROVISION_PULSAR environment variable, and it has
+# no TP_AUTO_ENABLE_PULSAR pipeline global either, which is why the recipe pre-flight has no
+# Pulsar row to check. Telling a user to unset a variable that does not exist is worse than
+# telling them nothing, so these report the knob they can actually turn.
+_PROVISION_FLAGS_WITHOUT_GUI = frozenset({
+    "TP_AUTO_IS_PROVISION_PULSAR",
+})
+
+def provision_flag_setting_name(flag_name):
+    """Map a TP_AUTO_IS_PROVISION_* flag to the variable a user can actually set.
+
+    That is the GUI_* variable where one exists - user-facing text is keyed on the variable name
+    rather than on a checkbox label because the variable names are byte-identical in the on-prem
+    and SaaS UIs while the labels are not - and the raw flag itself where one does not.
+
+    The return value is never empty: every finding must name something settable, or the
+    remediation it appears in is unactionable.
+    """
+    if flag_name in _PROVISION_FLAGS_WITHOUT_GUI:
+        return flag_name
+    if flag_name in _PROVISION_FLAG_GUI_OVERRIDES:
+        return _PROVISION_FLAG_GUI_OVERRIDES[flag_name]
+    return f"GUI_TP_AUTO_ENABLE_{flag_name[len(_PROVISION_FLAG_PREFIX):]}"
+
+def unsatisfiable_capabilities(is_create_dp, provision_flags):
+    """Return the capability flags that can never be satisfied by this run.
+
+    Capabilities are provisioned inside a Data Plane, so every enabled capability flag is
+    unsatisfiable when the run does not create one, except for the flags listed in
+    _OUT_OF_SCOPE_PROVISION_FLAGS. Returns one entry per offending flag:
+    {"flag": <python flag name>, "setting": <variable the user sets>} - both are always
+    populated, so a caller can never render a name the user has no way to change.
+
+    Pure on purpose: no ENV access and no I/O, so it is unit testable without monkeypatching.
+    """
+    if is_create_dp:
+        return []
+
+    findings = []
+    for flag_name in sorted(provision_flags):  # sorted so the reported order is deterministic
+        if flag_name in _OUT_OF_SCOPE_PROVISION_FLAGS:
+            continue
+        if not provision_flags[flag_name]:
+            continue
+        findings.append({"flag": flag_name, "setting": provision_flag_setting_name(flag_name)})
+    return findings
 
 @dataclass(frozen=True)
 class EnvConfig:
@@ -71,13 +155,14 @@ class EnvConfig:
     TP_AUTO_IS_ENABLE_EMS_SERVER = os.environ.get("TP_AUTO_IS_ENABLE_EMS_SERVER", "true").lower() == "true"
     TP_AUTO_IS_ENABLE_BW6DM = os.environ.get("TP_AUTO_IS_ENABLE_BW6DM", "true").lower() == "true"
     TP_AUTO_IS_CONFIG_O11Y = os.environ.get("TP_AUTO_IS_CONFIG_O11Y", "false").lower() == "true"
+    TP_AUTO_IS_PROVISION_AS = os.environ.get("TP_AUTO_IS_PROVISION_AS", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_BWCE = os.environ.get("TP_AUTO_IS_PROVISION_BWCE", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_BW5CE = os.environ.get("TP_AUTO_IS_PROVISION_BW5CE", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_EMS = os.environ.get("TP_AUTO_IS_PROVISION_EMS", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_FLOGO = os.environ.get("TP_AUTO_IS_PROVISION_FLOGO", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_PULSAR = os.environ.get("TP_AUTO_IS_PROVISION_PULSAR", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_TIBCOHUB = os.environ.get("TP_AUTO_IS_PROVISION_TIBCOHUB", "false").lower() == "true"
-    TP_AUTO_IS_PROVISION_K8S_MCP_SERVER = os.environ.get("TP_AUTO_IS_PROVISION_K8S_MCP_SERVER", "false").lower() == "true"
+    TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER = os.environ.get("TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_SPRINGBOOT = os.environ.get("TP_AUTO_IS_PROVISION_SPRINGBOOT", "false").lower() == "true"
     TP_AI_ENABLE_MCP_HUB = os.environ.get("TP_AI_ENABLE_MCP_HUB", "false").lower() == "true"
     TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL = os.environ.get("TP_AUTO_IS_PROVISION_USER_WITHOUT_EMAIL", "true").lower() == "true"
@@ -155,7 +240,7 @@ class EnvConfig:
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE") or "bw5ce"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO") or "flogo"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB") or "tibcohub"
-    TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER") or "k8smcp"
+    TP_AUTO_CP_DNS_DOMAIN_PREFIX_INFRA_MCP_SERVER = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_INFRA_MCP_SERVER") or "k8smcp"
     TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT = os.environ.get("TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT") or "springboot"
 
     TP_AUTO_LOGIN_URL = os.environ.get("TP_AUTO_LOGIN_URL") or f"https://{DP_HOST_PREFIX}.{TP_AUTO_CP_SERVICE_DNS_DOMAIN}/cp/login"
@@ -177,7 +262,7 @@ class EnvConfig:
     TP_AUTO_FQDN_BW5CE = os.environ.get("TP_AUTO_FQDN_BW5CE") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE}.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_FQDN_FLOGO = os.environ.get("TP_AUTO_FQDN_FLOGO") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_FQDN_TIBCOHUB = os.environ.get("TP_AUTO_FQDN_TIBCOHUB") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}.{TP_AUTO_CP_DNS_DOMAIN}"
-    TP_AUTO_FQDN_K8S_MCP_SERVER = os.environ.get("TP_AUTO_FQDN_K8S_MCP_SERVER") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER}.{TP_AUTO_CP_DNS_DOMAIN}"
+    TP_AUTO_FQDN_INFRA_MCP_SERVER = os.environ.get("TP_AUTO_FQDN_INFRA_MCP_SERVER") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_INFRA_MCP_SERVER}.{TP_AUTO_CP_DNS_DOMAIN}"
     TP_AUTO_FQDN_SPRINGBOOT = os.environ.get("TP_AUTO_FQDN_SPRINGBOOT") or f"{TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT}.{TP_AUTO_CP_DNS_DOMAIN}"
 
     # capabilities url
@@ -225,7 +310,7 @@ class EnvConfig:
     TP_AUTO_INGRESS_CONTROLLER_BW5CE = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_BW5CE") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_BW5CE}"
     TP_AUTO_INGRESS_CONTROLLER_FLOGO = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_FLOGO") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_FLOGO}"
     TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_TIBCOHUB") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_TIBCOHUB}"
-    TP_AUTO_INGRESS_CONTROLLER_K8S_MCP_SERVER = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_K8S_MCP_SERVER") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_K8S_MCP_SERVER}"
+    TP_AUTO_INGRESS_CONTROLLER_INFRA_MCP_SERVER = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_INFRA_MCP_SERVER") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_INFRA_MCP_SERVER}"
     TP_AUTO_INGRESS_CONTROLLER_SPRINGBOOT = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_SPRINGBOOT") or f"{TP_AUTO_INGRESS_CONTROLLER}-{TP_AUTO_CP_DNS_DOMAIN_PREFIX_SPRINGBOOT}"
     # TP_AUTO_INGRESS_CONTROLLER_KEYS = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_KEYS") or ""
     # TP_AUTO_INGRESS_CONTROLLER_VALUES = os.environ.get("TP_AUTO_INGRESS_CONTROLLER_VALUES") or ""
@@ -268,6 +353,8 @@ class EnvConfig:
             ColorLogger.warning(f"TP_AUTO_IS_CREATE_DP is false, will not create Data Plane")
         if not self.TP_AUTO_IS_CONFIG_O11Y:
             ColorLogger.warning(f"TP_AUTO_IS_CONFIG_O11Y is false, will not config Data Plane o11y")
+        if not self.TP_AUTO_IS_PROVISION_AS:
+            ColorLogger.warning(f"TP_AUTO_IS_PROVISION_AS is false, will not provision ActiveSpaces capability")
         if not self.TP_AUTO_IS_PROVISION_BWCE:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_BWCE is false, will not provision BWCE capability")
         if not self.TP_AUTO_IS_PROVISION_BW5CE:
@@ -280,8 +367,8 @@ class EnvConfig:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_PULSAR is false, will not provision Pulsar capability")
         if not self.TP_AUTO_IS_PROVISION_TIBCOHUB:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_TIBCOHUB is false, will not provision TibcoHub capability")
-        if not self.TP_AUTO_IS_PROVISION_K8S_MCP_SERVER:
-            ColorLogger.warning(f"TP_AUTO_IS_PROVISION_K8S_MCP_SERVER is false, will not provision Kubernetes MCP Server capability")
+        if not self.TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER:
+            ColorLogger.warning(f"TP_AUTO_IS_PROVISION_INFRA_MCP_SERVER is false, will not provision Infra MCP Server capability")
         if not self.TP_AUTO_IS_PROVISION_SPRINGBOOT:
             ColorLogger.warning(f"TP_AUTO_IS_PROVISION_SPRINGBOOT is false, will not provision Spring Boot capability")
 
@@ -304,5 +391,25 @@ class EnvConfig:
                 ColorLogger.info(f"Saved activation file to '{activation_file}'.")
             else:
                 ColorLogger.error("Failed to save activation file from base64 string.")
+
+    def check_capabilities_require_dataplane(self):
+        """Report the capability flags that are on while this run creates no Data Plane.
+
+        EnvConfig declares no annotated dataclass fields, so every TP_AUTO_IS_PROVISION_* flag
+        is a plain class attribute and vars(type(self)) enumerates them.
+
+        TP_AI_ENABLE_MCP_HUB is not covered and does not need to be: it does not match
+        TP_AUTO_IS_PROVISION_*, so this reflection structurally cannot see it, and deploy-mcp-hub
+        runs case/k8s_deploy_mcp_hub.py against an already registered Data Plane rather than this
+        file. The recipe pre-flight leaves it alone for the same reason - see
+        _OUT_OF_SCOPE_PROVISION_FLAGS (2) for the identical Infra MCP Server case.
+
+        Returns the findings, it does not log fatally or exit - the caller decides how to die.
+        """
+        provision_flags = {
+            name: value for name, value in vars(type(self)).items()
+            if name.startswith(_PROVISION_FLAG_PREFIX)
+        }
+        return unsatisfiable_capabilities(self.TP_AUTO_IS_CREATE_DP, provision_flags)
 
 ENV = EnvConfig()

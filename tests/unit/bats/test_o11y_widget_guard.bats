@@ -202,3 +202,56 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "1" ]
 }
+
+# ============================================================================
+# add-card-to-o11y silent-failure marker (PCP-23371)
+#
+# Bug: when page_o11y.py fails, the add-card-to-o11y task still hardcodes
+# `exit 0` (intentionally non-blocking — a dashboard-widget task should not
+# fail the whole TP install) but the failure was completely unreported: no
+# marker distinguished "failed but allowed to continue" from "succeeded",
+# so parse-log.sh's "Detected Issues" summary reported nothing.
+# Fix: emit a greppable [WARNING] line when ${_result} != 0, still exit 0.
+# ============================================================================
+
+# Mirror of the recipe's add-card-to-o11y result-handling block (kept in sync
+# with the recipe; the last test asserts the recipe itself uses this form).
+add_card_to_o11y_result_handling() {
+  local _result="$1"
+  echo "python return code: ${_result}"
+  if [[ "${_result}" -ne 0 ]]; then
+    echo "[WARNING] add-card-to-o11y: page_o11y.py exited ${_result} — o11y dashboard cards were not configured, continuing anyway"
+  fi
+  return 0
+}
+
+@test "add-card-to-o11y: success (_result=0) does not emit a WARNING" {
+  run add_card_to_o11y_result_handling 0
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"[WARNING]"* ]]
+}
+
+@test "add-card-to-o11y: failure (_result!=0) emits a greppable WARNING but still returns 0" {
+  run add_card_to_o11y_result_handling 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARNING] add-card-to-o11y: page_o11y.py exited 1"* ]]
+}
+
+@test "recipe's add-card-to-o11y task emits [WARNING] on non-zero _result" {
+  run grep -c '\[WARNING\] add-card-to-o11y: page_o11y.py exited \${_result}' "${RECIPE}"
+  [ "$status" -eq 0 ]
+  [ "$output" = "1" ]
+}
+
+@test "recipe's add-card-to-o11y task still exits 0 unconditionally (stays non-blocking)" {
+  # The task block must end with a bare 'exit 0' (not 'exit ${_result}') right
+  # after the WARNING guard — non-blocking behavior must be preserved.
+  # Range starts at the python-invocation line (not 'name: add-card-to-o11y')
+  # so it excludes the task's earlier, unrelated "already configured" skip-guard
+  # exit 0 — otherwise the positive 'exit 0' assertion below would pass even if
+  # the WARNING guard's own exit 0 were removed.
+  run awk '/Running file \$\{PYTHON_FILE_ENTRY_POINT_O11Y\}/,/name: print-report/' "${RECIPE}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"exit 0"* ]]
+  [[ "$output" != *"exit \${_result}"* ]]
+}

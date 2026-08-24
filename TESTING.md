@@ -7,6 +7,7 @@
 | `make test` | Run all tests (BATS unit + integration + Helm unittest) |
 | `make test-unit` | Run BATS unit tests for bash scripts |
 | `make test-integration` | Run BATS integration tests (pipeline orchestration, CUE) |
+| `make test-skills` | Run the test runners of the `.ai/skills` suites (pytest, bats) |
 | `make test-helm` | Run Helm chart unit tests |
 | `make test-local` | Run e2e recipe test in Docker |
 | `make lint` | Lint Helm charts (ct lint) |
@@ -40,6 +41,7 @@ brew install yq                 # macOS
 
 ```
 tests/
+├── run-skill-tests.sh                       # Skill test runner: every .ai/skills/*/tests/run-tests.sh
 ├── unit/                                    # Unit tests — individual functions
 │   └── bats/
 │       ├── helpers/
@@ -52,6 +54,7 @@ tests/
 │       ├── test_security.bats               # Security-focused tests
 │       ├── test_generic_runner.bats         # _funcs_generic_runner.sh (script/payload/repo)
 │       ├── test_funcs_helm.bats             # _funcs_helm.sh (chart download, flags, hooks)
+│       ├── test_automation_deploy_gcp_paths.bats # make automation-deploy-gcp: local vs remote paths
 │       ├── test_run_generic.bats            # generic-runner run.sh entry point
 │       ├── test_run_helm.bats               # helm-install run.sh entry point
 │       └── test_run_task.bats               # generic-runner::run_task lifecycle
@@ -74,12 +77,25 @@ tests/
     ├── test-azure.yaml                      # Azure assume role test
     └── test-gcp.yaml                        # GCP federation test
 
+.ai/skills/
+├── deploy-tp-gcp-alpha/tests/               # pytest: fetch-versions.py
+│   ├── test_fetch_versions.py               # Version selection + index fetch (needs PyYAML)
+│   ├── test_next_step.py                    # The printed next step; no PyYAML, so it never skips
+│   └── run-tests.sh                         # Runner of this skill, discovered by run-skill-tests.sh
+└── validate-pipeline/tests/                 # pytest + bats: the provisioner MCP/REST skill scripts
+    └── run-tests.sh                         # Runner of this skill, discovered by run-skill-tests.sh
+
 charts/
 ├── common-dependency/tests/                 # Helm unittest for common-dependency
 ├── generic-runner/tests/                    # Helm unittest for generic-runner
 ├── helm-install/tests/                      # Helm unittest for helm-install
 ├── platform-provisioner-ui/tests/           # Helm unittest for UI chart
 └── provisioner-config-local/tests/          # Helm unittest for config chart
+
+docs/recipes/automation/tp-setup/bootstrap/
+├── tests/                                   # pytest: the hermetic unit suite (CI runs this one)
+│   └── conftest.py                          # Stubs the kubectl-backed ENV autodetect at module load
+└── e2e/                                     # pytest: live-cluster suite (NOT run in CI)
 ```
 
 ## Unit Tests (`tests/unit/bats/`)
@@ -241,6 +257,100 @@ helm unittest --strict charts/platform-provisioner-ui/
 helm unittest --strict charts/generic-runner/
 ```
 
+## Skill Tests (`.ai/skills/*/tests/`)
+
+The skills under `.ai/skills/` ship scripts that drive a pipeline run (trigger, fetch a recipe, parse a
+log, look up chart versions). Each skill owns its tests and its own runner, `tests/run-tests.sh`, because
+each suite brings its own tools: pytest for the python scripts, bats for the shell scripts. The suites are
+network-free — the MCP/REST calls, the `gh api` index and the pipeline itself are stubbed.
+
+| Skill | Suites | Covers |
+|-------|--------|--------|
+| `validate-pipeline` | pytest + bats | `provisioner-mcp.py`, `trigger-pipeline.sh`, `fetch-recipe.sh`, `parse-log.sh`, `cancel-pipeline.sh` |
+| `deploy-tp-gcp-alpha` | pytest | `fetch-versions.py` (chart version selection and index fetch in `test_fetch_versions.py`, the printed next step in `test_next_step.py`) |
+
+[`tests/run-skill-tests.sh`](tests/run-skill-tests.sh) **discovers** the runners instead of listing them,
+so a new `.ai/skills/<skill>/tests/run-tests.sh` is picked up by CI without touching the harness or the
+workflow. Every runner is executed even when one fails, and the summary names each of them. A skills tree
+without a single runner fails the sweep: an empty discovery would report a green run for tests that never ran.
+
+```bash
+# every skill
+make test-skills
+./tests/run-skill-tests.sh
+
+# one skill
+make test-skills SKILL=validate-pipeline
+./tests/run-skill-tests.sh validate-pipeline
+
+# the way CI runs them: every tool required, a test that skips itself fails
+SKILL_TESTS_STRICT=true ./tests/run-skill-tests.sh
+```
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SKILL` | *(empty)* | Limits `make test-skills` to one skill |
+| `SKILLS_DIR` | `.ai/skills` | The skills tree the runners are discovered in |
+| `SKILL_TESTS_STRICT` | *(off)* | Treats a missing tool and a test that skips itself as a failure. Set on the CI job |
+
+- **pytest** and **PyYAML** are required; the runners fall back to `uv run --with pytest` when pytest is
+  not importable.
+- **bats** is optional locally — a runner prints a `SKIP` note without it. CI installs it and verifies the
+  tools up front, so a suite can never silently skip there.
+- The `parse-log` suite exercises the GNU-only `grep -oP` of the script under test, so it needs GNU grep
+  (CI has it; on macOS use `brew install grep`, on Alpine the BusyBox grep is not enough).
+- Skill tests are not part of `make test`: they need a python toolchain, while the BATS and Helm suites
+  only need bash. CI runs them on every PR.
+
+### Nothing green may stand for nothing run
+
+A suite that skips itself reports neither a pass nor a failure, and a sweep of such suites reads exactly
+like a clean run. Three guards keep the skill tests honest, and each of them is a hard failure:
+
+| Guard | Where |
+|-------|-------|
+| A skills tree with no runner at all fails the sweep | `tests/run-skill-tests.sh` |
+| A runner that ran no suite fails, even when nothing failed | `.ai/skills/*/tests/run-tests.sh` |
+| With `SKILL_TESTS_STRICT`, a missing tool and a skipped test fail (bats is run through the TAP formatter, which names a skipped test; pytest reports its skips with `-rs`) | `.ai/skills/*/tests/run-tests.sh` |
+
+The same rule shapes where a test lives: the guard on the next step `fetch-versions.py` prints sits in
+`test_next_step.py`, which needs no PyYAML, because next to the index fixture it was skipped on every
+machine without it — a guard behind a skip guards nothing.
+
+## Automation Bootstrap Unit Tests (`docs/recipes/automation/tp-setup/bootstrap/tests/`)
+
+The Platform Automation Hub under `docs/recipes/automation/tp-setup/bootstrap/` is a standalone
+`uv` sub-project (Flask + Playwright). Its `tests/` tree is a pytest suite over the page objects,
+the CLI orchestrator and the server routes. It needs **no cluster, no Control Plane and no
+tibcop** — but cluster-free is not browser-free: `test_local_secret_prefill.py` (the TPSEC-124
+regression) drives a real chromium against an in-process Flask server, so a browser binary has to
+be present or that one case errors out.
+
+```bash
+cd docs/recipes/automation/tp-setup/bootstrap
+uv sync
+uv run playwright install chromium   # once; only test_local_secret_prefill.py needs it
+uv run pytest tests/ -rs
+```
+
+**`tests/` only — never `tests/ e2e/`.** The sibling `e2e/` tree is the live-cluster suite: its
+`conftest.py` probes helm at collection time and raises a `TypeError` when no cluster is present,
+so pulling it in fails the run on every machine without one. `tests/conftest.py` is built for the
+opposite: it stubs the kubectl-backed `ENV` autodetect entry points (`get_command_output`,
+`get_cp_version`, `get_cp_dns_domain`, `get_elastic_password`, `get_storage_class`) at module load,
+before pytest imports any test module, so nothing shells out at collection.
+
+The CI job therefore installs chromium (`playwright install --with-deps chromium`) before running
+the suite. Skipping that step does not fail the suite so much as make it lie: it ends
+`609 passed, 1 error` and exits 1, which reads as a broken build when it is a missing binary.
+
+The CI job is scoped the same way. `pytest` exits 5 when it collects nothing, so a suite that
+disappears fails the job rather than reporting a green run for tests that never ran — the same rule
+the skill tests follow under *Nothing green may stand for nothing run*.
+
+> Until PCP-23458 no CI job ran this tree at all: 39 test files, 8 green checks on a PR, and not one
+> of those checks executed a single case. The suite is only worth what CI enforces.
+
 ## CI Integration
 
 Tests run automatically via `.github/workflows/test.yaml` on:
@@ -250,15 +360,27 @@ Tests run automatically via `.github/workflows/test.yaml` on:
 The CI pipeline runs these jobs:
 
 1. **BATS Unit + Integration Tests** — runs both `tests/unit/bats/` and `tests/integration/bats/` with randomized file order (`shuf`) and parallel execution (`--jobs 2`), outputs JUnit XML, reports 10 slowest tests
-2. **BATS Coverage** — runs all BATS tests through kcov with branch coverage, enforces minimum 90% threshold, outputs coverage summary with history
-3. **Helm Unit Tests** — runs helm-unittest for all charts with `tests/`, outputs JUnit XML
-4. **ShellCheck** — lints all bash scripts with `--severity=warning` (blocking)
-5. **Recipe Smoke Tests** — validates e2e recipe YAML syntax and structure
-6. **Diff Coverage (PR only)** — computes coverage delta for changed `.sh` files, posts coverage summary as PR comment with trend indicator
+2. **Skill Tests (`.ai/skills`)** — installs python (pytest, PyYAML) and bats, verifies both are on PATH, sets `SKILL_TESTS_STRICT=true` so a suite that skips a test fails the job, then runs every `run-tests.sh` discovered by `tests/run-skill-tests.sh`
+3. **Automation Bootstrap Unit Tests** — `uv sync --frozen`, `playwright install --with-deps chromium`, then `uv run pytest tests/` inside `docs/recipes/automation/tp-setup/bootstrap`, scoped to `tests/` so the live-cluster `e2e/` tree is never collected; uploads the JUnit XML
+4. **Helm Unit Tests** — runs helm-unittest for all charts with `tests/`, outputs JUnit XML
+5. **ShellCheck** — lints all bash scripts with `--severity=error` (blocking)
+6. **Recipe Smoke Tests** — validates e2e recipe YAML syntax and structure
 7. **Integration Test (generic-runner)** — runs generic-runner pipeline end-to-end with a real recipe (no Docker required)
 8. **Integration Test (helm-install)** — runs helm-install pipeline end-to-end in mock mode (validates recipe processing)
 
+That is the whole list — eight jobs, matching `test.yaml` exactly. This section previously also
+described a **BATS Coverage** job ("enforces minimum 90% threshold") and a **Diff Coverage (PR
+only)** job ("posts coverage summary as PR comment"). Neither exists in any of the eight workflow
+files — `kcov`, `diff-cover` and any coverage job name return nothing across `.github/workflows/`
+— so both were removed rather than renumbered. A documented gate that does not run is worse than
+no gate: it is the same "nothing green may stand for nothing run" failure this file warns about,
+one level up, in the description of the CI itself.
+
 All jobs have explicit `timeout-minutes` and use `actions/cache` for yq binary. BATS is installed from bats-core git (not apt) to support `--jobs` parallel execution.
+
+Every step that pipes a test run into `tee` sets `set -o pipefail` first: a GitHub step is graded on the
+exit code of the pipeline, which is otherwise the one of `tee` — the failing run would be written into the
+report and the job would still be green.
 
 Test results are uploaded as GitHub Actions artifacts and displayed as PR check annotations via `dorny/test-reporter`.
 
@@ -297,3 +419,15 @@ Helm chart linting (ct lint) runs separately via `.github/workflows/lint-test.ya
 2. Reference the template file in the `templates:` field
 3. Use `set:` to override values and `asserts:` to validate output
 4. See [helm-unittest docs](https://github.com/helm-unittest/helm-unittest) for assertion reference
+
+### Adding skill tests
+
+1. Create `.ai/skills/<skill>/tests/` with the suites the scripts need (pytest, bats, or both)
+2. Add `.ai/skills/<skill>/tests/run-tests.sh`: it runs the suites of that skill and exits non-zero when
+   one fails, and when none of them ran at all — that is the whole contract, `tests/run-skill-tests.sh`
+   and CI discover it by its name
+3. Honour `SKILL_TESTS_STRICT` in the runner: with it set, a tool it would otherwise skip over and a
+   test that skipped itself both fail the run (see the two runners for the shape)
+4. Keep a guard out of a suite that can skip itself — a check behind a `SKIP` is a check nobody makes
+5. Keep the suites network-free (stub the MCP/REST calls) and document them in `tests/README.md`
+6. Verify with `make test-skills SKILL=<skill>` and `make test-skills SKILL=<skill> SKILL_TESTS_STRICT=true`

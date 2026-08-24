@@ -72,7 +72,7 @@ export TP_AKS_TIER=${TP_AKS_TIER:-"standard"}
 # To opt in to LTS versions, set: TP_ALLOW_EXTENDED_SUPPORT="I_ACKNOWLEDGE_EXTENDED_SUPPORT_COSTS"
 _cluster_minor=$(echo "${TP_CLUSTER_VERSION}" | grep -oE '^[0-9]+\.[0-9]+')
 _aks_support_plan=$(az aks get-versions --location "${TP_AZURE_REGION}" \
-  --query "values[?version=='${_cluster_minor}'].capabilities.supportPlan" \
+  --query "(values || valuesProperty)[?version=='${_cluster_minor}'].capabilities.supportPlan" \
   -o tsv 2>/dev/null || echo "")
 if [ -z "${_aks_support_plan}" ]; then
   echo "ERROR: AKS version ${TP_CLUSTER_VERSION} (${_cluster_minor}) was not found in the supported versions list for region ${TP_AZURE_REGION}."

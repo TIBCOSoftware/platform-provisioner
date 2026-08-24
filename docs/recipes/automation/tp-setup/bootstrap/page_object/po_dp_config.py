@@ -16,12 +16,38 @@
 import os
 import re
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from utils.color_logger import ColorLogger
 from utils.util import Util
-from utils.helper import Helper
+from utils.helper import Helper, O11Y_LOG_INDEX_PREFIX
 from utils.env import ENV
 from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
+
+# Text scraped out of an activation dialog is entitlement data going into a warning
+# message, so it is capped and flattened onto one line before it is reported.
+ACTIVATION_DIALOG_TEXT_LIMIT = 300
+ACTIVATION_DIALOG_TEXT_LINES = 2
+# Only wording that asserts an expiry counts as one. A valid license also renders an
+# 'Expiration Date' line, a section heading can read 'Expired Licenses', and a
+# reassurance can read 'has not expired' - reporting any of those declares a perfectly
+# good license dead and sends the reader after the wrong problem.
+ACTIVATION_EXPIRED_TEXT = re.compile(r"\b(?:has|have|is|are|was|were)\s+expired\b|\bexpired\s+on\b", re.IGNORECASE)
+ACTIVATION_NOT_EXPIRED_TEXT = re.compile(r"\b(?:not|never|no)\b[^.]*?\bexpired\b", re.IGNORECASE)
+# Explicit short timeout for the dialog reads and the dialog-opening clicks that would
+# otherwise run on Playwright's 30s actionability default while the real failure waits to
+# be reported. The controls behind them are polled visible first, so a click that cannot
+# land inside this budget is blocked by something, not slow.
+ACTIVATION_DIALOG_READ_TIMEOUT = 2000
+ACTIVATION_DIALOG_CLICK_TIMEOUT = 5000
+# The submit clicks ('Link' in a confirmation dialog, 'Add' in the license dialog) are the
+# action the whole step exists to perform, so they keep the full 30s budget: cutting it
+# turns the slow render this step is being fixed for into a hard failure of the run.
+ACTIVATION_DIALOG_SUBMIT_TIMEOUT = 30000
+# The 'the license is linked' text, shared by the entry check, the final check and the
+# cleanup re-check so all three judge success by exactly the same thing.
+ACTIVATION_LINKED_TEXT = re.compile(r"Currently linked to the|View License", re.IGNORECASE)
 
 class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
     def __init__(self, page):
@@ -61,11 +87,15 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         if ReportYaml.get_dataplane_info(dp_name, "switchGlobal") == "true":
             ColorLogger.success(f"In {ENV.TP_AUTO_REPORT_YAML_FILE} file, switch to Global is already set in DataPlane '{dp_name}'.")
             return
+        # WHETHER to configure o11y at all, in the same place as the sibling
+        # o11y_config_dataplane_resource that this method replaced for data planes
+        # (PCP-23553). Without it, driving case/k8s_config_dp_o11y.py directly with the
+        # flag off used to be a no-op and would silently start performing the switch.
+        if not ENV.TP_AUTO_IS_CONFIG_O11Y:
+            ColorLogger.warning("TP_AUTO_IS_CONFIG_O11Y is false, skip switch to Global Observability Resource.")
+            return
         ColorLogger.info(f"Switch dataplane {dp_name} configuration to Global...")
-        self.goto_left_navbar_dataplane()
-        self.goto_dataplane(dp_name)
-        self.goto_dataplane_config()
-        self.goto_dataplane_config_sub_menu("Observability")
+        self.goto_dataplane_o11y_config(dp_name)
         self.switch_to_global_config(dp_name)
 
     def o11y_config_activation(self, dp_name):
@@ -145,44 +175,19 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             print(f"Input Resource Name: {dp_name}-rs")
         # Add or Select Logs -> User Apps -> Query Service configurations
         menu_name = "Logs"
-        tab_name = "Query Service"
-        if self.page.locator("label[for='userapp-proxy']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='userapp-proxy']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='userapp-proxy']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Query Service", "#add-userapp-proxy-btn")
-    
+        self._o11y_enable_toggle_and_add("label[for='userapp-proxy']", "Query Service", "#add-userapp-proxy-btn", dp_name, menu_name, "Query Service")
+
         # Add or Select Logs -> User Apps -> Exporter configurations
-        tab_name = "Exporter"
-        if self.page.locator("label[for='userapp-exporter']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='userapp-exporter']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='userapp-exporter']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "User Apps Exporter", "#add-userapp-exporter-btn")
-    
+        self._o11y_enable_toggle_and_add("label[for='userapp-exporter']", "Exporter", "#add-userapp-exporter-btn", dp_name, menu_name, "User Apps Exporter")
+
         # Add or Select Logs -> Services -> Exporter configurations
-        tab_name = "Exporter"
-        if self.page.locator("label[for='services-exporter-toggle']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='services-exporter-toggle']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='services-exporter-toggle']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Services Exporter", "#add-services-exporter-btn")
+        self._o11y_enable_toggle_and_add("label[for='services-exporter-toggle']", "Exporter", "#add-services-exporter-btn", dp_name, menu_name, "Services Exporter")
 
         # Add or Select Logs -> Business Activities -> Query Service configurations
-        tab_name = "Query Service"
-        if self.page.locator("label[for='auditsafe-proxy']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='auditsafe-proxy']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='auditsafe-proxy']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Business Activities Query Service", "#add-auditsafe-query-service-btn")
+        self._o11y_enable_toggle_and_add("label[for='auditsafe-proxy']", "Query Service", "#add-auditsafe-query-service-btn", dp_name, menu_name, "Business Activities Query Service")
 
         # Add or Select Logs -> Business Activities -> Exporter configurations
-        tab_name = "Exporter"
-        if self.page.locator("label[for='auditsafe-services-exporter']", has_text=f"{tab_name} disabled").is_visible():
-            self.page.locator("label[for='auditsafe-services-exporter']").click()
-            print(f"Clicked '{tab_name}' toggle button")
-        if self.page.locator("label[for='auditsafe-services-exporter']", has_text=f"{tab_name} enabled").is_visible():
-            self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "Business Activities Exporter", "#add-auditsafe-services-exporter-btn")
+        self._o11y_enable_toggle_and_add("label[for='auditsafe-services-exporter']", "Exporter", "#add-auditsafe-services-exporter-btn", dp_name, menu_name, "Business Activities Exporter")
 
         self.page.wait_for_timeout(500)
         self.page.locator("#go-to-metrics-server-configuration").click()
@@ -190,20 +195,33 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print(f"Data plane '{dp_title}' 'Configure Log Server' Step 1 is configured.")
     
         # Step 2: Configure Metrics Server
-        # skip configure step 2 if TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG is true
-        system_toggle = self.page.locator("#metrics-toggle-system-config")
-        is_system_toggle_enabled = system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true"
-        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG:
+        # skip configure step 2 if TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG is true AND the
+        # system-config toggle is present (DP-level resource with an inheritable config).
+        # PCP-22537: poll for the Metrics step to render (it can take >30s under peak
+        # install load), using the step's Next button as the anchor. NOTE
+        # "#go-to-traces-configuration" IS the Metrics step's own Next button (it lives in
+        # the metrics-container footer; its id names its destination — the Traces step).
+        # PCP-22621: the system-config toggle is *ngIf-hidden when creating the Global
+        # (system) resource — there is nothing to inherit — so an absent toggle must take
+        # the manual-configure branch instead of hard-failing.
+        toggle_present, is_system_toggle_enabled = self._o11y_wait_toggle_system_config(
+            "metrics-toggle-system-config", "#go-to-traces-configuration", "Metrics", dp_title)
+        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG and toggle_present:
             if is_system_toggle_enabled:
                 print("Use system config for Step 2: Configure Metrics Server")
             else:
-                Util.exit_error(f"Data Plane '{dp_title}' Observability system config is not visible for Step 2.", self.page, "o11y_config_dataplane_resource.png")
+                Util.exit_error(f"Data Plane '{dp_title}' Observability system config toggle is present but not enabled for Step 2.", self.page, "o11y_config_dataplane_resource.png")
         else:
-            if is_system_toggle_enabled:
+            # Manual-configure branch: env flag off, OR the system-config toggle is absent
+            # (Global resource creation — nothing to inherit, PCP-22621).
+            if not toggle_present:
+                # include dp_title so a manual branch taken on an unexpected (non-Global)
+                # resource is greppable in the automation logs (review PCP-22621)
+                print(f"Data Plane '{dp_title}' Metrics System Config toggle is not present (no inheritable system config) — configuring Metrics manually")
+            elif is_system_toggle_enabled:
                 print("Metrics System Config is enabled")
                 self.page.locator("label[for='metrics-toggle-system-config']").click()
-                print("Clicked 'Metrics System Config' toggle button, then wait for 1 second.")
-                self.page.wait_for_timeout(1000)
+                print("Clicked 'Metrics System Config' toggle button")
 
             # Add or Select Metrics -> Query Service configurations
             menu_name = "Metrics"
@@ -211,48 +229,43 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-metrics-proxy-btn")
 
             # Add or Select Metrics -> Exporter configurations
-            tab_name = "Exporter"
-            if self.page.locator("label[for='metrics-exporter-toggle']", has_text=f"{tab_name} disabled").is_visible():
-                self.page.locator("label[for='metrics-exporter-toggle']").click()
-                print(f"Clicked '{tab_name}' toggle button")
-            if self.page.locator("label[for='metrics-exporter-toggle']", has_text=f"{tab_name} enabled").is_visible():
-                self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-metrics-exporter-btn")
+            self._o11y_enable_toggle_and_add("label[for='metrics-exporter-toggle']", "Exporter", "#add-metrics-exporter-btn", dp_name, menu_name, "")
         self.page.locator("#go-to-traces-configuration").click()
         print("Clicked 'Next' button")
         print(f"Data plane '{dp_title}' 'Configure Metrics Server' Step 2 is configured.")
     
         # Step 3: Configure Traces Server
-        # skip configure step 3 if TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG is true
-        system_toggle = self.page.locator("#traces-toggle-system-config")
-        is_system_toggle_enabled = system_toggle.is_visible() and system_toggle.get_attribute("aria-checked") == "true"
-        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG:
+        # skip configure step 3 if TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG is true AND the
+        # system-config toggle is present (DP-level resource with an inheritable config).
+        # PCP-22537: same load-dependent render race as the Metrics step — poll, using the
+        # step's Save button as the anchor.
+        # PCP-22621: an absent toggle (Global resource creation) takes the manual-configure
+        # branch instead of hard-failing.
+        toggle_present, is_system_toggle_enabled = self._o11y_wait_toggle_system_config(
+            "traces-toggle-system-config", "#save-observability", "Traces", dp_title)
+        if ENV.TP_AUTO_DATA_PLANE_O11Y_SYSTEM_CONFIG and toggle_present:
             if is_system_toggle_enabled:
                 print("Use system config for Step 3: Configure Traces Server")
             else:
-                Util.exit_error(f"Data Plane '{dp_title}' Observability system config is not visible for Step 3.", self.page, "o11y_config_dataplane_resource.png")
+                Util.exit_error(f"Data Plane '{dp_title}' Observability system config toggle is present but not enabled for Step 3.", self.page, "o11y_config_dataplane_resource.png")
         else:
-            if is_system_toggle_enabled:
+            # Manual-configure branch: env flag off, OR the system-config toggle is absent
+            # (Global resource creation — nothing to inherit, PCP-22621).
+            if not toggle_present:
+                # include dp_title so a manual branch taken on an unexpected (non-Global)
+                # resource is greppable in the automation logs (review PCP-22621)
+                print(f"Data Plane '{dp_title}' Traces System Config toggle is not present (no inheritable system config) — configuring Traces manually")
+            elif is_system_toggle_enabled:
                 print("Traces System Config is enabled")
                 self.page.locator("label[for='traces-toggle-system-config']").click()
-                print("Clicked 'Traces System Config' toggle button, then wait for 1 second.")
-                self.page.wait_for_timeout(1000)
+                print("Clicked 'Traces System Config' toggle button")
 
             # Add or Select Traces -> Query Service configurations
             menu_name = "Traces"
-            tab_name = "Query Service"
-            if self.page.locator("label[for='traces-proxy']", has_text=f"{tab_name} disabled").is_visible():
-                self.page.locator("label[for='traces-proxy']").click()
-                print(f"Clicked '{tab_name}' toggle button")
-            if self.page.locator("label[for='traces-proxy']", has_text=f"{tab_name} enabled").is_visible():
-                self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-proxy-btn")
+            self._o11y_enable_toggle_and_add("label[for='traces-proxy']", "Query Service", "#add-traces-proxy-btn", dp_name, menu_name, "")
 
             # Add or Select Traces -> Exporter configurations
-            tab_name = "Exporter"
-            if self.page.locator("label[for='traces-exporter']", has_text=f"{tab_name} disabled").is_visible():
-                self.page.locator("label[for='traces-exporter']").click()
-                print(f"Clicked '{tab_name}' toggle button")
-            if self.page.locator("label[for='traces-exporter']", has_text=f"{tab_name} enabled").is_visible():
-                self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, "", "#add-traces-exporter-btn")
+            self._o11y_enable_toggle_and_add("label[for='traces-exporter']", "Exporter", "#add-traces-exporter-btn", dp_name, menu_name, "")
         self.page.locator("#save-observability").click()
         print(f"Data plane '{dp_title}' 'Configure Traces Server' Step 3 is configured.")
         self.page.wait_for_timeout(1000)
@@ -269,13 +282,94 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print(f"Wait 5 seconds for Data plane '{dp_title}' configuration page redirect.")
         self.page.wait_for_timeout(5000)
 
+    def _o11y_wait_toggle_system_config(self, toggle_id, step_anchor_selector, step_label, dp_title):
+        """Wait for an o11y wizard step to render, then report whether its
+        (conditionally rendered) system-config toggle is present and enabled.
+
+        Returns a (toggle_present, toggle_enabled) tuple.
+
+        PCP-22537: the Metrics/Traces step can take well over 30s to render when the CP
+        web UI is under peak install load (cli-full-automation runs concurrent helm
+        installs + create-dp + app deploys). The whole wizard form is
+        `*ngIf="observabilityData"`, so nothing in the step exists until that backend
+        data resolves. Poll a STEP-LEVEL anchor — the step's Next/Save button, which is
+        always present once the step renders regardless of the toggle — with a long,
+        logged budget (Util.check_dom_visibility) per CLAUDE.md rule #5, instead of the
+        old single-shot 30s wait_for that timed out under load.
+
+        PCP-22621: the system-config toggle is `*ngIf="isMetricsTabHasSystemConfig()"`
+        (resp. traces) — it renders only when every metrics/traces service type has an
+        inheritable `is_system_config` item. When creating the Global (= system)
+        resource itself there is nothing to inherit, so the toggle is hidden BY DESIGN.
+        The old code polled for the toggle directly and hard-failed (exit_error) on the
+        Global path. Now the step anchor renders in BOTH cases, and an absent toggle is
+        a valid state that the caller handles by taking the manual-configure branch.
+
+        Why the toggle probe needs no poll budget of its own (verified against
+        observability-add.component.ts, 2026-07): the toggle's `*ngIf` predicate
+        isMetricsTabHasSystemConfig() = metricsServiceTypes.every(t =>
+        observabilityData[t]?.some(i => i.is_system_config)) is a PURE SYNCHRONOUS read
+        of observabilityData — it awaits nothing. observabilityData is loaded in a single
+        loadObservabilityData('all') batch that populates every service type at once, and
+        the Logs step's Next button is [disabled]="!validateLogsDetails()", so the wizard
+        cannot reach the Metrics/Traces step (make its anchor visible) until that batch
+        has loaded. Therefore, once the step anchor is visible, observabilityData is fully
+        populated and the predicate is at its final value — the toggle's presence is
+        deterministic at that point, with no anchor-vs-toggle render race. The real
+        load-induced delay (PCP-22537) is the time for that batch to resolve, and it is
+        fully covered by the anchor's 120s poll above.
+        """
+        # 1. Wait for the step to render. The anchor (Next/Save button) is present
+        #    whether or not the *ngIf toggle exists. Fast path: skip check_dom_visibility's
+        #    up-front sleep if it already rendered; otherwise poll (every 3s up to 120s)
+        #    to cover the >30s-under-load render window.
+        if not self.page.locator(step_anchor_selector).is_visible():
+            if not Util.check_dom_visibility(self.page, self.page.locator(step_anchor_selector), 3, 120):
+                Util.exit_error(f"Data Plane '{dp_title}' Observability {step_label} step did not render "
+                                f"(anchor '{step_anchor_selector}' not visible after waiting).", self.page, "o11y_config_dataplane_resource.png")
+        # 2. Step rendered — probe the conditionally-rendered system-config toggle.
+        #    re-query each locator fresh (never cache) per CLAUDE.md rule #4.
+        toggle_present = self.page.locator(f"label[for='{toggle_id}']").is_visible()
+        toggle_enabled = (
+            toggle_present
+            and self.page.locator(f"#{toggle_id}").is_visible()
+            and self.page.locator(f"#{toggle_id}").get_attribute("aria-checked") == "true"
+        )
+        return toggle_present, toggle_enabled
+
+    def _o11y_enable_toggle_and_add(self, toggle_selector, tab_name, add_button_selector, dp_name, menu_name, tab_sub_name):
+        """Enable an o11y config section toggle (if disabled), auto-wait for the
+        'enabled' state to actually render, then unconditionally add/select the item.
+
+        Replaces the previous two-independent-`if` pattern whose second is_visible()
+        guard raced the toggle's label re-render and silently skipped the add
+        (PCP-22010/PCP-21982: Services Exporter never created -> Next disabled ->
+        wizard timeout). The key change is auto-waiting for the 'enabled' label
+        (wait_for) in place of that racy is_visible() guard, then adding
+        unconditionally.
+        """
+        # re-query the locator on each use (never cache it) per CLAUDE.md rule #4
+        self.page.locator(toggle_selector).wait_for(state="visible")
+        # enable the section if it is currently disabled
+        if self.page.locator(toggle_selector, has_text=f"{tab_name} disabled").is_visible():
+            self.page.locator(toggle_selector).click()
+            print(f"Clicked '{tab_name}' toggle button")
+        # auto-wait for the section to actually reach the 'enabled' state (fixes the race)
+        self.page.locator(toggle_selector, has_text=f"{tab_name} enabled").wait_for(state="visible")
+        print(f"{menu_name} '{tab_name} enabled' toggle button is visible.")
+        # unconditionally add/select — a real failure now surfaces instead of being silently skipped
+        self.o11y_config_table_add_or_select_item(dp_name, menu_name, tab_name, tab_sub_name, add_button_selector)
+
     # tab_sub_name: this parameter is just for distinction, it will not be used in the UI operation
     def o11y_config_table_add_or_select_item(self, dp_name, menu_name, tab_name, tab_sub_name, add_button_selector):
         ColorLogger.info("O11y start to add or select item...")
         name_input = Helper.get_o11y_sub_name_input(dp_name, menu_name, tab_name, tab_sub_name)
         print(f"Check if name: '{name_input}' is exist in {tab_sub_name} configurations")
         if not Util.check_dom_visibility(self.page, self.page.locator("observability-configurations table tr", has=self.page.locator("td", has_text=name_input)), 3, 6):
-            self.page.locator(add_button_selector).click()
+            # PCP-22537: the Add button transitions disabled -> enabled with a delay
+            # (e.g. right after toggling off "Use CP hosted Prometheus"). Wait for it to
+            # be enabled before clicking, instead of relying on a fixed pre-wait.
+            Util.click_button_until_enabled(self.page, self.page.locator(add_button_selector))
             print(f"Clicked 'Add {tab_name} configuration' button in {tab_sub_name} configurations")
             self.o11y_new_resource_fill_form(menu_name, tab_name, tab_sub_name, name_input, dp_name)
     
@@ -311,6 +405,8 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
                 # for PCP-16998
                 elif tab_sub_name == "Business Activities Query Service" or tab_sub_name == "Business Activities Exporter":
                     log_index = f"{dp_title.lower()}-ba-log-index"
+                # prepend the fixed prefix to every log index (shared constant; CLI path in api_object/resources.py uses the same)
+                log_index = f"{O11Y_LOG_INDEX_PREFIX}{log_index}"
                 self.page.fill("#log-index-input", log_index)
                 print(f"Fill Log Index: {log_index}")
 
@@ -384,19 +480,11 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
         print("Clicked 'Add' button in 'Add Storage' dialog")
 
     def _close_modal(self):
-        cancel_sel = "#cancel-ingress-configuration, #cancel-route-resource-configuration, .pl-modal button.pl-button--secondary"
-        if self.page.locator(cancel_sel).first.is_visible():
-            self.page.locator(cancel_sel).first.click()
-            print("Clicked 'Cancel' button to close modal")
-        else:
-            self.page.keyboard.press("Escape")
-            self.page.wait_for_timeout(500)
-            print("Pressed Escape to close modal")
-        self.page.wait_for_timeout(1000)
-        if self.page.locator(".pl-modal--open").is_visible():
-            self.page.keyboard.press("Escape")
-            self.page.wait_for_timeout(500)
-            print("Modal still open, pressed Escape again")
+        # The Ingress/Route dialog Cancel button is tried first, unconditionally and with
+        # the full click budget it had here before, then the shared close controls
+        # (activation dialogs, footer Cancel, legacy secondary button, Escape) from
+        # PageObjectGlobal.close_open_modal().
+        return self.close_open_modal("#cancel-ingress-configuration, #cancel-route-resource-configuration")
 
     def _detect_ingress_toggle(self):
         """Detect which ingress/route toggle is present on the Resources page.
@@ -751,6 +839,159 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
                 print("activation file is not found, try to config Activation url...")
                 self.dp_config_activation_url(dp_name, use_global)
 
+    def _activation_modal_text(self, selector):
+        """Inner text of the LAST node matching 'selector', '' when there is none.
+
+        Last, not first, to match the close walk: when a confirmation dialog is stacked on
+        another dialog, the top-most one is the one being closed and the one being
+        reported on, and reading the first match describes the wrong modal.
+
+        Diagnostics only: it must never raise and never widen an existing failure. The
+        read is given an explicit timeout because a dialog that is already detaching
+        would otherwise hang inner_text() on Playwright's 30s default - twice, on the
+        failure path. The bare except turns that timeout into 'no details', which is
+        the right answer here.
+        """
+        try:
+            locator = self.page.locator(selector)
+            if (locator.count() or 0) == 0:
+                return ""
+            return (locator.last.inner_text(timeout=ACTIVATION_DIALOG_READ_TIMEOUT) or "").strip()
+        except Exception:
+            return ""
+
+    def _safe_activation_text(self, text):
+        """Flatten and cap a scraped dialog string before it is put in a message.
+
+        It is NOT HTML escaped: this goes into a plain text console log, where escaping
+        turns an ordinary apostrophe or ampersand into '&#x27;' / '&amp;' and makes the
+        message harder to read than the dialog it was copied from. Newlines and control
+        characters are stripped instead, so a multi line dialog error cannot forge log
+        lines, and the length cap keeps a whole license listing out of the log.
+        """
+        text = re.sub(r"[\x00-\x1f\x7f]+", " ", text or "").strip()
+        if len(text) > ACTIVATION_DIALOG_TEXT_LIMIT:
+            text = f"{text[:ACTIVATION_DIALOG_TEXT_LIMIT]}..."
+        return text
+
+    def _activation_failure_details(self, dialog_opened):
+        """Say WHY the activation dialog refused the input, while it is still on screen.
+
+        Empty when this step never opened a dialog. It scrapes '.pl-modal--open' off
+        whatever happens to be on screen, so on a skip path that modal belongs to the
+        CALLER, and folding its text - a stray 'expired' line included - into this step's
+        failure message is the exact misdirection 'dialog_opened' exists to prevent.
+
+        With a dialog of its own, two different problems otherwise look identical in the
+        log: the dialog rejected the input outright, which it reports in
+        '.file-error-message', or the license parsed fine but every entry in it has
+        already expired, which it renders as plain text in the dialog body ("Current
+        In-product licenses expired on <date>"). An empty error field next to that text
+        points at expiry rather than a broken file, but only ever as a hint.
+        """
+        if not dialog_opened:
+            return ""
+        details = []
+        file_error = self._activation_modal_text(".pl-modal--open .file-error-message")
+        if file_error:
+            details.append(f"Dialog error message: '{self._safe_activation_text(file_error)}'.")
+        modal_text = self._activation_modal_text(".pl-modal--open")
+        expiry_lines = [line.strip() for line in modal_text.splitlines()
+                        if ACTIVATION_EXPIRED_TEXT.search(line) and not ACTIVATION_NOT_EXPIRED_TEXT.search(line)]
+        if expiry_lines:
+            expiry_text = " | ".join([self._safe_activation_text(line) for line in expiry_lines[:ACTIVATION_DIALOG_TEXT_LINES]])
+            details.append(f"The dialog text mentions an expiry: '{expiry_text}'.")
+            if not file_error:
+                details.append("No file error was reported; check whether the license has expired.")
+        if not details:
+            return "The dialog reported no error message and no license details."
+        return " ".join(details)
+
+    def _close_activation_modal(self, is_activated, dialog_opened, raised, screenshot_name, success_locator):
+        """Cleanup tail for both activation dialogs: nothing may stay mounted.
+
+        Runs from a finally block, so it swallows everything it can hit. An exception
+        raised here would REPLACE the one already propagating and demote the real cause
+        (say "the confirmation dialog never appeared") to __context__ - exactly the kind
+        of misdirection this cleanup exists to prevent.
+
+        'dialog_opened' keeps it off the skip paths that never opened anything: a modal
+        found there belongs to the caller, and closing or blaming it would report an
+        unrelated leftover as this step's failure. An exception is the one case where that
+        ownership cannot be known - the call died part way through, possibly on the very
+        click that opened a dialog - so a raising call always cleans up what it can see.
+        """
+        if not dialog_opened and not raised:
+            return
+        try:
+            # Give a dialog that is already closing time to unmount before judging it.
+            self.page.wait_for_timeout(500)
+            if not self.is_modal_open():
+                return
+            # A submit can still be in flight while this runs, and the close walk would then
+            # click 'Cancel' on the confirmation dialog it belongs to and revert the link
+            # that had just succeeded. So success is read once more, from the same condition
+            # the step itself is judged by, and a late success is left alone entirely.
+            #
+            # Only while this step has NOT already observed success, though. Once it has, the
+            # link is recorded server-side and closing the leftover dialog cannot revert it -
+            # and this guard would otherwise never let go: is_activated was set *because* that
+            # same locator was just visible, and visibility ignores overlays, so the linked
+            # text reads visible straight through the backdrop. Returning here on a green run
+            # would leave the dialog mounted and hand the next navigation the exact overlay
+            # this step exists to clear.
+            if not is_activated and Util.check_dom_visibility(self.page, success_locator, 1, 2):
+                print("Activation completed while the dialog was still on screen, leaving it alone.")
+                return
+            if not is_activated or raised:
+                # Its own file name: the failure screenshot taken moments ago is the
+                # evidence of what went wrong, and must not be overwritten by this one.
+                Util.warning_screenshot("Activation dialog is still open after a failed attempt, closing it.", self.page, screenshot_name.replace(".png", "-cleanup.png"))
+            else:
+                # On a green run the confirmation dialog can still be unmounting right after
+                # the Link click; a warning here would fire on every healthy run and poison
+                # the very log signal this step is judged on.
+                print("Activation dialog is still open after a successful attempt, closing it.")
+            self.close_open_modal()
+        except Exception as e:
+            ColorLogger.warning(f"Failed to close the activation dialog: {str(e)}")
+
+    def _click_activation_control(self, selector, description):
+        """Click a control that opens an activation dialog. False when it never landed.
+
+        Reported, never raised, exactly like the 'Link' submit below. Activation is
+        best-effort here - o11y_config_activation is called unwrapped - so a timeout
+        thrown out of this step ends the whole Data Plane setup, and it does so blaming
+        this step for an overlay an earlier one left behind. The caller skips only the
+        block that needed the dialog and still runs the shared 'is it linked' check and
+        the cleanup.
+
+        The control is polled visible immediately before this, so a click that cannot
+        land inside the budget is blocked by something rather than slow, and waiting
+        longer would only add that wait to a run that has already gone wrong.
+        """
+        try:
+            self.page.locator(selector).click(timeout=ACTIVATION_DIALOG_CLICK_TIMEOUT)
+            print(f"Clicked {description}")
+            return True
+        except PlaywrightTimeoutError:
+            ColorLogger.warning(f"Could not click {description}, it never became clickable.")
+            return False
+
+    def _fill_activation_input(self, selector, value, description):
+        """Same contract as the click above, for the one dialog field this step types in.
+
+        A field inside a dialog that rendered but is covered, or that is still disabled,
+        fails the same way a blocked click does, and must not end the run either.
+        """
+        try:
+            self.page.fill(selector, value, timeout=ACTIVATION_DIALOG_CLICK_TIMEOUT)
+            print(f"Filled {description}: {value}")
+            return True
+        except PlaywrightTimeoutError:
+            ColorLogger.warning(f"Could not fill {description}, it never became editable.")
+            return False
+
     def dp_config_activation_url(self, dp_name, use_global = False):
         activation_url = ENV.TP_ACTIVATION_URL
         # If not using global activation URL and activation URL is empty, skip config as there is no URL to configure
@@ -771,61 +1012,126 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
                 ReportYaml.set_dataplane_info(dp_name, "activation", "server")
             return
 
-        if use_global:
-            # for dp level
-            self.page.locator(".dp-activation").wait_for(state="visible")
-            print(f"Checking if dataplane {dp_name} is able to use global activation url...")
-
-            # for 1.13+ version, need select 'TIBCO Activation Service' option
-            if not self.select_tibco_activation_service():
-                ColorLogger.warning("TIBCO Activation Service option is disabled, skip config Activation.")
-                return
-
-            if self.page.locator(".activation-server-url").is_visible():
-                current_activation_url = self.page.locator(".activation-server-url").inner_text()
-                ColorLogger.success(f"ENV.TP_ACTIVATION_URL is empty, but Activation URL '{current_activation_url}' is already exist for Data Plane '{dp_name}'.")
-                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
-                return
-            # if "Use Global Activation URL" button is visible but not enabled, skip config
-            if self.page.locator("#use-global-activation-on-dp").is_visible() and "pcp-disabled" in (self.page.locator("#use-global-activation-on-dp").get_attribute("class") or ""):
-                ColorLogger.warning("'Use Global Activation URL' button is not enabled, skip config Activation url.")
-                return
-
-            print("Waiting for 'Use Global Activation URL' button is visible...")
-            self.page.locator("#use-global-activation-on-dp").wait_for(state="visible")
-            self.page.locator("#use-global-activation-on-dp").click()
-            print("Clicked 'Use Global Activation URL' button")
-
-            print("Waiting for 'Use Global Activation URL' modal dialog is visible...")
-            self.page.locator("confirmation-modal .pl-modal__heading", has_text="Use Global Activation URL").wait_for(state="visible")
-            self.page.locator("#confirm-button", has_text="Link").click()
-            print("Clicked 'Link' button in 'Use Global Activation URL' modal dialog")
-        else:
-            # for global level
-            # for 1.13+ version, need select 'TIBCO Activation Service' option
-            if not self.select_tibco_activation_service():
-                ColorLogger.warning("TIBCO Activation Service option is disabled, skip config Activation.")
-                return
-
-            print("Waiting for 'Add Global Activation URL' button is visible...")
-            self.page.locator("#add-global-activation-server").wait_for(state="visible")
-            self.page.locator("#add-global-activation-server").click()
-            print("Clicked 'Add Global Activation URL' button")
-
-            print("Waiting for 'Add New Activation URL' modal dialog is visible...")
-            self.page.locator("activation-url-modal .pl-modal__heading", has_text="Add New Activation URL").wait_for(state="visible")
-            self.page.fill("activation-url-modal #activation-url-text-input", activation_url)
-            self.page.locator("activation-url-modal #add-activation-url-btn").click()
-            print(f"Filled Activation URL: {activation_url} and clicked 'Add' button")
-
-        if Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
-            ColorLogger.success(f"Add Activation URL '{activation_url}' successfully.")
+        # From here on a dialog can be opened, so every exit runs through the finally
+        # below and leaves no modal behind for the next navigation to trip over.
+        is_activated = False
+        dialog_opened = False
+        raised = False
+        skipped_reason = ""
+        try:
             if use_global:
-                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+                # for dp level
+                self.page.locator(".dp-activation").wait_for(state="visible")
+                print(f"Checking if dataplane {dp_name} is able to use global activation url...")
+
+                # for 1.13+ version, need select 'TIBCO Activation Service' option
+                if not self.select_tibco_activation_service():
+                    ColorLogger.warning("TIBCO Activation Service option is disabled, skip config Activation.")
+                    return
+
+                if self.page.locator(".activation-server-url").is_visible():
+                    current_activation_url = self.page.locator(".activation-server-url").inner_text()
+                    ColorLogger.success(f"ENV.TP_ACTIVATION_URL is empty, but Activation URL '{current_activation_url}' is already exist for Data Plane '{dp_name}'.")
+                    ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+                    is_activated = True
+                    return
+
+                print("Waiting for 'Use Global Activation URL' button is visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator("#use-global-activation-on-dp"), 3, 30):
+                    skipped_reason = "The 'Use Global Activation URL' button never appeared."
+                # if "Use Global Activation URL" button is visible but not enabled, skip config
+                elif "pcp-disabled" in (self.page.locator("#use-global-activation-on-dp").get_attribute("class") or ""):
+                    ColorLogger.warning("'Use Global Activation URL' button is not enabled, skip config Activation url.")
+                    return
+                else:
+                    # The flag goes up BEFORE the click: a leftover overlay swallows pointer
+                    # events, so the click itself is what throws, and a cleanup that believed
+                    # nothing was opened would leave that overlay for the next navigation.
+                    dialog_opened = True
+                    if not self._click_activation_control("#use-global-activation-on-dp", "'Use Global Activation URL' button"):
+                        skipped_reason = "The 'Use Global Activation URL' button could not be clicked."
+                    else:
+                        print("Waiting for 'Use Global Activation URL' modal dialog is visible...")
+                        # Polled instead of wait_for(): a throw here would jump straight out of the
+                        # method and leave the half rendered confirmation dialog on screen.
+                        if not Util.check_dom_visibility(self.page, self.page.locator("confirmation-modal .pl-modal__heading", has_text="Use Global Activation URL"), 3, 30):
+                            skipped_reason = "The 'Use Global Activation URL' confirmation dialog never appeared."
+                        else:
+                            try:
+                                self.page.locator("#confirm-button", has_text="Link").click(timeout=ACTIVATION_DIALOG_SUBMIT_TIMEOUT)
+                                print("Clicked 'Link' button in 'Use Global Activation URL' modal dialog")
+                            except PlaywrightTimeoutError:
+                                # A slow 'Link' is reported, not raised: the click may still have
+                                # landed, so the shared check below decides, and the cleanup gets
+                                # to run instead of the whole Data Plane setup ending here.
+                                skipped_reason = "The 'Link' button in the 'Use Global Activation URL' dialog could not be clicked."
             else:
-                ReportYaml.set_dataplane_info(dp_name, "activation", "server")
-        else:
-            ColorLogger.warning(f"Add Activation URL '{activation_url}' failed.")
+                # for global level
+                # for 1.13+ version, need select 'TIBCO Activation Service' option
+                if not self.select_tibco_activation_service():
+                    ColorLogger.warning("TIBCO Activation Service option is disabled, skip config Activation.")
+                    return
+
+                print("Waiting for 'Add Global Activation URL' button is visible...")
+                if not Util.check_dom_visibility(self.page, self.page.locator("#add-global-activation-server"), 3, 30):
+                    skipped_reason = "The 'Add Global Activation URL' button never appeared."
+                else:
+                    # The flag goes up BEFORE the click: a leftover overlay swallows pointer
+                    # events, so the click itself is what throws, and a cleanup that believed
+                    # nothing was opened would leave that overlay for the next navigation.
+                    dialog_opened = True
+                    if not self._click_activation_control("#add-global-activation-server", "'Add Global Activation URL' button"):
+                        skipped_reason = "The 'Add Global Activation URL' button could not be clicked."
+                    else:
+                        print("Waiting for 'Add New Activation URL' modal dialog is visible...")
+                        if not Util.check_dom_visibility(self.page, self.page.locator("activation-url-modal .pl-modal__heading", has_text="Add New Activation URL"), 3, 30):
+                            skipped_reason = "The 'Add New Activation URL' dialog never appeared."
+                        elif not self._fill_activation_input("activation-url-modal #activation-url-text-input", activation_url, "Activation URL"):
+                            # Submitting a dialog whose field was never filled adds an empty
+                            # URL, so the 'Add' click below is skipped with it.
+                            skipped_reason = "The Activation URL field in the 'Add New Activation URL' dialog could not be filled."
+                        else:
+                            self.page.locator("activation-url-modal #add-activation-url-btn").click(timeout=ACTIVATION_DIALOG_SUBMIT_TIMEOUT)
+                            print("Clicked 'Add' button in 'Add New Activation URL' dialog")
+
+            # A missed control or dialog still falls through to the shared check below: the
+            # URL may already be configured, and skipping the report write on that run would
+            # leave o11y_config_activation with nothing stored and the DP link silently
+            # skipped for the rest of the run.
+            if Util.check_dom_visibility(self.page, self.page.locator(".activation-server-url", has_text=activation_url), 3, 6):
+                ColorLogger.success(f"Add Activation URL '{activation_url}' successfully.")
+                is_activated = True
+                if use_global:
+                    ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+                else:
+                    ReportYaml.set_dataplane_info(dp_name, "activation", "server")
+            else:
+                # Nothing is written to the report on a failure path: o11y_config_activation
+                # skips on any stored value, so a recorded failure would disable activation
+                # for good on every later run.
+                if use_global:
+                    message = f"Link to the Global Activation URL failed for Data Plane '{dp_name}'."
+                else:
+                    message = f"Add Activation URL '{activation_url}' failed for Data Plane '{dp_name}'."
+                if skipped_reason:
+                    message = f"{message} {skipped_reason}"
+                # Only a dialog this step opened may be scraped for a reason: on a skip
+                # path the modal on screen is the caller's, and its text is not evidence
+                # about this step.
+                details = self._activation_failure_details(dialog_opened)
+                if details:
+                    message = f"{message} {details}"
+                Util.warning_screenshot(message, self.page, "dp_config_activation_url.png")
+        except BaseException:
+            # Only an exception raised by THIS call may mark the run as failed. sys.exc_info()
+            # would also report one being handled further up the stack, and turn a green run
+            # into a false warning plus screenshot. BaseException on purpose: a nested
+            # Util.exit_error raises SystemExit, which would otherwise sail past.
+            raised = True
+            raise
+        finally:
+            self._close_activation_modal(is_activated, dialog_opened, raised, "dp_config_activation_url.png",
+                                         self.page.locator(".activation-server-url", has_text=activation_url))
 
     def select_in_product_activation(self):
         # global level and dp level are using different label "for" value, so just check by label text
@@ -850,7 +1156,7 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
 
     def dp_config_activation_file(self, dp_name, use_global, activation_file_path):
         # ColorLogger.info(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Global Data Plane...")
-        if Util.check_dom_visibility(self.page, self.page.locator("span", has_text=re.compile(r"Currently linked to the|View License", re.IGNORECASE)), 2, 4):
+        if Util.check_dom_visibility(self.page, self.page.locator("span", has_text=ACTIVATION_LINKED_TEXT), 2, 4):
             ColorLogger.success(f"Activation file is already exist for Data Plane '{dp_name}'.")
             if use_global:
                 ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
@@ -858,54 +1164,151 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
                 ReportYaml.set_dataplane_info(dp_name, "activation", "file")
             return
 
-        if use_global:
-            # for dp level
-            if not self.select_in_product_activation():
-                ColorLogger.warning("In-Product Activation option is disabled, skip config Activation.")
-                return
-            if self.page.locator(".dp-activation-content__license-file-item-details").is_visible():
-                ColorLogger.success(f"In-Product Activation is already exist for Data Plane '{dp_name}'.")
-                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
-                return
-            # if "Use Global License File" button is visible but not enabled, skip config
-            if self.page.locator("#use-global-license-file-on-dp").is_visible() and "pcp-disabled" in (self.page.locator("#use-global-license-file-on-dp").get_attribute("class") or ""):
-                ColorLogger.warning("'Use Global License File' button is not enabled, skip config Activation url.")
-                return
-
-            ColorLogger.info(f"Link to Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Data Plane...")
-            self.page.locator('#use-global-license-file-on-dp').click()
-            print("Clicked 'Use Global License File' option")
-
-            print("Waiting for 'Use Global License File' modal dialog is visible...")
-            self.page.locator("confirmation-modal .pl-modal__heading", has_text="Use Global License File").wait_for(state="visible")
-            self.page.locator("#confirm-button", has_text="Link").click()
-            print("Clicked 'Link' button in 'Use Global License File' modal dialog")
-        else:
-            # for global level
-            if not self.select_in_product_activation():
-                ColorLogger.warning("In-Product Activation option is disabled, skip config Activation.")
-                return
-            ColorLogger.info(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Global Data Plane...")
-            if self.page.locator('#add-global-license-file').is_visible():
-                self.page.locator('#add-global-license-file').click()
-                print("Clicked 'Upload' option")
-
-            if self.page.locator('.license-file-drop-zone').is_visible():
-                print("Popping up 'Add New License File' dialog")
-
-                self.page.locator('input[type="file"]').evaluate("(input) => input.style.display = 'block'")
-                self.page.locator('input[type="file"]').set_input_files(activation_file_path)
-                print(f"Selected file: {activation_file_path}")
-
-            if Util.check_dom_visibility(self.page, self.page.locator("#add-activation-url-btn:not([disabled])"), 2, 4):
-                self.page.locator('#add-activation-url-btn').click()
-                print("Clicked 'Add' button in 'Add New License File' dialog")
-
-        if Util.check_dom_visibility(self.page, self.page.locator("span", has_text=re.compile(r"Currently linked to the|View License", re.IGNORECASE)), 2, 4):
-            ColorLogger.success(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' successfully for Data Plane '{dp_name}'.")
+        # From here on a dialog can be opened, so every exit runs through the finally
+        # below and leaves no modal behind for the next navigation to trip over.
+        is_activated = False
+        dialog_opened = False
+        raised = False
+        skipped_reason = ""
+        add_button_never_enabled = False
+        try:
             if use_global:
-                ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+                # for dp level
+                if not self.select_in_product_activation():
+                    ColorLogger.warning("In-Product Activation option is disabled, skip config Activation.")
+                    return
+                if self.page.locator(".dp-activation-content__license-file-item-details").is_visible():
+                    ColorLogger.success(f"In-Product Activation is already exist for Data Plane '{dp_name}'.")
+                    ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+                    is_activated = True
+                    return
+
+                ColorLogger.info(f"Link to Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Data Plane...")
+                # Polled before the click, and the 'pcp-disabled' guard reads the button
+                # only once it has rendered: a one-shot is_visible() skips the guard on a
+                # late render, and the click behind it then stalls on Playwright's 30s
+                # default - the exact shape of failure this step is being fixed for.
+                if not Util.check_dom_visibility(self.page, self.page.locator("#use-global-license-file-on-dp"), 3, 30):
+                    skipped_reason = "The 'Use Global License File' button never appeared."
+                # if "Use Global License File" button is visible but not enabled, skip config
+                elif "pcp-disabled" in (self.page.locator("#use-global-license-file-on-dp").get_attribute("class") or ""):
+                    ColorLogger.warning("'Use Global License File' button is not enabled, skip config Activation url.")
+                    return
+                else:
+                    # The flag goes up BEFORE the click: a leftover overlay swallows pointer
+                    # events, so the click itself is what throws, and a cleanup that believed
+                    # nothing was opened would leave that overlay for the next navigation.
+                    dialog_opened = True
+                    if not self._click_activation_control("#use-global-license-file-on-dp", "'Use Global License File' option"):
+                        skipped_reason = "The 'Use Global License File' option could not be clicked."
+                    else:
+                        print("Waiting for 'Use Global License File' modal dialog is visible...")
+                        # Polled instead of wait_for(): a throw here would jump straight out of the
+                        # method and leave the half rendered confirmation dialog on screen.
+                        if not Util.check_dom_visibility(self.page, self.page.locator("confirmation-modal .pl-modal__heading", has_text="Use Global License File"), 3, 30):
+                            skipped_reason = "The 'Use Global License File' confirmation dialog never appeared."
+                        else:
+                            try:
+                                self.page.locator("#confirm-button", has_text="Link").click(timeout=ACTIVATION_DIALOG_SUBMIT_TIMEOUT)
+                                print("Clicked 'Link' button in 'Use Global License File' modal dialog")
+                            except PlaywrightTimeoutError:
+                                # A slow 'Link' is reported, not raised: the click may still have
+                                # landed, so the shared check below decides, and the cleanup gets
+                                # to run instead of the whole Data Plane setup ending here.
+                                skipped_reason = "The 'Link' button in the 'Use Global License File' dialog could not be clicked."
             else:
-                ReportYaml.set_dataplane_info(dp_name, "activation", "file")
-        else:
-            ColorLogger.warning(f"Add Activation file '{activation_file_path}' failed.")
+                # for global level
+                if not self.select_in_product_activation():
+                    ColorLogger.warning("In-Product Activation option is disabled, skip config Activation.")
+                    return
+                ColorLogger.info(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' for Global Data Plane...")
+                if not Util.check_dom_visibility(self.page, self.page.locator('#add-global-license-file'), 2, 6):
+                    # Told apart from the drop zone below on purpose: nothing was ever
+                    # clicked here, so no dialog was ever asked for, and reporting this as
+                    # "the dialog never appeared" would name a step that never ran.
+                    skipped_reason = "The 'Upload' option '#add-global-license-file' never appeared."
+                else:
+                    # The flag goes up BEFORE the click: a leftover overlay swallows pointer
+                    # events, so the click itself is what throws, and a cleanup that believed
+                    # nothing was opened would leave that overlay for the next navigation.
+                    dialog_opened = True
+                    if not self._click_activation_control("#add-global-license-file", "'Upload' option"):
+                        # Told apart from the drop zone below for the same reason as the
+                        # missing option above: this names the click, and the guard on that
+                        # branch keeps it from being overwritten by a second complaint about
+                        # the dialog it was supposed to open.
+                        skipped_reason = "The 'Upload' option '#add-global-license-file' could not be clicked."
+
+                # The drop zone is the proof that the 'Add New License File' dialog really
+                # rendered. A single is_visible() raced the dialog opening, so the file was
+                # never attached and the run went on with an empty, silently open dialog.
+                # It is probed independently of the 'Upload' option above: a control plane
+                # that shows the dialog without that option still has to get the file.
+                if Util.check_dom_visibility(self.page, self.page.locator('.license-file-drop-zone'), 2, 6):
+                    # Whatever put the dialog there, the file is being attached to it, so
+                    # closing it if this goes wrong is now this step's job.
+                    dialog_opened = True
+                    print("Popping up 'Add New License File' dialog")
+
+                    self.page.locator('input[type="file"]').evaluate("(input) => input.style.display = 'block'")
+                    self.page.locator('input[type="file"]').set_input_files(activation_file_path)
+                    print(f"Selected file: {activation_file_path}")
+
+                    # This one waits on server side license validation, not on a client side
+                    # mount, so it gets the full budget: the button enables only once the
+                    # backend has accepted the file.
+                    if Util.check_dom_visibility(self.page, self.page.locator("#add-activation-url-btn:not([disabled])"), 3, 30):
+                        self.page.locator('#add-activation-url-btn').click(timeout=ACTIVATION_DIALOG_SUBMIT_TIMEOUT)
+                        print("Clicked 'Add' button in 'Add New License File' dialog")
+                    else:
+                        # Keep the dialog on screen for one more moment: the reason it refused
+                        # the file is only readable while it is still mounted, and the shared
+                        # tail below turns it into the warning message.
+                        add_button_never_enabled = True
+                elif not skipped_reason:
+                    # Only when the 'Upload' option was there and clicked: its own absence is
+                    # already reported above, and naming both would blame two separate steps
+                    # for one missing dialog.
+                    skipped_reason = "The 'Add New License File' dialog never appeared, so the file was never attached."
+
+            # A missed option or dialog still falls through to the shared check below: the
+            # license may already be linked, and skipping the report write on that run would
+            # leave o11y_config_activation with nothing stored and the DP link silently
+            # skipped for the rest of the run.
+            if Util.check_dom_visibility(self.page, self.page.locator("span", has_text=ACTIVATION_LINKED_TEXT), 2, 4):
+                ColorLogger.success(f"Upload Activation File '{ENV.TP_ACTIVATION_FILENAME}' successfully for Data Plane '{dp_name}'.")
+                is_activated = True
+                if use_global:
+                    ReportYaml.set_dataplane_info(dp_name, "activation", "Global")
+                else:
+                    ReportYaml.set_dataplane_info(dp_name, "activation", "file")
+            else:
+                # Nothing is written to the report on a failure path: o11y_config_activation
+                # skips on any stored value, so a recorded failure would disable activation
+                # for good on every later run. An unusable license is loud but not fatal,
+                # the rest of the Data Plane setup still has to finish.
+                if use_global:
+                    message = f"Link to the Global license file failed for Data Plane '{dp_name}'."
+                else:
+                    message = f"Add Activation file '{activation_file_path}' failed for Data Plane '{dp_name}'."
+                if skipped_reason:
+                    message = f"{message} {skipped_reason}"
+                if add_button_never_enabled:
+                    message = f"{message} The 'Add' button in the 'Add New License File' dialog never enabled."
+                # Only a dialog this step opened may be scraped for a reason: on a skip
+                # path the modal on screen is the caller's, and its text is not evidence
+                # about this step.
+                details = self._activation_failure_details(dialog_opened)
+                if details:
+                    message = f"{message} {details}"
+                Util.warning_screenshot(message, self.page, "dp_config_activation_file.png")
+        except BaseException:
+            # Only an exception raised by THIS call may mark the run as failed. sys.exc_info()
+            # would also report one being handled further up the stack, and turn a green run
+            # into a false warning plus screenshot. BaseException on purpose: a nested
+            # Util.exit_error raises SystemExit, which would otherwise sail past.
+            raised = True
+            raise
+        finally:
+            self._close_activation_modal(is_activated, dialog_opened, raised, "dp_config_activation_file.png",
+                                         self.page.locator("span", has_text=ACTIVATION_LINKED_TEXT))
