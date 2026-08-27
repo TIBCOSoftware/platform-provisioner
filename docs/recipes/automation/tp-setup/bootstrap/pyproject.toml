@@ -18,7 +18,7 @@ dependencies = [
     "pyyaml==6.0.2",            # YAML parsing (kubeconfig validation — TPSEC-163)
 
     # Domain-Specific
-    "fastmcp==2.12.0",          # TIBCO MCP automation
+    "fastmcp==2.14.0",          # TIBCO MCP automation
 
     # Web Framework & API
     "flask-cors==6.0.1",        # CORS for Flask
