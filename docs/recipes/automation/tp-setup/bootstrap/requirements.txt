@@ -193,7 +193,7 @@ python-dotenv==1.1.1
     #   tp-automation (pyproject.toml)
     #   fastmcp
     #   pydantic-settings
-python-multipart==0.0.20
+python-multipart==0.0.22
     # via mcp
 pytz==2025.2
     # via tp-automation (pyproject.toml)
