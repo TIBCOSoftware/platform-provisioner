@@ -116,7 +116,7 @@ markupsafe==3.0.2
     #   flask
     #   jinja2
     #   werkzeug
-mcp==1.13.1
+mcp==1.23.0
     # via fastmcp
 mdurl==0.1.2
     # via markdown-it-py
