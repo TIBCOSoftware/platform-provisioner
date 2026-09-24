@@ -41,17 +41,18 @@ meta:
     GUI_CP_PROXY_NO_PROXY: ""
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.19.0
-    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.19.0
-    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.19.0
+    GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION: 1.20.0
+    GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: 1.20.0
+    GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: 1.20.0
     GUI_CP_PLATFORM_INTEGRATION_SB_VERSION: 1.16.0
     GUI_CP_PLATFORM_INTEGRATION_BC_VERSION: "~1.19.0-0"
-    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.19.0
+    GUI_CP_PLATFORM_TIBCOHUB_VERSION: 1.20.0
     GUI_CP_PLATFORM_MESSAGING_VERSION: 1.19.23
-    GUI_CP_PLATFORM_HAWK_VERSION: 1.19.23
+    GUI_CP_PLATFORM_HAWK_VERSION: 1.20.8
     GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: 1.17.0
     GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.16.0-0"
     GUI_CP_PLATFORM_MCP_HUB_VERSION: "~1.17.0-0"
+    GUI_CP_PLATFORM_MFT_VERSION: 1.0.0
 
     # CP env
     GUI_CP_INSTANCE_ID: "cp1"
@@ -140,7 +141,12 @@ meta:
     GUI_CP_MAIL_SERVER_GRAPH_CLIENT_DETAILS_SECRET_NAME: ""
     GUI_CP_MAIL_SERVER_GRAPH_SKIP_SENT_FOLDER: ""
 
-    # DB the default value is for postgres pod.
+    # DB. The GUI_CP_DB_* values below are the postgres defaults.
+    GUI_CP_DB_ENGINE: "postgres" # postgres | oracle
+    # database/sql driver name. Leave empty: it follows the engine above, and the two
+    # supported engines register their drivers under exactly those names. Set it only to
+    # select a different registered driver for the same engine (e.g. pgx for postgres).
+    GUI_CP_DB_DRIVER: ""
     GUI_CP_DB_HOST: "postgresql.tibco-ext.svc.cluster.local"
     GUI_CP_DB_PORT: "5432"
     GUI_CP_DB_USER_NAME: "postgres"
@@ -153,6 +159,22 @@ meta:
     GUI_CP_DB_SSL_ROOT_CERT_FILENAME: "db_ssl_root.cert"
     GUI_CP_DB_DELETE_ON_UNINSTALL: false
     GUI_CP_MANAGE_DB_SCHEMA: true
+
+    # Oracle engine connection defaults. Only read when GUI_CP_DB_ENGINE is oracle.
+    # The service name is a hardcoded literal in the oracledb chart's _helpers.tpl
+    # (oracledb.fullname -> "oracle"); 1521 is service.ports.listener; FREEPDB1 is the PDB
+    # of the Free image (sid is FREE); system is its admin account.
+    # The password default matches the Oracle pod the on-prem base pipeline creates, whose
+    # own default is "oracle" -- change both together or the CP cannot authenticate.
+    # system is a DBA account. It is the only account the Free image ships, so it is the
+    # default here; point these at a least-privileged schema owner for anything real.
+    # The user name and password are form fields; host/port/service are recipe-only, so
+    # override those in headless recipe YAML to point at an external Oracle.
+    GUI_CP_ORACLE_DB_HOST: "oracle.tibco-ext.svc.cluster.local"
+    GUI_CP_ORACLE_DB_PORT: "1521"
+    GUI_CP_ORACLE_DB_NAME: "FREEPDB1"
+    GUI_CP_ORACLE_DB_USER_NAME: "system"
+    GUI_CP_ORACLE_DB_PASSWORD: "oracle"
 
     # Keycloak external IdP (optional; only used when GUI_CP_INSTALL_KEYCLOAK=true; test envs only)
     GUI_CP_KEYCLOAK_HOST: "" # public host for Keycloak; empty => keycloak.<CP_DNS_DOMAIN>
@@ -179,6 +201,7 @@ meta:
     GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING: true
     GUI_CP_INSTALL_PLATFORM_AI_AGENT: false
     GUI_CP_INSTALL_PLATFORM_MCP_HUB: false
+    GUI_CP_INSTALL_PLATFORM_MFT: false
   globalEnvVariable:
     REPLACE_RECIPE: true
     PIPELINE_LOG_DEBUG: false
@@ -254,11 +277,16 @@ meta:
     CP_EXT_NAMESPACE: ${GUI_CP_EXT_NAMESPACE:-"tibco-ext"}
 
     # CP DB setup env
-    CP_DB_HOST: ${GUI_CP_DB_HOST:-"postgresql.tibco-ext.svc.cluster.local"} #
-    CP_DB_PORT: ${GUI_CP_DB_PORT:-"5432"}
-    CP_DB_USER_NAME: ${GUI_CP_DB_USER_NAME:-""} # CP_RDS_USERNAME in create-rds.sh
-    CP_DB_PASSWORD: ${GUI_CP_DB_PASSWORD:-""} # CP_RDS_MASTER_PASSWORD in create-rds.sh
-    CP_DB_NAME: ${GUI_CP_DB_NAME:-postgres}
+    CP_DB_ENGINE: ${GUI_CP_DB_ENGINE:-"postgres"} # postgres | oracle
+    # Defaults to the engine: postgres -> postgres, oracle -> oracle. Those are the names the
+    # two drivers register under, so on this contract the driver name and the engine name are
+    # the same string. An explicit GUI_CP_DB_DRIVER overrides it for the same engine.
+    CP_DB_DRIVER: ${GUI_CP_DB_DRIVER:-${CP_DB_ENGINE}}
+    CP_DB_HOST: $(if [[ "${CP_DB_ENGINE}" == "oracle" ]]; then echo "${GUI_CP_ORACLE_DB_HOST:-oracle.tibco-ext.svc.cluster.local}"; else echo "${GUI_CP_DB_HOST:-postgresql.tibco-ext.svc.cluster.local}"; fi)
+    CP_DB_PORT: $(if [[ "${CP_DB_ENGINE}" == "oracle" ]]; then echo "${GUI_CP_ORACLE_DB_PORT:-1521}"; else echo "${GUI_CP_DB_PORT:-5432}"; fi)
+    CP_DB_USER_NAME: $(if [[ "${CP_DB_ENGINE}" == "oracle" ]]; then echo "${GUI_CP_ORACLE_DB_USER_NAME:-system}"; else echo "${GUI_CP_DB_USER_NAME:-}"; fi)
+    CP_DB_PASSWORD: $(if [[ "${CP_DB_ENGINE}" == "oracle" ]]; then echo "${GUI_CP_ORACLE_DB_PASSWORD:-oracle}"; else echo "${GUI_CP_DB_PASSWORD:-}"; fi) # CP_RDS_MASTER_PASSWORD in create-rds.sh
+    CP_DB_NAME: $(if [[ "${CP_DB_ENGINE}" == "oracle" ]]; then echo "${GUI_CP_ORACLE_DB_NAME:-FREEPDB1}"; else echo "${GUI_CP_DB_NAME:-postgres}"; fi)
     CP_DB_SECRET_NAME: ${GUI_CP_DB_SECRET_NAME:-provider-cp-database-credentials}
     CP_DB_SSL_MODE: ${GUI_CP_DB_SSL_MODE:-"disable"} # verify-full, disable
     CP_DB_SSL_ROOT_CERT: ${GUI_CP_DB_SSL_ROOT_CERT:-""}
@@ -305,17 +333,18 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.19.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.19.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.19.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.20.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.20.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.20.0} # use ^1.0.0 for latest
     CP_PLATFORM_INTEGRATION_SB_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_SB_VERSION:-1.16.0} # use ^1.0.0 for latest
     CP_PLATFORM_INTEGRATION_BC_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BC_VERSION:-"~1.19.0-0"} # use ~1.19.0-0 for latest alpha/stable
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.19.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.20.0} # use ^1.0.0 for latest
     CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.19.23} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.19.23} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.20.8} # use ^1.0.0 for latest
     CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.17.0} # use ^1.0.0 for latest
     CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.16.0-0"} # use ~1.16.0-0 for latest alpha/stable
     CP_PLATFORM_MCP_HUB_VERSION: ${GUI_CP_PLATFORM_MCP_HUB_VERSION:-"~1.17.0-0"} # use ~1.17.0-0 for latest alpha/stable
+    CP_PLATFORM_MFT_VERSION: ${GUI_CP_PLATFORM_MFT_VERSION:-1.0.0} # use ^1.0.0 for latest
     
     # CP AI MCP servers
     TP_AI_ENABLE_CP_MCP_SERVER: ${GUI_TP_AI_ENABLE_CP_MCP_SERVER:-false}
@@ -349,7 +378,13 @@ meta:
     CP_INSTALL_KEYCLOAK: ${GUI_CP_INSTALL_KEYCLOAK:-false}
     CP_KEYCLOAK_HOST: ${GUI_CP_KEYCLOAK_HOST:-"keycloak.${CP_DNS_DOMAIN}"}
     CP_KEYCLOAK_ADMIN_PASSWORD: ${GUI_CP_KEYCLOAK_ADMIN_PASSWORD:-"Tibco@123"} # stable so postDeploy admin API works across restarts
-    CP_KEYCLOAK_DB_PASSWORD: ${GUI_CP_KEYCLOAK_DB_PASSWORD:-${CP_DB_PASSWORD:-postgres}} # defaults to the CP DB password, else "postgres"
+    # Keycloak always uses the shared PostgreSQL pod, never the CP engine, because it only
+    # supports a PostgreSQL JDBC URL here. The GUI_CP_DB_* keys describe that PostgreSQL
+    # connection on BOTH engine arms (the Oracle connection lives in GUI_CP_ORACLE_DB_*),
+    # so these need no engine branch and resolve exactly as before on the postgres arm.
+    CP_KEYCLOAK_DB_HOST: ${GUI_CP_DB_HOST:-"postgresql.tibco-ext.svc.cluster.local"}
+    CP_KEYCLOAK_DB_PORT: ${GUI_CP_DB_PORT:-"5432"}
+    CP_KEYCLOAK_DB_PASSWORD: ${GUI_CP_KEYCLOAK_DB_PASSWORD:-${GUI_CP_DB_PASSWORD:-postgres}}
     CP_STORAGE_CREATE_PV: ${GUI_CP_STORAGE_CREATE_PV:-false} # create PV for control-plane-pv for Kind, MicroK8s and Azure use case
     CP_INSTALL_TIBCO_CP_BASE: ${GUI_CP_INSTALL_TIBCO_CP_BASE:-true}
     CP_INSTALL_PLATFORM_TIBCOHUB: ${GUI_CP_INSTALL_PLATFORM_TIBCOHUB:-true}
@@ -364,9 +399,40 @@ meta:
     CP_INSTALL_PLATFORM_EVENTPROCESSING: ${GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING:-true}
     CP_INSTALL_PLATFORM_AI_AGENT: ${GUI_CP_INSTALL_PLATFORM_AI_AGENT:-false}
     CP_INSTALL_PLATFORM_MCP_HUB: ${GUI_CP_INSTALL_PLATFORM_MCP_HUB:-false}
+    CP_INSTALL_PLATFORM_MFT: ${GUI_CP_INSTALL_PLATFORM_MFT:-false}
   tools:
     yq: "4.40" # this also have the logic to create soft link of yq-4.40 --> yq
 preTasks:
+- name: validate-db-engine
+  script:
+    ignoreErrors: false
+    fileName: script.sh
+    content: |
+      case "${CP_DB_ENGINE}" in
+        postgres)
+          ;;
+        oracle)
+          echo "WARNING: CP DB engine is oracle."
+          echo "  Oracle support is new. Schema management needs a tibco-cp-base whose"
+          echo "  core-cp-scripts image carries an Oracle client and whose schema Job"
+          echo "  emits ORACLE_HOST and ORACLE_PORT."
+          echo "  The default Oracle account is system, a DBA account. Point the CP at a"
+          echo "  least-privileged schema owner before using this for anything real."
+          echo "  Connecting to ${CP_DB_HOST}:${CP_DB_PORT} service ${CP_DB_NAME} as ${CP_DB_USER_NAME}."
+          case "${CP_MANAGE_DB_SCHEMA}" in
+            [Tt][Rr][Uu][Ee])
+              echo "  CP Manage DB Schema is on. This needs a tibco-cp-base whose"
+              echo "  core-cp-scripts image carries an Oracle client and whose schema Job"
+              echo "  emits ORACLE_HOST/ORACLE_PORT. On an older chart the Job fails and the"
+              echo "  install waits out its timeout first. Turn this off if unsure."
+              ;;
+          esac
+          ;;
+        *)
+          echo "ERROR: CP DB engine must be postgres or oracle, got: ${CP_DB_ENGINE}"
+          exit 1
+          ;;
+      esac
 - condition: ${CP_VALIDATE_CLUSTER_RESOURCE}
   clusters:
     - name: ${CP_CLUSTER_NAME}
@@ -586,7 +652,7 @@ helmCharts:
         enabled: true
         image:
           repository: maildev/maildev
-          tag: latest
+          tag: "3.0.0-rc.1"
         args: ["-s", "1025", "-w", "1080"]
         ports:
           http:
@@ -681,6 +747,9 @@ helmCharts:
           createNetworkPolicy: ${TP_CREATE_NETWORK_POLICIES}
           enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
           manageDbSchema: ${CP_MANAGE_DB_SCHEMA}
+          # transitional: the engine now reaches the chart as global.external.db_type. This
+          # key stays until no supported tibco-cp-base reads it, then it is removed.
+          dbEngine: ${CP_DB_ENGINE}
           db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
           db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
           # Enable or disable hybrid connectivity
@@ -719,12 +788,14 @@ helmCharts:
             password: "${CP_LOG_PASSWORD}" # optional logserver password
             index: "${CP_LOG_INDEX}" # optional logserver index
           environment: ${CP_EXTERNAL_ENVIRONMENT}
+          db_driver: ${CP_DB_DRIVER}
           db_host: ${CP_DB_HOST}
           db_name: ${CP_DB_NAME}
           db_password: ${CP_DB_PASSWORD}
           db_port: "${CP_DB_PORT}"
           db_secret_name: ${CP_DB_SECRET_NAME}
           db_ssl_mode: ${CP_DB_SSL_MODE}
+          db_type: ${CP_DB_ENGINE}
           db_username: ${CP_DB_USER_NAME}
           # start - email server configuration is removed from this chart since 1.18.0. 
           emailServerType: ${CP_MAIL_SERVER_TYPE}
@@ -763,7 +834,7 @@ helmCharts:
         ingress:
           enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY_INGRESS_ENABLED}
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
           ingressClassName: ${CP_INGRESS_CLASSNAME}
           hosts:
@@ -780,7 +851,7 @@ helmCharts:
           hostnames:
             - '*.${CP_TUNNEL_DNS_DOMAIN}'
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
       router-operator:
         resources:
           requests:
@@ -792,7 +863,7 @@ helmCharts:
         ingress:
           enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER_INGRESS_ENABLED}
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
             nginx.ingress.kubernetes.io/proxy-body-size: 200m # set to 200m to allow large file upload PCP-7954
           ingressClassName: ${CP_INGRESS_CLASSNAME}
@@ -810,7 +881,7 @@ helmCharts:
           hostnames:
             - '*.${CP_SERVICE_DNS_DOMAIN}'
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
       resource-set-operator:
         resources:
           requests:
@@ -1421,8 +1492,10 @@ helmCharts:
             fluentbit:
               enabled: ${CP_LOG_ENABLE} # set to true to enable fluentbit for CP
           containerRegistry:
-            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
             url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
         external:
           environment: "${CP_EXTERNAL_ENVIRONMENT}"
           # ai-agent DB resource names, to use same DB as CP Base, use the same name provider-cp-database-config
@@ -1488,7 +1561,7 @@ helmCharts:
           - name: KC_DB
             value: "postgres"
           - name: KC_DB_URL
-            value: "jdbc:postgresql://${CP_DB_HOST}:${CP_DB_PORT}/keycloak"
+            value: "jdbc:postgresql://${CP_KEYCLOAK_DB_HOST}:${CP_KEYCLOAK_DB_PORT}/keycloak"
           - name: KC_DB_USERNAME
             value: "postgres"
           - name: KC_DB_PASSWORD
@@ -1579,7 +1652,7 @@ helmCharts:
           || kubectl exec -n ${CP_EXT_NAMESPACE} "${_pg_pod}" -- env PGPASSWORD="${CP_KEYCLOAK_DB_PASSWORD}" \
             psql -U postgres -c "CREATE DATABASE keycloak"
         else
-          echo "WARN: no postgresql pod found in ${CP_EXT_NAMESPACE}; expecting ${CP_DB_HOST} reachable with a 'keycloak' database"
+          echo "WARN: no postgresql pod found in ${CP_EXT_NAMESPACE}; expecting ${CP_KEYCLOAK_DB_HOST} reachable with a 'keycloak' database"
         fi
         cat > mcp-inbound-realm.json <<'KCREALM'
         {
@@ -1717,6 +1790,42 @@ helmCharts:
     names:
       - ${CP_CLUSTER_NAME}
   releaseName: tibco-cp-mcp-hub
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-mft
+  version: ${CP_PLATFORM_MFT_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_MFT}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE}
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-mft
   namespace: ${CP_NAMESPACE}
   flags:
     wait: true

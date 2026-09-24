@@ -25,7 +25,15 @@ Handles all capability-related operations:
 import json
 from utils.color_logger import ColorLogger
 from utils.env import ENV
+from utils.naming import storage_resource_candidates
 from .base import TibcopBase, normalize_gateway_controller
+
+
+# `--ems-sizing` is a free-text flag: tibcop 1.21 documents it as "EMS sizing (e.g. small,
+# medium, large)" and accepts anything. The value is only rejected much later, by the DP-side
+# Helm render, which surfaces as a capability that provisions "successfully" and then never
+# comes up. Validate in Python so a typo fails before the request is sent.
+EMS_SIZINGS = ("small", "medium", "large", "xlarge")
 
 
 class TibcopCapability:
@@ -103,13 +111,24 @@ class TibcopCapability:
             ColorLogger.success("Capabilities listed successfully")
         return result
 
-    def is_capability_provisioned(self, dp_name, capability):
+    def is_capability_provisioned(self, dp_name, capability, capability_name=""):
         """
         Check if a capability is already provisioned in the DataPlane.
 
         Args:
             dp_name: Name of the dataplane
-            capability: Capability type (BWCE, BW5CE, FLOGO, TIBCOHUB, CONNECTOR)
+            capability: Capability type (BWCE, BW5CE, FLOGO, TIBCOHUB, CONNECTOR, EMS)
+            capability_name: Optional instance name that must ALSO match, compared exactly
+                against the ``name`` field of the list-capability-instances JSON.
+
+                Mirrors the UI signature (po_dataplane.is_capability_provisioned). Left
+                empty, the answer is "is there any instance of this capability type", which
+                is what every capability with exactly one instance per Data Plane wants.
+                EMS is the exception that motivated the parameter (PCP-24380): a Data Plane
+                may legitimately hold several EMS servers, so "some EMS exists" would skip
+                provisioning the one that was actually asked for. Exact equality, not the
+                anchored-substring matcher the UI side needs - this reads a JSON field, not
+                a rendered table cell, so there is no substring hazard to guard against.
 
         Returns:
             True if capability is already provisioned, False otherwise
@@ -158,7 +177,9 @@ class TibcopCapability:
             for cap in capabilities:
                 # The field name is "capability" (e.g., "BWCE", "BW5CE", "FLOGO")
                 cap_type = cap.get('capability', '').upper()
-                if cap_type == capability_upper:
+                if cap_type != capability_upper:
+                    continue
+                if not capability_name or cap.get('name') == capability_name:
                     return True
 
             return False
@@ -216,11 +237,62 @@ class TibcopCapability:
         ColorLogger.success(f"{capability_upper} version '{version}' provisioned successfully")
         return result
 
+    def resolve_storage_resource_id(self, dp_name):
+        """The Data Plane's storage resource instance id, creating the resource if needed.
+
+        Distinct from the ``{capability}-{storageclass}-storage`` resource that
+        provision_capability auto-creates for BWCE/FLOGO/TIBCOHUB: EMS binds to the Data
+        Plane's OWN storage resource, which is what the UI wizard offers and what
+        cli_object/orchestrator.py creates as ``{dp_name}-storage``. Getting this wrong is
+        not theoretical - it is PCP-23953 with the roles reversed.
+
+        The names are tried in utils.naming.storage_resource_candidates() order, first hit
+        wins, and only if NOTHING matches is a resource created - under the CLI convention
+        ``{dp_name}-storage``, the same name orchestrator.py uses, so a later run of either
+        entry point finds it instead of making a second one.
+
+        Returns the resource id, or None if it could not be found or created. None must
+        abort the caller: provisioning EMS against a storage resource that does not exist
+        fails on the CP side with a far less obvious message.
+        """
+        if not self.resource:
+            ColorLogger.error("Resource instance not available, cannot resolve the storage resource")
+            return None
+
+        candidates = storage_resource_candidates(dp_name)
+        for resource_name in candidates:
+            existing_id = self.resource.get_resource_id_by_name(dp_name, resource_name)
+            if existing_id:
+                ColorLogger.info(f"Found existing storage resource '{resource_name}' with ID '{existing_id}'")
+                return existing_id
+
+        storage_resource_name = candidates[0]
+        storage_class_name = ENV.TP_AUTO_STORAGE_CLASS
+        ColorLogger.info(f"None of {candidates} exists, creating storage resource '{storage_resource_name}' with storage class '{storage_class_name}'...")
+        result = self.resource.create_storage_resource(
+            dp_name=dp_name,
+            resource_name=storage_resource_name,
+            storage_class_name=storage_class_name,
+            description=f"Auto-created storage for DataPlane {dp_name}"
+        )
+        if result is None:
+            ColorLogger.error(f"Failed to create storage resource '{storage_resource_name}'")
+            return None
+
+        storage_resource_id = self.resource.get_resource_id_by_name(dp_name, storage_resource_name)
+        if not storage_resource_id:
+            ColorLogger.error(f"Failed to get resource ID for newly created storage resource '{storage_resource_name}'")
+            return None
+        ColorLogger.success(f"Storage resource '{storage_resource_name}' created with ID '{storage_resource_id}'")
+        return storage_resource_id
+
     def provision_capability(self, dp_name, capability, storage_resource_id=None, ingress_resource_id=None,
                             gateway_resource_id=None, path_prefix=None, devhub_name=None,
-                            k8s_secret=None, other_args=None):
+                            k8s_secret=None, other_args=None,
+                            msg_data_resource_id=None, log_data_resource_id=None,
+                            ems_name=None, ems_sizing=None, ems_use=None):
         """
-        Provision a capability (BWCE/BW5CE/FLOGO/TIBCOHUB/CONNECTOR) in a DataPlane.
+        Provision a capability (BWCE/BW5CE/FLOGO/TIBCOHUB/CONNECTOR/EMS) in a DataPlane.
 
         Auto-creates required storage and route (ingress or gateway) resources if IDs not provided.
 
@@ -231,9 +303,17 @@ class TibcopCapability:
         - Otherwise the original ingress path is used. Explicit ``ingress_resource_id``
           always wins over the gateway auto-create branch.
 
+        **EMS takes none of that** (PCP-24380). It binds two DATA resources
+        (``--msg-data-resource-instance-id`` / ``--log-data-resource-instance-id``),
+        resolved from the Data Plane's OWN storage resource rather than the
+        per-capability ``{cap}-{sc}-storage`` this method auto-creates for the others,
+        and it has no HTTP route at all - so the whole gateway/ingress block, and the
+        ``--path-prefix`` / ``--fluentbit-sidecar-enabled`` catch-all, are skipped for it.
+        Any storage/ingress/gateway id a caller passes for EMS is dropped, not forwarded.
+
         Args:
             dp_name: Name of the dataplane
-            capability: Capability type (BWCE, BW5CE, FLOGO, TIBCOHUB, CONNECTOR)
+            capability: Capability type (BWCE, BW5CE, FLOGO, TIBCOHUB, CONNECTOR, EMS)
             storage_resource_id: Storage resource instance ID (auto-creates if not provided)
             ingress_resource_id: Ingress resource instance ID (auto-creates if not provided
                 and ``TP_AUTO_INGRESS_OBJECT != "gateway"``)
@@ -243,14 +323,54 @@ class TibcopCapability:
             devhub_name: Developer hub name (for TIBCOHUB only, defaults from ENV.TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME)
             k8s_secret: Kubernetes secret object name (for TIBCOHUB only)
             other_args: Additional CLI arguments
+            msg_data_resource_id: EMS message-storage resource instance ID (auto-resolved
+                from the Data Plane's storage resource if not provided)
+            log_data_resource_id: EMS log-storage resource instance ID (same; may be - and
+                by default is - the SAME resource as the message one, which is what the UI
+                wizard binds too)
+            ems_name: EMS server name (for EMS only, defaults from
+                ENV.TP_AUTO_EMS_CAPABILITY_SERVER_NAME)
+            ems_sizing: EMS sizing (for EMS only, one of EMS_SIZINGS, defaults from
+                ENV.TP_AUTO_EMS_CAPABILITY_SIZING)
+            ems_use: EMS usage profile (for EMS only, default "dev"; NOT validated - the
+                CP blanks it on every path, see the comment at the default below)
 
         Returns:
             Command output, or "ALREADY_PROVISIONED" if capability exists
         """
         capability_upper = capability.upper()
+        is_ems = capability_upper == "EMS"
 
-        # Check if capability is already provisioned
-        if self.is_capability_provisioned(dp_name, capability_upper):
+        if is_ems:
+            ems_name = ems_name or ENV.TP_AUTO_EMS_CAPABILITY_SERVER_NAME
+            ems_sizing = (ems_sizing or ENV.TP_AUTO_EMS_CAPABILITY_SIZING or "").lower()
+            # 'dev' is the wizard's own default. It is hardcoded here rather than exposed as
+            # an env var because it does NOT affect the resulting capability name: the CP
+            # blanks ems.use on BOTH the UI and the CLI path, the card and
+            # /cp/api/v1/data-planes/{dpId}/capabilities/instances both report the bare
+            # server name, and po_dp_ems.py used to append '-dev' on the opposite belief and
+            # hard-failed verification for it (PCP-24380). Nobody should infer naming from
+            # this value. The CP blanking it is MSGDP's call and is out of scope here.
+            # No allow-list for --ems-use, deliberately, and it is not an oversight next to
+            # the EMS_SIZINGS check below. --ems-sizing is validated because a bad value
+            # survives tibcop and then breaks the DP-side Helm render; --ems-use cannot,
+            # because the CP never uses the value at all - the chart's escape hatch blanks
+            # ems.use to "" on BOTH the CLI and the UI path (verified on tibcop 1.21 against
+            # the AWS lab). There is therefore no value that can be "wrong", and an
+            # allow-list built from the CLI's own misleading "e.g. dev, prod" help text
+            # would only reject values the CP is indifferent to.
+            ems_use = ems_use or "dev"
+            if ems_sizing not in EMS_SIZINGS:
+                ColorLogger.error(
+                    f"Unsupported EMS sizing '{ems_sizing}'. Must be one of: {', '.join(EMS_SIZINGS)}")
+                return None
+
+        # Check if capability is already provisioned. EMS passes the server name: a Data
+        # Plane may hold several EMS servers, so "an EMS exists" is not the same question as
+        # "the EMS that was asked for exists", and answering the former would silently skip
+        # provisioning the latter.
+        if self.is_capability_provisioned(dp_name, capability_upper,
+                                          capability_name=ems_name if is_ems else ""):
             ColorLogger.info(f"{capability_upper} capability is already provisioned in DataPlane '{dp_name}', skipping...")
             return "ALREADY_PROVISIONED"
 
@@ -267,8 +387,26 @@ class TibcopCapability:
             ColorLogger.error(f"Failed to get dataplane ID for '{dp_name}'")
             return None
 
+        # EMS resolves its two data resources from the Data Plane's OWN storage resource and
+        # takes no route resource at all, so the whole gateway/ingress block below and the
+        # per-capability '{cap}-{sc}-storage' auto-create are skipped for it. Any
+        # storage/ingress/gateway id a caller passed is dropped rather than forwarded:
+        # `--storage-resource-instance-id` on an EMS provision is not a no-op, it is a wrong
+        # binding, and the Web UI form does not offer those fields for EMS anyway.
+        if is_ems:
+            storage_resource_id = ingress_resource_id = gateway_resource_id = None
+            if not (msg_data_resource_id and log_data_resource_id):
+                resolved_storage_id = self.resolve_storage_resource_id(dp_name)
+                if not resolved_storage_id:
+                    ColorLogger.error(f"Could not resolve a storage resource, cannot continue provisioning {capability}")
+                    return None
+                # Both default to the same resource - that is what the UI wizard binds when
+                # the Data Plane offers one storage resource, which is the normal case.
+                msg_data_resource_id = msg_data_resource_id or resolved_storage_id
+                log_data_resource_id = log_data_resource_id or resolved_storage_id
+
         # Auto-create storage resource if not provided
-        if not storage_resource_id and self.resource:
+        if not is_ems and not storage_resource_id and self.resource:
             # Get storage class from ENV
             storage_class_name = ENV.TP_AUTO_STORAGE_CLASS
             # Build resource name with storage class info: {capability}-{storageclass}-storage
@@ -301,8 +439,10 @@ class TibcopCapability:
                     return None
                 ColorLogger.success(f"Storage resource '{storage_resource_name}' created with ID '{storage_resource_id}'")
 
-        # Decide route kind: Gateway API vs Ingress
-        use_gateway = (ENV.TP_AUTO_INGRESS_OBJECT.lower() == "gateway"
+        # Decide route kind: Gateway API vs Ingress. EMS is excluded: it has no HTTP route,
+        # and provisioning it with one binds a resource the capability cannot use.
+        use_gateway = (not is_ems
+                       and ENV.TP_AUTO_INGRESS_OBJECT.lower() == "gateway"
                        and not ingress_resource_id)
 
         # Auto-create gateway API resource if requested and not provided
@@ -351,8 +491,9 @@ class TibcopCapability:
                     return None
                 ColorLogger.success(f"Gateway resource '{gateway_resource_name}' created with ID '{gateway_resource_id}'")
 
-        # Auto-create ingress resource if not provided (skipped when using gateway)
-        if not gateway_resource_id and not ingress_resource_id and self.resource:
+        # Auto-create ingress resource if not provided (skipped when using gateway, and for
+        # EMS, which takes no route resource)
+        if not is_ems and not gateway_resource_id and not ingress_resource_id and self.resource:
             # Get ingress settings from ENV
             ingress_class_name = ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME
             ingress_controller = ENV.TP_AUTO_INGRESS_CONTROLLER
@@ -431,6 +572,40 @@ class TibcopCapability:
                 command += f'--developer-hub-name "{devhub_name}" '
             if k8s_secret:
                 command += f'--kubernetes-secret-object "{k8s_secret}" '
+        elif is_ems:
+            # EMS-specific parameters. This arm exists BEFORE the else because the else is a
+            # catch-all: without it EMS was provisioned with --path-prefix "None" and
+            # --fluentbit-sidecar-enabled, neither of which EMS has any use for and the first
+            # of which is a literal "None" string (PCP-24380).
+            #
+            # EMS takes its own pair of data-resource flags, NOT
+            # --storage-resource-instance-id. Verified against the tibcop 1.21 command
+            # surface, which documents exactly:
+            #   --msg-data-resource-instance-id / --log-data-resource-instance-id
+            #   --ems-name / --ems-use / --ems-sizing
+            #   --ems-msg-storage-name / --ems-log-storage-name
+            command += f'--msg-data-resource-instance-id "{msg_data_resource_id}" '
+            command += f'--log-data-resource-instance-id "{log_data_resource_id}" '
+            command += f'--ems-name "{ems_name}" '
+            command += f'--ems-use "{ems_use}" '
+            command += f'--ems-sizing "{ems_sizing}" '
+            # The storage NAMES are the Kubernetes StorageClass, which is what
+            # ENV.TP_AUTO_STORAGE_CLASS holds; they are deliberately not a parameter of this
+            # method and not a field on the Web UI form. A value that disagrees with the
+            # resolved resource instance is the PCP-23953 failure class again, and whether
+            # the CP even reads these is unverifiable without deliberately passing a wrong
+            # one (the resource instance GUI mode creates is itself NAMED after the storage
+            # class, so "the CP used our value" and "the CP derived it" look identical).
+            # Omitted entirely when the storage class is unknown rather than sent as "".
+            storage_class_name = (ENV.TP_AUTO_STORAGE_CLASS or "").strip()
+            if storage_class_name:
+                command += f'--ems-msg-storage-name "{storage_class_name}" '
+                command += f'--ems-log-storage-name "{storage_class_name}" '
+            # No health assertion follows this call, deliberately. For roughly three minutes
+            # after an EMS provision the CP reports the capability red, "Capability running
+            # in DP with Errors" - that is the Prometheus scrape window filling, not a
+            # failure. Anything added later that checks EMS health needs a grace period of
+            # that order, or it will report a false negative on every successful run.
         else:
             # BWCE/BW5CE/FLOGO parameters
             command += f'--path-prefix "{path_prefix}" '

@@ -24,6 +24,35 @@ from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
 from page_object.po_dp_config import PageObjectDataPlaneConfiguration
 
+# Environmental Controls -> Engine Variables.
+#
+# CP 1.21 rebuilt this table as an INLINE ROW EDITOR. Two things changed at once:
+#   1. the value is no longer a clickable boolean toggle. It is plain text
+#      (<td class="value"><span>FALSE</span></td>) and a control only appears after
+#      the row's Edit button is pressed, which then has to be Confirmed.
+#   2. every per-row id gained a " <token>" suffix - note the SPACE, which makes the
+#      id invalid as a CSS #id selector - so even the ids that kept their name
+#      (engVars-btn-valTrue) no longer match an exact '#...' lookup.
+# The old '#engVars-btn-toggleBoolea' therefore matches nothing at all on 1.21, and
+# the flow died on inner_text() with a 30s timeout, 10 retries deep, blocking every
+# task ordered after deploy-bwce (PCP-24269).
+ENGINE_VARIABLES_TABLE = ".engine-variables"
+ENGVARS_TRACE_VARIABLE = "BW_OTEL_TRACES_ENABLED"
+ENGVARS_VALUE_CELL = "td.value"
+ENGVARS_PUSH_UPDATES = "#engVars-btn-pushUpdates"
+# 1.21 inline editor - prefix matches, because of the " <token>" suffix above.
+ENGVARS_ROW_EDIT = "[id^='engVars-btn-editVar-']"
+ENGVARS_ROW_CONFIRM = "[id^='engVars-btn-confirmEdit-']"
+ENGVARS_ROW_BOOL_TOGGLER = "[id^='engVars-btn-valBool-']"
+ENGVARS_ROW_VALUE_TRUE = "[id^='engVars-btn-valTrue-']"
+# Pre-1.21 Plexus table: toggle in place, no edit/confirm wrapper, un-suffixed ids.
+ENGVARS_LEGACY_BOOL_TOGGLE = "#engVars-btn-toggleBoolea"
+ENGVARS_LEGACY_VALUE_TRUE = "#engVars-btn-valTrue"
+# Entering edit mode swaps the whole row out, so the dropdown and Confirm do not
+# exist for a beat after the click. Long enough for an Angular re-render, short
+# enough that a shell which genuinely does not offer the control fails fast.
+ENGVARS_CONTROL_TIMEOUT_MS = 10000
+
 @dataclass(frozen=True)
 class EnvConfig:
     ingress_controller: str
@@ -640,25 +669,129 @@ class PageObjectDataPlaneBWCE(PageObjectDataPlane):
             self.page.locator("#evnCtlEngineVarsTab", has_text="Engine Variables").click()
             self.page.wait_for_timeout(1000)
             print("Clicked 'Engine Variables' left side menu")
-            self.page.locator(".engine-variables").wait_for(state="visible")
+            self.page.locator(ENGINE_VARIABLES_TABLE).wait_for(state="visible")
             print("'Engine Variables' table is loaded.")
-            traces_row = self.page.get_by_role("row", name="BW_OTEL_TRACES_ENABLED")
+            traces_row = self.page.get_by_role("row", name=ENGVARS_TRACE_VARIABLE)
             traces_row.wait_for(state="visible")
-            otel_trace_selector = traces_row.locator("#engVars-btn-toggleBoolea")
-            if otel_trace_selector.inner_text().lower() == "true":
-                ColorLogger.success("BW_OTEL_TRACES_ENABLED is already set to true.")
+            if self.engine_variable_value(traces_row) == "true":
+                ColorLogger.success(f"{ENGVARS_TRACE_VARIABLE} is already set to true.")
                 ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "enableTrace", True)
             else:
-                otel_trace_selector.click()
-                traces_row.locator("#engVars-btn-valTrue").wait_for(state="visible")
-                traces_row.locator("#engVars-btn-valTrue").click()
-                print("Set BW_OTEL_TRACES_ENABLED to true")
+                # Never report the variable as enabled off the back of a push that had
+                # nothing staged behind it - that is the silent success this whole
+                # ticket exists to remove.
+                if not self.set_boolean_engine_variable_true(traces_row):
+                    # Which controls the ROW offers is what this method branches on - the row
+                    # is already visible by here, and on the legacy table the toggle IS the
+                    # value display, so asking the row is both direct and stable. The Fresco
+                    # header flag is only 2s of detection (po_global.detect_fresco_ui), too
+                    # flaky to branch on - but it is worth RECORDING, because a mismatch
+                    # ("header says Fresco, row offers neither control") is the single most
+                    # useful clue for whoever debugs the next CP UI change, and without it
+                    # that costs another live CDP session to rediscover.
+                    Util.exit_error(
+                        f"Could not set {ENGVARS_TRACE_VARIABLE} to true: the row offers neither the "
+                        f"legacy boolean toggle nor the CP 1.21 edit/confirm controls "
+                        f"(Fresco header detected: {self.is_fresco}).",
+                        self.page, f"{self.capability}_app_config-engine-variables.png"
+                    )
+                print(f"Set {ENGVARS_TRACE_VARIABLE} to true")
                 self.page.wait_for_timeout(1000)
-                self.page.locator("#engVars-btn-pushUpdates").click()
+                # 'Push Updates' only enables once a change is actually staged. Clicking
+                # it while it still reads 'No Updates To Push' spends 30s in Playwright's
+                # retry loop and then reports a bare click timeout, which says nothing
+                # about the real problem - that Confirm did not commit the row.
+                # The budget deliberately MATCHES Playwright's default click auto-wait
+                # (30s), which is what the bare .click() this replaced already spent
+                # waiting for the button to become enabled. A shorter window would make
+                # this guard stricter than the code it replaced - a regression for any
+                # pre-1.21 Control Plane where the button takes its time to enable.
+                if not Util.check_dom_visibility(self.page, self.page.locator(f"{ENGVARS_PUSH_UPDATES}:not([disabled])"), 3, 30):
+                    Util.exit_error(
+                        f"'Push Updates' stayed disabled after staging {ENGVARS_TRACE_VARIABLE}=true - "
+                        f"the row edit was not committed, so there is nothing to push.",
+                        self.page, f"{self.capability}_app_config-engine-variables-push-disabled.png"
+                    )
+                self.page.locator(ENGVARS_PUSH_UPDATES).click()
                 print("Clicked 'Push Updates' button")
                 if Util.wait_for_success_message(self.page, 5):
-                    ColorLogger.success("Set BW_OTEL_TRACES_ENABLED to true successfully.")
+                    ColorLogger.success(f"Set {ENGVARS_TRACE_VARIABLE} to true successfully.")
                     ReportYaml.set_capability_app_info(dp_name, self.capability, app_name, "enableTrace", True)
+                else:
+                    Util.warning_screenshot(
+                        f"Pushed {ENGVARS_TRACE_VARIABLE}=true but no success message appeared.",
+                        self.page, f"{self.capability}_app_config-engine-variables-push.png"
+                    )
+
+    @staticmethod
+    def engine_variable_value(row):
+        """Current value of a boolean Engine Variable row, folded to lower case.
+
+        Pre-1.21 the value was the toggle button's own text; CP 1.21 renders it as
+        plain text in the value cell and only exposes a control in edit mode. Read
+        whichever one this Control Plane rendered.
+        """
+        legacy_toggle = row.locator(ENGVARS_LEGACY_BOOL_TOGGLE)
+        if legacy_toggle.count() > 0:
+            return legacy_toggle.inner_text().strip().lower()
+        return row.locator(ENGVARS_VALUE_CELL).inner_text().strip().lower()
+
+    @staticmethod
+    def set_boolean_engine_variable_true(row):
+        """Stage a boolean Engine Variable row as TRUE, ready for 'Push Updates'.
+
+        Returns False - rather than raising or, worse, returning quietly - when the
+        row offers no way to change the value, so the caller can fail loudly instead
+        of pushing an unchanged variable and reporting it as enabled.
+        """
+        legacy_toggle = row.locator(ENGVARS_LEGACY_BOOL_TOGGLE)
+        if legacy_toggle.count() > 0:
+            legacy_toggle.click()
+            legacy_true = row.locator(ENGVARS_LEGACY_VALUE_TRUE)
+            legacy_true.wait_for(state="visible")
+            legacy_true.click()
+            return True
+
+        # CP 1.21: Edit -> value dropdown -> TRUE -> Confirm.
+        #
+        # Read mode is stable, so count() is a fair question to ask of the Edit button.
+        # Everything AFTER the click is not: entering edit mode re-renders the row, and
+        # count() is a snapshot with no wait in it. Asking it straight after the click
+        # answered 0 while Angular was still swapping the row in, so a perfectly good
+        # 1.21 row read as "this shell offers no way to set the value" and the setter
+        # bailed out. Live, that made it work 1 round in 3.
+        edit_button = row.locator(ENGVARS_ROW_EDIT)
+        if edit_button.count() == 0:
+            return False
+        edit_button.first.click()
+
+        if not PageObjectDataPlaneBWCE._wait_for_control(row, ENGVARS_ROW_BOOL_TOGGLER):
+            return False
+        row.locator(ENGVARS_ROW_BOOL_TOGGLER).first.click()
+
+        if not PageObjectDataPlaneBWCE._wait_for_control(row, ENGVARS_ROW_VALUE_TRUE):
+            return False
+        row.locator(ENGVARS_ROW_VALUE_TRUE).first.click()
+
+        # The row edit is staged only once Confirm is pressed; skipping it would
+        # leave the row in edit mode and push nothing.
+        if not PageObjectDataPlaneBWCE._wait_for_control(row, ENGVARS_ROW_CONFIRM):
+            return False
+        row.locator(ENGVARS_ROW_CONFIRM).first.click()
+        return True
+
+    @staticmethod
+    def _wait_for_control(row, selector, timeout_ms=ENGVARS_CONTROL_TIMEOUT_MS):
+        """Is this inline-editor control there, giving the row time to re-render?
+
+        Returns False rather than raising, so the caller can report "this row offers
+        no way to set the value" instead of dying on a raw Playwright timeout.
+        """
+        try:
+            row.locator(selector).first.wait_for(state="visible", timeout=timeout_ms)
+            return True
+        except Exception:
+            return False
 
     def bwce_app_start(self, dp_name, app_name = None):
         app_name = app_name or self.app_name

@@ -102,3 +102,7 @@ recipe: |
           fi
 
           kubectl rollout restart deployment coredns -n kube-system
+
+          # `rollout restart` only REQUESTS a restart. Now that this runs immediately
+          # before the CP helm phase, returning early races the very pods it unblocks.
+          kubectl rollout status deployment coredns -n kube-system --timeout=180s

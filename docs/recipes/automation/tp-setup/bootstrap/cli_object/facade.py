@@ -59,8 +59,15 @@ class TibcopCLI:
         Args:
             custom_env: Optional custom environment variables dict
         """
-        # Base (shared by all modules)
+        # Base (shared by all modules). Assert the CLI version here rather than in
+        # each caller: this is the only place TibcopBase is constructed, so every
+        # CLI path (page_cli, server, standalone cases) gets the check for free.
         self.base = TibcopBase(custom_env)
+        # Probe the binary the commands will actually invoke. assert_min_version() defaults
+        # cli_path to the literal "tibcop" while every command is built from
+        # self.base.TIBCOP_CLI_PATH, so the two could disagree the moment that attribute is
+        # overridden - and the assertion would then vouch for a binary nobody runs.
+        self.tibcop_version = self.base.assert_min_version(cli_path=self.base.TIBCOP_CLI_PATH)
 
         # Core modules
         self.dataplane = TibcopDataPlane(self.base)

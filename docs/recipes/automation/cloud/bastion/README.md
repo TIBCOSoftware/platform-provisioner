@@ -400,7 +400,7 @@ No additional steps needed for GCP.
           - 50.250.150.1/24
           - 77.185.75.24/32
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: '*.aks-dp.cs-nam.azure.dataplanes.pro'
+            external-dns.kubernetes.io/hostname: '*.aks-dp.cs-nam.azure.dataplanes.pro'
             service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: '/healthz' 
           enableHttp: false 
         config:

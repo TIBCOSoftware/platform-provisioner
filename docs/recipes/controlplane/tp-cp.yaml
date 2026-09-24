@@ -139,14 +139,16 @@ meta:
     TP_TLS_KEY_HYBRID_PROXY: ${GUI_TP_TLS_KEY_HYBRID_PROXY:-""} # the tls.key for hybrid-proxy ingress
 
     # CP version see: https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/helm-chart-version-matrix.htm
-    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.19.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.19.0} # use ^1.0.0 for latest
-    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.19.0} # use ^1.0.0 for latest
-    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.19.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCO_CP_BASE_VERSION: ${GUI_CP_PLATFORM_TIBCO_CP_BASE_VERSION:-1.20.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_BW_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_BW_VERSION:-1.20.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION:-1.20.0} # use ^1.0.0 for latest
+    CP_PLATFORM_INTEGRATION_SB_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_SB_VERSION:-1.16.0} # use ^1.0.0 for latest
+    CP_PLATFORM_TIBCOHUB_VERSION: ${GUI_CP_PLATFORM_TIBCOHUB_VERSION:-1.20.0} # use ^1.0.0 for latest
     CP_PLATFORM_MESSAGING_VERSION: ${GUI_CP_PLATFORM_MESSAGING_VERSION:-1.19.23} # use ^1.0.0 for latest
-    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.19.23} # use ^1.0.0 for latest
+    CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-1.20.8} # use ^1.0.0 for latest
     CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-1.17.0} # use ^1.0.0 for latest
-    
+    CP_PLATFORM_MFT_VERSION: ${GUI_CP_PLATFORM_MFT_VERSION:-1.0.0} # use ^1.0.0 for latest
+
     # CP AI MCP servers
     TP_AI_ENABLE_CP_MCP_SERVER: ${GUI_TP_AI_ENABLE_CP_MCP_SERVER:-false}
     TP_AI_ENABLE_O11Y_MCP_SERVER: ${GUI_TP_AI_ENABLE_O11Y_MCP_SERVER:-false}
@@ -165,9 +167,11 @@ meta:
     CP_INSTALL_PLATFORM_HAWK: ${GUI_CP_INSTALL_PLATFORM_HAWK:-true}
     CP_INSTALL_PLATFORM_INTEGRATION_BW: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW:-true} # Env added after 1.8.0
     CP_INSTALL_PLATFORM_INTEGRATION_FLOGO: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_FLOGO:-true}
+    CP_INSTALL_PLATFORM_INTEGRATION_SB: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_SB:-false}
     CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BWCE_UTILITIES:-true}
     CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES: ${GUI_CP_INSTALL_PLATFORM_INTEGRATION_BW5CE_UTILITIES:-true}
     CP_INSTALL_PLATFORM_EVENTPROCESSING: ${GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING:-true}
+    CP_INSTALL_PLATFORM_MFT: ${GUI_CP_INSTALL_PLATFORM_MFT:-false}
   tools:
     yq: "4.40" # this also have the logic to create soft link of yq-4.40 --> yq
 preTasks:
@@ -407,7 +411,7 @@ helmCharts:
         enabled: true
         image:
           repository: maildev/maildev
-          tag: latest
+          tag: "3.0.0-rc.1"
         args: ["-s", "1025", "-w", "1080"]
         ports:
           http:
@@ -563,7 +567,7 @@ helmCharts:
         ingress:
           enabled: ${CP_BOOTSTRAP_INGRESS_HYBRID_PROXY}
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${CP_TUNNEL_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
           ingressClassName: ${CP_INGRESS_CLASSNAME}
           hosts:
@@ -584,7 +588,7 @@ helmCharts:
         ingress:
           enabled: ${CP_BOOTSTRAP_INGRESS_ROUTER}
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${CP_SERVICE_DNS_DOMAIN}"
             nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
             nginx.ingress.kubernetes.io/proxy-body-size: 200m # set to 200m to allow large file upload PCP-7954
           ingressClassName: ${CP_INGRESS_CLASSNAME}
@@ -1102,6 +1106,81 @@ helmCharts:
     names:
       - ${CP_CLUSTER_NAME}
   releaseName: tibco-cp-addon-eventprocessing
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-mft
+  version: ${CP_PLATFORM_MFT_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_MFT}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE}
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-mft
+  namespace: ${CP_NAMESPACE}
+  flags:
+    wait: true
+    timeout: 1h
+    createNamespace: ${CP_CREATE_NAMESPACE}
+- name: tibco-cp-sb
+  version: ${CP_PLATFORM_INTEGRATION_SB_VERSION}
+  condition: ${CP_INSTALL_PLATFORM_INTEGRATION_SB}
+  repo:
+    helm:
+      url: ${CP_CHART_REPO}
+      username: "${CP_CHART_REPO_USER_NAME}"
+      password: "${CP_CHART_REPO_TOKEN}"
+  values:
+    keepPrevious: false
+    content: |
+      global:
+        external:
+          storage:
+            pvcName: "${CP_STORAGE_PVC_NAME}"
+          dnsDomain: ${CP_SERVICE_DNS_DOMAIN}
+        tibco:
+          enableResourceConstraints: ${CP_GLOBAL_ENABLE_RESOURCE_CONSTRAINTS}
+          logging:
+            fluentbit:
+              enabled: ${CP_LOG_ENABLE}
+          containerRegistry:
+            url: ${CP_CONTAINER_REGISTRY}
+            password: "${CP_CONTAINER_REGISTRY_PASSWORD}"
+            username: "${CP_CONTAINER_REGISTRY_USERNAME}"
+            repository: "${CP_CONTAINER_REGISTRY_REPOSITORY}"
+          controlPlaneInstanceId: ${CP_INSTANCE_ID}
+          serviceAccount: ${CP_INSTANCE_ID}-sa
+      sb-recipes:
+        enabled: true
+  cluster:
+    names:
+      - ${CP_CLUSTER_NAME}
+  releaseName: tibco-cp-sb
   namespace: ${CP_NAMESPACE}
   flags:
     wait: true

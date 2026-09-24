@@ -134,14 +134,17 @@ preTasks:
 helmCharts:
 - name: cert-manager
   condition: ${TP_INSTALL_CERT_MANAGER}
-  version: v1.17.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.21.2 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
   values:
     keepPrevious: true
     content: |
-      installCRDs: true
+      installCRDs: false # keep false: keepPrevious may replay a legacy installCRDs=true, which conflicts with crds.enabled (cert-manager v1.21.2 fails on both)
+      crds:
+        enabled: true
+        keep: true
       serviceAccount:
         create: false
         name: cert-manager
@@ -179,13 +182,14 @@ helmCharts:
         EOF
 - name: external-dns
   condition: ${TP_INSTALL_EXTERNAL_DNS}
-  version: 1.15.2 # release: https://github.com/kubernetes-sigs/external-dns/releases
+  version: 1.22.0 # release: https://github.com/kubernetes-sigs/external-dns/releases
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/external-dns/
   values:
     keepPrevious: true
     content: |
+      policy: upsert-only # required since chart 1.22.0; upsert-only preserves prior (implicit) default behavior
       serviceAccount:
         create: false
         name: external-dns 
@@ -209,7 +213,7 @@ helmCharts:
     createNamespace: true
     labels: "layer=0"
 - name: aws-load-balancer-controller
-  version: 1.8.3 # release: https://github.com/aws/eks-charts/releases 1.9.1 has issue: https://github.com/eksctl-io/eksctl/issues/7987
+  version: 3.5.0 # release: https://github.com/aws/eks-charts/releases
   repo:
     helm:
       url: https://aws.github.io/eks-charts
@@ -273,7 +277,7 @@ helmCharts:
           serviceName: ${TP_HTTP_INGRESS_BACKEND_SERVICE}
         annotations:
           alb.ingress.kubernetes.io/group.name: "${TP_DOMAIN}"
-          external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+          external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
           # this will be used for external-dns annotation filter
           kubernetes.io/ingress.class: alb
       ingress-nginx:
@@ -285,7 +289,7 @@ helmCharts:
             annotations:
               service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip # by default it is instance which will route traffic to instance nodePort
               service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing # used for aws-load-balancer-controller to create public NLB
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
             enableHttp: false # disable http 80 port on service and NLB
           config:
             use-forwarded-headers: 'true'          # PDP-945
@@ -299,7 +303,7 @@ helmCharts:
           annotations:
             service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip # by default it is instance which will route traffic to instance nodePort
             service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing # used for aws-load-balancer-controller to create public NLB
-            external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
         ingressRoute: # for dashboard
           dashboard:
             enabled: true
@@ -329,7 +333,7 @@ helmCharts:
             annotations:
               service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
               service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
           config:
             # This replaces the 'haproxy.org/frontend-config-snippet' annotation
             # It injects these lines into the main HAProxy frontend section
@@ -483,7 +487,7 @@ helmCharts:
               service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
               service.beta.kubernetes.io/aws-load-balancer-type: "external"
               service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
           listeners:
           - allowedRoutes:
               namespaces:
@@ -596,7 +600,7 @@ helmCharts:
               service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
               service.beta.kubernetes.io/aws-load-balancer-type: "external"
               service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
           listeners:
           - name: https
             hostname: "*.${TP_DOMAIN}"
@@ -714,7 +718,7 @@ helmCharts:
             service.beta.kubernetes.io/aws-load-balancer-type: "external"
             service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
             service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-            external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
   cluster:
     names:
       - ${TP_CLUSTER_NAME}
@@ -834,7 +838,7 @@ helmCharts:
             service.beta.kubernetes.io/aws-load-balancer-type: "external"
             service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
             service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-            external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
           spec:
             type: LoadBalancer
             ports:
@@ -957,7 +961,7 @@ helmCharts:
           annotations:
             service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip # by default it is instance which will route traffic to instance nodePort
             service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing # used for aws-load-balancer-controller to create public NLB
-            external-dns.alpha.kubernetes.io/hostname: "*.${TP_SECONDARY_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${TP_SECONDARY_DOMAIN}"
           tls:
             enabled: true
           http:

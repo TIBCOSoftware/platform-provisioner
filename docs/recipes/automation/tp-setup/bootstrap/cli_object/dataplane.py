@@ -27,11 +27,14 @@ Handles all DataPlane-related operations:
 import inspect
 import json
 import os
+import threading
 from utils.color_logger import ColorLogger
 from utils.env import ENV
 from utils.helper import Helper
 from utils.util import Util
 from .base import TibcopBase, normalize_gateway_controller
+
+_REGISTRATION_LOCK = threading.Lock()
 
 
 class TibcopDataPlane:
@@ -313,7 +316,8 @@ class TibcopDataPlane:
 
         with open(script_path, "w") as f:
             f.write(script_content)
-        return Helper.run_shell_file(script_path)
+        with _REGISTRATION_LOCK:
+            return Helper.run_shell_file(script_path)
 
     def unregister_dataplane(self, dp_name, other_args=None):
         """

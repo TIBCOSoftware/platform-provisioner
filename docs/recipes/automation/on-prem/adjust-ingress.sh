@@ -16,6 +16,23 @@
 # limitations under the License.
 #
 
+#######################################
+# adjust-ingress.sh: this script will adjust the recipe for the ingress/gateway implementation
+# Globals:
+#   None
+# Arguments:
+#   0 - 7: the choice of the ingress implementation (1=nginx, 2=traefik, 3=nginx gateway
+#          fabric, 4=haproxy, 5=istio gateway, 6=traefik gateway, 7=netscaler cpx gateway
+#          controller, 0=exit). Any other non-empty value is rejected with exit 1; no
+#          argument at all (or an empty one) opens the interactive menu.
+# Returns:
+#   None
+# Notes:
+#   Run ./generate-recipe.sh first to generate the recipes this adjusts.
+# Samples:
+#   ./adjust-ingress.sh 2
+#######################################
+
 function adjust_ingress() {
   local choice="${1:-""}"
   while true; do
@@ -149,9 +166,6 @@ function adjust_ingress() {
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_GATEWAY_NAME = env(TP_GATEWAY_NAME))' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_OBJECT = "gateway")' "$_recipe_file_name"
-          # PCP-19615: the AI agent backend (agent-cp-only) has no gatewayRoute under gateway-API ingress,
-          # so tenant provisioning cannot reach it. Disable the AI agent when a gateway is selected.
-          yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_PLATFORM_AI_AGENT = false)' "$_recipe_file_name"
         fi
 
         _recipe_file_name="03-tp-adjust-dns.yaml"
@@ -259,9 +273,6 @@ function adjust_ingress() {
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_GATEWAY_NAME = env(TP_GATEWAY_NAME))' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_OBJECT = "gateway")' "$_recipe_file_name"
-          # PCP-19615: the AI agent backend (agent-cp-only) has no gatewayRoute under gateway-API ingress,
-          # so tenant provisioning cannot reach it. Disable the AI agent when a gateway is selected.
-          yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_PLATFORM_AI_AGENT = false)' "$_recipe_file_name"
         fi
 
         _recipe_file_name="03-tp-adjust-dns.yaml"
@@ -320,9 +331,6 @@ function adjust_ingress() {
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_GATEWAY_NAME = env(TP_GATEWAY_NAME))' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_OBJECT = "gateway")' "$_recipe_file_name"
-          # PCP-19615: the AI agent backend (agent-cp-only) has no gatewayRoute under gateway-API ingress,
-          # so tenant provisioning cannot reach it. Disable the AI agent when a gateway is selected.
-          yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_PLATFORM_AI_AGENT = false)' "$_recipe_file_name"
         fi
 
         _recipe_file_name="03-tp-adjust-dns.yaml"
@@ -384,9 +392,6 @@ function adjust_ingress() {
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_TP_GATEWAY_NAME = env(TP_GATEWAY_NAME))' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INGRESS_OBJECT = "gateway")' "$_recipe_file_name"
-          # PCP-19615: the AI agent backend (agent-cp-only) has no gatewayRoute under gateway-API ingress,
-          # so tenant provisioning cannot reach it. Disable the AI agent when a gateway is selected.
-          yq eval -i '(.meta.guiEnv.GUI_CP_INSTALL_PLATFORM_AI_AGENT = false)' "$_recipe_file_name"
         fi
 
         _recipe_file_name="03-tp-adjust-dns.yaml"
@@ -430,7 +435,9 @@ function adjust_ingress() {
         break
         ;;
       *)
-        echo "Invalid option. Please try again."
+        # PCP-24040: exit rather than loop; exit, not break (see run.sh).
+        echo "Invalid or missing option: '${choice}' - aborting." >&2
+        exit 1
         ;;
     esac
   done

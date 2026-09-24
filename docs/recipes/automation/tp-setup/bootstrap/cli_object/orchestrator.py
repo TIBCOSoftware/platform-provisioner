@@ -173,8 +173,13 @@ class TibcopOrchestrator:
             on_o11y_needed: Optional callback(dp_name) for GUI O11Y configuration.
                            Called after resources are created and before capability provisioning,
                            so that activation is linked before capabilities need it.
-            on_ems_needed: Optional callback(dp_name) for GUI EMS provisioning.
-                          Called after capability provisioning phase.
+            on_ems_needed: Optional callback(dp_name) for EMS provisioning.
+                          Called after capability provisioning phase. Was a GUI callback
+                          until PCP-24380; page_cli now points it at the tibcop EMS arm,
+                          so the whole DP setup is browser-free. It stays a callback (and
+                          stays out of cap_tasks) because the provision -> build+deploy ->
+                          wait+test shape of a cap_task does not fit a capability with no
+                          app to build.
         """
         if not ENV.TP_AUTO_IS_CREATE_DP:
             ColorLogger.warning("TP_AUTO_IS_CREATE_DP is false, skipping all DP operations")
@@ -468,7 +473,8 @@ class TibcopOrchestrator:
                     ]
                     _start_staggered_threads(threads)
 
-        # EMS (provision only, requires GUI)
+        # EMS (provision only). Serial, as the last step of this method: it has no app to
+        # build or deploy, so it does not fit the concurrent cap_tasks shape above.
         if ENV.TP_AUTO_IS_PROVISION_EMS and on_ems_needed:
             if ReportYaml.is_capability_for_dataplane_created(dp_name, "ems"):
                 ColorLogger.success("EMS already provisioned (from report), skipping")

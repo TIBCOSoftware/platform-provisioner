@@ -15,6 +15,7 @@
 #
 
 from utils.color_logger import ColorLogger
+from utils.naming import storage_resource_candidates
 from utils.util import Util
 from utils.env import ENV
 from utils.report import ReportYaml
@@ -78,46 +79,21 @@ class PageObjectDataPlaneActiveSpaces(PageObjectDataPlane):
         # page object keeps control of where it navigates next.
         return f"{self.modal_dialog} button.p-dialog-header-close"
 
-    def wait_for_overlay_to_clear(self, max_wait=30):
-        """Wait until no dialog mask is covering the page.
-
-        PrimeNG keeps the `.p-dialog-mask` on top of the page through the dialog's
-        leave animation. The overlay swallows pointer events, so navigating too soon
-        (the left nav click inside goto_dataplane) fails with a click timeout
-        complaining that the mask "intercepts pointer events" - and by then
-        provisioning has already succeeded, which makes it a particularly misleading
-        failure. Observed live on CP 1.20.
-        """
-        overlay = ".p-dialog-mask"
-        for _attempt in range(max_wait * 2):
-            count = self.page.locator(overlay).count()
-            if count == 0:
-                return True
-            # Check EVERY mask, not just the first: a hidden leftover stacked under a
-            # still-visible one would otherwise read as "cleared" while clicks are
-            # actually still being swallowed - the very bug this method exists to avoid.
-            if not any(self.page.locator(overlay).nth(i).is_visible() for i in range(count)):
-                return True
-            self.page.wait_for_timeout(500)
-        Util.warning_screenshot("A dialog overlay is still covering the page; navigation may be blocked.", self.page, "as_provision_capability-overlay.png")
-        return False
+    # wait_for_overlay_to_clear() now lives on PageObjectDataPlane so the EMS fresco
+    # wizard can share it (PCP-23927) - it is inherited unchanged.
 
     def select_storage_resource(self, section_title, control_name, dp_name):
         """Pick a storage resource for one section of the resources widget.
 
         Two storage-resource naming conventions exist in the wild, so both are tried
-        before falling back to whatever is offered first:
-          1. '<dp_name>-storage' - resources provisioned with the Data Plane itself
-             (observed live on CP 1.20: "k8s-auto-dp1-storage (<id>)").
-          2. ENV.TP_AUTO_STORAGE_CLASS - what this automation names the resource it
-             creates in dp_config_resources_storage(), and what EMS filters on.
+        before falling back to whatever is offered first - see
+        utils.naming.storage_resource_candidates(), which owns that list so this wizard,
+        the EMS one and the CLI EMS arm cannot disagree about it (PCP-23953, PCP-24380).
         Matching whole tokens matters: has-text is a SUBSTRING match, so filtering on a
         bare DP name 'k8s-auto-dp1' would also match a 'k8s-auto-dp10-storage' row.
         Returns False when the section offers no resource at all.
         """
-        candidates = [f"{dp_name}-storage"]
-        if ENV.TP_AUTO_STORAGE_CLASS:
-            candidates.append(ENV.TP_AUTO_STORAGE_CLASS)
+        candidates = storage_resource_candidates(dp_name)
 
         selector = ""
         for resource_name in candidates:

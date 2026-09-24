@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import re
+
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from page_object.po_global import PageObjectGlobal
@@ -22,8 +24,48 @@ from utils.e2e_util import E2EUtils
 from utils.util import Util
 
 class PageObjectO11y(PageObjectGlobal):
+    FILTER_DIALOG = ".widget-filter-dialog-v2"
+
     def __init__(self, page):
         super().__init__(page)
+
+    def selector_filter_dialog_menu_item(self, label):
+        """Stable selector for one section in the filter dialog's left nav (CP 1.21+).
+
+        CP 1.21 rebuilt this nav as a PrimeNG p-menu. The row class went from `.menu-item`
+        to `.p-menu-item` — a DIFFERENT class token, so the old selector matches nothing at
+        all — and the label moved into a `.p-menu-item-label` span. The <li> carries
+        role="menuitem" and aria-label="<section>", which is the stable hook. See PCP-23927.
+        """
+        return f'{self.FILTER_DIALOG} li[role="menuitem"][aria-label="{label}"]'
+
+    def click_filter_dialog_menu_item(self, label):
+        """Open a section of the filter dialog's left nav, on either nav markup.
+
+        Waits for whichever nav rendered, then branches once — the pre-1.21 `.menu-item`
+        markup stays supported.
+        """
+        fresco = self.selector_filter_dialog_menu_item(label)
+        legacy = f"{self.FILTER_DIALOG} .menu-item"
+        # Gate on the LABELLED legacy row, not on `.menu-item` at large (PCP-23946). The fresco
+        # selector already embeds the label; an unlabelled legacy half meant any visible nav row
+        # satisfied the gate, so on a pre-1.21 CP whose section had been renamed the code fell
+        # through to `.click()` on a zero-match locator - a bare 30s timeout with no screenshot,
+        # i.e. the exact failure PCP-23927 exists to remove, relocated onto the legacy path.
+        legacy_labelled = self.page.locator(legacy, has_text=label)
+        gate = self.page.locator(fresco).or_(legacy_labelled).first
+        if not Util.check_dom_visibility(self.page, gate, 2, 30):
+            Util.exit_error(f"Filter dialog '{label}' menu item is not visible.", self.page, "o11y-filter-dialog-menu.png")
+            return
+        # Branch on VISIBILITY, not mere presence, and narrow before clicking. The gate above
+        # is satisfied by whichever nav is visible; selecting on count() would take the fresco
+        # branch for a hidden-but-present (or detached-from-a-prior-mount) node and click
+        # something invisible — reproducing the opaque 30s timeout this fix exists to remove.
+        if self.page.locator(fresco).first.is_visible():
+            self.page.locator(fresco).first.click()
+        else:
+            self.page.locator(legacy, has_text=label).first.click()
+        print(f"Clicked filter dialog '{label}' menu")
 
     def goto_left_navbar_o11y(self):
         self.goto_left_navbar("Observability")
@@ -307,9 +349,8 @@ class PageObjectO11y(PageObjectGlobal):
         """On the open PromQL Instant editor, switch to the 'Chart Presentation' tab
         and pick the given Chart Type (Single Stat / Bar / Gauge / Pie / Table). The
         p-select renders its options in an overlay appended to <body>."""
-        filter_dialog = ".widget-filter-dialog-v2"
-        self.page.locator(f"{filter_dialog} .menu-item", has_text="Chart Presentation").click()
-        print("Clicked 'Chart Presentation' tab")
+        filter_dialog = self.FILTER_DIALOG
+        self.click_filter_dialog_menu_item("Chart Presentation")
         chart_select = f"{filter_dialog} .instant-chart-type-section p-select"
         self.page.locator(chart_select).wait_for(state="visible")
         self.page.locator(chart_select).click()
@@ -331,12 +372,26 @@ class PageObjectO11y(PageObjectGlobal):
     def add_promql_instant_widget(self, level1_menu, level2_menu, card_name, query, chart_type, title):
         """Add a PromQL Instant card (PCP-20424) set to a specific Chart Type and
         renamed to `title`, so multiple instant cards (one per chart type) are
-        distinguishable on the dashboard."""
+        distinguishable on the dashboard.
+
+        Returns True only when the card is BOTH applied and renamed. The rename is not
+        cosmetic here: every instant card comes from the same catalog entry, so without it the
+        dashboard carries five cards all reading 'PromQL Instant Query' and the one thing this
+        dashboard exists to show - one card per chart type - is gone. Reporting a misnamed card
+        as added would let the caller's tally print 'all 6 cards added' on the next rename-
+        selector hop, i.e. miss the exact regression the tally was added to catch.
+        """
         if not self._open_promql_editor(level1_menu, level2_menu, card_name, query):
             return False
-        self.input_filter_dialog_card_name(card_name, title)
+        # A failed rename keeps the catalog name; carry that forward so the Apply log and the
+        # screenshot name say what is actually on the card, and keep adding the rest (PCP-24228).
+        renamed = self.input_filter_dialog_card_name(card_name, title)
         self.select_instant_chart_type(chart_type)
-        return self.apply_filter_dialog(title)
+        applied = self.apply_filter_dialog(title if renamed else card_name)
+        if applied and not renamed:
+            ColorLogger.warning(f"Card '{card_name}' was added but could not be renamed to '{title}'; "
+                                f"it is indistinguishable from the other instant cards")
+        return applied and renamed
 
     # ---------------------------------------------------------------------------
     # Dashboard management (PCP-20053)
@@ -402,6 +457,21 @@ class PageObjectO11y(PageObjectGlobal):
     def selector_dashboard_option(self):
         return ".p-select-option, .p-dropdown-item, [role='option']"
 
+    def dashboard_option_row(self, name):
+        """The ONE dropdown row whose whole text is `name`, matched exactly.
+
+        Playwright's `has_text="<str>"` is a SUBSTRING match, and the shipped dashboard
+        set contains a prefix pair - `SB_dashboard` and `SB_dashboard_2`
+        (o11y_dashboard_config.py:195-196). A substring match on `SB_dashboard` resolves to
+        both rows and `.first` then picks whichever the DOM happens to order first, which for
+        a DESTRUCTIVE action means deleting a dashboard nobody asked about. It is also
+        asymmetric with is_dashboard_exists, which compares row text for EQUALITY - so the
+        wrong row gets deleted and the verify then blames the right one for still existing.
+        Anchoring the pattern makes the row match the same rule the existence check uses.
+        """
+        pattern = re.compile(rf"^\s*{re.escape(name)}\s*$")
+        return self.page.locator(self.selector_dashboard_option()).filter(has_text=pattern).first
+
     def open_dashboard_dropdown(self):
         """Open the header dashboard dropdown (the one listing dashboards, which
         always contains the built-in 'Default'). The Observability header renders
@@ -451,10 +521,166 @@ class PageObjectO11y(PageObjectGlobal):
         if not self.open_dashboard_dropdown():
             Util.warning_screenshot(f"Cannot open dashboard dropdown to go to '{target}'", self.page, "o11y-dashboard-dropdown.png")
             return False
-        self.page.locator(self.selector_dashboard_option(), has_text=target).first.click()
+        # Exact row, for the same reason delete_dashboard needs one: 'SB_dashboard' is a
+        # substring of 'SB_dashboard_2', so a substring match navigates to the wrong dashboard.
+        # Guarded, because tightening the match also made a near-miss resolve to ZERO rows where
+        # the old substring selector would have found something: an unguarded click would then
+        # burn Playwright's 30s default and raise out of a method that promises a bool.
+        if not Util.check_dom_visibility(self.page, self.dashboard_option_row(target), 1, 10):
+            self.page.keyboard.press("Escape")
+            Util.warning_screenshot(f"Dashboard '{target}' is not in the dropdown", self.page, "o11y-dashboard-goto.png")
+            return False
+        self.dashboard_option_row(target).click()
         self.page.locator(".widget-list-content").wait_for(state="visible")
         print(f"Navigated to dashboard '{target}'")
         return True
+
+    def selector_dashboard_delete_icon(self):
+        # Bare class, no `i` tag qualifier: a tag-pinned `i.adc-item-delete-icon` is exactly the
+        # shape that broke this ticket - it stops matching the moment the class hops onto a
+        # wrapper host, while a bare class follows it.
+        return ".adc-item-delete-icon"
+
+    def selector_dashboard_delete_confirm_button(self):
+        """The accept ('Yes') button of the delete-dashboard confirmation, on either markup.
+
+        Returns (fresco, legacy). Ground-truthed live on CP 1.21 (ins-owen-o11y-7): the o11y
+        confirmation is a PrimeNG confirm dialog, NOT the Pulse `#confirm-button` modal -
+
+            <tibco-confirm-dialog testid="o11y-confirm-dialog">
+              <p-confirmdialog> <div class="p-confirmdialog p-dialog"
+                                     data-testid="o11y-confirm-dialog" role="alertdialog">
+                ... <button class="... p-confirmdialog-accept-button">Yes</button>
+
+        and its accept button carries no id and no data-testid, only the PrimeNG class. Every
+        `#confirm-button` on the page belongs to the always-present but HIDDEN 'Confirm Sign
+        Out' modal: measured on the live page, `#confirm-button` resolves to 3 nodes and
+        `#confirm-button:visible` to 0. The Pulse selector is kept as the legacy branch for
+        older CP; `:visible` stays on it so it can never reach the sign-out button.
+        """
+        fresco = '[data-testid="o11y-confirm-dialog"] .p-confirmdialog-accept-button'
+        legacy = "#confirm-button:visible"
+        return fresco, legacy
+
+    def delete_dashboard(self, name):
+        """Delete a dashboard from the header dropdown. Returns True once the name is free.
+
+        The automation could create dashboards but never remove one (PCP-24228), so on any
+        instance that already had a dashboard the create path could not run a second time:
+        a fix could not be regression-tested, a half-built dashboard could not self-heal, and
+        a re-run that silently SKIPPED the failing step read as a pass.
+
+        Nothing in here may raise. The caller deletes in order to REBUILD, so an exception
+        escaping a teardown helper would abort the whole page_o11y run through Util.exit_error
+        - the same failure class this ticket exists to remove - and would do it after the
+        dashboard was already gone.
+        """
+        try:
+            return self._delete_dashboard(name)
+        except Exception as e:
+            try:
+                # The screenshot is a diagnostic, not the contract. On a dead or navigating page
+                # it can raise too, and letting it do so from here would break the one promise
+                # this method makes.
+                Util.warning_screenshot(f"Deleting dashboard '{name}' failed: {e}", self.page, "o11y-dashboard-delete.png")
+            except Exception as screenshot_error:
+                ColorLogger.warning(f"Deleting dashboard '{name}' failed: {e} (screenshot also failed: {screenshot_error})")
+            return False
+
+    def _delete_dashboard(self, name):
+        if not self.open_dashboard_dropdown():
+            Util.warning_screenshot(f"Cannot open dashboard dropdown to delete '{name}'", self.page, "o11y-dashboard-dropdown.png")
+            return False
+        # POLLED, like every other gate here. The caller saw this dashboard EXIST one call ago,
+        # so a miss is more likely a half-rendered dropdown than a real absence - and treating it
+        # as absent hands the caller a create on a name that is still taken, which fails with an
+        # inline duplicate-name error instead of retrying. A single is_visible() would have been
+        # the one unpolled read in a method that elsewhere assumes this very read is flaky.
+        row_visible = Util.check_dom_visibility(self.page, self.dashboard_option_row(name), 1, 5)
+        if not row_visible:
+            # The dropdown itself may have closed under us; re-open once and poll again.
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(1000)
+            if not self.open_dashboard_dropdown():
+                # A dropdown that will not re-open is a FAILED READ, not an absence - the same
+                # conflation as reading `[]` from get_dashboard_names() as a successful delete.
+                # Claiming "nothing to delete" here would send the caller off to create a name
+                # that may well still be taken.
+                Util.warning_screenshot(f"Cannot re-open the dashboard dropdown to confirm '{name}' is gone",
+                                        self.page, "o11y-dashboard-dropdown.png")
+                return False
+            row_visible = Util.check_dom_visibility(self.page, self.dashboard_option_row(name), 1, 5)
+        if not row_visible:
+            self.page.keyboard.press("Escape")
+            # A row the LOCATOR could not match is not the same thing as an absent dashboard - it
+            # is the silent zero-match this ticket exists to remove. dashboard_option_row() asks
+            # the question a different way than is_dashboard_exists did one call ago (an anchored
+            # regex through filter(has_text=...) vs equality over stripped all_inner_texts()), so
+            # cross-check the authoritative read before claiming the name is free. An EMPTY read
+            # is a failed read, not an absence, exactly as in the verify poll below.
+            names = self.get_dashboard_names()
+            if not names or name in names:
+                Util.warning_screenshot(
+                    f"Dashboard '{name}' could not be matched in the dropdown but is still listed; "
+                    f"not deleting, and not reporting the name as free",
+                    self.page, "o11y-dashboard-delete-row.png")
+                return False
+            # Genuinely absent IS the postcondition this method promises, so it is a success.
+            # Returning False would tell should_build_dashboard to skip the rebuild and leave
+            # the instance with no dashboard at all.
+            ColorLogger.warning(f"Dashboard '{name}' is not in the dropdown; nothing to delete")
+            return True
+
+        # The trash icon sits on the option row and reveals on hover, as it does for a user.
+        self.dashboard_option_row(name).hover()
+        if not Util.check_dom_visibility(self.page, self.dashboard_option_row(name).locator(self.selector_dashboard_delete_icon()), 1, 5):
+            self.page.keyboard.press("Escape")
+            Util.warning_screenshot(f"Delete icon not found on the '{name}' dashboard row", self.page, "o11y-dashboard-delete-icon.png")
+            return False
+        self.dashboard_option_row(name).locator(self.selector_dashboard_delete_icon()).click()
+        print(f"Clicked the delete icon for dashboard '{name}'")
+
+        fresco_confirm, legacy_confirm = self.selector_dashboard_delete_confirm_button()
+        gate = self.page.locator(fresco_confirm).or_(self.page.locator(legacy_confirm, has_text="Yes")).first
+        if not Util.check_dom_visibility(self.page, gate, 1, 10):
+            Util.warning_screenshot(f"Delete confirmation did not appear for dashboard '{name}'", self.page, "o11y-dashboard-delete-confirm.png")
+            # Every other failure return here leaves the page closed; an overlay left open would
+            # block whatever the caller does next.
+            self.page.keyboard.press("Escape")
+            return False
+        # Branch on visibility, matching what the gate polled for - only one markup exists.
+        if self.page.locator(fresco_confirm).first.is_visible():
+            self.page.locator(fresco_confirm).first.click()
+        else:
+            self.page.locator(legacy_confirm, has_text="Yes").first.click()
+        print(f"Confirmed deletion of dashboard '{name}'")
+
+        # Verify against the dropdown rather than a toast: the delete is only useful here if the
+        # name is free for create_dashboard to reuse. POLL it - the removal is asynchronous, and
+        # a single stale read would report a completed delete as a failure, which skips the
+        # rebuild and leaves the dashboard destroyed. (Waiting on '.widget-list-content' is no
+        # barrier at all: it is already visible and stays visible through the delete.)
+        # 10 attempts, matching the `check_dom_visibility(page, loc, 1, 10)` budget every other
+        # wait in this file uses. A tighter cap would reach the very outcome the poll exists to
+        # prevent from the other side: on a slow CP the delete lands AFTER the budget, the caller
+        # skips the rebuild, and the dashboard is gone for good. Costs nothing on the happy path -
+        # the loop returns on the first clean read.
+        attempts = 10
+        for attempt in range(attempts):
+            self.page.wait_for_timeout(1000)
+            # A FAILED read must not read as a successful delete. get_dashboard_names() returns
+            # [] when the dropdown would not open, and `name not in []` is True - so without this
+            # guard a dropdown that stopped opening would report every delete as a success and
+            # the caller would go on to create a name that is still taken. A real read is never
+            # empty: the dropdown always carries the built-in 'Default'.
+            names = self.get_dashboard_names()
+            if names and name not in names:
+                ColorLogger.success(f"Deleted dashboard '{name}'")
+                return True
+            reason = "the dropdown could not be read" if not names else f"dashboard '{name}' is still listed"
+            print(f"--- Attempt {attempt + 1}/{attempts}: {reason}, waiting for the delete to land...")
+        Util.warning_screenshot(f"Dashboard '{name}' is still listed after deleting it", self.page, "o11y-dashboard-delete-verify.png")
+        return False
 
     def close_add_dashboard_dialog(self):
         close_button = ".add-dashboard-dialog [data-testid='widget-catalog-modal-close']"
@@ -498,14 +724,59 @@ class PageObjectO11y(PageObjectGlobal):
         print(f"Clicked Custom Filter -> '{label}' button")
 
     def click_filter_dialog_menu(self, label):
-        self.page.locator(".widget-filter-dialog-v2 .menu-item", has_text=label).click()
-        print(f"Clicked Custom Filter -> '{label}' menu")
+        self.click_filter_dialog_menu_item(label)
+
+    def selector_filter_dialog_card_name_input(self):
+        """The card-title field in the open filter dialog, on either markup (PCP-24228).
+
+        Returns (fresco, legacy). The Fresco migration moved the `title-input` class off the
+        <input> and onto the <tibco-inputtext> host, so `input.title-input` matches NOTHING on
+        any CP carrying Fresco:
+
+            <tibco-inputtext class="title-input" testid="widget-filter-title-input">
+              ... <input data-testid="widget-filter-title-input" class="p-inputtext ...">
+
+        `data-testid` survives the migration - the same trap, in this same file, that
+        click_action_menu already hit and fixed (PCP-23371). The legacy class-based selector is
+        kept for pre-Fresco CP, as a separate branch rather than a comma selector (which would
+        match both and trip strict mode).
+        """
+        fresco = f'{self.FILTER_DIALOG} input[data-testid="widget-filter-title-input"]'
+        legacy = f"{self.FILTER_DIALOG} input.title-input"
+        return fresco, legacy
 
     def input_filter_dialog_card_name(self, current_card_name, new_card_name):
-        self.page.locator('.widget-filter-dialog-v2 .title-button').click()
-        self.page.locator('.widget-filter-dialog-v2 input.title-input').clear()
-        self.page.locator('.widget-filter-dialog-v2 input.title-input').fill(new_card_name)
+        """Rename the card in the open filter dialog. Returns True when it was renamed.
+
+        A field that is MISSING no longer raises: one unhandled 30s Locator timeout here used
+        to abort the entire page_o11y run, which is how every o11y deploy shipped a
+        PromQL_dashboard with 1 of 6 cards (PCP-24228). A DOM change that removes the field now
+        costs one card's name - a logged warning and a screenshot - instead of the five cards
+        that come after it. (A field that is present but un-actionable - disabled, readonly,
+        covered - can still raise out of click/fill; that is Playwright's actionability wait,
+        and it is a different failure than the one this fix is about.)
+        """
+        # `.first` for the same reason the input gate below has it: an unnarrowed locator that
+        # matches more than one node trips strict mode on is_visible() and on click().
+        title_button = f"{self.FILTER_DIALOG} .title-button"
+        if not Util.check_dom_visibility(self.page, self.page.locator(title_button).first, 1, 5):
+            Util.warning_screenshot(f"Card name edit button is not visible; keep card name '{current_card_name}'",
+                                    self.page, "o11y-filter-title-button.png")
+            return False
+        self.page.locator(title_button).first.click()
+
+        fresco, legacy = self.selector_filter_dialog_card_name_input()
+        gate = self.page.locator(fresco).or_(self.page.locator(legacy)).first
+        if not Util.check_dom_visibility(self.page, gate, 1, 10):
+            Util.warning_screenshot(f"Card name input is not visible; keep card name '{current_card_name}'",
+                                    self.page, "o11y-filter-title-input.png")
+            return False
+        # Branch on VISIBILITY, matching what the gate polled for: only one of the two markups
+        # exists on a given CP. fill() clears the field first, so no separate .clear() call.
+        selector = fresco if self.page.locator(fresco).first.is_visible() else legacy
+        self.page.locator(selector).first.fill(new_card_name)
         print(f"Change Custom Filter -> Card Name From '{current_card_name}' to '{new_card_name}'")
+        return True
 
     def click_filter_dialog_chart_type(self, label):
         self.page.locator('.widget-filter-dialog-v2 label.pl-text-toggle__label[for^="chart-type-"]', has_text=label).click()

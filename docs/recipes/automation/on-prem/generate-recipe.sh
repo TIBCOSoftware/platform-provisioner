@@ -25,7 +25,12 @@
 #   GUI_TP_AUTO_GITHUB_REPO_BRANCH: GitHub branch for option 3; prompts if unset
 #   GITHUB_TOKEN: required for option 3 when the repo is private
 # Arguments:
-#   1 - 4: the choice of the source of the recipe
+#   $1 = 1-4  the choice of the source of the recipe
+#   $2 = 0-3  which recipe set to generate
+#      Omitting $2 prompts for it. To be prompted for $1 while still passing $2, pass it as
+#      an empty string (./generate-recipe.sh "" 1) - positional arguments do not skip, so
+#      dropping it entirely just makes "1" the source. Any other non-empty value is rejected
+#      with exit 1.
 # Returns:
 #   None
 # Notes:
@@ -134,7 +139,11 @@ function select_recipe_source() {
         break
         ;;
       *)
-        echo "Invalid option. Please try again."
+        # PCP-24040: exit, not return - deliberately unlike this function's other error
+        # paths. The same guard is inlined in generate_recipe, which runs inside a case arm
+        # ending in `break`, so a return there would be swallowed and reported as success.
+        echo "Invalid or missing option: '${choice}' - aborting." >&2
+        exit 1
         ;;
     esac
   done
@@ -166,6 +175,9 @@ function generate_recipe() {
         ;;
       2)
         echo "${_data}" | yq eval .data | yq eval '.["pp-deploy-cp-core-on-prem.yaml"]' | yq eval .recipe > 02-tp-cp-on-prem.yaml
+        # PCP-23809: 03 ships with 02. The CoreDNS rewrite is a prerequisite of the CP
+        # deploy (./run.sh 3 applies it first), so a CP-only workspace needs it too.
+        echo "${_data}" | yq eval .data | yq eval '.["pp-maintain-tp-config-coredns.yaml"]' | yq eval .recipe > 03-tp-adjust-dns.yaml
         break
         ;;
       3)
@@ -177,7 +189,9 @@ function generate_recipe() {
         break
         ;;
       *)
-        echo "Invalid option. Please try again."
+        # PCP-24040: exit, not return - see select_recipe_source above.
+        echo "Invalid or missing option: '${choice2}' - aborting." >&2
+        exit 1
         ;;
     esac
   done

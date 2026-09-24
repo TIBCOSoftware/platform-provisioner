@@ -961,7 +961,7 @@ export PIPELINE_RECIPE_PRINT="false"
 
 # Docker images
 export PIPELINE_DOCKER_IMAGE_RUNNER="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.0-on-prem"
-export PIPELINE_DOCKER_IMAGE_TESTER="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.4-tester-on-prem-jammy"
+export PIPELINE_DOCKER_IMAGE_TESTER="ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.5-tester-on-prem-jammy"
 
 # Retry count for subscription deployment
 export TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT="10"

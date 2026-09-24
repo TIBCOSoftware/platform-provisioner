@@ -30,6 +30,36 @@ from utils.color_logger import ColorLogger
 # edit — used by page_object/po_dp_config.py, po_bmdp_config.py, api_object/resources.py.
 O11Y_LOG_INDEX_PREFIX = "user-app-"
 
+# Which log index an o11y Logs resource gets. Three branches, verified against a
+# CP 1.21 subscription whose resources were created by the UI wizard:
+#   USER_APPS -> "<dp>-log-index"               (Query Service, User Apps Exporter)
+#   BUSINESS_ACTIVITIES -> "<dp>-ba-log-index"  (the two Business Activities ones, PCP-16998)
+#   DEFAULT   -> the resource's own name        (Services Exporter, e.g. "global-logs-ese-1")
+#
+# The DEFAULT branch looks like a UI oversight, but "match the wizard" is the
+# contract here, so it is mirrored rather than fixed. The UI keys these off the
+# sub-tab name and the API path off the resource type, which is why the branch is
+# passed in as data instead of being re-derived from either vocabulary.
+O11Y_LOG_INDEX_USER_APPS = "user-apps"
+O11Y_LOG_INDEX_BUSINESS_ACTIVITIES = "business-activities"
+O11Y_LOG_INDEX_DEFAULT = "default"
+
+
+def o11y_log_index(branch, dp_title, resource_name):
+    """Return the prefixed log index for one o11y Logs resource.
+
+    Pure function shared by the UI wizard and the CLI/API path so the two cannot
+    drift. `dp_title` is the data plane name ("Global" for subscription scope);
+    `resource_name` is only used by the DEFAULT branch.
+    """
+    if branch == O11Y_LOG_INDEX_USER_APPS:
+        base = f"{dp_title.lower()}-log-index"
+    elif branch == O11Y_LOG_INDEX_BUSINESS_ACTIVITIES:
+        base = f"{dp_title.lower()}-ba-log-index"
+    else:
+        base = resource_name
+    return f"{O11Y_LOG_INDEX_PREFIX}{base}"
+
 # do not import env.py or util.py in this file
 class Helper:
     @staticmethod
@@ -48,7 +78,15 @@ class Helper:
         return bash_path
 
     @staticmethod
-    def run_shell_file(script_path, custom_env_dict=None):
+    def run_shell_file(script_path, custom_env_dict=None, raise_on_failure=False):
+        """Run a shell script and return its stdout.
+
+        `raise_on_failure=False` keeps the long-standing behaviour: every failure is printed
+        and swallowed, and the caller gets "". That is wrong for anything whose success is the
+        point of the step - a registration command that exits non-zero then reads exactly like
+        one that worked - but the existing callers depend on it, so opting in is per-call.
+        `raise_on_failure=True` re-raises instead, so the caller can fail the step (PCP-24237).
+        """
         # Check if the script file exists
         if not os.path.exists(script_path):
             raise FileNotFoundError(f"Script file not found: {script_path}")
@@ -92,11 +130,15 @@ class Helper:
             return result.stdout
         except subprocess.CalledProcessError as e:
             # Handle errors during script execution
-            print(f"Error while executing script: {e}")
+            ColorLogger.error(f"Error while executing script: {e}")
             print(f"Script stderr:\n{e.stderr}")
+            if raise_on_failure:
+                raise
         except Exception as e:
             # Handle any unexpected exceptions
-            print(f"An unexpected error occurred: {e}")
+            ColorLogger.error(f"An unexpected error occurred: {e}")
+            if raise_on_failure:
+                raise
         return ""
 
     @staticmethod

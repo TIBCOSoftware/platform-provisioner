@@ -34,7 +34,7 @@ from utils.util import Util
 from utils.env import ENV
 from utils.helper import Helper
 from utils.color_logger import ColorLogger
-from api_object import LicenseApi
+from api_object import ConsoleApiClient, LicenseApi, O11yConsoleApi
 
 app = Flask(__name__, template_folder="templates")
 HEADER_ONE_CLICK_JOB_ID = "one_click_job_id"
@@ -132,6 +132,17 @@ _K8S_LABEL_RE = re.compile(r'^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
 
 def _has_shell_dangerous_chars(value):
     return any(c in _SHELL_DANGEROUS_CHARS for c in value)
+
+
+def _is_global_dp_scope(value):
+    """True when `value` is the `Global` sentinel rather than a data plane name.
+
+    The subscription-scoped cases (o11y, activation file) accept `Global` where a
+    DataPlane name would otherwise go. It is the canonical spelling everywhere else
+    (ENV.TP_AUTO_DP_NAME_GLOBAL, which also names the `user-app-global-*` log indices),
+    so it has to be accepted here too — see the label check in run_cli_script.
+    """
+    return bool(value) and value.lower() == ENV.TP_AUTO_DP_NAME_GLOBAL.lower()
 
 
 def set_env_vars_from_request(request_args, include_system_env=True, allowed_prefixes=None):
@@ -349,13 +360,89 @@ def create_activation_file_resource(cli_handler, dp_name):
 
     # DataPlane scope when a DP name is given; subscription (global) scope otherwise
     dp_id = None
-    if dp_name and dp_name.lower() != "global":
+    if dp_name and not _is_global_dp_scope(dp_name):
         dp_id = cli_handler.dataplane.get_dataplane_id(dp_name)
         if not dp_id:
             ColorLogger.error(f"Could not resolve DataPlane ID for '{dp_name}'")
             return None
 
     return LicenseApi(cp_url, token).upload_license_file(license_path, dp_id)
+
+
+def _cp_url_and_token(cli_handler):
+    """CP base URL + Bearer token, same precedence as page_cli.py. (None, None) if absent."""
+    custom_env = getattr(cli_handler.base, "CUSTOM_ENV", {}) or {}
+    cp_url = (custom_env.get("TIBCOP_CLI_CPURL") or os.environ.get("TIBCOP_CLI_CPURL", "")).rstrip("/")
+    token = (custom_env.get("TIBCOP_CLI_OAUTH_TOKEN") or os.environ.get("TIBCOP_CLI_OAUTH_TOKEN")
+             or Helper.get_auto_token())
+    return (cp_url or None), (token or None)
+
+
+def create_o11y_resources(cli_handler, dp_name):
+    """Create the Global observability resources, and link a DataPlane to them if one is named.
+
+    Goes through `O11yConsoleApi`, NOT `cli_handler.resource.create_o11y_resources`. The
+    latter uses the flat public endpoint, which silently drops the log index on the two
+    Business Activities (auditSafe) pillars no matter how the key is spelled — that is
+    PCP-21542, and shipping a button that produces two half-configured pillars would be
+    reintroducing PCP-21434 through the UI.
+
+    Mirrors create_activation_file_resource's scoping: with no DataPlane name (or the
+    literal "Global") it does the subscription-scoped work only; with a DataPlane name it
+    additionally switches that data plane to the Global resource. Both steps are
+    idempotent, so re-running is safe and is the normal way to link a second data plane.
+
+    Everything here runs through ONE credential path — the ConsoleApiClient built below.
+    That is deliberate: /run-cli-script answers 200 for every runtime failure (only
+    routing failures get real status codes), so a caller cannot distinguish a good run
+    from a half-completed one by status alone. A second credential path that can fail
+    after the CP has already been mutated therefore produces exactly the state this
+    branch exists to eliminate — see the dp_id resolution below.
+    """
+    cp_url, token = _cp_url_and_token(cli_handler)
+    if not (cp_url and token):
+        ColorLogger.error("TIBCOP_CLI_CPURL or OAuth token missing — cannot configure observability")
+        return None
+
+    client = ConsoleApiClient(base_url=cp_url, bearer_token=token)
+    o11y = O11yConsoleApi(client)
+
+    ColorLogger.info("Creating the Global observability resources (SUBSCRIPTION scope)...")
+    # ensure_global_config() calls ensure_pillars() itself when no stack exists, so on a
+    # fresh CP this runs twice — nine "created" lines then the same nine "already exists".
+    # Keep it anyway: on the REUSE path ensure_global_config short-circuits on the
+    # existing stack and never reaches ensure_pillars, so this explicit call is the only
+    # thing that heals a pillar deleted out from under a surviving stack. Dropping it as
+    # "redundant" would let that case pass silently. Cost is nine extra
+    # resource-instances-details reads, and only on the create path.
+    pillars = o11y.ensure_pillars()
+    ColorLogger.success(f"{len(pillars)} observability resource(s) present")
+    stack_id = o11y.ensure_global_config()
+    ColorLogger.success(f"Global observability config: {stack_id}")
+
+    if not dp_name or _is_global_dp_scope(dp_name):
+        return f"Global observability config ready: {stack_id}"
+
+    # Resolve via the Console API client, NOT cli_handler.dataplane.get_dataplane_id():
+    # that shells out to tibcop, which reads its credentials from CUSTOM_ENV/os.environ
+    # with no Helper.get_auto_token() fallback. A pod given only TIBCOP_CLI_CPURL would
+    # therefore create all nine pillars and the stack here, then die in tibcop with
+    # "All of the following must be provided when using --cpurl: --token" and return
+    # failure for a run that had already mutated the CP. Same token, same client, same
+    # outcome for both halves.
+    try:
+        dp_id = client.resolve_dataplane_id(dp_name)
+    except Exception as e:
+        ColorLogger.error(f"Could not resolve DataPlane ID for '{dp_name}': {e}")
+        return None
+
+    # link_to_global returns the READ-BACK state, not the HTTP status: the switch answers
+    # 200 even when it changed nothing, which is how PCP-23553 shipped green three times.
+    if not o11y.link_to_global(dp_id):
+        ColorLogger.error(f"DataPlane '{dp_name}' was not linked to the Global observability config")
+        return None
+    ColorLogger.success(f"DataPlane '{dp_name}' linked to the Global observability config")
+    return f"Global observability config {stack_id}; '{dp_name}' linked"
 
 
 @app.route('/run-cli-script')
@@ -379,14 +466,30 @@ def run_cli_script():
     bwce_version = request.args.get('TIBCOP_CLI_BWCE_VERSION')
     flogo_version = request.args.get('TIBCOP_CLI_FLOGO_VERSION')
     base_image_tag = request.args.get('TIBCOP_CLI_BASE_IMAGE_TAG')
-    # Use default namespace pattern if not provided
-    dp_namespace = request.args.get('TIBCOP_CLI_DP_NAMESPACE') or (f"{dp_name}ns" if dp_name else None)
-    dp_service_account_name = request.args.get('TIBCOP_CLI_DP_SERVICE_ACCOUNT_NAME') or (f"{dp_name}sa" if dp_name else None)
+    # Use default namespace pattern if not provided. Not derived for the `Global`
+    # sentinel: it names a scope, not a cluster, so "Globalns" / "Globalsa" would be
+    # invented k8s identifiers that no case uses — and invalid RFC-1123 labels, which
+    # would fail the check below and defeat the exemption made for `Global` itself.
+    _dp_name_is_cluster = bool(dp_name) and not _is_global_dp_scope(dp_name)
+    dp_namespace = request.args.get('TIBCOP_CLI_DP_NAMESPACE') or (f"{dp_name}ns" if _dp_name_is_cluster else None)
+    dp_service_account_name = request.args.get('TIBCOP_CLI_DP_SERVICE_ACCOUNT_NAME') or (f"{dp_name}sa" if _dp_name_is_cluster else None)
     storage_resource_name = request.args.get('TIBCOP_CLI_STORAGE_RESOURCE_NAME')
     storage_resource_description = request.args.get('TIBCOP_CLI_STORAGE_RESOURCE_DESCRIPTION')
     ingress_resource_name = request.args.get('TIBCOP_CLI_INGRESS_RESOURCE_NAME')
     ingress_resource_description = request.args.get('TIBCOP_CLI_INGRESS_RESOURCE_DESCRIPTION')
     other_args = request.args.get('TIBCOP_CLI_OTHER_ARGS')
+    # EMS (PCP-24380). The two *_DATA_RESOURCE_ID values are optional and auto-resolved
+    # from the Data Plane's storage resource when empty, mirroring STORAGE_RESOURCE_ID.
+    # There is deliberately no field for --ems-msg-storage-name / --ems-log-storage-name:
+    # those are the Kubernetes StorageClass, a value disagreeing with the resolved resource
+    # instance recreates the PCP-23953 failure class, and the CLI layer derives them from
+    # ENV.TP_AUTO_STORAGE_CLASS instead. All five inherit the _SHELL_DANGEROUS_CHARS guard
+    # below for free - that loop walks every request arg except `case`.
+    msg_data_resource_id = request.args.get('TIBCOP_CLI_MSG_DATA_RESOURCE_ID')
+    log_data_resource_id = request.args.get('TIBCOP_CLI_LOG_DATA_RESOURCE_ID')
+    ems_name = request.args.get('TIBCOP_CLI_EMS_NAME')
+    ems_sizing = request.args.get('TIBCOP_CLI_EMS_SIZING')
+    ems_use = request.args.get('TIBCOP_CLI_EMS_USE')
 
     if not auto_case:
         return "Missing 'case' parameter", 400
@@ -406,7 +509,16 @@ def run_cli_script():
             continue
         if _has_shell_dangerous_chars(_param_value):
             return f"Invalid characters in parameter '{_param_key}'", 400
-    for _label in (dp_name, dp_namespace, dp_service_account_name):
+    # The one exemption is the `Global` sentinel in dp_name: it is not a k8s object at
+    # all, and rejecting it made the canonical spelling of the subscription scope a 400
+    # while lowercase "global" worked. Exempting one exact constant (letters only, so it
+    # carries no quote or flag payload) is not the same as loosening the pattern —
+    # namespace and service-account keep the unmodified check, and so does any other
+    # dp_name.
+    _labels = [dp_namespace, dp_service_account_name]
+    if not _is_global_dp_scope(dp_name):
+        _labels.append(dp_name)
+    for _label in _labels:
         if _label and not _K8S_LABEL_RE.match(_label):
             return "Invalid dataplane name / namespace / service-account (must be a valid Kubernetes RFC-1123 label)", 400
 
@@ -415,7 +527,15 @@ def run_cli_script():
     # from the request) so an unauthenticated caller cannot inject process-control env vars
     # such as NODE_OPTIONS into the child process (TPSEC-134/f023).
     env_vars = set_env_vars_from_request(request.args, True, allowed_prefixes=("TIBCOP_CLI_",))
-    cli_handler = TibcopCLI(env_vars)
+    try:
+        cli_handler = TibcopCLI(env_vars)
+    except RuntimeError as e:
+        # TibcopCLI.__init__ asserts the tibcop version (PCP-24379). Unguarded, a stale or
+        # missing binary turned every /run-cli-script request into a bare 500 whose body
+        # said nothing - the one failure whose message already explains exactly what to do.
+        # 503, not 500: the request is fine, the server's own tooling is not.
+        ColorLogger.error(f"tibcop CLI is not usable: {e}")
+        return f"tibcop CLI is not usable: {e}", 503
 
     case_function_map = {
         "kubectl:list-cluster-resources": lambda: cli_handler.kubectl.list_cluster_resources(),
@@ -432,9 +552,25 @@ def run_cli_script():
         "tplatform:list-capabilities": lambda: cli_handler.capability.list_capabilities(dp_name, other_args=other_args),
         "tplatform:list-resource-instances": lambda: cli_handler.resource.list_resource_instances(dp_name, other_args=other_args),
         "delete-app": lambda: cli_handler.app.delete_app(dp_name, capability_id, app_id, other_args=other_args),
+        # Keyword arguments, not positional (PCP-24380). The positional form passed EIGHT
+        # values into a NINE-parameter signature, so from the 5th onward everything landed
+        # one slot early: path_prefix=devhub_name, devhub_name=k8s_secret,
+        # k8s_secret=other_args, and other_args was dropped entirely. TIBCOHUB provisioning
+        # from the Web UI has been mis-wired ever since gateway_resource_id was inserted.
+        # This is a real behaviour change nobody asked for, and it is called out in the
+        # CHANGELOG as such. Keywords also mean the EMS parameters below cannot re-open it.
         "provision-capability": lambda: cli_handler.capability.provision_capability(
-            dp_name, capability_id, storage_resource_id, ingress_resource_id,
-            None, devhub_name, k8s_secret, other_args
+            dp_name, capability_id,
+            storage_resource_id=storage_resource_id,
+            ingress_resource_id=ingress_resource_id,
+            devhub_name=devhub_name,
+            k8s_secret=k8s_secret,
+            other_args=other_args,
+            msg_data_resource_id=msg_data_resource_id,
+            log_data_resource_id=log_data_resource_id,
+            ems_name=ems_name,
+            ems_sizing=ems_sizing,
+            ems_use=ems_use,
         ),
         "delete-capability-instance": lambda: cli_handler.capability.delete_capability_instance(
             dp_name, capability_id, other_args
@@ -449,6 +585,7 @@ def run_cli_script():
             dp_name, resource_instance_id, other_args
         ),
         "create-activation-file-resource": lambda: create_activation_file_resource(cli_handler, dp_name),
+        "create-o11y-resources": lambda: create_o11y_resources(cli_handler, dp_name),
         "bwce:list-versions": lambda: cli_handler.bwce.list_versions(dp_name, other_args),
         "bwce:provision-version": lambda: cli_handler.bwce.provision_version(dp_name, bwce_version, other_args),
         "bwce:create-build": lambda: cli_handler.bwce.create_build(

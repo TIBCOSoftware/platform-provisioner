@@ -15,6 +15,7 @@
 #
 
 from utils.color_logger import ColorLogger
+from utils.naming import app_build_name_pattern
 from utils.util import Util
 from utils.helper import Helper
 from utils.env import ENV
@@ -261,6 +262,57 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.page.locator(self.selector_header_dp_name(), has_text=dp_name).click()
         print(f"Clicked menu navigator Data Plane '{dp_name}', go back to Data Plane detail page")
     
+    # app_build_name_pattern() used to be defined here. It moved to utils/naming.py in
+    # PCP-24380: the EMS capability card needs exactly the same anchored matcher (a Data
+    # Plane can hold both `ems-sn` and `ems-sn-2`), and po_dp_ems importing po_dp_flogo to
+    # get it would be a sideways dependency between two unrelated capability wizards. The
+    # regex, and the two live investigations behind its boundary, are documented there.
+
+    def app_build_rows(self, app_name):
+        """App build table rows whose NAME cell is app_name - deliberately NOT narrowed.
+
+        Every caller that touches the app build table goes through this, because the
+        table can legitimately hold more than one row for the same app name and an
+        un-narrowed locator is a Playwright strict-mode violation waiting to happen:
+
+            locator(".app-build-container td:first-child").filter(has_text="rest-flogo-1")
+            resolved to 2 elements
+
+        That is PCP-24348. A run created a duplicate build, and from then on the very
+        check that should have answered "a build already exists, skip creating one"
+        RAISED instead of answering - so the step could never self-heal and every
+        retry failed at the same selector. Narrow with `.first` to ask whether a build
+        exists; the row count is only interesting to a caller that wants the count.
+
+        The name is matched on the FIRST cell, so a build id or a date column cannot
+        satisfy it, and it is matched with an anchored pattern rather than a bare
+        substring - see app_build_name_pattern().
+
+        On a TRUE duplicate, callers take `.first`, i.e. DOM order. PCP-24348's review
+        asked for that pick to be made on the row's STATUS instead - prefer a build in a
+        successful/terminal state - and PCP-24359 went to a live CP (1.21) to build that
+        selector. There is none to build: the App Builds table is
+        `Name | ID | Created By | Created | Tags | Included Connectors | actions`, no
+        column carries a state, no header is sortable, the row action menu is
+        `Check Usage / Deploy / Export Flogo File / Export App Build`, and the payload the
+        table renders - `{buildId, name, createdBy, createdDate, connectorsUsed,
+        flogoBaseVersion, nonDPBuild}` - has no status field either. A Flogo app build is
+        not a stateful object once listed; it is listed because it was created.
+
+        So "prefer the successful one" cannot be expressed, and on a true duplicate there
+        is nothing to prefer: both rows are the same app name built from the same uploaded
+        file. What actually put a WRONG build under `.first` was the name matcher, not the
+        ordering - a `rest-flogo-1.2` row matching `rest-flogo-1` and sorting above it -
+        and that is fixed at the source in app_build_name_pattern(). Ordering is left
+        alone deliberately rather than replaced with a guess: the only remaining
+        discriminator is the `Created` cell, and parsing a locale-formatted date (it
+        renders with a U+202F narrow no-break space) to pick between two equivalent builds
+        would add a locale-dependent failure mode to buy nothing.
+        """
+        return self.page.locator(".app-build-container tr").filter(
+            has=self.page.locator("td:first-child",
+                                  has_text=app_build_name_pattern(app_name)))
+
     def flogo_app_build_and_deploy(self, dp_name, app_file_name, app_name):
         capability = self.capability
         if ReportYaml.get_capability_info(dp_name, capability, "appBuild") == "true":
@@ -276,32 +328,29 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.goto_capability(dp_name, capability, ".capability-connectors-container .total-capability", is_check_status)
     
         print("Flogo Checking app build...")
-        # self.page.locator(".app-build-container").wait_for(state="visible")
-        # print("Flogo capability page loaded, Checking Flogo App Builds...")
-        # self.page.wait_for_timeout(3000)
-        # is_app_build_created = self.page.locator(".app-build-container td", has_text=app_name).is_visible()
-        # # Note: check 3 times, because sometimes Flogo App Builds can not be loaded in time
-        # # if not Flogo App Builds, reload page, and check again, only check 3 times, if still empty, exit for loop
-        # for i in range(3):
-        #     if is_app_build_created:
-        #         break
-        #     Util.refresh_page(page)
-        #     self.page.locator(".app-build-container").wait_for(state="visible")
-        #     print("Flogo capability page loaded, Checking Flogo App Builds...")
-        #     self.page.wait_for_timeout(3000)
-        #     is_app_build_created = self.page.locator(".app-build-container td", has_text=app_name).is_visible()
-    
+        # `.first`: this guard is what makes the step idempotent, so it has to survive the
+        # very state a failed attempt leaves behind - one or MORE builds named app_name.
+        # See app_build_rows().
         is_app_build_created = Util.refresh_until_success(self.page,
-                                                          self.page.locator(".app-build-container td", has_text=app_name),
+                                                          self.app_build_rows(app_name).first,
                                                           self.page.locator(".app-build-container"),
                                                           "Flogo capability page loaded, Checking Flogo App Builds...")
-    
+
         if is_app_build_created:
+            build_count = self.app_build_rows(app_name).count()
             ColorLogger.success(f"Flogo app build {app_name} is already created.")
+            if build_count > 1:
+                # Not fatal - the deploy below acts on the FIRST matching row, which is
+                # enough to get past the step - but which of the duplicates that is, is
+                # not something this code decides. Duplicates only ever come from a retry
+                # that created a second build, so say so loudly rather than leaving it to
+                # be discovered in the CP UI.
+                Util.warning_screenshot(f"Data Plane '{dp_name}' has {build_count} Flogo app builds named '{app_name}'; "
+                                        f"the extra one(s) should be deleted.", self.page, "flogo_app_build_duplicate.png")
             ReportYaml.set_capability(dp_name, capability)
             ReportYaml.set_capability_info(dp_name, capability, "appBuild", True)
             return
-    
+
         print("Start Create Flogo app build...")
 
         if not self.page.locator(".capability-buttons", has_text="Create New App Build And Deploy").is_visible():
@@ -381,8 +430,12 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
             if Util.wait_for_success_message(self.page, 5) is False:
                 Util.exit_error(f"API return failed message, failed to create Flogo {app_name} app build", self.page, "flogo_app_build_and_deploy.png")
 
-            print("Waiting for 'Creating new app build...'")
-            self.page.locator('.finish-container .step-description', has_text="Creating new app build...").wait_for(state="visible")
+            # There used to be a hard wait_for() on the in-progress line 'Creating new app
+            # build...' here. That line is TRANSIENT: a build that reaches the terminal
+            # state before the check runs never shows it, and the step died on a bare 30s
+            # Playwright timeout - with the build already created. The retry then created a
+            # SECOND build with the same name (PCP-24348). Only the terminal state is worth
+            # gating on, so wait for that one and let the poll do the reporting (rule #5).
             print("Waiting for 'Successfully created app build'")
             if Util.check_dom_visibility(self.page, self.page.locator('.finish-container .step-description', has_text="Successfully created app build"),3, 300):
                 print(f"Successfully created Flogo {app_name} app build")
@@ -449,7 +502,7 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         self.goto_capability(dp_name, capability, ".capability-connectors-container .total-capability", is_check_status)
     
         print(f"Waiting for Flogo app build {app_name} is deployed...")
-        if not Util.check_dom_visibility(self.page, self.page.locator(".app-build-container td:first-child", has_text=app_name), 20, 180, True):
+        if not Util.check_dom_visibility(self.page, self.app_build_rows(app_name).first, 20, 180, True):
             Util.exit_error(f"Flogo app {app_name} is not deployed.", self.page, "flogo_app_deploy.png")
     
         # if capability appBuild has not been set to true, set it to true
@@ -457,9 +510,9 @@ class PageObjectDataPlaneFlogo(PageObjectDataPlane):
         if ReportYaml.get_capability_info(dp_name, capability, "appBuild") != "true":
             ReportYaml.set_capability_info(dp_name, capability, "appBuild", True)
     
-        self.page.locator(".app-build-container tr", has=self.page.locator("td", has_text=app_name)).nth(0).locator('flogo-app-build-actions button[data-pl-dropdown-role="toggler"]').click()
+        self.app_build_rows(app_name).first.locator('flogo-app-build-actions button[data-pl-dropdown-role="toggler"]').click()
         print(f"Clicked action menu button for {app_name}")
-        self.page.locator(".app-build-container tr", has=self.page.locator("td", has_text=app_name)).nth(0).locator('flogo-app-build-actions .action-menu button', has_text="Deploy").click()
+        self.app_build_rows(app_name).first.locator('flogo-app-build-actions .action-menu button', has_text="Deploy").click()
         print(f"Clicked 'Deploy' from action menu list for {app_name}")
     
         self.page.wait_for_timeout(1000)

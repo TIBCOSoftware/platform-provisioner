@@ -25,8 +25,12 @@
 # guard is asserted both behaviourally (below) and at source level over the sibling paths
 # that get copy-pasted (test_no_non_global_path_creates_a_dataplane_resource).
 #
-# O11Y_CONFIG_VIA_UI is a code constant that is always True; the retained API branches
-# for a data plane must raise NotImplementedError rather than fall back to create-local.
+# CLI mode configures o11y over the Console API and never launches a browser for it.
+# PCP-22010 added the O11Y_CONFIG_VIA_UI constant as an explicitly TEMPORARY detour
+# through the wizard, "to be removed (with the _run_gui_o11y branch) once the API side
+# is fixed"; the API side is fixed (api_object/o11y_console.py links a data plane), so
+# both are gone. The wizard itself is untouched — page_dp.py / page_bmdp.py and the
+# case/ scripts still drive it; it is only CLI mode that no longer detours through it.
 
 import ast
 import importlib
@@ -68,96 +72,12 @@ def _patch_bmdp_api(monkeypatch):
         monkeypatch.setattr(type(ENV), flag, False)
 
 
-# ---------------------------------------------------------------------------
-# The contract, per subject: which page-object call each subject ends up making
-# ---------------------------------------------------------------------------
-
-def _patch_gui(monkeypatch, wizard_succeeded=True):
-    """Run the real _run_gui_o11y body against mocked page objects.
-
-    `wizard_succeeded` drives the report keys (`o11yConfig` for Global, `switchGlobal`
-    for a data plane), which are the ONLY reliable success signals: both wizards warn
-    instead of raising when they fail, and write their key only on a confirmed success.
-    """
-    monkeypatch.setattr(page_cli, "Util", MagicMock())
-    monkeypatch.setattr(page_cli, "PageObjectAuth", MagicMock())
-    report = MagicMock()
-    report.get_dataplane_info.return_value = "true" if wizard_succeeded else ""
-    monkeypatch.setattr(page_cli, "ReportYaml", report)
-    dp_cfg_cls = MagicMock()
-    bmdp_cfg_cls = MagicMock()
-    monkeypatch.setattr(page_cli, "PageObjectDataPlaneConfiguration", dp_cfg_cls)
-    monkeypatch.setattr(page_cli, "PageObjectBMDPConfiguration", bmdp_cfg_cls)
-    monkeypatch.setattr(type(ENV), "TP_AUTO_DP_NAME_GLOBAL", "Global")
-    return dp_cfg_cls.return_value, bmdp_cfg_cls.return_value
-
-
-def test_global_creates_the_observability_resource(monkeypatch):
-    dp_cfg, bmdp_cfg = _patch_gui(monkeypatch)
-
-    assert page_cli._run_gui_o11y("Global") is True
-
-    dp_cfg.o11y_config_dataplane_resource.assert_called_once_with("Global")
-    dp_cfg.o11y_config_switch_to_global.assert_not_called()
-    bmdp_cfg.o11y_config_dataplane_resource.assert_not_called()
-
-
-def test_k8s_dp_switches_to_global(monkeypatch):
-    dp_cfg, bmdp_cfg = _patch_gui(monkeypatch)
-
-    assert page_cli._run_gui_o11y(DP_NAME) is True
-
-    dp_cfg.o11y_config_switch_to_global.assert_called_once_with(DP_NAME)
-    dp_cfg.o11y_config_dataplane_resource.assert_not_called()
-    bmdp_cfg.o11y_config_dataplane_resource.assert_not_called()
-
-
-def test_bmdp_switches_to_global_using_the_bmdp_page_object(monkeypatch):
-    dp_cfg, bmdp_cfg = _patch_gui(monkeypatch)
-
-    assert page_cli._run_gui_o11y(BMDP_NAME, is_bmdp=True) is True
-
-    bmdp_cfg.o11y_config_switch_to_global.assert_called_once_with(BMDP_NAME)
-    bmdp_cfg.o11y_config_dataplane_resource.assert_not_called()
-    dp_cfg.o11y_config_switch_to_global.assert_not_called()
-
-
-@pytest.mark.parametrize("dp_name,is_bmdp", [(DP_NAME, False), (BMDP_NAME, True), ("any-other-dp", False)])
-def test_no_non_global_subject_creates_a_dataplane_resource(monkeypatch, dp_name, is_bmdp):
-    """The regression guard (PCP-23553 AC#2) — every previous fix failed here."""
-    dp_cfg, bmdp_cfg = _patch_gui(monkeypatch)
-
-    assert page_cli._run_gui_o11y(dp_name, is_bmdp=is_bmdp) is True
-
-    dp_cfg.o11y_config_dataplane_resource.assert_not_called()
-    bmdp_cfg.o11y_config_dataplane_resource.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# A switch that did not link must NOT be reported as success
-# (the silent-green half of PCP-23553 — the pipeline stayed green while both data
-# planes were unlinked, and only a-gcp-doctor Check #5 noticed)
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("dp_name,is_bmdp", [
-    ("Global", False),          # o11y_config_dataplane_resource -> o11yConfig
-    (DP_NAME, False),           # o11y_config_switch_to_global   -> switchGlobal
-    (BMDP_NAME, True),
-])
-def test_unconfirmed_wizard_returns_failure(monkeypatch, dp_name, is_bmdp):
-    """Neither wizard raises when it fails — it warns, screenshots and returns — so
-    _run_gui_o11y must key on the recorded report key, not on 'it did not raise'."""
-    _patch_gui(monkeypatch, wizard_succeeded=False)
-
-    assert page_cli._run_gui_o11y(dp_name, is_bmdp=is_bmdp) is False
-
-
 def test_dp_entry_point_does_not_record_success_when_switch_fails(monkeypatch):
     _enable_o11y(monkeypatch)
     report = MagicMock()
     report.get_dataplane_info.return_value = ""
     monkeypatch.setattr(page_cli, "ReportYaml", report)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(return_value=False))
+    monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(return_value=False))
 
     page_cli._run_dp_o11y(_make_cli(), DP_NAME)
 
@@ -199,7 +119,7 @@ def test_dp_activation_file_is_uploaded_whatever_the_o11y_outcome(monkeypatch, t
     report = MagicMock()
     report.get_dataplane_info.return_value = ""          # nothing configured yet
     monkeypatch.setattr(page_cli, "ReportYaml", report)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(return_value=switch_succeeded))
+    monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(return_value=switch_succeeded))
     cli, license_api, license_path = _patch_dp_activation(monkeypatch, tmp_path)
 
     page_cli._run_dp_o11y(cli, DP_NAME)
@@ -213,7 +133,7 @@ def test_failed_switch_still_uploads_but_does_not_claim_o11y_success(monkeypatch
     report = MagicMock()
     report.get_dataplane_info.return_value = ""
     monkeypatch.setattr(page_cli, "ReportYaml", report)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(return_value=False))
+    monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(return_value=False))
     cli, license_api, _ = _patch_dp_activation(monkeypatch, tmp_path)
 
     page_cli._run_dp_o11y(cli, DP_NAME)
@@ -234,7 +154,7 @@ def test_systemexit_from_the_o11y_step_does_not_skip_the_upload(monkeypatch, tmp
     report = MagicMock()
     report.get_dataplane_info.return_value = ""
     monkeypatch.setattr(page_cli, "ReportYaml", report)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(side_effect=SystemExit(1)))
+    monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(side_effect=SystemExit(1)))
     cli, license_api, license_path = _patch_dp_activation(monkeypatch, tmp_path)
 
     page_cli._run_dp_o11y(cli, DP_NAME)          # must not propagate SystemExit
@@ -249,7 +169,7 @@ def test_keyboardinterrupt_still_aborts_the_dp_thread(monkeypatch, tmp_path):
     report = MagicMock()
     report.get_dataplane_info.return_value = ""
     monkeypatch.setattr(page_cli, "ReportYaml", report)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(side_effect=KeyboardInterrupt))
+    monkeypatch.setattr(page_cli, "_configure_o11y", MagicMock(side_effect=KeyboardInterrupt))
     cli, license_api, _ = _patch_dp_activation(monkeypatch, tmp_path)
 
     with pytest.raises(KeyboardInterrupt):
@@ -278,9 +198,9 @@ def test_bmdp_activation_file_is_uploaded_whatever_the_o11y_outcome(monkeypatch,
     license_api.return_value.upload_license_file.return_value = True
     monkeypatch.setattr(page_cli, "LicenseApi", license_api)
     if isinstance(switch_outcome, BaseException):
-        monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(side_effect=switch_outcome))
+        monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(side_effect=switch_outcome))
     else:
-        monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(return_value=switch_outcome))
+        monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(return_value=switch_outcome))
 
     page_cli._run_api_bmdp_config(BMDP_NAME, threading.Lock())
 
@@ -296,7 +216,7 @@ def test_bmdp_entry_point_does_not_record_success_when_switch_fails(monkeypatch)
     _enable_o11y(monkeypatch)
     _patch_bmdp_api(monkeypatch)
     report = page_cli.ReportYaml
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(return_value=False))
+    monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(return_value=False))
 
     page_cli._run_api_bmdp_config(BMDP_NAME, threading.Lock())
 
@@ -310,7 +230,7 @@ def test_global_o11y_failure_aborts_the_bootstrap(monkeypatch):
     _enable_o11y(monkeypatch)
     monkeypatch.setenv("TIBCOP_CLI_OAUTH_TOKEN", "tok")
     monkeypatch.setenv("TIBCOP_CLI_CPURL", "https://cp.example.com")
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", MagicMock(return_value=False))
+    monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(return_value=False))
     monkeypatch.setattr(page_cli, "ConsoleApiClient", MagicMock())
     monkeypatch.setattr(page_cli, "ReportYaml", MagicMock())
 
@@ -335,122 +255,109 @@ def test_bootstrap_failure_exits_non_zero(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# End-to-end wiring: each CLI entry point reaches the UI path for its subject
+# End-to-end wiring: each CLI entry point reaches the API path for its subject
 # ---------------------------------------------------------------------------
 
-def test_global_entry_point_goes_through_the_ui(monkeypatch):
+def _console(monkeypatch, linked=True):
+    """Patch page_cli._o11y_console and return the O11yConsoleApi mock it hands back."""
+    console = MagicMock()
+    console.link_to_global.return_value = linked
+    monkeypatch.setattr(page_cli, "_o11y_console", MagicMock(return_value=console))
+    return console
+
+
+def _report(monkeypatch, confirmed_key=None):
+    """ReportYaml mock: nothing recorded yet, except `confirmed_key` which reads back
+    'true' so the shared outcome assertion in _configure_o11y is satisfied."""
+    report = MagicMock()
+    report.get_dataplane_info.side_effect = (
+        lambda _dp, key: "true" if key == confirmed_key else "")
+    monkeypatch.setattr(page_cli, "ReportYaml", report)
+    return report
+
+
+def test_global_entry_point_goes_through_the_api(monkeypatch):
     _enable_o11y(monkeypatch)
     monkeypatch.setenv("TIBCOP_CLI_OAUTH_TOKEN", "tok")          # Step 1: skip bootstrap
     monkeypatch.setenv("TIBCOP_CLI_CPURL", "https://cp.example.com")
-
-    gui = MagicMock(return_value=True)
-    olly = MagicMock()
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", gui)
-    monkeypatch.setattr(page_cli, "OllyApi", olly)
-    monkeypatch.setattr(page_cli, "ConsoleApiClient", MagicMock())
-    monkeypatch.setattr(page_cli, "ReportYaml", MagicMock())
+    console = _console(monkeypatch)
+    _report(monkeypatch, confirmed_key="o11yConfig")
 
     page_cli._run_api_steps()
 
-    gui.assert_called_once_with(ENV.TP_AUTO_DP_NAME_GLOBAL)
-    olly.assert_not_called()   # API path must NOT be used
+    console.ensure_global_config.assert_called_once_with()
 
 
-def test_dp_entry_point_goes_through_the_ui(monkeypatch):
+def test_dp_entry_point_goes_through_the_api(monkeypatch):
     _enable_o11y(monkeypatch)
-    report = MagicMock()
-    report.get_dataplane_info.return_value = ""    # not already configured
-    monkeypatch.setattr(page_cli, "ReportYaml", report)
-    gui = MagicMock(return_value=True)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", gui)
+    report = _report(monkeypatch, confirmed_key="switchGlobal")
+    console = _console(monkeypatch)
+    console.client.resolve_dataplane_id.return_value = "dp-abc123"
 
     cli = _make_cli()
     page_cli._run_dp_o11y(cli, DP_NAME)
 
-    gui.assert_called_once_with(DP_NAME)
-    cli.resource.create_o11y_resources.assert_not_called()   # API path must NOT be used
-    # idempotency key still recorded so a re-run short-circuits
+    console.link_to_global.assert_called_once_with("dp-abc123")
+    console.ensure_pillars.assert_not_called()    # a DP LINKS, it never creates its own
+    cli.resource.create_o11y_resources.assert_not_called()
     report.set_dataplane_info.assert_any_call(DP_NAME, "o11yResources", True)
 
 
-def test_bmdp_entry_point_goes_through_the_ui(monkeypatch):
-    """Before PCP-23553 the BMDP called OllyApi.create_o11y_resources directly, with no
-    O11Y_CONFIG_VIA_UI check at all — a third, BMDP-local resource set."""
+def test_bmdp_entry_point_goes_through_the_api(monkeypatch):
+    """The BMDP takes the identical contract — no Control-Tower special case."""
     _enable_o11y(monkeypatch)
     _patch_bmdp_api(monkeypatch)
-    olly = MagicMock()
-    monkeypatch.setattr(page_cli, "OllyApi", olly)
-    gui = MagicMock(return_value=True)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", gui)
+    _report(monkeypatch, confirmed_key="switchGlobal")
+    console = _console(monkeypatch)
+    console.client.resolve_dataplane_id.return_value = "bmdp-xyz"
 
     page_cli._run_api_bmdp_config(BMDP_NAME, threading.Lock())
 
-    gui.assert_called_once_with(BMDP_NAME, is_bmdp=True)
-    olly.assert_not_called()
+    console.link_to_global.assert_called_once_with("bmdp-xyz")
+    console.ensure_pillars.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
-# The retained API branches must fail loudly, never fall back to create-local
+# The o11y step is API-only: no browser, and one definition of success
 # ---------------------------------------------------------------------------
 
-def test_o11y_config_via_ui_is_on_by_default():
-    """A code constant by design (never a recipe/guiEnv key). Flipping it off without
-    implementing switch-to-global on the API side reintroduces PCP-23553."""
-    assert page_cli.O11Y_CONFIG_VIA_UI is True
+@pytest.mark.parametrize("subject,is_bmdp,confirmed_key", [
+    ("Global", False, "o11yConfig"),
+    (DP_NAME, False, "switchGlobal"),
+    (BMDP_NAME, True, "switchGlobal"),
+])
+def test_configuring_o11y_never_launches_a_browser(monkeypatch, subject, is_bmdp, confirmed_key):
+    """PCP-22010 routed this step through the wizard as an explicitly temporary detour;
+    it is gone, and it must not come back by accident.
 
-
-def test_dp_api_branch_raises_instead_of_creating_a_local_resource(monkeypatch):
+    Asserted behaviourally rather than by grepping the module. That was originally
+    because page_cli still launched a browser for EMS and so "page_cli opens a browser
+    somewhere" stayed true; since PCP-24380 it does not, and the source-level half is
+    covered by the browser-free guard in tests/test_capability_ems_provision.py. The
+    behavioural assertion is kept anyway: it pins that THIS step takes the API path,
+    which a module-wide import check cannot say.
+    """
     _enable_o11y(monkeypatch)
-    monkeypatch.setattr(page_cli, "O11Y_CONFIG_VIA_UI", False)
-    report = MagicMock()
-    report.get_dataplane_info.return_value = ""
-    monkeypatch.setattr(page_cli, "ReportYaml", report)
-    gui = MagicMock(return_value=True)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", gui)
+    monkeypatch.setattr(type(ENV), "TP_AUTO_DP_NAME_GLOBAL", "Global")
+    _report(monkeypatch, confirmed_key=confirmed_key)
+    console = _console(monkeypatch)
+    console.client.resolve_dataplane_id.return_value = "dp-abc123"
+    util = MagicMock()
+    monkeypatch.setattr(page_cli, "Util", util)
 
-    cli = _make_cli()
-    with pytest.raises(NotImplementedError, match="PCP-23553"):
-        page_cli._run_dp_o11y(cli, DP_NAME)
+    assert page_cli._configure_o11y(subject, is_bmdp=is_bmdp) is True
 
-    cli.resource.create_o11y_resources.assert_not_called()
-    gui.assert_not_called()
+    util.browser_launch.assert_not_called()
+    util.browser_close.assert_not_called()
 
 
-def test_bmdp_api_branch_raises_instead_of_creating_a_local_resource(monkeypatch):
+def test_an_unconfirmed_outcome_fails_even_though_the_call_returned_true(monkeypatch):
+    """A returning call is not enough — the report key it writes is the outcome.
+    Both of PCP-23553's silent-green regressions passed this point."""
     _enable_o11y(monkeypatch)
-    _patch_bmdp_api(monkeypatch)
-    monkeypatch.setattr(page_cli, "O11Y_CONFIG_VIA_UI", False)
-    olly = MagicMock()
-    monkeypatch.setattr(page_cli, "OllyApi", olly)
-    gui = MagicMock(return_value=True)
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", gui)
-
-    with pytest.raises(NotImplementedError, match="PCP-23553"):
-        page_cli._run_api_bmdp_config(BMDP_NAME, threading.Lock())
-
-    olly.assert_not_called()
-    gui.assert_not_called()
-
-
-def test_global_api_branch_stays_functional(monkeypatch):
-    """Only the DATA PLANE API branches are blocked — creating the Global resource over
-    the API is correct (it is a create, not a link) and must keep working."""
-    _enable_o11y(monkeypatch)
-    monkeypatch.setenv("TIBCOP_CLI_OAUTH_TOKEN", "tok")
-    monkeypatch.setenv("TIBCOP_CLI_CPURL", "https://cp.example.com")
-    monkeypatch.setattr(page_cli, "O11Y_CONFIG_VIA_UI", False)
-
-    gui = MagicMock(return_value=True)
-    olly_instance = MagicMock()
-    monkeypatch.setattr(page_cli, "_run_gui_o11y", gui)
-    monkeypatch.setattr(page_cli, "OllyApi", MagicMock(return_value=olly_instance))
-    monkeypatch.setattr(page_cli, "ConsoleApiClient", MagicMock())
-    monkeypatch.setattr(page_cli, "ReportYaml", MagicMock())
-
-    page_cli._run_api_steps()
-
-    gui.assert_not_called()
-    olly_instance.create_o11y_resources.assert_called_once_with("global")
+    _report(monkeypatch, confirmed_key=None)          # nothing ever recorded
+    monkeypatch.setattr(page_cli, "_run_api_o11y", MagicMock(return_value=True))
+    assert page_cli._configure_o11y(DP_NAME) is False
 
 
 # ---------------------------------------------------------------------------

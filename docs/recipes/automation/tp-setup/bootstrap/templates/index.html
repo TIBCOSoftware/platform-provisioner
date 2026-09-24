@@ -358,6 +358,10 @@
                     <option value="BW5CE">BW5(BW5CE)</option>
                     <option value="FLOGO">Flogo</option>
                     <option value="TIBCOHUB">Hub</option>
+                    <!-- EMS needs tibcop 1.21+; earlier CLIs reject it at the --capability
+                         enum. Also enables delete-capability-instance for EMS, which the
+                         server's valid_capabilities list already accepted. -->
+                    <option value="EMS">EMS</option>
                   </select>
                 </div>
               </div>
@@ -488,6 +492,7 @@
                       <option value="create-storage-resource">create-storage-resource</option>
                       <option value="create-ingress-resource">create-ingress-resource</option>
                       <option value="create-activation-file-resource">create-activation-file-resource</option>
+                      <option value="create-o11y-resources">create-o11y-resources</option>
                       <option value="delete-resource-instance">delete-resource-instance</option>
                     </optgroup>
                     <optgroup label="Capability Management">
@@ -587,6 +592,57 @@
                 </div>
               </div>
 
+
+              <!-- EMS (PCP-24380). EMS binds two DATA resources instead of one storage
+                   resource plus a route, so it gets its own optional id pair rather than
+                   reusing Storage/Ingress Resource ID. There is deliberately no field for
+                   --ems-msg-storage-name / --ems-log-storage-name: those are the Kubernetes
+                   StorageClass, and a value disagreeing with the resolved resource instance
+                   is the PCP-23953 failure class. The CLI layer derives them from
+                   ENV.TP_AUTO_STORAGE_CLASS. -->
+              <div class="row TIBCOP_CLI_MSG_DATA_RESOURCE_ID" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_MSG_DATA_RESOURCE_ID">Message Data Resource ID<span>(Optional)</span></label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_MSG_DATA_RESOURCE_ID" placeholder="Leave empty to auto-create" title="Will use (or create) the Data Plane's own storage resource if not provided">
+                  <small style="display: block; color: #666;">Leave empty to use (or auto-create) {dataplane}-storage</small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_LOG_DATA_RESOURCE_ID" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_LOG_DATA_RESOURCE_ID">Log Data Resource ID<span>(Optional)</span></label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_LOG_DATA_RESOURCE_ID" placeholder="Leave empty to auto-create" title="May be the same resource as the message one, which is what the UI wizard binds">
+                  <small style="display: block; color: #666;">Leave empty to use (or auto-create) {dataplane}-storage</small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_EMS_NAME" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_EMS_NAME">EMS Server Name</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_EMS_NAME" value="ems-sn" placeholder="e.g., ems-sn">
+                  <small style="display: block; color: #666;">The capability instance is named exactly this - no suffix is appended</small>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_EMS_SIZING" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_EMS_SIZING">EMS Sizing</label></div>
+                <div class="col-sm-9">
+                  <select id="TIBCOP_CLI_EMS_SIZING">
+                    <option value="small" selected>small</option>
+                    <option value="medium">medium</option>
+                    <option value="large">large</option>
+                    <option value="xlarge">xlarge</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row TIBCOP_CLI_EMS_USE" style="display: none;">
+                <div class="col-sm-3"><label for="TIBCOP_CLI_EMS_USE">EMS Use</label></div>
+                <div class="col-sm-9">
+                  <input type="text" id="TIBCOP_CLI_EMS_USE" value="dev" placeholder="dev">
+                  <small style="display: block; color: #666;">Usage profile (dev / prod). The CP blanks it on both the UI and the CLI path, and it does not affect the capability name</small>
+                </div>
+              </div>
 
               <div class="row TIBCOP_CLI_DEVHUB_NAME" style="display: none;">
                 <div class="col-sm-3"><label for="TIBCOP_CLI_DEVHUB_NAME">Developer Hub Name</label></div>

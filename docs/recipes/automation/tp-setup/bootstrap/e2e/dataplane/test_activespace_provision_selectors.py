@@ -28,7 +28,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from page_object import po_dataplane as po_dataplane_module
 from page_object import po_dp_activespace as po_activespace_module
+from utils import naming as naming_module
 from page_object.po_dp_activespace import PageObjectDataPlaneActiveSpaces
 
 DP_NAME = "k8s-auto-dp1"
@@ -138,12 +140,24 @@ def _po(matches=None):
 def _pin_storage_class(monkeypatch, value):
     """Swap the module-level ENV reference. ENV itself is a FROZEN dataclass, so its
     attributes cannot be monkeypatched in place; replacing the name the page object
-    resolves is the way to pin it without touching real configuration."""
-    monkeypatch.setattr(
-        po_activespace_module, "ENV",
-        SimpleNamespace(TP_AUTO_STORAGE_CLASS=value,
-                        TP_AUTO_REPORT_YAML_FILE=po_activespace_module.ENV.TP_AUTO_REPORT_YAML_FILE),
-    )
+    resolves is the way to pin it without touching real configuration.
+
+    THREE modules are patched, because the candidate list is read from a different
+    module than the rest of this page object: storage_resource_candidates() moved out of
+    po_dp_activespace to PageObjectDataPlane (PCP-23953) and then to utils/naming.py
+    (PCP-24380, so cli_object can call it without importing Playwright). It therefore
+    resolves utils.naming.ENV while select_storage_resource's own code still resolves
+    po_dp_activespace.ENV. Patching only the page object silently stopped pinning the
+    storage class — the fallback then answered instead, and one test in this file went on
+    passing for the wrong reason. po_dataplane is kept in the list for the rest of the
+    inherited behaviour this file exercises.
+    """
+    pinned = SimpleNamespace(
+        TP_AUTO_STORAGE_CLASS=value,
+        TP_AUTO_REPORT_YAML_FILE=po_activespace_module.ENV.TP_AUTO_REPORT_YAML_FILE)
+    monkeypatch.setattr(po_activespace_module, "ENV", pinned)
+    monkeypatch.setattr(po_dataplane_module, "ENV", pinned)
+    monkeypatch.setattr(naming_module, "ENV", pinned)
     return value
 
 

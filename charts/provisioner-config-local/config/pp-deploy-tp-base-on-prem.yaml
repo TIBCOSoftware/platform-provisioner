@@ -57,7 +57,10 @@ groups:
 - title: "Database"
   index: 8
   description: |
-    DB specific configurations. The default value is for postgres pod.
+    DB specific configurations. Pick the engine the Control Plane will use.
+    `postgres` (default) is unchanged. `oracle` additionally deploys an Oracle DB pod.
+    The "Install Postgres" toggle under Flow control stays independent, because Keycloak
+    and langfuse still need PostgreSQL whatever engine the Control Plane uses.
 - title: "Flow control"
   index: 10
   description: |
@@ -214,6 +217,22 @@ options:
     The size of the NFS server provisioner storage.
 
 # groupIndex: 8 Database
+- name: "DB engine"
+  groupIndex: 8
+  labels:
+    - "postgres"
+    - "oracle"
+  values:
+    - "postgres"
+    - "oracle"
+  type: string
+  guiType: radio
+  reference: "meta.guiEnv.GUI_TP_DB_ENGINE"
+  description: |
+    The database engine the Control Plane will use. `postgres` is the default and is
+    unchanged from previous releases. `oracle` additionally deploys an Oracle DB pod into
+    the same namespace. You must select the SAME engine again in the
+    "Deploy Control Plane On-Prem Stack" pipeline — the two pipelines do not share state.
 - name: "DB user name"
   groupIndex: 8
   type: string
@@ -258,6 +277,14 @@ options:
   reference: "meta.guiEnv.GUI_TP_REDIS_TLS_ENABLED"
   description: |
     Enable TLS for Redis
+- name: "Oracle password"
+  groupIndex: 8
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_TP_ORACLE_PASSWORD"
+  description: |
+    The Oracle DB password. Used when the DB engine is set to `oracle`.
+    You will need this same password in the Control Plane pipeline.
 
 # groupIndex: 10 Flow control
 - name: "Install cert-manager"

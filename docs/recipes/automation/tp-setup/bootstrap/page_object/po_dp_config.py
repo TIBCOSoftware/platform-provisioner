@@ -20,7 +20,13 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from utils.color_logger import ColorLogger
 from utils.util import Util
-from utils.helper import Helper, O11Y_LOG_INDEX_PREFIX
+from utils.helper import (
+    Helper,
+    O11Y_LOG_INDEX_BUSINESS_ACTIVITIES,
+    O11Y_LOG_INDEX_DEFAULT,
+    O11Y_LOG_INDEX_USER_APPS,
+    o11y_log_index,
+)
 from utils.env import ENV
 from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
@@ -399,14 +405,17 @@ class PageObjectDataPlaneConfiguration(PageObjectDataPlane):
             self.page.locator("#endpoint-input").wait_for(state="visible")
             print(f"Filling ElasticSearch form...")
             if menu_name == "Logs":
-                log_index = name_input
+                # Which of the three branches this sub-tab is; the value itself is built by
+                # the shared helper so this wizard and the CLI/API path in
+                # api_object/resources.py cannot drift apart (PCP-21434).
                 if tab_sub_name == "Query Service" or tab_sub_name == "User Apps Exporter":
-                    log_index = f"{dp_title.lower()}-log-index"
+                    log_index_branch = O11Y_LOG_INDEX_USER_APPS
                 # for PCP-16998
                 elif tab_sub_name == "Business Activities Query Service" or tab_sub_name == "Business Activities Exporter":
-                    log_index = f"{dp_title.lower()}-ba-log-index"
-                # prepend the fixed prefix to every log index (shared constant; CLI path in api_object/resources.py uses the same)
-                log_index = f"{O11Y_LOG_INDEX_PREFIX}{log_index}"
+                    log_index_branch = O11Y_LOG_INDEX_BUSINESS_ACTIVITIES
+                else:
+                    log_index_branch = O11Y_LOG_INDEX_DEFAULT
+                log_index = o11y_log_index(log_index_branch, dp_title, name_input)
                 self.page.fill("#log-index-input", log_index)
                 print(f"Fill Log Index: {log_index}")
 

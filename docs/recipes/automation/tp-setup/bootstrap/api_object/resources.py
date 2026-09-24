@@ -21,25 +21,34 @@ from urllib.parse import urlparse
 from api_object.client import ConsoleApiClient
 from utils.color_logger import ColorLogger
 from utils.env import ENV
-from utils.helper import O11Y_LOG_INDEX_PREFIX
+from utils.helper import (
+    O11Y_LOG_INDEX_BUSINESS_ACTIVITIES,
+    O11Y_LOG_INDEX_DEFAULT,
+    O11Y_LOG_INDEX_USER_APPS,
+    o11y_log_index,
+)
 
 
-# (resource_type, instance_name, backend_kind, backend_key)
+# (resource_type, instance_name, backend_kind, backend_key, log_index_branch)
 #   backend_kind:
-#     'es-log'        -> elasticSearchSchema (name, logIndex, endpoint, username, password)
+#     'es-log'        -> elasticSearchSchema (name, log-index, endpoint, username, password)
 #     'es-no-log'     -> elasticSearchSchemaNoLogIndex (name, endpoint, username, password)
 #     'es-no-headers' -> elasticSearchSchemaNoLogIndexAndHeaders (name, endpoint, username, password)
 #     'prom-exporter' -> resourceMetricsServerExporterPrometheusSchema (name only)
+#   log_index_branch: which log index this resource gets (see utils/helper.o11y_log_index).
+#     Declared as data rather than derived from the type string: a substring test like
+#     '_AS_' in resource_type breaks the day CP adds a type such as LOGS_EXP_ASX_ES.
+#     None for the non-Logs resources, which carry no log index at all.
 _WIZARD_RESOURCES = [
-    ("LOGS_PRX_UA_ES",   "logs-qsqs-1",         "es-log",        "elastic"),
-    ("LOGS_EXP_UA_ES",   "logs-euae-1",         "es-log",        "elastic"),
-    ("LOGS_EXP_SRV_ES",  "logs-ese-1",          "es-log",        "elastic"),
-    ("LOGS_PRX_AS_ES",   "logs-qsbaqs-1",       "es-log",        "elastic"),
-    ("LOGS_EXP_AS_ES",   "logs-ebae-1",         "es-log",        "elastic"),
-    ("METRICS_PRX_PROM", "metrics-qs-1",        "es-no-log",     "prometheus"),
-    ("METRICS_EXP_PROM", "metrics-exporter-1",  "prom-exporter", None),
-    ("TRACES_PRX_ES",    "traces-qs-1",         "es-no-headers", "elastic"),
-    ("TRACES_EXP_ES",    "traces-exporter-1",   "es-no-headers", "elastic"),
+    ("LOGS_PRX_UA_ES",   "logs-qsqs-1",         "es-log",        "elastic",    O11Y_LOG_INDEX_USER_APPS),
+    ("LOGS_EXP_UA_ES",   "logs-euae-1",         "es-log",        "elastic",    O11Y_LOG_INDEX_USER_APPS),
+    ("LOGS_EXP_SRV_ES",  "logs-ese-1",          "es-log",        "elastic",    O11Y_LOG_INDEX_DEFAULT),
+    ("LOGS_PRX_AS_ES",   "logs-qsbaqs-1",       "es-log",        "elastic",    O11Y_LOG_INDEX_BUSINESS_ACTIVITIES),
+    ("LOGS_EXP_AS_ES",   "logs-ebae-1",         "es-log",        "elastic",    O11Y_LOG_INDEX_BUSINESS_ACTIVITIES),
+    ("METRICS_PRX_PROM", "metrics-qs-1",        "es-no-log",     "prometheus", None),
+    ("METRICS_EXP_PROM", "metrics-exporter-1",  "prom-exporter", None,         None),
+    ("TRACES_PRX_ES",    "traces-qs-1",         "es-no-headers", "elastic",    None),
+    ("TRACES_EXP_ES",    "traces-exporter-1",   "es-no-headers", "elastic",    None),
 ]
 
 
@@ -61,109 +70,93 @@ def _build_payload(name, schema_kind, backend_key, log_index):
     if password:
         body["password"] = password
     if schema_kind == "es-log":
-        body["logIndex"] = log_index
+        # PCP-21434: the CP elasticSearchSchema property is HYPHENATED. Sending the
+        # camelCase 'logIndex' is silently dropped (HTTP 201, empty Log Index) — verified
+        # by A/B on a live CP 1.21: 'log-index' persists, 'logIndex' stores None.
+        #
+        # Caveat (PCP-21542): this only takes effect for the UA and SRV types. On the two
+        # AuditSafe types (LOGS_PRX_AS_ES / LOGS_EXP_AS_ES) the flat endpoint drops the log
+        # index whatever the spelling — 'log-index', 'logIndex', 'logindex' and 'log_index'
+        # all return 201 and store nothing, because those resource models are missing from
+        # this API. Their index has to be set through the Console API instead.
+        body["log-index"] = log_index
     return body
 
 
 class OllyApi:
-    """Create the 9 O11Y wizard resources via the flat REST API.
+    """Create the 9 O11Y wizard resources at SUBSCRIPTION (Global) scope.
 
-    Supports both SUBSCRIPTION-scope (Global) and DATA-PLANE-scope
-    creation. DP-scoped resources are implicitly bound to the DP at
-    creation time (no separate link step needed — the dedicated link
-    endpoint `/cp/api/v1/data-planes/{id}/resource-association` does
-    not accept O11Y resource types).
+    SUBSCRIPTION-only ON PURPOSE. The contract every deploy must satisfy is: create
+    ONE Global observability resource set, then switch every data plane TO it
+    (PCP-23553). Creating a DP-scoped set is never the right answer — it is the
+    silent degradation that ticket was raised for, and it regressed three times.
+    So the capability to do it does not exist here rather than being guarded;
+    `/cp/api/v1/data-planes/{id}/resource-association` does not accept O11Y types
+    either, so there is nothing a DP scope could usefully do.
     """
 
     def __init__(self, client: ConsoleApiClient):
         self.client = client
 
-    # ----- path resolution -----
-
-    def _resolve_dp(self, dp_id_or_name):
-        """Resolve an id-or-name to (id, name). Raises if not found."""
-        for dp in self.client.list_dataplanes():
-            if dp.get("id") == dp_id_or_name or dp.get("name") == dp_id_or_name:
-                return dp["id"], dp.get("name")
-        raise ValueError(f"DataPlane '{dp_id_or_name}' not found")
-
-    def _list_path(self, dp_id):
-        if dp_id is None:
-            return "/cp/api/v1/resources/instances?scope=SUBSCRIPTION&type={type}"
-        return f"/cp/api/v1/data-planes/{dp_id}/resources/instances"
-
-    def _create_path(self, dp_id, resource_type):
-        if dp_id is None:
-            return f"/cp/api/v1/resources/instances/{resource_type}"
-        return f"/cp/api/v1/data-planes/{dp_id}/resources/instances/{resource_type}"
-
     # ----- low-level API -----
 
-    def list_instances(self, resource_type, dp_id=None):
-        if dp_id is None:
-            resp = self.client.get(f"/cp/api/v1/resources/instances?scope=SUBSCRIPTION&type={resource_type}")
-            items = (resp or {}).get("response") or (resp or {}).get("data") or []
-        else:
-            resp = self.client.get(f"/cp/api/v1/data-planes/{dp_id}/resources/instances")
-            items = (resp or {}).get("response") or []
-            # DP-scoped list returns all types — filter client-side.
-            # Note: backend may return type='' for AS types (missing from spec discriminator).
-            items = [i for i in items if i.get("type") in ("", resource_type)]
-        return items
+    def list_instances(self, resource_type):
+        resp = self.client.get(f"/cp/api/v1/resources/instances?scope=SUBSCRIPTION&type={resource_type}")
+        return (resp or {}).get("response") or (resp or {}).get("data") or []
 
-    def existing_by_name(self, resource_type, dp_id=None):
-        return {i.get("name"): i.get("id") for i in self.list_instances(resource_type, dp_id)}
+    def existing_by_name(self, resource_type):
+        return {i.get("name"): i.get("id") for i in self.list_instances(resource_type)}
 
-    def create_instance(self, resource_type, payload, dp_id=None):
-        resp = self.client.post(self._create_path(dp_id, resource_type), payload)
+    def create_instance(self, resource_type, payload):
+        resp = self.client.post(f"/cp/api/v1/resources/instances/{resource_type}", payload)
         inner = (resp or {}).get("response") or {}
         return inner.get("resource_instance_id") or inner.get("id")
 
     # ----- high-level -----
 
     def create_o11y_resources(self, target="global"):
-        """Create all 9 wizard resources idempotently.
+        """Create all 9 Global wizard resources idempotently.
 
         Args:
-            target: 'global' for SUBSCRIPTION-scope creation, or a
-                    DataPlane id / name for DP-scoped creation.
+            target: must be 'global'. Kept as a parameter so existing call sites and
+                    the `cli.resource.*` facade keep their signature; any other value
+                    raises rather than quietly creating a DP-local set (PCP-23553).
 
         Returns:
             {'created': [(type, name, id)], 'skipped': [(type, name, id)],
-             'scope': 'SUBSCRIPTION' | 'DATA_PLANE',
-             'dp_id': str | None}
+             'scope': 'SUBSCRIPTION', 'dp_id': None}
         """
-        if target == "global":
-            dp_id = None
-            scope_label = "SUBSCRIPTION"
-            name_prefix = "global-"
-            log_index = f"{O11Y_LOG_INDEX_PREFIX}global-log-index"
-        else:
-            dp_id, dp_name = self._resolve_dp(target)
-            scope_label = "DATA_PLANE"
-            name_prefix = f"{dp_name}-"
-            log_index = f"{O11Y_LOG_INDEX_PREFIX}{dp_name}-log-index"
+        if target != "global":
+            raise ValueError(
+                f"create_o11y_resources only supports the Global scope, got {target!r}. "
+                "A data plane must be SWITCHED to the Global observability resource, not "
+                "given its own set (PCP-23553)."
+            )
 
-        ColorLogger.info(f"O11Y creating resources at scope={scope_label} dp_id={dp_id}")
+        dp_title = ENV.TP_AUTO_DP_NAME_GLOBAL
+        name_prefix = "global-"
+
+        ColorLogger.info("O11Y creating resources at scope=SUBSCRIPTION")
         created, skipped = [], []
 
-        for resource_type, suffix, schema_kind, backend_key in _WIZARD_RESOURCES:
+        for resource_type, suffix, schema_kind, backend_key, log_index_branch in _WIZARD_RESOURCES:
             name = name_prefix + suffix
-            existing = self.existing_by_name(resource_type, dp_id)
+            existing = self.existing_by_name(resource_type)
             if name in existing:
                 existing_id = existing[name]
                 ColorLogger.success(f"O11Y {resource_type} '{name}' already exists (id={existing_id}), skipping")
                 skipped.append((resource_type, name, existing_id))
                 continue
 
+            log_index = o11y_log_index(log_index_branch, dp_title, name) if log_index_branch else None
             payload = _build_payload(name, schema_kind, backend_key, log_index)
             ColorLogger.info(f"O11Y POST {resource_type} '{name}'")
-            new_id = self.create_instance(resource_type, payload, dp_id)
+            new_id = self.create_instance(resource_type, payload)
             ColorLogger.success(f"O11Y {resource_type} '{name}' created (id={new_id})")
             created.append((resource_type, name, new_id))
 
-        ColorLogger.info(f"O11Y summary [{scope_label}]: created={len(created)}, skipped={len(skipped)}")
-        return {"created": created, "skipped": skipped, "scope": scope_label, "dp_id": dp_id}
+        ColorLogger.info(f"O11Y summary [SUBSCRIPTION]: created={len(created)}, skipped={len(skipped)}")
+        return {"created": created, "skipped": skipped, "scope": "SUBSCRIPTION", "dp_id": None}
 
 
 def _expected_cp_host():
