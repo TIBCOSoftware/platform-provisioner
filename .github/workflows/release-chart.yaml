@@ -7,6 +7,7 @@ on:
       # - 'releases/**'
     paths:
       - 'charts/**'
+  workflow_dispatch:
 
 jobs:
   release:
