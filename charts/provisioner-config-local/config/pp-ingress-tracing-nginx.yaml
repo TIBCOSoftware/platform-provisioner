@@ -75,7 +75,7 @@ recipe: |
           httpIngress:
             annotations:
               alb.ingress.kubernetes.io/group.name: "${DP_PUBLIC_DOMAIN}"
-              external-dns.alpha.kubernetes.io/hostname: "*.${DP_PUBLIC_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${DP_PUBLIC_DOMAIN}"
               # this will be used for external-dns annotation filter
               kubernetes.io/ingress.class: alb
           storageClass:

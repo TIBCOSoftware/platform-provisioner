@@ -23,10 +23,21 @@ This module provides the foundation for all tibcop CLI operations:
 """
 
 import os
+import re
 import shlex
 import subprocess
 from utils.env import ENV
 from utils.helper import Helper
+
+
+# The automation targets the tibcop 1.21 command surface (ct:, flogo:, thub: all in
+# one bundle). 1.9 -> 1.21 added ~150 commands and removed none, so an older CLI does
+# not fail at startup - it fails deep inside a run with "command not found" on the
+# first 1.21-only subcommand, which reads like a platform bug. Assert once instead.
+TIBCOP_MIN_VERSION = (1, 21)
+
+# tibcop --version prints e.g. "@tibco/tp-cli/1.21.0 linux-x64 node-v20.11.1"
+_TIBCOP_VERSION_RE = re.compile(r"tp-cli/(\d+)\.(\d+)\.(\S+)")
 
 
 # tibcop CLI enums use mixed casing that .title() mangles
@@ -70,6 +81,83 @@ class TibcopBase:
         # (that prefix was the only reason the sink needed shell=True).
         self.TIBCOP_CLI_PATH = "tibcop"
         self.CUSTOM_ENV = custom_env or {}
+
+    # Cached across instances: the binary cannot change inside one process, and
+    # TibcopBase is constructed per TibcopCLI (and TibcopCLI per worker thread).
+    # Keyed BY PATH, not a single slot: the probe takes a cli_path and callers pass
+    # self.TIBCOP_CLI_PATH, so one shared slot would answer a question about binary A
+    # with the version of binary B - silently, and only on a machine where the two
+    # differ, which is exactly the machine the assertion exists for.
+    _versions = {}
+
+    @classmethod
+    def get_version(cls, cli_path="tibcop"):
+        """
+        Return the installed tibcop version string (e.g. "1.21.0"), or None.
+
+        Runs `tibcop --version` directly rather than through run_command: the probe
+        must work before an OAuth token or CP URL exists, and run_command warns about
+        both. Result is cached per cli_path on first successful read.
+
+        Returns:
+            Version string, or None if tibcop is missing or its output is unparseable
+        """
+        if cls._versions.get(cli_path) is not None:
+            return cls._versions[cli_path]
+
+        try:
+            result = subprocess.run(
+                [cli_path, "--version"],
+                capture_output=True,
+                text=True,
+                # 30s, not 120: this is a local `--version` print with no network in it,
+                # and it runs on the startup path of every CLI entry point. A binary that
+                # has not answered in 30s is not going to, and two extra minutes of silence
+                # before the message that says what is wrong is pure cost.
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as e:
+            print(f"Could not run '{cli_path} --version': {e}")
+            return None
+
+        match = _TIBCOP_VERSION_RE.search(f"{result.stdout}\n{result.stderr}")
+        if not match:
+            print(f"Could not parse tibcop version from: {result.stdout.strip()}")
+            return None
+
+        cls._versions[cli_path] = f"{match.group(1)}.{match.group(2)}.{match.group(3)}"
+        return cls._versions[cli_path]
+
+    @classmethod
+    def assert_min_version(cls, minimum=TIBCOP_MIN_VERSION, cli_path="tibcop"):
+        """
+        Fail fast when the installed tibcop is older than the automation expects.
+
+        Args:
+            minimum: (major, minor) tuple the CLI must meet or exceed
+            cli_path: tibcop executable to probe
+
+        Returns:
+            The installed version string
+
+        Raises:
+            RuntimeError: tibcop is absent, unparseable, or below `minimum`
+        """
+        wanted = ".".join(str(part) for part in minimum)
+        version = cls.get_version(cli_path)
+        if version is None:
+            raise RuntimeError(
+                f"tibcop {wanted}+ is required but its version could not be determined. "
+                f"Check that '{cli_path}' is on PATH in this image."
+            )
+
+        major, minor = (int(part) for part in version.split(".")[:2])
+        if (major, minor) < tuple(minimum):
+            raise RuntimeError(
+                f"tibcop {wanted}+ is required, found {version}. "
+                f"Rebuild the tester image with a newer TIBCOP_TAG."
+            )
+        return version
 
     @staticmethod
     def format_command(string_command, other_args=None):

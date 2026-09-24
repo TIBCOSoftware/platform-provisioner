@@ -21,7 +21,8 @@
 # Globals:
 #   None
 # Arguments:
-#   1 - 7: the choice of the environment
+#   0 - 5: the choice of the environment. Any other non-empty value is rejected with exit 1;
+#          no argument at all (or an empty one) opens the interactive menu.
 # Returns:
 #   None
 # Notes:
@@ -33,6 +34,31 @@
 # This script will generate the recipe for deploying TP on-prem
 function adjust_recipes() {
   local choice="${1:-""}"
+
+  # DB engine: one choice drives both the infra (01) and the CP (02) recipe, so a headless run
+  # cannot end up with the CP pointed at an engine that was never installed. It has to be written
+  # into the recipes: common::export_variables exports the recipe's guiEnv values unconditionally,
+  # so exporting GUI_CP_DB_ENGINE alone is a silent no-op.
+  export GUI_TP_DB_ENGINE=${GUI_TP_DB_ENGINE:-"postgres"}
+  case "${GUI_TP_DB_ENGINE}" in
+    postgres|oracle) ;;
+    *)
+      echo "ERROR: GUI_TP_DB_ENGINE must be postgres or oracle, got: ${GUI_TP_DB_ENGINE}"
+      exit 1
+      ;;
+  esac
+  # yq env() ABORTS when the variable is unset, so this default is required, not cosmetic.
+  export GUI_TP_ORACLE_PASSWORD=${GUI_TP_ORACLE_PASSWORD:-"oracle"}
+  # GUI_TP_INSTALL_ORACLE was replaced by GUI_TP_DB_ENGINE. Refuse it rather than
+  # silently ignoring it and installing no Oracle.
+  case "${GUI_TP_INSTALL_ORACLE:-}" in
+    ""|false|False|FALSE) ;;
+    *)
+      echo "ERROR: GUI_TP_INSTALL_ORACLE is no longer supported. Use GUI_TP_DB_ENGINE=oracle."
+      exit 1
+      ;;
+  esac
+
   while true; do
     if [[ -z $choice ]]; then
       echo "Please select an option:"
@@ -58,11 +84,15 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = true)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER = false)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_ORACLE_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "nfs")' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_ORACLE_DB_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="04-tp-adjust-resource.yaml"
@@ -97,11 +127,15 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = true)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER = false)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_ORACLE_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "nfs")' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_ORACLE_DB_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="04-tp-adjust-resource.yaml"
@@ -134,11 +168,15 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = false)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER = true)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_ORACLE_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "hostpath")' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_ORACLE_DB_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="04-tp-adjust-resource.yaml"
@@ -175,11 +213,15 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = false)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER = true)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_ORACLE_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "standard")' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_ORACLE_DB_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="04-tp-adjust-resource.yaml"
@@ -212,11 +254,15 @@ function adjust_recipes() {
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = true)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_METRICS_SERVER = true)' "$_recipe_file_name"
           yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_PROVISIONER_UI = false)' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_TP_ORACLE_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="02-tp-cp-on-prem.yaml"
         if [[ -f "${_recipe_file_name}" ]]; then
           yq eval -i '(.meta.guiEnv.GUI_CP_STORAGE_CLASS = "nfs")' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+          yq eval -i '(.meta.guiEnv.GUI_CP_ORACLE_DB_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
         fi
 
         _recipe_file_name="04-tp-adjust-resource.yaml"
@@ -243,7 +289,9 @@ function adjust_recipes() {
         break
         ;;
       *)
-        echo "Invalid option. Please try again."
+        # PCP-24040: exit rather than loop; exit, not break (see run.sh).
+        echo "Invalid or missing option: '${choice}' - aborting." >&2
+        exit 1
         ;;
     esac
   done

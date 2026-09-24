@@ -23,7 +23,7 @@
 #   out, on a link that had in fact succeeded.
 #
 # Deterministic, not flaky. It turned fatal with PCP-23553's _assert_o11y_recorded, whose
-# RuntimeError then skipped the DP activation upload (see test_po_cli_o11y_via_ui.py).
+# RuntimeError then skipped the DP activation upload (see test_po_cli_o11y.py).
 #
 # The fix: re-OPEN the DP's Observability panel and poll it (a fresh backend read, since
 # the link is applied server-side a few seconds later), never reload the current page.

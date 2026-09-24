@@ -41,3 +41,69 @@ tests:
       - equal:
           path: metadata.name
           value: my-config-config
+
+  # Each config/* entry embeds its recipe verbatim (recipe: | {{ .Files.Get ... }}),
+  # so the DB engine selector is asserted on the rendered ConfigMap data.
+  - it: should expose the DB engine selector on the on-prem base pipeline
+    asserts:
+      - matchRegex:
+          path: data["pp-deploy-tp-base-on-prem.yaml"]
+          pattern: 'meta\.guiEnv\.GUI_TP_DB_ENGINE'
+      - matchRegex:
+          path: data["pp-deploy-tp-base-on-prem.yaml"]
+          pattern: 'GUI_TP_DB_ENGINE: postgres'
+      - matchRegex:
+          path: data["pp-deploy-tp-base-on-prem.yaml"]
+          pattern: 'name: validate-db-engine'
+      # Oracle is now driven by the engine selector; the standalone toggle is gone.
+      - notMatchRegex:
+          path: data["pp-deploy-tp-base-on-prem.yaml"]
+          pattern: 'GUI_TP_INSTALL_ORACLE'
+
+  - it: should expose the DB engine selector on the on-prem base cert pipeline
+    asserts:
+      - matchRegex:
+          path: data["pp-deploy-tp-base-on-prem-cert.yaml"]
+          pattern: 'meta\.guiEnv\.GUI_TP_DB_ENGINE'
+      - matchRegex:
+          path: data["pp-deploy-tp-base-on-prem-cert.yaml"]
+          pattern: 'GUI_TP_DB_ENGINE: postgres'
+      - matchRegex:
+          path: data["pp-deploy-tp-base-on-prem-cert.yaml"]
+          pattern: 'name: validate-db-engine'
+      - notMatchRegex:
+          path: data["pp-deploy-tp-base-on-prem-cert.yaml"]
+          pattern: 'GUI_TP_INSTALL_ORACLE'
+
+  - it: should expose the DB engine selector on the CP core pipeline
+    asserts:
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'meta\.guiEnv\.GUI_CP_DB_ENGINE'
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'GUI_CP_DB_ENGINE: "postgres"'
+      # The engine reaches the chart as a global, and the guard runs before any task.
+      # Both keys are emitted while charts are in flight: global.external.db_type is what
+      # tibco-cp-base reads now, global.tibco.dbEngine is the key older ones still read.
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'db_type: \$\{CP_DB_ENGINE\}'
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'dbEngine: \$\{CP_DB_ENGINE\}'
+      # db_driver follows the engine unless explicitly overridden, so postgres yields the
+      # postgres driver and oracle the oracle driver. All three points are asserted: the GUI
+      # field, the derivation that defaults it to the engine, and the value the chart receives.
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'meta\.guiEnv\.GUI_CP_DB_DRIVER'
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'CP_DB_DRIVER: \$\{GUI_CP_DB_DRIVER:-\$\{CP_DB_ENGINE\}\}'
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'db_driver: \$\{CP_DB_DRIVER\}'
+      - matchRegex:
+          path: data["pp-deploy-cp-core-on-prem.yaml"]
+          pattern: 'name: validate-db-engine'

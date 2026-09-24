@@ -82,7 +82,7 @@ The `run.sh` script orchestrates the complete deployment by executing recipes in
 
 **Individual deployment options** are also available:
 - Option 2: Deploy only base infrastructure (recipe 01)
-- Option 3: Deploy only Control Plane with all capabilities (recipe 02)
+- Option 3: Deploy only Control Plane with all capabilities — applies the CoreDNS rewrite first, then recipe 02 (recipes 03, 02). Skipped with a warning if `03-tp-adjust-dns.yaml` is absent from the workspace
 - Option 4: Deploy only CP subscription and DP automation (recipe 05)
 - Option 5: Deploy only O11y stack (recipe 06)
 - Option 6: Run resource cleanup (recipe 04)

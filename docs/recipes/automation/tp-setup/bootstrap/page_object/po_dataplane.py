@@ -52,6 +52,70 @@ BMDP_REGISTER_COMMAND_TITLES = (
     "3. Service Account creation",
     "4. Cluster Registration",
 )
+# The Fresco wizard re-capitalised the first title to '1. Helm Repository Configuration', so the
+# titles are compared case-insensitively everywhere. A silent miss here is expensive: the helm-repo
+# reset and the network-policy / self-signed-cert extras all key on these exact strings.
+BMDP_REGISTER_COMMAND_TITLES_FOLDED = tuple(t.casefold() for t in BMDP_REGISTER_COMMAND_TITLES)
+HELM_REPO_COMMAND_TITLE = BMDP_REGISTER_COMMAND_TITLES[0]
+SERVICE_ACCOUNT_COMMAND_TITLE = BMDP_REGISTER_COMMAND_TITLES[2]
+
+# --- CP 1.21 Fresco Register-Data-Plane wizard (PCP-24237) ---------------------------------
+# CP 1.21 rebuilt BOTH register wizards - 'Register Kubernetes Data Plane' and 'Register Control
+# Tower Data Plane' - on the Fresco/PrimeNG dialog shell. The Pulse step nav '.pl-secondarynav
+# a.is-active' the flows used to walk is not rendered at all any more, so every step wait timed
+# out on the very first step. The legacy selectors are kept in full alongside these: old Control
+# Planes are not deprecated on a schedule (bootstrap/CLAUDE.md principle 6).
+FRESCO_WIZARD_STEP = ".fw-page-links .wizard-step"
+# State is carried by a child div, not by a class on the step itself.
+FRESCO_WIZARD_STEP_ACTIVE = "div.wizard-step-selected"
+# Legacy step nav, still the anchor on Control Planes that have not migrated.
+LEGACY_WIZARD_STEP_ACTIVE = ".pl-secondarynav a.is-active"
+# Whichever of the two renders after the 'Start' button. Comma selector, so callers must narrow it
+# with .first or Playwright strict mode trips once both are in the DOM (bootstrap/CLAUDE.md).
+EITHER_REGISTER_WIZARD = f"{FRESCO_WIZARD_STEP}, {LEGACY_WIZARD_STEP_ACTIVE}"
+# Off by default. With it off the wizard is only Basic -> Preview -> Generate Helm Commands, and
+# the Control Plane silently defaults the namespace / service account to '<dp-name>-my-ns' /
+# '<dp-name>-my-sa' - which is not what this automation registers against.
+FRESCO_WIZARD_ADVANCED_TOGGLE = ".p-dialog-header .fw-toggle-container p-toggleswitch"
+FRESCO_WIZARD_NEXT = 'tibco-button[data-testid="dp-register-wizard-next-button"] button'
+# Labels of the steps this automation fills in, as the rail renders them. The advanced-only ones
+# carry an 'ADV' badge on a second line, so labels are compared on their first line only. The
+# remaining steps (Container Registry, Helm Chart Repository, Preview) arrive prefilled and are
+# passed through by name-less default, so they deliberately have no constant here.
+FRESCO_STEP_BASIC = "Basic"
+FRESCO_STEP_NAMESPACE_SA = "Namespace & Service Account"
+FRESCO_STEP_RESOURCES = "Resources"
+FRESCO_STEP_CONFIGURATION = "Configuration"
+# Steps that are verified to arrive fully prefilled by the Control Plane, so walking past them
+# on its defaults is correct and unremarkable. Anything NOT on this list is passed through too
+# - a Control Plane is free to add a step - but is logged as a warning, because the other way
+# a step gets passed through is a label that drifted out from under its filler.
+FRESCO_PREFILLED_STEPS = ("Container Registry", "Helm Chart Repository", "Preview")
+# Final page: the step rail is gone and the registration commands are rendered here.
+FRESCO_REGISTER_CONTENT = "helm-commands-list"
+FRESCO_REGISTER_COMMAND_BLOCK = f"{FRESCO_REGISTER_CONTENT} .helm-cmd-block"
+FRESCO_REGISTER_COMMAND_TITLE = f"{FRESCO_REGISTER_COMMAND_BLOCK} p.helm-cmd-title"
+# The container holding each block's two action icons - download first, then copy. Its class is
+# literally `copy`, which names the SECOND icon; the download one is reached positionally, as
+# `.first` inside it. So this is honestly BOTH class-anchored (on a misleading name) and
+# order-dependent - it is used because the icons carry no id, testid or aria-label, and reading
+# the icon NAME instead would break bootstrap/CLAUDE.md principle 2. If the component ever swaps
+# the order, `expect_download()` times out rather than quietly fetching the wrong thing.
+FRESCO_REGISTER_ICON_CONTAINER = ".copy svg"
+# Anchored on the visible text, not on being the first button in the footer: a footer that
+# later gains a Back or 'Download all' button would otherwise have it clicked, and the flow
+# would go on to record the registration as complete.
+FRESCO_REGISTER_DONE_BUTTON = ".final-page-footer tibco-button button"
+FRESCO_REGISTER_DONE_TEXT = "Done"
+# Control Tower 'Resources' step. The two route-resource modes are NOT a relabelling of one
+# form: picking Gateway API swaps the controller dropdown's form control AND replaces the whole
+# field set (`#ctdp-ingress-*` + `#ctdp-fqdn-input` -> `#ctdp-gateway-*`), with Gateway Name and
+# Gateway Namespace required and having no ingress-mode counterpart. Verified against the live
+# step in both modes.
+FRESCO_INGRESS_CONTROLLER_SELECT = 'tibco-select[formcontrolname="ingressController"]'
+FRESCO_GATEWAY_CONTROLLER_SELECT = 'tibco-select[formcontrolname="gatewayApicontrollerName"]'
+FRESCO_ROUTE_RESOURCE_GATEWAY_RADIO = "#dp-route-resource-type-radio-input-gateway"
+FRESCO_ROUTE_RESOURCE_INGRESS_RADIO = "#dp-route-resource-type-radio-input-ingress"
 
 # Completion marker, written by _mark_bmdp_complete once the cluster workload has been proven.
 # A data plane name in report.yaml proves nothing on its own; this status is the only evidence
@@ -99,9 +163,14 @@ class PageObjectDataPlane(PageObjectGlobal):
             if self.is_fresco:
                 nav_dp_selector = "tibco-header .header-title-readonly-text"
 
+            # waiting_selector must be the page CONTAINER, not the element being retried for
+            # (PCP-24228): refresh_until_success does waiting_selector.wait_for(state="visible")
+            # after each reload, so passing the retry target here made the inner retry cancel
+            # itself out - it threw at the 30s default instead of returning False. Same shape as
+            # the '.data-planes-content' container used for the list page above.
             is_dataplane_detail_visible = Util.refresh_until_success(self.page,
                                                                      self.page.locator(nav_dp_selector, has_text=dp_name),
-                                                                     self.page.locator(nav_dp_selector, has_text=dp_name),
+                                                                     self.page.locator(".data-plane-container"),
                                                                      f"DataPlane '{dp_name}' detail page is load.")
             if is_dataplane_detail_visible:
                 print(f"Navigated to Data Plane '{dp_name}' detail page")
@@ -162,8 +231,313 @@ class PageObjectDataPlane(PageObjectGlobal):
         else:
             Util.exit_error(f"The app '{app_name}' is not deployed yet.", self.page, "goto_app_detail.png")
 
+    # storage_resource_candidates() used to live here, so the EMS and ActiveSpaces wizards
+    # could not disagree about the name (PCP-23953). It has moved one layer down, to
+    # utils/naming.py, because the CLI EMS arm added in PCP-24380 must ask the same
+    # question and cli_object cannot import a page object without importing Playwright
+    # with it. Both wizards now call the shared function directly.
+
+    def wait_for_overlay_to_clear(self, max_wait=30):
+        """Wait until no dialog mask is covering the page.
+
+        PrimeNG keeps the `.p-dialog-mask` on top of the page through the dialog's
+        leave animation. The overlay swallows pointer events, so navigating too soon
+        (the left nav click inside goto_dataplane) fails with a click timeout
+        complaining that the mask "intercepts pointer events" - and by then
+        provisioning has already succeeded, which makes it a particularly misleading
+        failure. Observed live on CP 1.20.
+
+        Shared by every fresco/PrimeNG wizard that dismisses a dialog and then
+        navigates: ActiveSpaces (PCP-21284) and EMS (PCP-23927).
+        """
+        overlay = ".p-dialog-mask"
+        for _attempt in range(max_wait * 2):
+            count = self.page.locator(overlay).count()
+            if count == 0:
+                return True
+            # Check EVERY mask, not just the first: a hidden leftover stacked under a
+            # still-visible one would otherwise read as "cleared" while clicks are
+            # actually still being swallowed - the very bug this method exists to avoid.
+            if not any(self.page.locator(overlay).nth(i).is_visible() for i in range(count)):
+                return True
+            self.page.wait_for_timeout(500)
+        Util.warning_screenshot("A dialog overlay is still covering the page; navigation may be blocked.", self.page, "provision_capability-overlay.png")
+        return False
+
+    # --- Fresco Register-Data-Plane wizard (CP 1.21+, PCP-24237) ----------------------------
+    # Shared by the Kubernetes and the Control Tower flows: the two differ only in which steps
+    # the rail shows and what each step asks for, so the walk itself is written once here and
+    # each flow supplies a {step label -> filler} map.
+
+    def is_fresco_register_wizard(self):
+        """Is the open register wizard the CP 1.21+ Fresco one?
+
+        `.first` for the reason the EMS gate has it: is_visible() on a locator that matches
+        several elements raises a strict-mode violation instead of answering the question, and
+        the rail is a multi-element selector by construction (one node per step).
+        """
+        return self.page.locator(FRESCO_WIZARD_STEP).first.is_visible()
+
+    def fresco_wizard_enable_advanced(self):
+        """Switch 'Show Advanced' on and prove the advanced steps appeared.
+
+        Failing loudly here matters more than it looks: with the toggle off the wizard still
+        completes, but against the Control Plane's own default namespace and service account.
+        The registration would 'succeed' into the wrong namespace and only surface much later,
+        as a data plane that never connects.
+        """
+        # Waited for, not counted. `count()` does not auto-wait, and this fires as the dialog
+        # is still mounting - a header that paints a beat after the step rail would otherwise
+        # kill a ~98-minute deploy on a transient render (principle 5). Re-queried on every
+        # line rather than cached across the count / attribute read / click, because the wait
+        # in between is exactly where a live-re-rendering node goes stale (principle 4).
+        if not Util.check_dom_visibility(self.page, self.page.locator(FRESCO_WIZARD_ADVANCED_TOGGLE).first, 2, 10):
+            Util.exit_error("Fresco register wizard has no 'Show Advanced' toggle; the namespace and service account cannot be set.",
+                            self.page, "fresco_register_advanced_missing.png")
+            return
+
+        if self.page.locator(FRESCO_WIZARD_ADVANCED_TOGGLE).first.get_attribute("data-p-checked") == "true":
+            print("'Show Advanced' is already on")
+        else:
+            self.page.locator(FRESCO_WIZARD_ADVANCED_TOGGLE).first.click()
+            print("Turned on 'Show Advanced', to reveal the namespace / service account / configuration steps")
+
+        advanced_step = self.page.locator(FRESCO_WIZARD_STEP, has_text=FRESCO_STEP_NAMESPACE_SA)
+        if not Util.check_dom_visibility(self.page, advanced_step.first, 2, 10):
+            Util.exit_error(
+                f"'Show Advanced' did not reveal the '{FRESCO_STEP_NAMESPACE_SA}' step; the data plane would be "
+                f"registered against the Control Plane's default namespace and service account.",
+                self.page, "fresco_register_advanced_no_steps.png")
+
+    def fresco_wizard_active_step(self):
+        """Label of the step the rail currently marks active, or '' once the rail is GONE.
+
+        The terminator is the rail disappearing, not merely "no step is marked active" - those
+        are different conditions and conflating them ends the walk early. Angular re-renders
+        the rail on each Next, so for a frame the `.wizard-step` nodes exist with no
+        `div.wizard-step-selected` child; `count()` is an instantaneous poll, so landing in
+        that frame used to read as "the wizard finished".
+
+        It was contained rather than silent - the walk would return, `fresco_run_register_commands`
+        would find no final page and exit loudly - but it turned a transient render into a
+        failed ~98-minute pipeline, and if it landed before the last filler the completeness
+        check fired instead, sending the reader after a label drift that never happened.
+
+        So: rail gone -> ''. Rail present but unmarked -> give it one more beat, and only then
+        conclude. Still present and still unmarked after that is a wizard in a state this flow
+        does not understand, which is worth saying rather than guessing.
+        """
+        active = self.page.locator(FRESCO_WIZARD_STEP, has=self.page.locator(FRESCO_WIZARD_STEP_ACTIVE))
+        if active.count() == 0:
+            if self.page.locator(FRESCO_WIZARD_STEP).count() == 0:
+                return ""
+            self.page.wait_for_timeout(1000)
+            if self.page.locator(FRESCO_WIZARD_STEP).count() == 0:
+                return ""
+            if self.page.locator(
+                    FRESCO_WIZARD_STEP, has=self.page.locator(FRESCO_WIZARD_STEP_ACTIVE)).count() == 0:
+                Util.exit_error(
+                    "Fresco register wizard still shows its step rail but marks no step active; "
+                    "the wizard did not finish and the walk cannot tell which step it is on.",
+                    self.page, "fresco_register_no_active_step.png")
+                return ""
+        # Advanced-only steps render an 'ADV' badge on a second line; the label is the first.
+        return self.page.locator(
+            FRESCO_WIZARD_STEP,
+            has=self.page.locator(FRESCO_WIZARD_STEP_ACTIVE)).first.inner_text().strip().split("\n", 1)[0].strip()
+
+    def fresco_wizard_next(self, step_label):
+        """Advance one step. The button reads 'Next' throughout and 'Save' on Preview.
+
+        Every failure here exits: a wizard that cannot be advanced has not registered
+        anything, and returning quietly would let the caller fall through to a clean logout
+        and an exit code of 0 - the exact silent success this ticket exists to remove.
+
+        The locator is re-queried on every line (bootstrap/CLAUDE.md principle 4): the
+        disabled check and the click must not be able to straddle an Angular re-render and
+        act on different elements.
+        """
+        if self.page.locator(FRESCO_WIZARD_NEXT).count() == 0:
+            Util.exit_error(f"Fresco register wizard has no Next button on step '{step_label}'; it cannot be advanced.",
+                            self.page, "fresco_register_next_missing.png")
+            return
+
+        # is_disabled() rather than get_attribute("disabled"): PrimeNG also disables through
+        # `aria-disabled` / a `p-disabled` class, and a button disabled that way would be
+        # clicked, do nothing, and burn every remaining iteration on the same step.
+        if self.page.locator(FRESCO_WIZARD_NEXT).first.is_disabled():
+            Util.exit_error(f"Fresco register wizard is stuck on step '{step_label}': its Next button is disabled, so a required field was not filled.",
+                            self.page, "fresco_register_next_disabled.png")
+            return
+
+        label = self.page.locator(FRESCO_WIZARD_NEXT).first.inner_text().strip()
+        self.page.locator(FRESCO_WIZARD_NEXT).first.click()
+        print(f"Clicked '{label}', finished step '{step_label}'")
+        self.page.wait_for_timeout(3000)
+
+    @staticmethod
+    def _normalise_step_label(label):
+        """Fold a step label so the rail's spelling cannot decide whether a step is filled.
+
+        The 'Show Advanced' guard matches with Playwright's `has_text`, which is a
+        case-insensitive substring; the walk used to match with `==`. That gap was enough for
+        a re-capitalised label - 'Namespace & Service account', the spelling the LEGACY wizard
+        uses - to satisfy the guard and then silently skip its filler, registering the data
+        plane against the Control Plane's own default namespace. Both now compare folded.
+        """
+        return " ".join(label.split()).casefold()
+
+    @classmethod
+    def _prefilled_step_keys(cls):
+        return {cls._normalise_step_label(name) for name in FRESCO_PREFILLED_STEPS}
+
+    def fresco_wizard_walk(self, fillers, max_steps=15):
+        """Walk the wizard to its final page, running `fillers[step]` on each step that has one.
+
+        Keyed on the rail's own labels rather than on a fixed order, so a Control Plane that
+        adds, removes or reorders a step still walks through: an unknown step is passed through
+        untouched, and if it actually needed input the disabled Next button stops the run with
+        that step's name instead of a bare timeout.
+
+        Passing an unknown step through is only safe because of the completeness check at the
+        end: every filler the caller supplied must have fired. Without it, a step whose label
+        drifts reads as 'nothing to do here' and the wizard completes on the Control Plane's
+        defaults - which is precisely how this defect would come back.
+
+        `max_steps` only bounds the loop; the real terminator is the rail disappearing.
+        """
+        wanted = {self._normalise_step_label(name): fn for name, fn in fillers.items()}
+        # Folded once, not per iteration. It stays a method rather than a module constant so
+        # the folding rule has exactly one home (`_normalise_step_label`), which matters more
+        # than where the set literal lives.
+        prefilled = self._prefilled_step_keys()
+        fired = set()
+
+        for _ in range(max_steps):
+            step = self.fresco_wizard_active_step()
+            if step == "":
+                self._assert_every_filler_fired(fillers, fired)
+                return
+
+            key = self._normalise_step_label(step)
+            filler = wanted.get(key)
+            if filler is None:
+                if key in prefilled:
+                    print(f"Step '{step}' arrives prefilled by the Control Plane, passing through")
+                else:
+                    # Warn only for a step nobody has verified. Warning on the three known
+                    # prefilled ones every single run would train the reader to skip the line
+                    # that matters - the one naming a step that should not be there.
+                    ColorLogger.warning(f"Fresco register wizard step '{step}' is not one this automation fills or has verified as prefilled; passing through on the Control Plane's defaults.")
+            else:
+                print(f"Filling step '{step}'")
+                fired.add(key)
+                filler()
+
+            self.fresco_wizard_next(step)
+
+        Util.exit_error(f"Fresco register wizard did not reach its final page within {max_steps} steps.",
+                        self.page, "fresco_register_too_many_steps.png")
+
+    def _assert_every_filler_fired(self, fillers, fired):
+        """Fail if the wizard finished without ever presenting a step this flow must fill."""
+        missing = sorted(name for name in fillers if self._normalise_step_label(name) not in fired)
+        if missing:
+            Util.exit_error(
+                f"Fresco register wizard finished without presenting step(s) {missing}; the data plane "
+                f"would be registered against the Control Plane's defaults.",
+                self.page, "fresco_register_step_missing.png")
+
+    def fresco_check_eula(self):
+        """Tick the End User Agreement box.
+
+        The checkbox id is generated per mount (`tibco-checkbox-<uuid>-3`), and so is the `for`
+        of its label, so neither can be selected by id. The form control name is the stable
+        handle the Control Plane binds it under.
+
+        A plain `.check()`, unlike the `.check(force=True)` the Control Tower flavour radio
+        needs. That is deliberate, not an oversight: this checkbox passes Playwright's
+        actionability checks on the live wizard, so keeping them is worth more than matching
+        its neighbour. `force=True` would skip exactly the check that would tell us the box had
+        become unclickable.
+        """
+        self.page.locator('tibco-checkbox[formcontrolname="eula"] input.p-checkbox-input').check()
+        print("Accepted the End User Agreement")
+
+    def fresco_fill_by_form_control(self, form_control, value, label):
+        """Fill an input whose id is generated per mount, via its stable formcontrolname."""
+        self.page.locator(f'tibco-inputtext[formcontrolname="{form_control}"] input').fill(value)
+        print(f"Input {label}: {value}")
+
+    def fresco_register_command_titles(self):
+        """Titles of the command blocks on the final page, in render order."""
+        return [t.strip() for t in self.page.locator(FRESCO_REGISTER_COMMAND_TITLE).all_text_contents()]
+
+    def fresco_register_download_locator(self, index):
+        """Download icon of the index-th command block.
+
+        Scoped to its own block so the title -> button pairing cannot drift, which would run the
+        wrong script for a step. The download icon is the FIRST of the block's two icons; the
+        second is Copy.
+        """
+        return self.page.locator(FRESCO_REGISTER_COMMAND_BLOCK).nth(index).locator(FRESCO_REGISTER_ICON_CONTAINER).first
+
+    def fresco_run_register_commands(self, dp_name):
+        """Run every command the final page renders, each under its own real title."""
+        if not Util.check_dom_visibility(self.page, self.page.locator(FRESCO_REGISTER_CONTENT).first, 3, 60):
+            return False
+
+        commands_title = self.fresco_register_command_titles()
+        print("commands_title:", commands_title)
+        if not commands_title:
+            Util.exit_error(f"Data Plane '{dp_name}' registration page produced no commands to run.",
+                            self.page, "fresco_register_commands_empty.png")
+            return False
+
+        block_count = self.page.locator(FRESCO_REGISTER_COMMAND_BLOCK).count()
+        if block_count != len(commands_title):
+            Util.exit_error(
+                f"Data Plane '{dp_name}' registration page has {len(commands_title)} command title(s) but "
+                f"{block_count} command block(s); refusing to run mismatched commands.",
+                self.page, "fresco_register_commands_mismatch.png")
+            return False
+
+        for index, step_name in enumerate(commands_title):
+            if step_name.casefold() not in BMDP_REGISTER_COMMAND_TITLES_FOLDED:
+                ColorLogger.warning(f"Unrecognised registration command title '{step_name}'; running it as-is, but no per-step extras will be applied to it.")
+            self.k8s_run_dataplane_command(dp_name, step_name, self.fresco_register_download_locator(index), index + 1)
+
+        print(f"Executed {len(commands_title)} registration command(s) for Data Plane '{dp_name}'")
+        return True
+
+    def fresco_register_click_done(self):
+        """Close the final page. Unlike the legacy wizard there is no 'Yes' confirmation after it."""
+        self.page.locator(FRESCO_REGISTER_DONE_BUTTON, has_text=FRESCO_REGISTER_DONE_TEXT).first.click()
+        print("Data Plane create successful, clicked 'Done' button")
+        self.wait_for_overlay_to_clear()
+
     def is_capability_provisioned(self, capability, capability_name=""):
         ColorLogger.info(f"Checking if '{capability}' is provisioned")
+        # `capability_name` may be a compiled pattern as well as a plain string. EMS passes
+        # one (PCP-24380): has_text is a case-insensitive SUBSTRING match and a Data Plane
+        # may legitimately hold both `ems-sn` and `ems-sn-2`, so a bare name would let the
+        # tooltip check below accept the wrong card. Only the log lines care which form it
+        # is, hence the one-line unwrap rather than two code paths.
+        #
+        # KNOWN DEFECT, pre-existing and deliberately NOT fixed here. That pattern guards
+        # only the INNER tooltip locator. The OUTER `capability-card #{card_id}` check below
+        # has no `.first` and no name filter, so on a Data Plane holding two or more
+        # instances of one capability - EMS is the capability that can have them -
+        # is_visible() raises a Playwright strict-mode violation, the `except Exception` at
+        # the bottom of this method swallows it, and the answer comes back False. For EMS
+        # that False reaches po_dp_ems.ems_verify_capability(), which calls
+        # Util.exit_error() -> sys.exit(1). Measured by QA against a live CP 1.21: one EMS
+        # card -> True, three EMS cards -> False with the strict-mode error in the log. So
+        # the GUI verification path does not work with several EMS servers on one Data
+        # Plane. Narrowing this locator would change behaviour for every capability that
+        # calls this method, which is why it belongs to its own ticket rather than to
+        # PCP-24380.
+        display_name = getattr(capability_name, "pattern", capability_name)
         try:
             print(f"Checking if '{capability}' is already provisioned...")
             card_id = capability.lower()
@@ -174,10 +548,10 @@ class PageObjectDataPlane(PageObjectGlobal):
                     return True
                 else:
                     if self.page.locator(f"capability-card #{card_id} .pl-tooltip__trigger", has_text=capability_name).is_visible():
-                        ColorLogger.success(f"'{capability}' with name '{capability_name}' is provisioned.")
+                        ColorLogger.success(f"'{capability}' with name '{display_name}' is provisioned.")
                         return True
                     else:
-                        ColorLogger.warning(f"'{capability}' with name '{capability_name}' has not been provisioned.")
+                        ColorLogger.warning(f"'{capability}' with name '{display_name}' has not been provisioned.")
                         return False
             else:
                 ColorLogger.warning(f"'{capability}' has not been provisioned.")
@@ -255,7 +629,10 @@ class PageObjectDataPlane(PageObjectGlobal):
                 """)
                 self.page.locator(".delete-dp-modal label[for='agree-delete-btn']").click()
                 print("Clicked confirm checkbox")
-                self.k8s_run_dataplane_command(dp_name, "Delete Data Plane", self.page.locator(".delete-dp-modal #download-commands"), 0)
+                # Teardown: a failing delete script must not stop the flow before it clicks
+                # confirm and clears the report entry. See k8s_run_dataplane_command's docstring.
+                self.k8s_run_dataplane_command(dp_name, "Delete Data Plane", self.page.locator(".delete-dp-modal #download-commands"), 0,
+                                               abort_on_failure=False)
 
             self.page.locator(".delete-dp-modal #confirm-button").click()
             print("Clicked 'Delete' button in Delete Data Plane dialog")
@@ -288,9 +665,20 @@ class PageObjectDataPlane(PageObjectGlobal):
         if not Util.check_dom_visibility(self.page, self.page.locator("#select-existing-dp-button"), 10, 60, True):
             Util.exit_error("DP registration modal did not load within 60s", self.page, "k8s_create_dataplane.png")
         self.page.locator("#select-existing-dp-button").click()
+
+        # CP 1.21 rebuilt this wizard on the Fresco shell (PCP-24237). Wait for whichever one
+        # renders, then branch once; the legacy path below is unchanged.
+        if not Util.check_dom_visibility(self.page, self.page.locator(EITHER_REGISTER_WIZARD).first, 3, 60):
+            Util.exit_error("Register Data Plane wizard did not open.", self.page, "k8s_create_dataplane.png")
+        if self.is_fresco_register_wizard():
+            print("Detected the CP 1.21+ Fresco Register Kubernetes Data Plane wizard")
+            self.k8s_create_dataplane_fresco(dp_name)
+            return
+
+        print("Detected the legacy Register Kubernetes Data Plane wizard")
         # step 1 Basic
         print("Waiting for Step 1: 'Basic' page is loaded")
-        self.page.locator(".pl-secondarynav a.is-active", has_text="Basic").wait_for(state="visible")
+        self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Basic").wait_for(state="visible")
         self.page.fill("#data-plane-name-text-input", dp_name)
         print(f"Input Data Plane Name: {dp_name}")
         self.page.locator('label[for="eua-checkbox"]').click()
@@ -299,7 +687,7 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         # step 2 Namespace & Service account
         print("Waiting for Step 2: 'Namespace & Service account' page is loaded")
-        self.page.locator(".pl-secondarynav a.is-active", has_text="Namespace & Service account").wait_for(state="visible")
+        self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Namespace & Service account").wait_for(state="visible")
         self.page.fill("#namespace-text-input", ENV.TP_AUTO_K8S_DP_NAMESPACE)
         print(f"Input NameSpace: {ENV.TP_AUTO_K8S_DP_NAMESPACE}")
         self.page.fill("#service-account-text-input", ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT)
@@ -309,7 +697,7 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         # step 3 Configuration
         print("Waiting for Step 3: 'Configuration' page is loaded")
-        self.page.locator(".pl-secondarynav a.is-active", has_text="Configuration").wait_for(state="visible")
+        self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Configuration").wait_for(state="visible")
 
         # Handle non-hybrid connectivity: fill the Reachable DP URL when hybrid is disabled
         if Util.check_dom_visibility(self.page, self.page.locator("#hybrid-conn-url-host-input"), 2, 4):
@@ -326,7 +714,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         print("Clicked Next button, Finish step 3 Configuration")
 
         # step Preview (for 1.4 and above)
-        if Util.check_dom_visibility(self.page, self.page.locator(".pl-secondarynav a.is-active", has_text="Preview"), 3, 9):
+        if Util.check_dom_visibility(self.page, self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Preview"), 3, 9):
             print("Step 4: 'Preview' page is loaded")
             self.page.wait_for_timeout(1000)
             if self.page.locator("#data-plane-preview-btn").is_visible():
@@ -342,6 +730,10 @@ class PageObjectDataPlane(PageObjectGlobal):
 
             ColorLogger.warning(f"Data Plane '{dp_name}' creation failed, retry {retry + 1} times.")
             self.k8s_create_dataplane(dp_name, retry + 1)
+            # The retry owns the rest of the flow. Without this return the outer call fell
+            # through into the command loop below against a stale page, on top of whatever the
+            # retry had just done.
+            return
 
         download_commands = self.page.locator("#download-commands")
         commands_title = self.page.locator(".register-data-plane p.title").all_text_contents()
@@ -364,6 +756,111 @@ class PageObjectDataPlane(PageObjectGlobal):
         # No-tibtunnel mode: make the registered Reachable DP URL reachable (ingress or netpol labels).
         self.k8s_setup_dp_reachability(dp_name, ENV.TP_AUTO_K8S_DP_NAMESPACE, ENV.TP_AUTO_REACHABLE_DP_URL)
         self.k8s_wait_tunnel_connected(dp_name)
+
+    def k8s_create_dataplane_fresco(self, dp_name):
+        """Register a Kubernetes Data Plane through the CP 1.21+ Fresco wizard (PCP-24237).
+
+        Called with the wizard already open on its Basic step. The step order is left to the
+        Control Plane: only the steps this automation has something to say about get a filler,
+        and everything else (Container Registry, Helm Chart Repository, Preview) is passed
+        through on the Control Plane's own defaults, which is what a human registering a data
+        plane would do.
+        """
+        self.fresco_wizard_enable_advanced()
+
+        fillers = {
+            FRESCO_STEP_BASIC: lambda: self.fresco_fill_basic_step(dp_name),
+            FRESCO_STEP_NAMESPACE_SA: lambda: self.fresco_fill_namespace_sa_step(
+                ENV.TP_AUTO_K8S_DP_NAMESPACE, ENV.TP_AUTO_K8S_DP_SERVICE_ACCOUNT),
+            FRESCO_STEP_CONFIGURATION: lambda: self.fresco_fill_configuration_step(ENV.TP_AUTO_REACHABLE_DP_URL),
+        }
+        self.fresco_wizard_walk(fillers)
+
+        # step Register Data Plane
+        print("Check if create Data Plane is successful...")
+        if not self.fresco_run_register_commands(dp_name):
+            # Deliberately no delete-and-retry here, unlike the legacy wizard. By this point the
+            # Preview step's 'Save' has already registered the data plane, so the legacy branch
+            # would DELETE a real registration on nothing more than a DOM timeout - including one
+            # that merely rendered slowly - and then recurse into k8s_create_dataplane, which
+            # reports 'already created' the moment the delete does not take. That is how a failed
+            # registration becomes a green task. Fail loudly and leave the decision to a human,
+            # exactly as k8s_create_bmdp already does.
+            Util.exit_error(
+                f"Data Plane '{dp_name}' did not reach the registration step of the wizard. Nothing was deleted; "
+                f"check the Control Plane for a partially registered data plane and remove it before re-running.",
+                self.page, "k8s_create_dataplane_finish.png")
+            return
+
+        self.fresco_register_click_done()
+        ReportYaml.set_dataplane_info(dp_name, "runCommands", True)
+
+        # verify data plane is created in the list
+        self.page.wait_for_timeout(2000)
+        print(f"Verifying Data Plane {dp_name} is created in the list")
+        # No-tibtunnel mode: make the registered Reachable DP URL reachable (ingress or netpol labels).
+        self.k8s_setup_dp_reachability(dp_name, ENV.TP_AUTO_K8S_DP_NAMESPACE, ENV.TP_AUTO_REACHABLE_DP_URL)
+        self.k8s_wait_tunnel_connected(dp_name)
+
+    def fresco_fill_basic_step(self, dp_name, is_control_tower=False, machine_host_name=""):
+        """Basic step, shared by the Kubernetes and the Control Tower wizards.
+
+        The Control Tower one additionally asks for a Control Tower type and a machine host
+        name. Which wizard this is comes from `is_control_tower`, NOT from whether a host name
+        happened to be supplied: keying both off the host name meant an empty
+        `TP_AUTO_FQDN_BMDP` skipped the flavour radio too, and the run then registered against
+        whichever type the Control Plane had preselected - the same silent-wrong-registration
+        shape the rest of this flow exits over, and one with no cheap way back, since 'Native'
+        is a completely different data plane.
+        """
+        if is_control_tower:
+            if not machine_host_name:
+                Util.exit_error(
+                    "Control Tower registration needs a machine host name, but TP_AUTO_FQDN_BMDP is empty. "
+                    "Refusing to register against whichever Control Tower type the Control Plane preselected.",
+                    self.page, "fresco_register_missing_host_name.png")
+                return
+
+            # Kubernetes is the default flavour, but say so explicitly.
+            self.page.locator("#ct-flavor-radio-k8s").check(force=True)
+            print("Selected Control Tower type: Kubernetes")
+
+        self.page.fill("#dp-name-input", dp_name)
+        print(f"Input Data Plane Name: {dp_name}")
+
+        if is_control_tower:
+            self.page.fill("#machine-host-name-input", machine_host_name)
+            print(f"Input Machine Host Name: {machine_host_name}")
+
+        self.fresco_check_eula()
+
+    def fresco_fill_namespace_sa_step(self, namespace, service_account):
+        """Namespace & Service Account step.
+
+        Both fields arrive prefilled with the Control Plane's '<dp-name>-my-ns' /
+        '<dp-name>-my-sa' defaults, so they are overwritten rather than merely typed into.
+        """
+        self.page.fill("#dp-namespace-input", namespace)
+        print(f"Input NameSpace: {namespace}")
+        self.page.fill("#dp-service-account-input", service_account)
+        print(f"Input Service Account: {service_account}")
+
+    def fresco_fill_configuration_step(self, reachable_dp_url):
+        """Configuration step.
+
+        Hybrid connectivity is on by default and the Reachable DP URL is only rendered when it
+        is off, so - exactly as the legacy flow did - the field is filled if and only if the
+        Control Plane shows it. The automation does not flip the toggle itself: which mode the
+        data plane registers in is the Control Plane's decision, not the test's.
+        """
+        if Util.check_dom_visibility(self.page, self.page.locator("#dp-url-input"), 2, 4):
+            self.page.fill("#dp-url-input", reachable_dp_url)
+            self.page.locator("#dp-url-input").press("Tab")
+            print(f"Hybrid connectivity disabled, Input Reachable DP URL: {reachable_dp_url}")
+
+        if ENV.TP_IS_CERT_SELF_SIGNED:
+            self.fresco_fill_by_form_control("customCertificateSecretName", "self-signed-cert",
+                                             "Custom Certificate Secret Name")
 
     def k8s_create_bmdp(self, dp_name, retry=0):
         ColorLogger.info(f"Creating k8s Data Plane '{dp_name}'...")
@@ -424,6 +921,21 @@ class PageObjectDataPlane(PageObjectGlobal):
             )
 
         start_btn.click()
+
+        # CP 1.21 rebuilt this wizard on the same Fresco shell as the Kubernetes one
+        # (PCP-24237): every id below is gone there, so branch before touching any of them.
+        # Wait on EITHER wizard rather than on the Fresco rail alone: polling only for Fresco
+        # made every LEGACY registration pay the full timeout before falling through, and a
+        # Fresco rail that rendered slower than that would drop into the legacy path and
+        # reproduce the very timeout this fixes.
+        if not Util.check_dom_visibility(self.page, self.page.locator(EITHER_REGISTER_WIZARD).first, 3, 60):
+            Util.exit_error("Register Control Tower Data Plane wizard did not open.", self.page, "bmdp_register_wizard_missing.png")
+        if self.is_fresco_register_wizard():
+            print("Detected the CP 1.21+ Fresco Register Control Tower Data Plane wizard")
+            self.k8s_create_bmdp_fresco(dp_name)
+            return
+
+        print("Detected the legacy Register Control Tower Data Plane wizard")
         print("Waiting for Step 1: 'Pre-Requisites' page is loaded")
         if Util.check_dom_visibility(self.page, self.page.locator("#data-plane-pre-requisites-btn"), 2, 4):
             tp_version = 1.4
@@ -432,7 +944,7 @@ class PageObjectDataPlane(PageObjectGlobal):
             self.page.click("#data-plane-pre-requisites-btn")
             print("Clicked Next button, Finish Pre-Requisites")
             # step 2 Basic
-            self.page.locator(".pl-secondarynav a.is-active", has_text="Basic").wait_for(state="visible")
+            self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Basic").wait_for(state="visible")
             self.page.fill("#data-plane-name-text-input", dp_name)
             print(f"Input Data Plane Name: {dp_name}")
             self.page.locator('label[for="terms-checkbox"]').click()
@@ -458,7 +970,7 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         # step 3 Namespace & Service account
         print("Waiting for 'Namespace & Service account' page is loaded")
-        self.page.locator(".pl-secondarynav a.is-active", has_text="Namespace & Service account").wait_for(state="visible")
+        self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Namespace & Service account").wait_for(state="visible")
         self.page.fill("#namespace-text-input", ENV.TP_AUTO_K8S_BMDP_NAMESPACE)
         print(f"Input NameSpace: {ENV.TP_AUTO_K8S_BMDP_NAMESPACE}")
         self.page.fill("#service-account-text-input", ENV.TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT)
@@ -468,7 +980,7 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         # step 4 Configure resources - storage class
         print("Waiting for 'Configure resources' page is loaded")
-        self.page.locator(".pl-secondarynav a.is-active", has_text="Resources").wait_for(state="visible")
+        self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Resources").wait_for(state="visible")
         self.page.fill("#storage-resource-name-text-input", "storageclass")
         print(f"Input Storage Resource Name: storageclass")
         self.page.fill("#storage-description-text-input", "storageclass")
@@ -536,7 +1048,7 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         # step 5 Configuration
         print("Waiting for 'Configuration' page is loaded")
-        self.page.locator(".pl-secondarynav a.is-active", has_text="Configuration").wait_for(state="visible")
+        self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Configuration").wait_for(state="visible")
 
         if ENV.TP_IS_CERT_SELF_SIGNED:
             self.page.fill("#custom-certificate-secret-name-text-input", "self-signed-cert")
@@ -546,7 +1058,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         print("Clicked Next button, Finish Configuration")
 
         # step 6 Preview (for 1.4 and above)
-        if Util.check_dom_visibility(self.page, self.page.locator(".pl-secondarynav a.is-active", has_text="Preview"), 3, 9):
+        if Util.check_dom_visibility(self.page, self.page.locator(LEGACY_WIZARD_STEP_ACTIVE, has_text="Preview"), 3, 9):
             print("'Preview' page is loaded")
             self.page.wait_for_timeout(1000)
             if self.page.locator("#data-plane-preview-create-btn").is_visible():
@@ -610,7 +1122,7 @@ class PageObjectDataPlane(PageObjectGlobal):
         # k8s_run_dataplane_command keys on the title to apply the per-step extras, so a synthesized
         # name would silently skip them.
         for index, step_name in enumerate(commands_title):
-            if step_name not in BMDP_REGISTER_COMMAND_TITLES:
+            if step_name.casefold() not in BMDP_REGISTER_COMMAND_TITLES_FOLDED:
                 ColorLogger.warning(f"Unrecognised registration command title '{step_name}'; running it as-is, but no per-step extras will be applied to it.")
             self.k8s_run_dataplane_command(dp_name, step_name, download_commands.nth(index), index + 1)
 
@@ -631,6 +1143,151 @@ class PageObjectDataPlane(PageObjectGlobal):
         self.k8s_wait_bmdp_ready(dp_name, False)
         self._assert_bmdp_workload(dp_name)
         self._mark_bmdp_complete(dp_name)
+
+    def k8s_create_bmdp_fresco(self, dp_name):
+        """Register a Control Tower Data Plane through the CP 1.21+ Fresco wizard (PCP-24237).
+
+        The Control Tower wizard is the Kubernetes one plus a 'Resources' step, so it reuses
+        the same walk and the same Basic / Namespace & Service Account / Configuration fillers.
+        """
+        self.fresco_wizard_enable_advanced()
+
+        fillers = {
+            FRESCO_STEP_BASIC: lambda: self.fresco_fill_basic_step(
+                dp_name, is_control_tower=True, machine_host_name=ENV.TP_AUTO_FQDN_BMDP),
+            FRESCO_STEP_NAMESPACE_SA: lambda: self.fresco_fill_namespace_sa_step(
+                ENV.TP_AUTO_K8S_BMDP_NAMESPACE, ENV.TP_AUTO_K8S_BMDP_SERVICE_ACCOUNT),
+            FRESCO_STEP_RESOURCES: self.fresco_fill_ctdp_resources_step,
+            FRESCO_STEP_CONFIGURATION: lambda: self.fresco_fill_configuration_step(ENV.TP_AUTO_REACHABLE_BMDP_URL),
+        }
+        self.fresco_wizard_walk(fillers)
+
+        # step Register Data Plane
+        print("Check if create BMDP is successful...")
+        if not self.fresco_run_register_commands(dp_name):
+            # Deliberately no delete-and-retry, for the same reason the legacy path has none:
+            # destroying a data plane on nothing more than a DOM timeout - including a
+            # registration that merely rendered slowly - is worse than stopping for a human.
+            Util.exit_error(
+                f"BMDP '{dp_name}' did not reach the registration step of the wizard. Nothing was deleted; "
+                f"check the Control Plane for a partially registered data plane and remove it before re-running.",
+                self.page, "bmdp_register_page_missing.png")
+            return
+
+        self.fresco_register_click_done()
+
+        # verify data plane is created in the list
+        self.page.wait_for_timeout(2000)
+        print(f"Verifying Data Plane {dp_name} is created in the list")
+        # No-tibtunnel mode: make the registered Reachable BMDP URL reachable (ingress or netpol labels).
+        self.k8s_setup_dp_reachability(dp_name, ENV.TP_AUTO_K8S_BMDP_NAMESPACE, ENV.TP_AUTO_REACHABLE_BMDP_URL, is_bmdp=True)
+        self.k8s_wait_tunnel_connected(dp_name, False)
+        self.k8s_wait_bmdp_ready(dp_name, False)
+        self._assert_bmdp_workload(dp_name)
+        self._mark_bmdp_complete(dp_name)
+
+    def fresco_fill_ctdp_resources_step(self):
+        """Control Tower 'Resources' step: storage class, then ingress or gateway.
+
+        The two route-resource modes render DIFFERENT forms, not a relabelled one - the
+        controller dropdown binds a different form control and the whole field set changes
+        (`#ctdp-ingress-*` + `#ctdp-fqdn-input` vs `#ctdp-gateway-*`), with Gateway Name and
+        Gateway Namespace required and having no ingress-mode counterpart. So each branch fills
+        its own fields end to end; there is no shared tail.
+        """
+        self.page.fill("#ctdp-storage-name-input", "storageclass")
+        print("Input Storage Resource Name: storageclass")
+        self.fresco_fill_by_form_control("description", "storageclass", "Storage Description")
+        # set the storage class to nfs for now, due to a known issue with hawkconsole
+        self.page.fill("#ctdp-storage-class-name-input", "nfs")
+        print("Input Storage Class Name: nfs")
+
+        if ENV.TP_AUTO_INGRESS_OBJECT == "gateway":
+            self.fresco_fill_ctdp_gateway_route()
+        else:
+            self.fresco_fill_ctdp_ingress_route()
+
+    def fresco_fill_ctdp_gateway_route(self):
+        """Gateway API route resource on the Control Tower Resources step.
+
+        The radio is waited for rather than probed with a bare `is_visible()`. An instantaneous
+        poll right after a Next click races Angular's render, and falling through to the Ingress
+        branch would register the data plane with the wrong route-resource type and still report
+        success - which is the shape this whole change exists to remove. `TP_AUTO_INGRESS_OBJECT
+        == "gateway"` is an explicit operator request, so a missing radio here is an error, not
+        a fall back to an older Control Plane.
+        """
+        gateway_radio = self.page.locator(FRESCO_ROUTE_RESOURCE_GATEWAY_RADIO)
+        if not Util.check_dom_visibility(self.page, gateway_radio, 2, 10):
+            Util.exit_error(
+                "TP_AUTO_INGRESS_OBJECT is 'gateway' but the Control Tower Resources step offers no "
+                "Gateway API radio; refusing to register with an Ingress route resource instead.",
+                self.page, "fresco_route_resource_gateway_missing.png")
+            return
+
+        self.page.locator(FRESCO_ROUTE_RESOURCE_GATEWAY_RADIO).check(force=True)
+        print("Selected Route Resource: 'Gateway API Controller'")
+        self.page.wait_for_timeout(1500)
+
+        self.fresco_select_route_controller(FRESCO_GATEWAY_CONTROLLER_SELECT, ENV.TP_AUTO_GATEWAY_CONTROLLER)
+        self.page.fill("#ctdp-gateway-resource-name-input", ENV.TP_AUTO_GATEWAY_CONTROLLER)
+        print(f"Input Gateway Resource Name: {ENV.TP_AUTO_GATEWAY_CONTROLLER}")
+        self.page.fill("#ctdp-gateway-name-input", ENV.TP_AUTO_GATEWAY_NAME)
+        print(f"Input Gateway Name: {ENV.TP_AUTO_GATEWAY_NAME}")
+        self.page.fill("#ctdp-gateway-namespace-input", ENV.TP_AUTO_GATEWAY_NAMESPACE)
+        print(f"Input Gateway Namespace: {ENV.TP_AUTO_GATEWAY_NAMESPACE}")
+        self.page.fill("#ctdp-gateway-host-input", ENV.TP_AUTO_FQDN_BMDP)
+        print(f"Input Gateway Host/Domain name: {ENV.TP_AUTO_FQDN_BMDP}")
+
+    def fresco_fill_ctdp_ingress_route(self):
+        """Ingress Controller route resource on the Control Tower Resources step."""
+        self.page.locator(FRESCO_ROUTE_RESOURCE_INGRESS_RADIO).check(force=True)
+        print("Selected Route Resource: 'Ingress Controller'")
+        self.page.wait_for_timeout(1500)
+
+        self.fresco_select_route_controller(FRESCO_INGRESS_CONTROLLER_SELECT, ENV.TP_AUTO_INGRESS_CONTROLLER)
+        self.page.fill("#ctdp-ingress-resource-name-input", ENV.TP_AUTO_INGRESS_CONTROLLER)
+        print(f"Input Ingress Resource Name: {ENV.TP_AUTO_INGRESS_CONTROLLER}")
+        self.page.fill("#ctdp-ingress-class-name-input", ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME)
+        print(f"Input Ingress Class Name: {ENV.TP_AUTO_INGRESS_CONTROLLER_CLASS_NAME}")
+        self.page.fill("#ctdp-fqdn-input", ENV.TP_AUTO_FQDN_BMDP)
+        print(f"Input FQDN: {ENV.TP_AUTO_FQDN_BMDP}")
+
+    def fresco_select_route_controller(self, select_selector, controller):
+        """Pick a controller from the Fresco route-resource dropdown.
+
+        `select_selector` differs by mode - the Ingress form binds `ingressController`, the
+        Gateway API form binds `gatewayApicontrollerName` - so the caller passes the one its
+        branch is looking at rather than this method assuming either.
+
+        The PrimeNG select renders its options into an overlay outside the dialog, so the
+        option is looked up page-wide once the list is open, not under the select.
+
+        A missing option EXITS rather than keeping whatever was preselected. The legacy
+        dropdown clicked the option and threw when it was absent, so degrading to a warning
+        here would be strictly weaker than the code it replaces: the data plane would register
+        against the wrong ingress controller and still report success.
+
+        The option is matched on its WHOLE text, anchored. Playwright's `has_text` is a
+        case-insensitive substring, so with `.first` a controller whose name prefixes another
+        offered option - `nginx` against a list holding `nginx-gateway-fabric` - would select
+        whichever renders first and report success, which is the exact outcome the exit above
+        exists to prevent. Anchoring also removes the need for `.capitalize()`, which was only
+        papering over the case difference and mangled multi-word names on the way.
+        """
+        self.page.locator(select_selector).click()
+        print("Clicked the route controller dropdown")
+        # Re-queried rather than held across the wait (principle 4). The PrimeNG options live
+        # in a page-level overlay that re-renders while the poll runs, which is the single most
+        # likely place in this method for a cached handle to go stale.
+        exact = re.compile(rf"^\s*{re.escape(controller)}\s*$", re.IGNORECASE)
+        if not Util.check_dom_visibility(
+                self.page, self.page.locator("li.p-select-option", has_text=exact).first, 2, 10):
+            Util.exit_error(f"Route controller '{controller}' is not offered by the dropdown; refusing to register against whichever one happened to be preselected.",
+                            self.page, "fresco_route_controller_missing.png")
+            return
+        self.page.locator("li.p-select-option", has_text=exact).first.click()
+        print(f"Selected route controller: {controller}")
 
     def _scrape_register_commands(self):
         """Expand the registration-commands panel and return the command titles it renders.
@@ -870,7 +1527,55 @@ class PageObjectDataPlane(PageObjectGlobal):
             return None
         return len([line for line in output.splitlines() if line.strip()])
 
-    def k8s_run_dataplane_command(self, dp_name, step_name, download_selector, step):
+    @staticmethod
+    def _ensure_shebang(file_path):
+        """Give a downloaded registration script an interpreter line if it has none.
+
+        Helper.run_shell_file exec's the file directly on Linux, so a script without a
+        shebang dies with 'Exec format error'. The Fresco wizard downloads the raw command
+        text with no interpreter line, and the failure is SILENT in the worst way: every
+        command no-ops, the flow still clicks Done, and the Control Plane still shows a data
+        plane - one that has nothing installed behind it and never connects. Observed on
+        CP 1.21 (PCP-24237); the legacy wizard's downloads already carried a shebang, which
+        is why this only surfaced now.
+
+        Prepending is safe for both: a file that already starts with '#!' is left alone.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        if content.startswith("#!"):
+            return False
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f"#!/bin/bash\n{content}")
+        print(f"Added a '#!/bin/bash' interpreter line to {file_path}")
+        return True
+
+    def k8s_run_dataplane_command(self, dp_name, step_name, download_selector, step,
+                                  abort_on_failure=True):
+        """Download one registration command, apply the per-step extras, and RUN it.
+
+        SHARED BY FOUR FLOWS, not just the Fresco one: the Fresco register loop, the legacy
+        k8s register loop, the legacy BMDP register loop, and delete-data-plane. So the two
+        changes made here for PCP-24237 reach the legacy paths too, and that is deliberate:
+
+        * `_ensure_shebang` is inert on legacy downloads - they already carry an interpreter
+          line - so it only ever fires for Fresco's raw command text.
+        * aborting on a non-zero exit is NOT inert. On a CP 1.20 Control Plane a registration
+          helm/kubectl that exited non-zero used to be logged and walked past; it now aborts
+          the run. That is a real behaviour change to a path this ticket otherwise freezes,
+          and it is the point: a swallowed exit code is the same failure class the missing
+          shebang was one instance of, and leaving legacy able to report success over a
+          half-installed data plane would be keeping the bug on purpose.
+
+        `abort_on_failure=False` is for TEARDOWN, and delete-data-plane passes it. Aborting
+        there is wrong twice over: the run would exit before clicking the delete dialog's
+        confirm button and before `ReportYaml.remove_dataplane`, leaving the data plane half
+        torn down and the rest of the teardown skipped - and teardown scripts exit non-zero
+        for entirely benign reasons (a `helm uninstall` of a release that is already gone, a
+        `kubectl delete` on a missing namespace). A partially-installed data plane, which is
+        exactly what this ticket's defect produced, is the input most likely to cause one.
+        """
         ColorLogger.info(f"Running command for: {step_name}")
         print(f"Download: {step_name}")
         with self.page.expect_download() as download_info:
@@ -878,7 +1583,24 @@ class PageObjectDataPlane(PageObjectGlobal):
 
         file_name = f"{dp_name}_{step}.sh"
         file_path = Util.download_file(download_info.value, file_name)
-        if step_name == "1. Helm Repository configuration":
+        # Preparing the file must honour the SAME best-effort contract as running it.
+        # _ensure_shebang reads and rewrites the download, so a file that is not valid
+        # UTF-8 (or a download that raced to disk) raises straight out of this method -
+        # past the abort_on_failure branch below and past k8s_delete_dataplane's confirm
+        # click and ReportYaml.remove_dataplane, which is precisely the half-torn-down
+        # teardown that abort_on_failure=False exists to prevent.
+        try:
+            self._ensure_shebang(file_path)
+        except (OSError, UnicodeDecodeError) as e:
+            if abort_on_failure:
+                Util.exit_error(f"Registration command '{step_name}' for Data Plane '{dp_name}' could not be prepared: {e}.",
+                                self.page, "k8s_run_dataplane_command_failed.png")
+                return
+            ColorLogger.warning(f"Could not add an interpreter line to {file_path}: {e}; running it as-is.")
+        # Compared case-insensitively: CP 1.21 re-capitalised the title to
+        # '1. Helm Repository Configuration', and an exact match would have skipped the repo
+        # reset silently, leaving a stale helm repo to serve the registration charts.
+        if step_name.casefold() == HELM_REPO_COMMAND_TITLE.casefold():
             # read the file content
             with open(file_path, "r", encoding="utf-8") as f:
                 file_content = f.read()
@@ -890,7 +1612,7 @@ class PageObjectDataPlane(PageObjectGlobal):
                     Helper.get_command_output(f"helm repo remove {repo_name}", True)
 
         # add network_policies if ENV.TP_CREATE_NETWORK_POLICIES is true
-        if step_name == "3. Service Account creation":
+        if step_name.casefold() == SERVICE_ACCOUNT_COMMAND_TITLE.casefold():
             if ENV.TP_CREATE_NETWORK_POLICIES == "true":
                 # add network_policies at the end of the file
                 network_policies = f" --set networkPolicy.create=true --set networkPolicy.createDeprecatedPolicies=true --set networkPolicy.createInternetScopePolicies=true --set networkPolicy.createClusterScopePolicies=true --set networkPolicy.createDeprecatedPolicies=false  --set networkPolicy.nodeCidrIpBlock={ENV.TP_CLUSTER_NODE_CIDR} --set networkPolicy.podCidrIpBlock={ENV.TP_CLUSTER_POD_CIDR} --set networkPolicy.serviceCidrIpBlock={ENV.TP_CLUSTER_SERVICE_CIDR}"
@@ -931,7 +1653,27 @@ class PageObjectDataPlane(PageObjectGlobal):
                         f.write(file_content)
 
         print(f"Run command for: {step_name}")
-        Helper.run_shell_file(file_path)
+        if not abort_on_failure:
+            # Teardown is best-effort by design - see the docstring. Failures are logged by
+            # run_shell_file and the caller carries on to finish the delete.
+            Helper.run_shell_file(file_path)
+            print(f"Command for step: {step_name} is executed, wait for 3 seconds.")
+            self.page.wait_for_timeout(3000)
+            return
+
+        # raise_on_failure: a registration command that exits non-zero has not registered
+        # anything, and the default swallow-and-return-"" made that indistinguishable from
+        # success - the loop went on to the next command, Done was clicked, and the task went
+        # green over a data plane with nothing behind it. The missing shebang was one cause of
+        # that; a failing helm/kubectl is another, and this closes the class rather than the
+        # instance (PCP-24237).
+        try:
+            Helper.run_shell_file(file_path, raise_on_failure=True)
+        except Exception as e:
+            Util.exit_error(f"Registration command '{step_name}' for Data Plane '{dp_name}' failed: {e}. "
+                            f"The data plane is registered in the Control Plane but its cluster side is incomplete.",
+                            self.page, "k8s_run_dataplane_command_failed.png")
+            return
         print(f"Command for step: {step_name} is executed, wait for 3 seconds.")
         self.page.wait_for_timeout(3000)
 

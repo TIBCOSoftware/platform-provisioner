@@ -13,15 +13,120 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import os
 import re
+import shutil
+import tempfile
+
+import yaml
 
 from page_object.po_user_management import PageObjectUserManagement, GRANT_DONE, GRANT_ALREADY, GRANT_FAILED
 from utils.color_logger import ColorLogger
 from utils.util import Util
-from utils.helper import Helper, O11Y_LOG_INDEX_PREFIX
+from utils.helper import (
+    Helper,
+    O11Y_LOG_INDEX_BUSINESS_ACTIVITIES,
+    O11Y_LOG_INDEX_DEFAULT,
+    O11Y_LOG_INDEX_USER_APPS,
+    o11y_log_index,
+)
 from utils.env import ENV
 from utils.report import ReportYaml
 from page_object.po_dataplane import PageObjectDataPlane
+
+# Data plane config -> Messaging: registering an EMS server group.
+#
+# CP 1.21 changed this page in three separate places, and only the middle one is a
+# redesign - the other two are quiet selector breaks that do not raise where they break:
+#
+#   1. the page moved from Plexus to PrimeNG, so the '.pl-button__label' the flow clicked
+#      to OPEN registration matches nothing and it timed out for 30s with the button
+#      plainly visible;
+#   2. the multi-step form wizard (pick capability -> pick "Register a Server" -> fill six
+#      inputs) became a single YAML editor / file-upload dialog. None of the intermediate
+#      steps or inputs exist any more;
+#   3. the RESULT LIST became a PrimeNG p-datatable, so 'tr.pl-table__row',
+#      'td.pl-table__cell' and "td[class*='_healthCell']" all match nothing. That one is
+#      the dangerous one: the idempotency pre-check silently decided "not registered yet"
+#      on every run, and check_ems_server_status() called .get_attribute() on None.
+#
+# Every legacy selector below is kept and the branch is taken on which dialog the Control
+# Plane actually rendered, not on a version number (bootstrap/CLAUDE.md principle 6).
+EMS_REGISTER_BUTTON_NAME = "Register New Instances"
+# Pre-1.21 fallback for the same button. NOT swapped for '.p-button-label': that class
+# matches 2 elements on the 1.21 Messaging page ('More' and this one), so it would turn a
+# 30s timeout into a strict-mode violation. The accessible name is unique on both.
+EMS_REGISTER_BUTTON_LEGACY = ".pl-button__label"
+
+EMS_DIALOG = "section.gemsModalDialog"
+# Present only in the 1.21 dialog - this is what the branch is taken on.
+EMS_YAML_EDITOR = f"{EMS_DIALOG} #yaml-editor"
+# Hidden (0x0, class _hidden_*) behind a <label for="yaml-input">Upload YAML</label>.
+# set_input_files() drives it anyway, which is why this flow uploads a generated file
+# rather than typing into the ace editor - ace is a canvas-ish editor that fill() cannot
+# drive reliably.
+EMS_YAML_FILE_INPUT = f"{EMS_DIALOG} #yaml-input"
+EMS_YAML_FILENAME = "ems-server-groups.yaml"
+EMS_VALIDATE_ALL = f"{EMS_DIALOG} button[aria-label='Validate All']"
+# The bulk register button's accessible name is DYNAMIC and carries the validated count,
+# with a singular/plural swap: "Register 0 Server Groups" -> "Register 1 Server Group".
+# Matching on "Register" alone would also match the per-row action button, whose
+# aria-label becomes exactly "Register" once its row validates - two matches, strict-mode
+# violation. "Server Group" appears only on the bulk button.
+EMS_REGISTER_GROUPS = f"{EMS_DIALOG} button[aria-label*='Server Group']"
+EMS_DONE = f"{EMS_DIALOG} button[aria-label='Done']"
+EMS_ROW_STATUS = "[class*='_tableStatusCell']"
+
+# Per-row status vocabulary, read live on CP 1.21.0:
+#   '' / 'Registering...' -> transient; parsed out of the YAML, or mid-register
+#   Validated / Registered -> the two states this flow drives towards
+#   Error -> terminal; it held Error for 40s and never recovered into Validated
+EMS_STATUS_VALIDATED = "Validated"
+EMS_STATUS_REGISTERED = "Registered"
+EMS_STATUS_ERROR = "Error"
+
+# 'Done' closes the modal, and the Messaging list underneath must not be read until it
+# has: the dialog's own result table ALSO holds a row named after the server group, so
+# while both are mounted get_by_role("row", name=...) resolves to 2 elements and
+# check_ems_server_status() dies on a strict-mode violation. Seen for real on 1.21 - the
+# registration had fully succeeded and the flow still failed, one line later.
+EMS_DIALOG_CLOSE_TIMEOUT_MS = 30000
+
+# First step of the pre-1.21 wizard, kept as the "legacy dialog opened" signal.
+EMS_WIZARD_STEP = "[class*='_modalBody'] span"
+EMS_WIZARD_CAPABILITY = "Enterprise Message Service"
+EMS_WIZARD_REGISTER_SERVER = "Register a Server"
+
+# Health is conveyed ONLY by an icon here - no text, no aria-label, no title (checked on
+# the live 1.21 row). bootstrap/CLAUDE.md principle 2 says not to read SVG internals for
+# state, but there is no other signal to read, and the code being replaced already read
+# exactly this href. Legacy wraps the icon in td[class*='_healthCell'], 1.21 in
+# div[class*='_healthContainer_'] - one prefix covers both.
+EMS_HEALTH_ICON = "[class*='_health'] svg use"
+EMS_HEALTH_OK = "pl-icon-success"
+
+
+def build_ems_registration_yaml(server_group_name, client_url, monitor_url, username, password):
+    """The CP 1.21 `server_groups` registration payload, as YAML text.
+
+    Dumped through PyYAML rather than an f-string on purpose: clientUrl and monitorUrl are
+    comma-separated URL lists full of ':' and '//', and the password is arbitrary text, so
+    hand-formatting breaks on the first value that needs quoting.
+
+    An empty password omits the key entirely. `registrationPass:` with nothing after it is
+    YAML null rather than an empty string, and the dialog's own example marks the field
+    Optional - TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD defaults to '', so this is the normal
+    case, not an edge case.
+    """
+    server_group = {
+        "groupName": server_group_name,
+        "clientUrl": client_url,
+        "monitorUrl": monitor_url,
+        "registrationUser": username,
+    }
+    if password:
+        server_group["registrationPass"] = password
+    return yaml.safe_dump({"server_groups": [server_group]}, default_flow_style=False, sort_keys=False)
 
 # (dp_name, product) pairs whose Product Permission already converged in THIS process.
 # Purely a performance optimisation - deleting it must never change correctness, only
@@ -382,60 +487,346 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
         ColorLogger.info("Config EMS Instance...")
         # switch to EMS Agents config page
         self.goto_dataplane_config_sub_menu("Messaging")
-        if not Util.check_dom_visibility(self.page, self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=server_group_name)), 3, 9, True):
+        if not Util.check_dom_visibility(self.page, self.ems_server_row(server_group_name), 3, 9, True):
             # add EMS Server
-            self.page.locator(".pl-button__label").wait_for(state="visible")
-            self.page.locator(".pl-button__label").click()
-            print("Clicked 'Register New Instances' button, to add a EMS Server instance")
-            self.page.locator("[class*='_modalBody'] span", has_text="Enterprise Message Service").wait_for(state="visible")
-            self.page.locator("[class*='_modalBody'] span", has_text="Enterprise Message Service").click()
-            print("Clicked 'Enterprise Message Service' button")
-            self.page.locator("[class*='_modalBody'] span", has_text="Register a Server").wait_for(state="visible")
-            self.page.locator("[class*='_modalBody'] span", has_text="Register a Server").click()
-            print("Clicked 'Register a Server' button")
-
-            self.page.fill("input[name='groupName']", ENV.TP_BMDP_IMAGE_TAG_EMS)
-            print(f"Filled EMS Server Name: {ENV.TP_BMDP_IMAGE_TAG_EMS}")
-
-            # add EMS client url
-            self.page.fill("input[name='clientUrl']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL)
-            print(f"Filled EMS Client URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL}")
-            # add EMS Monitor url
-            self.page.fill("input[name='monitorUrl']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL)
-            print(f"Filled EMS Monitor URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL}")
-            # add EMS user
-            self.page.fill("input[name='registrationUser']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME)
-            print(f"Filled EMS User Name: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME}")
-            # add EMS password
-            self.page.fill("input[name='registrationPass']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD)
-            print(f"Filled EMS Password: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD}")
-            
-            # Validate Server
-            self.page.locator("button.pl-button.pl-button--secondary.gemsButton", has_text="Validate Server").wait_for(state="visible")
-            self.page.locator("button.pl-button.pl-button--secondary.gemsButton", has_text="Validate Server").click()
-            print("Clicked 'Validate Server' button")
-
-            if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']").first, 1, 10):
-                self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Register Server").click()
-                print("Clicked 'Register Server' button")
-                if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']").first, 1, 10):
-                    ColorLogger.success("EMS Server registration is successful.")
-                    Util.click_button_until_enabled(self.page, self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Done"))
-                    print("Clicked 'Done' button")
+            self.click_register_new_instances()
+            if self.is_yaml_registration_dialog():
+                self.ems_register_by_yaml(server_group_name)
             else:
-                Util.warning_screenshot(f"'{server_group_name}' is not registered successfully or not reachable", self.page, "ems_register_error.png")
+                # The legacy wizard warns and returns instead of exiting, so its outcome
+                # has to be carried out here. Writing "Added" regardless - which is what
+                # this method did before - records a server group that failed validation
+                # as registered, and because "Added" short-circuits the check at the top
+                # of this method, that lie is sticky across every later run.
+                if not self.ems_register_by_wizard(server_group_name):
+                    return
         else:
             ColorLogger.info(f"Domain '{server_group_name}' is already registered.")
         ReportYaml.set_capability(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer")
         ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer", server_group_name, "Added")
         self.check_ems_server_status(server_group_name)
 
+    def ems_server_row(self, server_group_name):
+        """The row for one EMS server group in the Messaging list.
+
+        Version-agnostic on purpose. CP 1.21 replaced the Plexus table with a PrimeNG
+        p-datatable whose rows carry neither 'pl-table__row' nor 'pl-table__cell', so the
+        old locator matched nothing and BOTH its callers failed quietly: the idempotency
+        pre-check decided "not registered" on every run and re-registered, and
+        check_ems_server_status() called .get_attribute() on None. `role=row` is the one
+        thing the two tables agree on - <tr> carries it implicitly, and 1.21 also sets it
+        explicitly - so one locator serves both.
+
+        Anchored on the NAME CELL, not on the row's accessible name. `get_by_role("row",
+        name=...)` matches that name by SUBSTRING, and a row's accessible name is its whole
+        text - so a second group called `ems-latest-2` makes both rows match, and
+        is_visible() then throws a strict-mode violation. That is the very defect class
+        this change exists to remove, just moved from the dialog to the list. `exact=True`
+        on the row name cannot fix it (the name is "ems-latest tcp://..." - exact would
+        match nothing); matching a cell whose text is exactly the group name can, and works
+        on both table generations: 1.21 puts it in an <a>, the Plexus table in a
+        td.pl-table__cell, and either is a descendant of the row.
+        """
+        return self.page.get_by_role("row").filter(
+            has=self.page.get_by_text(server_group_name, exact=True))
+
+    def click_register_new_instances(self):
+        """Open the EMS registration dialog.
+
+        The accessible name is the primary hook because it is the one thing that survived
+        the Plexus -> PrimeNG move: 1.21 renders
+        button[aria-label='Register New Instances'], pre-1.21 renders a pl-button whose
+        span gives the button the same name. The legacy class is kept as the fallback for
+        any older shell whose button is named differently.
+        """
+        by_name = self.page.get_by_role("button", name=EMS_REGISTER_BUTTON_NAME)
+        legacy = self.page.locator(EMS_REGISTER_BUTTON_LEGACY)
+        if not self.wait_for_either_visible(by_name, legacy, 2, 30):
+            Util.exit_error(
+                f"'{EMS_REGISTER_BUTTON_NAME}' button never became visible on the Messaging page.",
+                self.page, "ems_register_button.png"
+            )
+        # Decided on VISIBILITY, not presence: count() counts hidden nodes too, so a shell
+        # that keeps a detached/hidden copy of either control would send the click at the
+        # wrong one and then burn Playwright's actionability auto-wait on it.
+        if by_name.first.is_visible():
+            by_name.first.click()
+        else:
+            legacy.first.click()
+        print("Clicked 'Register New Instances' button, to add a EMS Server instance")
+
+    def is_yaml_registration_dialog(self):
+        """Which registration UI did this Control Plane open - 1.21 YAML, or legacy wizard?
+
+        Waits for WHICHEVER arrives rather than probing one and then the other: a
+        sequential probe would spend the first probe's entire budget on every legacy run,
+        and count() alone has no wait in it, so it would answer 0 while the dialog was
+        still rendering (the mistake PCP-24309 shipped first time round).
+        """
+        editor = self.page.locator(EMS_YAML_EDITOR)
+        wizard = self.page.locator(EMS_WIZARD_STEP, has_text=EMS_WIZARD_CAPABILITY)
+        if not self.wait_for_either_visible(editor, wizard, 2, 30):
+            Util.exit_error(
+                "The EMS registration dialog opened neither the CP 1.21 YAML editor nor the legacy wizard.",
+                self.page, "ems_register_dialog.png"
+            )
+        return editor.first.is_visible()
+
+    def wait_for_either_visible(self, first, second, interval, max_wait):
+        """True as soon as EITHER locator is visible, each checked independently.
+
+        Deliberately NOT `first.or_(second).first`, which is what this replaced.
+        `.or_()` builds the UNION and `.first` then narrows it to the DOM-FIRST match and
+        reports that one element's visibility - so a hidden earlier match masks a visible
+        later one and the wait fails on a page that is perfectly actionable, which is the
+        exact failure mode this whole change exists to remove. Each side keeps its own
+        `.first` so a multi-match on either cannot raise a strict-mode violation.
+
+        Mirrors Util.check_dom_visibility's contract: polls, logs progress, returns a
+        boolean so the caller can screenshot and exit gracefully.
+        """
+        attempts = max(1, max_wait // interval)
+        for attempt in range(attempts):
+            if first.first.is_visible() or second.first.is_visible():
+                print("Dom is now visible.")
+                return True
+            print(f"--- Attempt {attempt + 1}/{attempts}: neither variant visible yet...")
+            if attempt < attempts - 1:
+                self.page.wait_for_timeout(interval * 1000)
+        ColorLogger.warning(f"Neither variant became visible within {max_wait} seconds.")
+        return False
+
+    def ems_register_by_yaml(self, server_group_name):
+        """CP 1.21: upload a generated payload, Validate, Register, Done.
+
+        No step here keys on a success toast. CP 1.21 raises NONE for this flow -
+        div[role='alert'][aria-label='success'], .pl-notification__message and the
+        selectors behind Util.wait_for_success_message() all stayed empty for 24s after a
+        registration that demonstrably succeeded. The row's own status text is the signal,
+        and every step that cannot reach its expected status fails with a screenshot
+        rather than falling through to the ReportYaml write that would record an
+        unregistered server group as Added.
+        """
+        self.upload_ems_registration_yaml(server_group_name)
+
+        # Anchored on the name cell for the same reason as ems_server_row(): a second
+        # group whose name merely CONTAINS this one would otherwise match two rows here too.
+        dialog_row = self.page.locator(EMS_DIALOG).get_by_role("row").filter(
+            has=self.page.get_by_text(server_group_name, exact=True))
+        if not Util.check_dom_visibility(self.page, dialog_row, 2, 30):
+            Util.exit_error(
+                f"The uploaded YAML did not parse into a '{server_group_name}' row in the registration dialog.",
+                self.page, "ems_register_yaml.png"
+            )
+
+        self.page.locator(EMS_VALIDATE_ALL).click()
+        print("Clicked 'Validate All' button")
+        status = self.wait_for_ems_group_status(dialog_row, EMS_STATUS_VALIDATED, 120)
+        if status != EMS_STATUS_VALIDATED:
+            Util.exit_error(
+                f"EMS server group '{server_group_name}' did not validate "
+                f"(status: '{status or 'pending'}'); it is not reachable from the data plane.",
+                self.page, "ems_validate_error.png"
+            )
+
+        # 'Register N Server Group(s)' only enables once something is validated. Clicking
+        # it while it still reads 'Register 0 Server Groups' spends Playwright's whole
+        # 30s auto-wait and then reports a bare click timeout, which says nothing about
+        # the real problem.
+        if not Util.check_dom_enabled(self.page, self.page.locator(EMS_REGISTER_GROUPS), 2, 30):
+            Util.exit_error(
+                f"The register button stayed disabled after '{server_group_name}' validated, "
+                f"so there is nothing staged to register.",
+                self.page, "ems_register_disabled.png"
+            )
+        self.page.locator(EMS_REGISTER_GROUPS).click()
+        print("Clicked 'Register Server Groups' button")
+
+        status = self.wait_for_ems_group_status(dialog_row, EMS_STATUS_REGISTERED, 120)
+        if status != EMS_STATUS_REGISTERED:
+            Util.exit_error(
+                f"EMS server group '{server_group_name}' was not registered (status: '{status or 'pending'}').",
+                self.page, "ems_register_error.png"
+            )
+        ColorLogger.success("EMS Server registration is successful.")
+
+        # Guarded the same way the register button is, three lines up. The bare
+        # click_button_until_enabled() this replaced raises a raw Playwright timeout with
+        # NO screenshot, which was the one failure path in this method that produced no
+        # artefact - directly contradicting the docstring above.
+        if not Util.check_dom_enabled(self.page, self.page.locator(EMS_DONE), 2, 30):
+            Util.exit_error(
+                f"'Done' stayed disabled after '{server_group_name}' registered.",
+                self.page, "ems_done_disabled.png"
+            )
+        self.page.locator(EMS_DONE).click()
+        print("Clicked 'Done' button")
+        self.wait_for_registration_dialog_closed()
+
+    def wait_for_registration_dialog_closed(self):
+        """Block until the registration modal is gone, before anyone reads the list.
+
+        Not cosmetic. The dialog's result table holds a row named after the server group
+        too, so for as long as it stays mounted the Messaging list lookup resolves to two
+        rows and throws a strict-mode violation - which is how a registration that had
+        completely succeeded still failed the run.
+        """
+        try:
+            self.page.locator(EMS_DIALOG).wait_for(state="hidden", timeout=EMS_DIALOG_CLOSE_TIMEOUT_MS)
+        except Exception:
+            Util.exit_error(
+                "The EMS registration dialog stayed open after 'Done'.",
+                self.page, "ems_register_dialog_open.png"
+            )
+
+    def upload_ems_registration_yaml(self, server_group_name):
+        """Write the generated payload to a temp file and hand it to the hidden file input."""
+        payload = build_ems_registration_yaml(
+            server_group_name,
+            ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL,
+            ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL,
+            ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME,
+            ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD,
+        )
+        if ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD:
+            # Unlike the legacy wizard's input[type=password], the 1.21 dialog renders the
+            # uploaded payload as plain text in the ace editor - so the always-on video,
+            # the trace snapshots and any failure screenshot taken while the dialog is up
+            # will contain this password. Say so rather than letting it be a surprise.
+            # (Nothing leaks on the default path: the password defaults to empty and the
+            # key is then omitted from the payload entirely.)
+            ColorLogger.warning(
+                "EMS registrationPass is set: CP 1.21 shows the uploaded YAML as plain text "
+                "in the editor, so report video/trace/screenshots will contain it."
+            )
+        temp_dir = tempfile.mkdtemp(prefix="tp-auto-ems-")
+        yaml_path = os.path.join(temp_dir, EMS_YAML_FILENAME)
+        try:
+            with open(yaml_path, "w", encoding="utf-8") as payload_file:
+                payload_file.write(payload)
+            self.page.locator(EMS_YAML_FILE_INPUT).set_input_files(yaml_path)
+        finally:
+            # The payload carries registrationPass, so it must not outlive the upload or
+            # end up in a report artifact. set_input_files() has read the file by the time
+            # it returns, so removing it here is safe.
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            # ignore_errors swallows a failed delete, and a silently-undeleted credential
+            # file is exactly the thing worth hearing about. Say it, don't fail the run:
+            # the registration itself is fine, and aborting here would be worse.
+            if os.path.exists(temp_dir):
+                ColorLogger.warning(f"Could not delete the EMS registration payload: {yaml_path}")
+        print(f"Uploaded EMS registration YAML for server group: {server_group_name}")
+        print(f"Filled EMS Client URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL}")
+        print(f"Filled EMS Monitor URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL}")
+        print(f"Filled EMS User Name: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME}")
+
+    def wait_for_ems_group_status(self, dialog_row, target, max_wait, interval=5):
+        """Poll one dialog row until it reads `target`; return the status it settled on.
+
+        Returns as soon as the row reads Error instead of burning the rest of the budget:
+        Error is terminal, it does not recover into Validated (watched for 40s live). The
+        caller turns a non-target status into a screenshot and a hard exit.
+        """
+        attempts = max(1, max_wait // interval)
+        for attempt in range(attempts):
+            status = self.ems_group_status(dialog_row)
+            if status == target:
+                print(f"EMS server group status: '{status}'")
+                return status
+            if status == EMS_STATUS_ERROR:
+                ColorLogger.warning(f"EMS server group status: '{status}'")
+                return status
+            print(f"--- Attempt {attempt + 1}/{attempts}: EMS server group status is "
+                  f"'{status or 'pending'}', waiting for '{target}'...")
+            if attempt < attempts - 1:  # no point sleeping after the final read
+                self.page.wait_for_timeout(interval * 1000)
+        return self.ems_group_status(dialog_row)
+
+    @staticmethod
+    def ems_group_status(dialog_row):
+        """Status text of one server-group row in the registration dialog, '' when blank."""
+        status_cell = dialog_row.locator(EMS_ROW_STATUS)
+        if status_cell.count() == 0:
+            return ""
+        return status_cell.first.inner_text().strip()
+
+    def ems_register_by_wizard(self, server_group_name):
+        """Pre-1.21: the multi-step form wizard. Returns True only on confirmed success.
+
+        Every browser interaction is unchanged on purpose, down to the
+        warning-instead-of-exit on failure: there is no pre-1.21 Control Plane on hand to
+        re-verify it against, so the only safe edit is no edit, and the 1.21 path's hard
+        exits are not retrofitted here.
+
+        The ONE thing that changed is the return value, which touches no UI at all. The
+        caller used to write ReportYaml "Added" whether or not this returned after a
+        warning, so a failed legacy registration was recorded as registered - and since
+        "Added" short-circuits dp_config_ems, it stayed wrong forever.
+        """
+        self.page.locator(EMS_WIZARD_STEP, has_text=EMS_WIZARD_CAPABILITY).wait_for(state="visible")
+        self.page.locator(EMS_WIZARD_STEP, has_text=EMS_WIZARD_CAPABILITY).click()
+        print("Clicked 'Enterprise Message Service' button")
+        self.page.locator(EMS_WIZARD_STEP, has_text=EMS_WIZARD_REGISTER_SERVER).wait_for(state="visible")
+        self.page.locator(EMS_WIZARD_STEP, has_text=EMS_WIZARD_REGISTER_SERVER).click()
+        print("Clicked 'Register a Server' button")
+
+        self.page.fill("input[name='groupName']", ENV.TP_BMDP_IMAGE_TAG_EMS)
+        print(f"Filled EMS Server Name: {ENV.TP_BMDP_IMAGE_TAG_EMS}")
+
+        # add EMS client url
+        self.page.fill("input[name='clientUrl']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL)
+        print(f"Filled EMS Client URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_SERVER_URL}")
+        # add EMS Monitor url
+        self.page.fill("input[name='monitorUrl']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL)
+        print(f"Filled EMS Monitor URL: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_MONITOR_URL}")
+        # add EMS user
+        self.page.fill("input[name='registrationUser']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME)
+        print(f"Filled EMS User Name: {ENV.TP_AUTO_K8S_BMDP_BW5_EMS_USERNAME}")
+        # add EMS password
+        self.page.fill("input[name='registrationPass']", ENV.TP_AUTO_K8S_BMDP_BW5_EMS_PASSWORD)
+        # Redacted (from PR review). The value used to be printed in clear text, straight
+        # into the pipeline log and any support bundle built from it. A log line is not a
+        # browser interaction, so this is the one edit to the legacy path that carries no
+        # behavioural risk at all - "keep the wizard verbatim" was never a reason to keep
+        # leaking the password.
+        print("Filled EMS Password: ***")
+
+        # Validate Server
+        self.page.locator("button.pl-button.pl-button--secondary.gemsButton", has_text="Validate Server").wait_for(state="visible")
+        self.page.locator("button.pl-button.pl-button--secondary.gemsButton", has_text="Validate Server").click()
+        print("Clicked 'Validate Server' button")
+
+        if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']").first, 1, 10):
+            self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Register Server").click()
+            print("Clicked 'Register Server' button")
+            if Util.check_dom_visibility(self.page, self.page.locator("div[role='alert'][aria-label='success']").first, 1, 10):
+                ColorLogger.success("EMS Server registration is successful.")
+                Util.click_button_until_enabled(self.page, self.page.locator("button.pl-button.pl-button--primary.gemsButton", has_text="Done"))
+                print("Clicked 'Done' button")
+                return True
+            # Registered but never acknowledged - the same "not confirmed" bucket as a
+            # failed validation, so it must not be reported as Added either.
+            Util.warning_screenshot(f"'{server_group_name}' registration was not confirmed", self.page, "ems_register_error.png")
+            return False
+        Util.warning_screenshot(f"'{server_group_name}' is not registered successfully or not reachable", self.page, "ems_register_error.png")
+        return False
+
     def check_ems_server_status(self, server_group_name):
         # Check the status of the EMS server
         ColorLogger.info(f"Checking EMS Server '{server_group_name}' status")
-        ems_server_row = self.page.locator("tr.pl-table__row", has=self.page.locator('td.pl-table__cell', has_text=server_group_name))
-        ems_health_svg = ems_server_row.locator("td[class*='_healthCell'] svg use").get_attribute("href").split("#")[-1]
-        if ems_server_row.is_visible() and ems_health_svg == "pl-icon-success":
+        ems_server_row = self.ems_server_row(server_group_name)
+        if not ems_server_row.is_visible():
+            ColorLogger.warning(f"EMS Server '{server_group_name}' is not connected.")
+            return
+        # Guarded because 1.21 renders no health icon at all while the row is still
+        # settling; the old unguarded .get_attribute("href").split() turned that moment
+        # into an AttributeError on None instead of a "not connected" warning.
+        health_icon = ems_server_row.locator(EMS_HEALTH_ICON)
+        if health_icon.count() == 0:
+            ColorLogger.warning(f"EMS Server '{server_group_name}' is not connected.")
+            return
+        ems_health_svg = (health_icon.first.get_attribute("href") or "").split("#")[-1]
+        if ems_health_svg == EMS_HEALTH_OK:
             ColorLogger.success(f"EMS Server '{server_group_name}' is connected.")
             ReportYaml.set_capability_info(ENV.TP_AUTO_K8S_BMDP_NAME, "EMSServer", server_group_name, "Connected")
             return
@@ -625,14 +1016,17 @@ class PageObjectBMDPConfiguration(PageObjectDataPlane):
             self.page.locator("#endpoint-input").wait_for(state="visible")
             print(f"Filling ElasticSearch form...")
             if menu_name == "Logs":
-                log_index = name_input
+                # Which of the three branches this sub-tab is; the value itself is built by
+                # the shared helper so this wizard and the CLI/API path in
+                # api_object/resources.py cannot drift apart (PCP-21434).
                 if tab_sub_name == "Query Service" or tab_sub_name == "User Apps Exporter":
-                    log_index = f"{dp_title.lower()}-log-index"
+                    log_index_branch = O11Y_LOG_INDEX_USER_APPS
                 # for PCP-16998
                 elif tab_sub_name == "Business Activities Query Service" or tab_sub_name == "Business Activities Exporter":
-                    log_index = f"{dp_title.lower()}-ba-log-index"
-                # prepend the fixed prefix to every log index (shared constant; CLI path in api_object/resources.py uses the same)
-                log_index = f"{O11Y_LOG_INDEX_PREFIX}{log_index}"
+                    log_index_branch = O11Y_LOG_INDEX_BUSINESS_ACTIVITIES
+                else:
+                    log_index_branch = O11Y_LOG_INDEX_DEFAULT
+                log_index = o11y_log_index(log_index_branch, dp_title, name_input)
                 self.page.fill("#log-index-input", log_index)
                 print(f"Fill Log Index: {log_index}")
 

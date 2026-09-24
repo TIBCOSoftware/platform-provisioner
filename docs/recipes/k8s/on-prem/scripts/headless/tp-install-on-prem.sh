@@ -27,6 +27,8 @@
 #   GUI_TP_TLS_CERT: (optional) the SSL Certificate in base64. If empty, a self-signed cert will be generated
 #   GUI_TP_TLS_KEY: (optional) the SSL key in base64. If empty, a self-signed cert will be generated
 #   GUI_TP_ENABLE_HYBRID_CONNECTIVITY: true to enable hybrid connectivity (use tibtunnel) for DP. Default is false, this is a new feature 1.15+. 
+#   GUI_TP_DB_ENGINE: the database engine to install and to point the CP at: postgres (default) or oracle
+#   GUI_TP_ORACLE_PASSWORD: (oracle engine only) password for the Oracle DB; the CP is pointed at the same value
 #   GUI_TP_AUTO_USE_CLI: the flag to use CLI mode for DP operations. default is true
 #   GUI_TP_AUTO_ENABLE_BWCE: the flag to enable BWCE. default follows GUI_TP_AUTO_ENABLE_DP
 #   GUI_TP_AUTO_ACTIVE_USER: activate user automatically. default is true
@@ -178,6 +180,31 @@ function customize-tp() {
   # there first, so remember what the caller actually set for the DP side to use below.
   local _gui_tp_auto_enable_bwce_requested="${GUI_TP_AUTO_ENABLE_BWCE:-}"
 
+  # DB engine: one choice drives both the infra and the CP recipe, so a headless run cannot end
+  # up with the CP pointed at an engine that was never installed. Bridged with yq below rather
+  # than exported alone, because common::export_variables exports the recipe's guiEnv values
+  # unconditionally: setting GUI_CP_DB_ENGINE in the environment is a silent no-op without it.
+  export GUI_TP_DB_ENGINE=${GUI_TP_DB_ENGINE:-"postgres"}
+  case "${GUI_TP_DB_ENGINE}" in
+    postgres|oracle) ;;
+    *)
+      echo "ERROR: GUI_TP_DB_ENGINE must be postgres or oracle, got: ${GUI_TP_DB_ENGINE}"
+      exit 1
+      ;;
+  esac
+  # The Oracle pod and the CP's Oracle connection must share one password, or the CP cannot
+  # authenticate. Both recipe defaults are "oracle"; bridge it so overriding one overrides both.
+  export GUI_TP_ORACLE_PASSWORD=${GUI_TP_ORACLE_PASSWORD:-"oracle"}
+  # GUI_TP_INSTALL_ORACLE was replaced by GUI_TP_DB_ENGINE. Refuse it rather than
+  # silently ignoring it and installing no Oracle.
+  case "${GUI_TP_INSTALL_ORACLE:-}" in
+    ""|false|False|FALSE) ;;
+    *)
+      echo "ERROR: GUI_TP_INSTALL_ORACLE is no longer supported. Use GUI_TP_DB_ENGINE=oracle."
+      exit 1
+      ;;
+  esac
+
   # Generate self-signed cert if not provided
   generate-self-signed-cert
 
@@ -190,6 +217,9 @@ function customize-tp() {
     yq eval -i '(.meta.guiEnv.GUI_TP_IS_CERT_SELF_SIGNED = env(GUI_TP_IS_CERT_SELF_SIGNED))' "$_recipe_file_name"
     # install nfs server for control tower Dataplane
     yq eval -i '(.meta.guiEnv.GUI_TP_INSTALL_NFS_SERVER_PROVISIONER = true)' "$_recipe_file_name"
+    # the database engine to install; the CP recipe below is pointed at the same one
+    yq eval -i '(.meta.guiEnv.GUI_TP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+    yq eval -i '(.meta.guiEnv.GUI_TP_ORACLE_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
     # for pulling images from for on-premises-third-party
     yq eval -i '(.meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_URL = env(GUI_CP_CONTAINER_REGISTRY))' "$_recipe_file_name"
     yq eval -i '(.meta.guiEnv.GUI_TP_CONTAINER_REGISTRY_REPOSITORY = env(GUI_CP_CONTAINER_REGISTRY_REPOSITORY))' "$_recipe_file_name"
@@ -217,6 +247,11 @@ function customize-tp() {
     yq eval -i '(.meta.guiEnv.GUI_CP_DNS_DOMAIN = env(TP_TOP_DOMAIN))' "$_recipe_file_name"
 
     yq eval -i '(.meta.guiEnv.GUI_CP_ENABLE_HYBRID_CONNECTIVITY = env(GUI_TP_ENABLE_HYBRID_CONNECTIVITY))' "$_recipe_file_name"
+
+    # the CP must point at the engine the infra recipe installed, hence the single GUI_TP_DB_ENGINE
+    yq eval -i '(.meta.guiEnv.GUI_CP_DB_ENGINE = env(GUI_TP_DB_ENGINE))' "$_recipe_file_name"
+    # and at the same Oracle credential the infra recipe created the pod with
+    yq eval -i '(.meta.guiEnv.GUI_CP_ORACLE_DB_PASSWORD = strenv(GUI_TP_ORACLE_PASSWORD))' "$_recipe_file_name"
 
     # PCP-19763: keep CP admin-init mode in lock-step with the DP automation login mode.
     # enable_api_based_initialization (this recipe) MUST equal GUI_TP_AUTO_USE_CLI (05-tp-auto-deploy-dp.yaml),
@@ -448,11 +483,15 @@ function install-tp() {
   echo "Generate recipe from latest provisioner-config-local chart..."
   ./generate-recipe.sh 1 1
 
+  # PCP-24040: `|| exit $?` because this script has no `set -e` - without it a rejected
+  # option is printed and then the deploy runs anyway, on unadjusted recipes.
+  # Only these two are guarded, and that is not a claim that the other calls in this block
+  # are safe: auditing them (probably `set -e`) is separate work.
   export TP_K8S_CLUSTER_TYPE_CODE=${TP_K8S_CLUSTER_TYPE_CODE:-""} # 1 for k3s, 2 for OpenShift, 3 for Docker Desktop
-  ./adjust-recipe.sh ${TP_K8S_CLUSTER_TYPE_CODE}
+  ./adjust-recipe.sh ${TP_K8S_CLUSTER_TYPE_CODE} || exit $?
 
   export TP_K8S_INGRESS_TYPE_CODE=${TP_K8S_INGRESS_TYPE_CODE:-"2"} # 1=nginx, 2=traefik, 3=nginx-gw-fabric, 4=haproxy, 5=istio-gw, 6=traefik-gw, 7=netscaler-gw
-  ./adjust-ingress.sh ${TP_K8S_INGRESS_TYPE_CODE}
+  ./adjust-ingress.sh ${TP_K8S_INGRESS_TYPE_CODE} || exit $?
 
   echo "Update recipe tokens..."
   echo "" | ./update-recipe-tokens.sh

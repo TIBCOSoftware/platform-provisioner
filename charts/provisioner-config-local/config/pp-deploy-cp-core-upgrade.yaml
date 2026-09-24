@@ -133,6 +133,19 @@ options:
   dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-addon-eventprocessing"
   reference: "meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION"
   description: "The version of CP platform addon eventprocessing. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-sb"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_INTEGRATION_SB"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_SB_VERSION"]
+  description: ""
+- name: "tibco-cp-sb version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-sb"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_SB_VERSION"
+  description: "The version of CP platform integration sb. Use ^1.0.0 for latest"
 - name: "Upgrade tibco-cp-ai-agent"
   groupIndex: 10
   type: boolean
@@ -159,6 +172,19 @@ options:
   dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-mcp-hub"
   reference: "meta.guiEnv.GUI_CP_PLATFORM_MCP_HUB_VERSION"
   description: "The version of CP platform MCP hub. Use ^1.0.0 for latest"
+- name: "Upgrade tibco-cp-mft"
+  groupIndex: 10
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_UPGRADE_PLATFORM_MFT"
+  enableOtherFieldsWhenSet: ["meta.guiEnv.GUI_CP_PLATFORM_MFT_VERSION"]
+  description: ""
+- name: "tibco-cp-mft version"
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-mft"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_MFT_VERSION"
+  description: "The version of CP platform MFT. Use ^1.0.0 for latest"
 recipe: |
   apiVersion: v1
   kind: helm-install
@@ -177,8 +203,10 @@ recipe: |
       GUI_CP_PLATFORM_INTEGRATION_BW_VERSION: ^1.0.0
       GUI_CP_PLATFORM_INTEGRATION_FLOGO_VERSION: ^1.0.0
       GUI_CP_PLATFORM_EVENTPROCESSING_VERSION: ^1.0.0
+      GUI_CP_PLATFORM_INTEGRATION_SB_VERSION: ^1.0.0
       GUI_CP_PLATFORM_AI_AGENT_VERSION: "~1.14.0-0"
       GUI_CP_PLATFORM_MCP_HUB_VERSION: "~1.17.0-0"
+      GUI_CP_PLATFORM_MFT_VERSION: ^1.0.0
       GUI_GITHUB_TOKEN: ""
       GUI_CP_CHART_REPO: "https://tibcosoftware.github.io/tp-helm-charts"
       GUI_CP_UPGRADE_PLATFORM_TIBCO_CP_BASE: false
@@ -188,8 +216,10 @@ recipe: |
       GUI_CP_UPGRADE_PLATFORM_INTEGRATION_BW: false
       GUI_CP_UPGRADE_PLATFORM_INTEGRATION_FLOGO: false
       GUI_CP_UPGRADE_PLATFORM_EVENTPROCESSING: false
+      GUI_CP_UPGRADE_PLATFORM_INTEGRATION_SB: false
       GUI_CP_UPGRADE_PLATFORM_AI_AGENT: false
       GUI_CP_UPGRADE_PLATFORM_MCP_HUB: false
+      GUI_CP_UPGRADE_PLATFORM_MFT: false
     globalEnvVariable:
       REPLACE_RECIPE: true
       PIPELINE_LOG_DEBUG: false
@@ -210,8 +240,10 @@ recipe: |
       CP_PLATFORM_HAWK_VERSION: ${GUI_CP_PLATFORM_HAWK_VERSION:-^1.0.0} # ^1.0.0 for latest
       CP_PLATFORM_INTEGRATION_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_VERSION:-^1.0.0} # ^1.0.0 for latest
       CP_PLATFORM_EVENTPROCESSING_VERSION: ${GUI_CP_PLATFORM_EVENTPROCESSING_VERSION:-^1.0.0} # ^1.0.0 for latest
+      CP_PLATFORM_INTEGRATION_SB_VERSION: ${GUI_CP_PLATFORM_INTEGRATION_SB_VERSION:-^1.0.0} # ^1.0.0 for latest
       CP_PLATFORM_AI_AGENT_VERSION: ${GUI_CP_PLATFORM_AI_AGENT_VERSION:-"~1.14.0-0"} # ~1.14.0-0 for latest alpha/stable
       CP_PLATFORM_MCP_HUB_VERSION: ${GUI_CP_PLATFORM_MCP_HUB_VERSION:-"~1.17.0-0"} # ~1.17.0-0 for latest alpha/stable
+      CP_PLATFORM_MFT_VERSION: ${GUI_CP_PLATFORM_MFT_VERSION:-^1.0.0} # ^1.0.0 for latest
       # flow control
       CP_UPGRADE_PLATFORM_TIBCO_CP_BASE: ${GUI_CP_UPGRADE_PLATFORM_TIBCO_CP_BASE:-false}
       CP_UPGRADE_PLATFORM_INTEGRATION_BW: ${GUI_CP_UPGRADE_PLATFORM_INTEGRATION_BW:-false}
@@ -220,8 +252,10 @@ recipe: |
       CP_UPGRADE_PLATFORM_MESSAGING: ${GUI_CP_UPGRADE_PLATFORM_MESSAGING:-false}
       CP_UPGRADE_PLATFORM_HAWK: ${GUI_CP_UPGRADE_PLATFORM_HAWK:-false}
       CP_UPGRADE_PLATFORM_EVENTPROCESSING: ${GUI_CP_UPGRADE_PLATFORM_EVENTPROCESSING:-false}
+      CP_UPGRADE_PLATFORM_INTEGRATION_SB: ${GUI_CP_UPGRADE_PLATFORM_INTEGRATION_SB:-false}
       CP_UPGRADE_PLATFORM_AI_AGENT: ${GUI_CP_UPGRADE_PLATFORM_AI_AGENT:-false}
       CP_UPGRADE_PLATFORM_MCP_HUB: ${GUI_CP_UPGRADE_PLATFORM_MCP_HUB:-false}
+      CP_UPGRADE_PLATFORM_MFT: ${GUI_CP_UPGRADE_PLATFORM_MFT:-false}
     tools:
       yq: "4.40"
   helmCharts:
@@ -365,6 +399,27 @@ recipe: |
     flags:
       wait: true
       timeout: 1h
+  - name: tibco-cp-sb
+    version: ${CP_PLATFORM_INTEGRATION_SB_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_INTEGRATION_SB}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-sb
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+      createNamespace: ${CP_CREATE_NAMESPACE}
   - name: tibco-cp-ai-agent
     version: ${CP_PLATFORM_AI_AGENT_VERSION}
     condition: ${CP_UPGRADE_PLATFORM_AI_AGENT}
@@ -401,6 +456,26 @@ recipe: |
       names:
         - ${CP_CLUSTER_NAME}
     releaseName: tibco-cp-mcp-hub
+    namespace: ${CP_NAMESPACE}
+    flags:
+      wait: true
+      timeout: 1h
+  - name: tibco-cp-mft
+    version: ${CP_PLATFORM_MFT_VERSION}
+    condition: ${CP_UPGRADE_PLATFORM_MFT}
+    repo:
+      helm:
+        url: ${CP_CHART_REPO}
+        username: "${CP_CHART_REPO_USER_NAME}"
+        password: "${CP_CHART_REPO_TOKEN}"
+    values:
+      keepPrevious: true
+      content: |
+        dummy: "dummy"
+    cluster:
+      names:
+        - ${CP_CLUSTER_NAME}
+    releaseName: tibco-cp-mft
     namespace: ${CP_NAMESPACE}
     flags:
       wait: true

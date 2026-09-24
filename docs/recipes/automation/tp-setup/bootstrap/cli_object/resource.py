@@ -437,8 +437,9 @@ class TibcopResource:
         here so callers can use the unified `cli.resource.*` namespace.
 
         Args:
-            target: 'global' for SUBSCRIPTION-scope, or a DataPlane id/name
-                    for DP-scoped creation.
+            target: must be 'global'. Only the Global (SUBSCRIPTION) scope is
+                    supported — a data plane is SWITCHED to the Global resource,
+                    never given its own set (PCP-23553). Anything else raises.
 
         Returns:
             Result dict from OllyApi.create_o11y_resources, or None on error.

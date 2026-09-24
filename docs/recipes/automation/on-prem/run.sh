@@ -22,7 +22,8 @@
 #   TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT: the retry count for deploying CP subscription
 #   PIPELINE_SCRIPT: the pipeline script
 # Arguments:
-#   1 - 9: the choice of the deployment combination
+#   0 - 8: the choice of the deployment combination. Any other non-empty value is rejected
+#          with exit 1; no argument at all (or an empty one) opens the interactive menu.
 # Returns:
 #   None
 # Notes:
@@ -81,6 +82,16 @@ function post-deploy-adjust-dns(){
   export PIPELINE_DOCKER_IMAGE="${PIPELINE_DOCKER_IMAGE_RUNNER}"
   export PIPELINE_INPUT_RECIPE="${CURRENT_PATH}/${_recipe_file_name}"
   bash -c "${PIPELINE_SCRIPT}"
+}
+
+# ensure-dns runs the CoreDNS rewrite and aborts if it fails. Continuing without it does
+# not degrade a CP deploy, it deadlocks it: helm blocks on --wait for a full hour and then
+# reports the real cause an hour upstream in the log (PCP-23809).
+function ensure-dns() {
+  if ! post-deploy-adjust-dns; then
+    echo "Failed to adjust DNS (the CoreDNS rewrite). A CP deploy deadlocks without it."
+    exit 1
+  fi
 }
 
 # post-deploy-cleanup-resource cleans up resources
@@ -181,7 +192,7 @@ function main() {
   # runner image
   export PIPELINE_DOCKER_IMAGE_RUNNER=${PIPELINE_DOCKER_IMAGE_RUNNER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.0-on-prem"}
   # tester image
-  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.4-tester-on-prem-jammy"}
+  export PIPELINE_DOCKER_IMAGE_TESTER=${PIPELINE_DOCKER_IMAGE_TESTER:-"ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner:1.7.5-tester-on-prem-jammy"}
 
   if [[ -f 05-tp-auto-deploy-dp.yaml ]]; then
     _IS_LOCAL_AUTOMATION=$(yq eval '.meta.guiEnv.GUI_TP_AUTO_USE_LOCAL_SCRIPT' 05-tp-auto-deploy-dp.yaml)
@@ -224,6 +235,7 @@ function main() {
           echo "Failed to deploy on-prem-base cluster."
           exit 1
         fi
+        ensure-dns # dns adjustment: ingress is up, configure CoreDNS now
         if [[ ${TP_AUTO_ENABLE_BMDP} == "true" ]]; then
           echo "BMDP is enabled; deploy classic BW5"
           deploy-tp-bw5-stack # 8
@@ -246,14 +258,18 @@ function main() {
           exit 1
         fi
         echo "Finish deploy TP in $(($(date +%s) - start_time)) seconds"
-        post-deploy-adjust-dns # dns adjustment
         post-deploy-cleanup-resource # 6
 
         echo "Wait for 30 seconds before deploying CP subscription..."
         sleep 30
 
         # run with retry for # 4
-        run-with-retry deploy-subscription "${TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT}"
+        # `break` resets $? and the closing printf sets the exit code, so leaving this
+        # unchecked made `./run.sh 1` report success after every retry failed.
+        if ! run-with-retry deploy-subscription "${TP_SUBSCRIPTION_DEPLOY_RETRY_COUNT}"; then
+          echo "Failed to deploy CP subscription."
+          exit 1
+        fi
 
         end_time=$(date +%s)
         total_time=$((end_time - start_time))
@@ -267,7 +283,22 @@ function main() {
         ;;
       3)
         echo "Deploying platform-bootstrap and platform-base..."
-        deploy-tp
+        # Option 3 deploys the CP on its own, so the documented `./run.sh 2` then
+        # `./run.sh 3` flow needs the same DNS prerequisite option 1 got in #427.
+        # Warn rather than abort when 03 is absent: workspaces generated before
+        # generate-recipe.sh option 2 started emitting it have only 02.
+        if [[ -f "${CURRENT_PATH}/03-tp-adjust-dns.yaml" ]]; then
+          ensure-dns
+        else
+          echo "WARNING: 03-tp-adjust-dns.yaml not found - skipping the CoreDNS rewrite."
+          echo "  Without it the CP deploy below blocks on 'helm --wait' for 1h (PCP-23809)."
+          echo "  To get the recipe: ./generate-recipe.sh <source> 2"
+        fi
+        # Not bare: `break` resets $?, so a failed CP deploy would report success.
+        if ! deploy-tp; then
+          echo "Failed to deploy CP."
+          exit 1
+        fi
         break
         ;;
       4)
@@ -301,7 +332,10 @@ function main() {
         break
         ;;
       *)
-        echo "Invalid option. Please try again."
+        # PCP-24040: exit, not break - a break lets the closing printf set the exit code,
+        # so a rejected option would report success.
+        echo "Invalid or missing option: '${choice}' - aborting." >&2
+        exit 1
         ;;
     esac
   done

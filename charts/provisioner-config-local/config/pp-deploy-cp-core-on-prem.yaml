@@ -62,8 +62,13 @@ groups:
 - title: "CP Database"
   index: 8
   description: |
-    ## CP DB specific configurations. 
-    > We use PostgreSQL Pod by default.
+    ## CP DB specific configurations.
+    > Pick the DB engine first. `postgres` (default) is unchanged and points at the
+    > PostgreSQL pod. `oracle` points the Control Plane at the in-cluster Oracle pod
+    > deployed by the on-prem base pipeline; it must be the SAME engine you chose there.
+    > Oracle schema management requires a tibco-cp-base whose core-cp-scripts image carries
+    > an Oracle client. On an older chart, turn off "CP Manage DB Schema" and populate the
+    > schema out of band.
     ---
 - title: "CP E-mail"
   index: 9
@@ -222,6 +227,13 @@ options:
   dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-addon-eventprocessing"
   reference: "meta.guiEnv.GUI_CP_PLATFORM_EVENTPROCESSING_VERSION"
   description: "The version of CP platform addon eventprocessing. Use ^1.0.0 for latest"
+- name: "tibco-cp-sb version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-sb"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_INTEGRATION_SB_VERSION"
+  description: "The version of CP platform spring boot. Use ^1.0.0 for latest"
 - name: "tibco-cp-ai-agent version"
   groupIndex: 5
   type: string
@@ -236,6 +248,13 @@ options:
   dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-mcp-hub"
   reference: "meta.guiEnv.GUI_CP_PLATFORM_MCP_HUB_VERSION"
   description: "The version of CP platform MCP hub. Use ^1.0.0 for latest"
+- name: "tibco-cp-mft version"
+  groupIndex: 5
+  type: string
+  guiType: autocomplete
+  dataSourceUrl: "/cic2-ws/v1/helm-chart-version?chartName=tibco-cp-mft"
+  reference: "meta.guiEnv.GUI_CP_PLATFORM_MFT_VERSION"
+  description: "The version of CP platform MFT. Use ^1.0.0 for latest"
 - name: "CP instance ID"
   groupIndex: 5
   type: string
@@ -430,6 +449,57 @@ options:
     Pre-create PVC name
 
 # groupIndex: 8 CP DB
+- name: "CP DB engine"
+  groupIndex: 8
+  type: string
+  labels:
+    - "postgres"
+    - "oracle"
+  values:
+    - "postgres"
+    - "oracle"
+  guiType: radio
+  reference: "meta.guiEnv.GUI_CP_DB_ENGINE"
+  description: |
+    The database engine the Control Plane connects to. Must match the engine selected in
+    the on-prem base pipeline. When set to `oracle`, the Control Plane's own connection uses
+    the in-cluster Oracle service (`oracle.tibco-ext.svc.cluster.local`, port 1521, PDB
+    `FREEPDB1`, user `system`) instead of the fields below.
+    The fields below keep describing the PostgreSQL pod on BOTH engines, because Keycloak
+    and langfuse still use PostgreSQL whatever the Control Plane uses - so leave them
+    pointing at PostgreSQL, do not repoint them at Oracle.
+- name: "CP DB driver"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_DB_DRIVER"
+  description: |
+    The database/sql driver name the Control Plane opens its connection with. Leave empty:
+    it follows the engine above, so postgres selects the `postgres` driver and oracle selects
+    the `oracle` driver, which are the names those two drivers register under.
+    Set it only to choose a DIFFERENT registered driver for the SAME engine - for example
+    `pgx` instead of `postgres`. It does not switch engines; the engine is the field above,
+    and a driver that disagrees with it will fail to connect.
+
+- name: "CP Oracle DB user name"
+  groupIndex: 8
+  type: string
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_ORACLE_DB_USER_NAME"
+  description: |
+    Only used when the DB engine is `oracle`. Defaults to `system`, which is a DBA
+    account and is the only account the Free image ships. Point this at a
+    least-privileged schema owner for anything beyond a test environment.
+- name: "CP Oracle DB password"
+  groupIndex: 8
+  type: password
+  guiType: input
+  reference: "meta.guiEnv.GUI_CP_ORACLE_DB_PASSWORD"
+  description: |
+    Only used when the DB engine is `oracle`. Must match the Oracle password set in the
+    on-prem base pipeline ("Oracle password"), otherwise the Control Plane cannot
+    authenticate and the install stalls until the chart timeout. Leave as-is if you did
+    not change it there.
 - name: "CP DB host"
   groupIndex: 8
   type: string
@@ -437,35 +507,36 @@ options:
   reference: "meta.guiEnv.GUI_CP_DB_HOST"
   required: true
   description: |
-    The DB host name. If you provisioner postgres pod; you can use "postgresql.tibco-ext.svc.cluster.local". If you create RDS; you need to use the RDS endpoint.
+    The DB host name. If you provisioner postgres pod; you can use "postgresql.tibco-ext.svc.cluster.local". If you create RDS; you need to use the RDS endpoint. When the DB engine is oracle this stays the PostgreSQL host, used by Keycloak and langfuse.
 - name: "CP DB port"
   groupIndex: 8
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_DB_PORT"
   required: true
-  description: "The DB port number. The default value is 5432"
+  description: "The DB port number. The default value is 5432. When the DB engine is oracle this stays the PostgreSQL port; the Control Plane itself uses 1521."
 - name: "CP DB user name"
   groupIndex: 8
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_DB_USER_NAME"
   description: |
-    The DB user name. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master user name.
+    The DB user name. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master user name. Ignored when the DB engine is oracle (`system` is used).
 - name: "CP DB password"
   groupIndex: 8
   type: password
   guiType: input
   reference: "meta.guiEnv.GUI_CP_DB_PASSWORD"
   description: |
-    The DB password. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master password.
+    The DB password. If you provisioner postgres pod; you can use "postgres". If you create RDS; you need to use the RDS master password. For the oracle engine, use the Oracle password from the base pipeline.
 - name: "CP DB name"
   groupIndex: 8
   type: string
   guiType: input
   reference: "meta.guiEnv.GUI_CP_DB_NAME"
   description: |
-    The Database name
+    The Database name. When the DB engine is oracle the Control Plane uses the `FREEPDB1`
+    PDB instead; this stays the PostgreSQL database name.
 - name: "CP DB secret name"
   groupIndex: 8
   type: string
@@ -483,6 +554,7 @@ options:
     Set to true to allow the CP installation create/manage DB schema. 
     Default is true. If set to false then the DB schema population will be handled out of the box.
     Please refer to the github repo script for more information: <a href='https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/scripts/database/postgres-helper.bash' target='_blank'>link</a>
+    Not yet supported with the oracle engine; set to false and populate the schema out of band.
 - name: "CP DB ssl mode"
   groupIndex: 8
   type: string
@@ -705,6 +777,12 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_EVENTPROCESSING"
   description: "Install platform addon eventprocessing"
+- name: "Install tibco-cp-sb"
+  groupIndex: 11
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_INTEGRATION_SB"
+  description: "Install platform spring boot"
 - name: "Install tibco-cp-ai-agent"
   groupIndex: 11
   type: boolean
@@ -717,6 +795,12 @@ options:
   guiType: checkbox
   reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_MCP_HUB"
   description: "Install platform MCP hub"
+- name: "Install tibco-cp-mft"
+  groupIndex: 11
+  type: boolean
+  guiType: checkbox
+  reference: "meta.guiEnv.GUI_CP_INSTALL_PLATFORM_MFT"
+  description: "Install platform MFT"
 - name: "Install Keycloak IdP"
   groupIndex: 11
   type: boolean

@@ -141,6 +141,11 @@ class EnvConfig:
 
     # CLI mode: when true, use tibcop CLI instead of GUI (Playwright) for DP operations
     TP_AUTO_USE_CLI = os.environ.get("TP_AUTO_USE_CLI", "false").lower() == "true"
+    # PCP-23839: read timeout (seconds) for the pure-API admin bootstrap (api_object.ApiAuth).
+    # Those calls run right after the CP helm phase, while the CP is still warming up, so the
+    # old hard-coded 30s was too tight. A timeout between /init and the OAuth-client
+    # registration loses the single-use IAT that the non-idempotent /init returns.
+    TP_AUTO_API_TIMEOUT = int(os.environ.get("TP_AUTO_API_TIMEOUT") or 120)
 
     # automation setup
     TP_AUTO_CP_VERSION = os.environ.get("TP_AUTO_CP_VERSION") or Helper.get_cp_version() or ""
@@ -267,6 +272,12 @@ class EnvConfig:
 
     # capabilities url
     TP_AUTO_EMS_CAPABILITY_SERVER_NAME = os.environ.get("TP_AUTO_EMS_CAPABILITY_SERVER_NAME") or "ems-sn"
+    # Only the CLI path reads this (PCP-24380): the fresco wizard pre-selects 'Small' and the
+    # automation accepts that rather than clicking it, so there is nothing for the GUI path to
+    # apply it to. 'small' keeps the two paths producing the same server. Validated against
+    # cli_object.capability.EMS_SIZINGS before the command is built - tibcop takes the flag as
+    # free text and a bad value only fails later, in the DP-side Helm render.
+    TP_AUTO_EMS_CAPABILITY_SIZING = os.environ.get("TP_AUTO_EMS_CAPABILITY_SIZING") or "small"
     TP_AUTO_PULSAR_CAPABILITY_SERVER_NAME = os.environ.get("TP_AUTO_PULSAR_CAPABILITY_SERVER_NAME") or "pulsar-sn"
     TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME = os.environ.get("TP_AUTO_TIBCOHUB_CAPABILITY_HUB_NAME") or "tibco-hub"
 

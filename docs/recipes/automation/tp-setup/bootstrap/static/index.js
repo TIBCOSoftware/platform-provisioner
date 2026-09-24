@@ -287,6 +287,11 @@ async function runCliScript(currentElement) {
     TIBCOP_CLI_APP_ID: document.getElementById("TIBCOP_CLI_APP_ID").value,
     TIBCOP_CLI_STORAGE_RESOURCE_ID: document.getElementById("TIBCOP_CLI_STORAGE_RESOURCE_ID").value,
     TIBCOP_CLI_INGRESS_RESOURCE_ID: document.getElementById("TIBCOP_CLI_INGRESS_RESOURCE_ID").value,
+    TIBCOP_CLI_MSG_DATA_RESOURCE_ID: document.getElementById("TIBCOP_CLI_MSG_DATA_RESOURCE_ID").value,
+    TIBCOP_CLI_LOG_DATA_RESOURCE_ID: document.getElementById("TIBCOP_CLI_LOG_DATA_RESOURCE_ID").value,
+    TIBCOP_CLI_EMS_NAME: document.getElementById("TIBCOP_CLI_EMS_NAME").value,
+    TIBCOP_CLI_EMS_SIZING: document.getElementById("TIBCOP_CLI_EMS_SIZING").value,
+    TIBCOP_CLI_EMS_USE: document.getElementById("TIBCOP_CLI_EMS_USE").value,
     TIBCOP_CLI_DEVHUB_NAME: document.getElementById("TIBCOP_CLI_DEVHUB_NAME").value,
     TIBCOP_CLI_K8S_SECRET: document.getElementById("TIBCOP_CLI_K8S_SECRET").value,
     TIBCOP_CLI_RESOURCE_NAME: document.getElementById("TIBCOP_CLI_RESOURCE_NAME").value,
@@ -566,6 +571,11 @@ function handleFieldsAction() {
       '.TIBCOP_CLI_APP_ID',
       '.TIBCOP_CLI_STORAGE_RESOURCE_ID',
       '.TIBCOP_CLI_INGRESS_RESOURCE_ID',
+      '.TIBCOP_CLI_MSG_DATA_RESOURCE_ID',
+      '.TIBCOP_CLI_LOG_DATA_RESOURCE_ID',
+      '.TIBCOP_CLI_EMS_NAME',
+      '.TIBCOP_CLI_EMS_SIZING',
+      '.TIBCOP_CLI_EMS_USE',
       '.TIBCOP_CLI_DEVHUB_NAME',
       '.TIBCOP_CLI_K8S_SECRET',
       '.TIBCOP_CLI_RESOURCE_NAME',
@@ -646,6 +656,14 @@ function handleFieldsAction() {
         'Upload the activation license .zip (the .bin is extracted automatically)',
         'Upload the activation license .zip'
       );
+    }
+
+    // Show fields for create-o11y-resources operation
+    // No extra fields: it needs only CP URL, token and (optionally) DataPlane Name, all of
+    // which are always visible. Leaving DataPlane Name empty creates the Global
+    // observability resources alone; filling it also links that data plane to them.
+    if (selectedValue === "create-o11y-resources") {
+
     }
 
     // Show fields for delete-resource-instance operation
@@ -793,6 +811,11 @@ function handleFieldsAction() {
     toggleField([
       '.TIBCOP_CLI_STORAGE_RESOURCE_ID',
       '.TIBCOP_CLI_INGRESS_RESOURCE_ID',
+      '.TIBCOP_CLI_MSG_DATA_RESOURCE_ID',
+      '.TIBCOP_CLI_LOG_DATA_RESOURCE_ID',
+      '.TIBCOP_CLI_EMS_NAME',
+      '.TIBCOP_CLI_EMS_SIZING',
+      '.TIBCOP_CLI_EMS_USE',
       '.TIBCOP_CLI_DEVHUB_NAME',
       '.TIBCOP_CLI_K8S_SECRET'
     ], false);
@@ -804,6 +827,18 @@ function handleFieldsAction() {
         '.TIBCOP_CLI_INGRESS_RESOURCE_ID',
         '.TIBCOP_CLI_DEVHUB_NAME',
         '.TIBCOP_CLI_K8S_SECRET'
+      ], true);
+    } else if (capability === "EMS") {
+      // EMS-specific fields (PCP-24380). Note what is NOT here: Storage Resource ID and
+      // Ingress Resource ID. EMS binds two DATA resources and takes no route at all, and
+      // the CLI layer drops those two ids for EMS rather than forwarding them, so showing
+      // them would offer a setting that does nothing.
+      toggleField([
+        '.TIBCOP_CLI_MSG_DATA_RESOURCE_ID',
+        '.TIBCOP_CLI_LOG_DATA_RESOURCE_ID',
+        '.TIBCOP_CLI_EMS_NAME',
+        '.TIBCOP_CLI_EMS_SIZING',
+        '.TIBCOP_CLI_EMS_USE'
       ], true);
     } else if (capability === "BWCE" || capability === "BW5CE" || capability === "FLOGO") {
       // Show BWCE/BW5CE/FLOGO-specific fields

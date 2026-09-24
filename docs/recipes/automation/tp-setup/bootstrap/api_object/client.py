@@ -35,9 +35,13 @@ class ConsoleApiClient:
         self.session.verify = verify
         self.timeout = timeout
 
-    def _request(self, method, path, **kwargs):
+    def _request(self, method, path, timeout=None, **kwargs):
         url = self.base_url + path
-        r = self.session.request(method, url, timeout=self.timeout, **kwargs)
+        # Per-call timeout override: most CP calls answer in well under the 30 s
+        # default, but capability re-provisioning (`/cp/v1/switch`) is synchronous and
+        # takes 12-19 s of real work, so it asks for a wider budget rather than making
+        # every other call wait that long before failing.
+        r = self.session.request(method, url, timeout=timeout or self.timeout, **kwargs)
         if r.status_code >= 400:
             raise ConsoleApiError(method, url, r.status_code, r.text)
         if not r.content:
@@ -53,8 +57,8 @@ class ConsoleApiClient:
     def post(self, path, payload):
         return self._request("POST", path, data=json.dumps(payload))
 
-    def put(self, path, payload):
-        return self._request("PUT", path, data=json.dumps(payload))
+    def put(self, path, payload, timeout=None):
+        return self._request("PUT", path, data=json.dumps(payload), timeout=timeout)
 
     def delete(self, path):
         return self._request("DELETE", path)

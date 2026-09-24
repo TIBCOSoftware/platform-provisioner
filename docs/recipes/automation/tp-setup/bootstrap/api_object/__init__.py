@@ -17,6 +17,7 @@
 
 from api_object.client import ConsoleApiClient, ConsoleApiError
 from api_object.resources import OllyApi, LicenseApi
+from api_object.o11y_console import O11yConsoleApi, O11yConsoleError, O11yDataPlaneUnreachable
 from api_object.call_cp_rest_api import CpRestApi
 from api_object.get_capability_version import CapabilityVersionApi
 from api_object.test_app_endpoint import AppEndpointApi
@@ -30,6 +31,9 @@ __all__ = [
     "ConsoleApiClient",
     "ConsoleApiError",
     "OllyApi",
+    "O11yConsoleApi",
+    "O11yConsoleError",
+    "O11yDataPlaneUnreachable",
     "LicenseApi",
     "CpRestApi",
     "CapabilityVersionApi",

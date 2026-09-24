@@ -495,7 +495,7 @@ tasks:
           enabled: true
           image:
             repository: maildev/maildev
-            tag: latest
+            tag: "3.0.0-rc.1"
           args: ["-s", "1025", "-w", "1080"]
           ports:
             http:

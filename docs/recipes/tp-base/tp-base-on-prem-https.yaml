@@ -97,14 +97,17 @@ meta:
 helmCharts:
 - condition: ${TP_INSTALL_CERT_MANAGER}
   name: cert-manager
-  version: v1.17.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.21.2 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
   values:
     keepPrevious: true
     content: |
-      installCRDs: true
+      installCRDs: false # keep false: keepPrevious may replay a legacy installCRDs=true, which conflicts with crds.enabled (cert-manager v1.21.2 fails on both)
+      crds:
+        enabled: true
+        keep: true
       serviceAccount:
         create: true
         name: cert-manager
@@ -404,7 +407,7 @@ helmCharts:
         enabled: true
         image:
           repository: ghcr.io/tibcosoftware/platform-provisioner/platform-provisioner
-          tag: 1.7.83-auto-on-prem-jammy
+          tag: 1.7.95-auto-on-prem-jammy
         ports:
           http:
             enabled: true

@@ -177,14 +177,17 @@ preTasks:
 helmCharts:
 - name: cert-manager
   condition: ${TP_INSTALL_CERT_MANAGER}
-  version: v1.17.1 # release: https://github.com/cert-manager/cert-manager/releases
+  version: v1.21.2 # release: https://github.com/cert-manager/cert-manager/releases
   repo:
     helm:
       url: https://charts.jetstack.io
   values:
     keepPrevious: true
     content: |
-      installCRDs: true
+      installCRDs: false # keep false: keepPrevious may replay a legacy installCRDs=true, which conflicts with crds.enabled (cert-manager v1.21.2 fails on both)
+      crds:
+        enabled: true
+        keep: true
       podLabels:
         azure.workload.identity/use: "true"
       serviceAccount:
@@ -202,13 +205,14 @@ helmCharts:
     labels: "layer=0"
 - name: external-dns
   condition: ${TP_INSTALL_EXTERNAL_DNS}
-  version: 1.15.2 # release: https://github.com/kubernetes-sigs/external-dns/releases
+  version: 1.22.0 # release: https://github.com/kubernetes-sigs/external-dns/releases
   repo:
     helm:
       url: https://kubernetes-sigs.github.io/external-dns/
   values:
     keepPrevious: true
     content: |
+      policy: upsert-only # required since chart 1.22.0; upsert-only preserves prior (implicit) default behavior
       provider: azure
       domainFilters:
         - ${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}   # must be the sandbox domain as we create DNS zone for this
@@ -308,7 +312,7 @@ helmCharts:
           service:
             type: LoadBalancer # use NLB for nginx, set to ClusterIP when using ALB
             annotations:
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
               service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
             enableHttp: false # disable http 80 port on service and NLB
           config:
@@ -321,7 +325,7 @@ helmCharts:
         service:
           type: LoadBalancer # use NLB for Traefik, set to ClusterIP when using ALB
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
             service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
         ingressRoute: # for dashboard
           dashboard:
@@ -359,7 +363,7 @@ helmCharts:
           service:
             type: LoadBalancer # use NLB for nginx, set to ClusterIP when using ALB
             annotations:
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
               service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
             enableHttp: false # disable http 80 port on service and NLB
           config:
@@ -453,7 +457,7 @@ helmCharts:
           infrastructure:
             annotations:
               service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "/healthz"
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
           listeners:
           - allowedRoutes:
               namespaces:
@@ -566,7 +570,7 @@ helmCharts:
           infrastructure:
             annotations:
               service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "/healthz"
-              external-dns.alpha.kubernetes.io/hostname: "*.${TP_DOMAIN}"
+              external-dns.kubernetes.io/hostname: "*.${TP_DOMAIN}"
           listeners:
           - name: https
             hostname: "*.${TP_DOMAIN}"
@@ -653,7 +657,7 @@ helmCharts:
         proxy:
           type: LoadBalancer
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: "*.${TP_SECONDARY_DOMAIN}"
+            external-dns.kubernetes.io/hostname: "*.${TP_SECONDARY_DOMAIN}"
             service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
           tls:
             enabled: true

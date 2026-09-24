@@ -19,6 +19,7 @@
 # dashboards and bulk-add cards (PCP-20053). On older CP versions without it,
 # fall back to the legacy widget flow (add a few cards to the Default dashboard).
 
+import os
 from pathlib import Path
 
 from utils.report import ReportYaml
@@ -35,6 +36,81 @@ from o11y_dashboard_config import (
 )
 
 
+def is_force_run():
+    """Whether an existing dashboard should be DELETED and rebuilt.
+
+    Honours FORCE_RUN_AUTOMATION (AC10), but reads TP_AUTO_O11Y_FORCE_REBUILD_DASHBOARD first
+    when it is set, so the destructive behaviour can be steered on its own.
+    FORCE_RUN_AUTOMATION is a GLOBAL switch - a checkbox in the Hub UI, an MCP tool parameter,
+    and the app-rebuild flag in three case/k8s_create_and_start_*_app.py - whose meaning so far
+    has been 'redo the app create/start'. Someone ticking it to force a Flogo rebuild should
+    have a way to say 'but leave my dashboards alone'.
+
+    Read at call time, not import time, so a caller can set it per run.
+    """
+    override = os.environ.get("TP_AUTO_O11Y_FORCE_REBUILD_DASHBOARD", "").strip().lower()
+    if override:
+        # Accept the usual truthy spellings here, not just "true". This flag can CANCEL a
+        # rebuild, so reading an intended-yes value like "1" as false would do the opposite of
+        # what the person setting it asked for - silently.
+        return override in ("true", "1", "yes", "on")
+    return os.environ.get("FORCE_RUN_AUTOMATION", "false").strip().lower() == "true"
+
+
+def should_build_dashboard(po_o11y, name, existed=None):
+    """Whether the caller should go on to create `name`.
+
+    `existed` lets a caller that has already read the dropdown pass the answer in; opening it
+    is the flakiest and slowest control in this flow, so it is not worth reading twice.
+
+    Default: an existing dashboard is left alone (unchanged behaviour). Under the force flag it
+    is deleted first so the create path runs again - without that switch, once a dashboard
+    existed on an instance the code that builds it could never execute there again, which is
+    what let a wrong root cause survive a 'passing' re-run and left a half-built dashboard with
+    no way to self-heal (PCP-24228).
+
+    A delete that fails skips the rebuild rather than calling create_dashboard on a name that is
+    still taken (which only re-opens the dialog with an inline error).
+    """
+    if existed is None:
+        existed = po_o11y.is_dashboard_exists(name)
+    if not existed:
+        return True
+    if not is_force_run():
+        ColorLogger.warning(f"Dashboard '{name}' already exists; skip creation")
+        return False
+    print(f"Force rebuild is on; deleting existing dashboard '{name}' to rebuild it")
+    if not po_o11y.delete_dashboard(name):
+        # delete_dashboard already logged the specific reason and took the screenshot.
+        ColorLogger.warning(f"Could not delete existing dashboard '{name}'; skip rebuilding it")
+        return False
+    return True
+
+
+def ensure_dashboard(po_o11y, name):
+    """Gate + create, shared by every step that builds a dashboard. Returns True when `name`
+    exists and is ready for cards.
+
+    Exists so the create-failure message can tell the two cases apart. Under a force rebuild the
+    dashboard is DELETED first, so a create that then fails leaves the instance with no `name`
+    dashboard at all - a materially worse outcome than the 'skip and leave alone' default, and
+    one the generic 'Failed to create' line gave no hint of.
+    """
+    existed = po_o11y.is_dashboard_exists(name)
+    if not should_build_dashboard(po_o11y, name, existed):
+        return False
+    if po_o11y.create_dashboard(name):
+        return True
+    if existed:
+        Util.warning_screenshot(
+            f"Dashboard '{name}' was DELETED for a force rebuild and could not be recreated - "
+            f"this instance now has NO '{name}' dashboard. Re-run to rebuild it.",
+            po_o11y.page, f"o11y-rebuild-lost-{name}.png")
+    else:
+        Util.warning_screenshot(f"Failed to create dashboard '{name}'", po_o11y.page, f"o11y-create-{name}.png")
+    return False
+
+
 def configure_default_dashboard(po_o11y):
     """Step 1: reset the Default dashboard. Reset Layout restores the system-default
     Default dashboard, which is already populated with all Integration General
@@ -47,11 +123,7 @@ def configure_default_dashboard(po_o11y):
 def configure_logs_dashboard(po_o11y):
     """Step 2: create logs_dashboard and add the log cards."""
     print(f"===== Step 2: configure '{LOG_DASHBOARD_NAME}' dashboard =====")
-    if po_o11y.is_dashboard_exists(LOG_DASHBOARD_NAME):
-        ColorLogger.warning(f"Dashboard '{LOG_DASHBOARD_NAME}' already exists; skip creation")
-        return
-    if not po_o11y.create_dashboard(LOG_DASHBOARD_NAME):
-        Util.warning_screenshot(f"Failed to create '{LOG_DASHBOARD_NAME}'", po_o11y.page, f"o11y-create-{LOG_DASHBOARD_NAME}.png")
+    if not ensure_dashboard(po_o11y, LOG_DASHBOARD_NAME):
         return
     log_cards = list(LOG_CARDS)
     if po_o11y.is_catalog_card_available("Logs", None, "Audit History"):
@@ -70,11 +142,7 @@ def configure_capability_dashboards(po_o11y, labels):
         if capability not in labels:
             ColorLogger.warning(f"Capability '{capability}' not installed; skip dashboard '{name}'")
             continue
-        if po_o11y.is_dashboard_exists(name):
-            ColorLogger.warning(f"Dashboard '{name}' already exists; skip creation")
-            continue
-        if not po_o11y.create_dashboard(name):
-            Util.warning_screenshot(f"Failed to create dashboard '{name}'", po_o11y.page, f"o11y-create-{name}.png")
+        if not ensure_dashboard(po_o11y, name):
             continue
         for level2_menu, cards in spec["groups"]:
             po_o11y.add_widgets(capability, level2_menu, cards)
@@ -90,16 +158,29 @@ def configure_promql_dashboard(po_o11y, labels):
     if capability not in labels:
         ColorLogger.warning(f"Capability '{capability}' not installed; skip dashboard '{name}'")
         return
-    if po_o11y.is_dashboard_exists(name):
-        ColorLogger.warning(f"Dashboard '{name}' already exists; skip creation")
+    if not ensure_dashboard(po_o11y, name):
         return
-    if not po_o11y.create_dashboard(name):
-        Util.warning_screenshot(f"Failed to create dashboard '{name}'", po_o11y.page, f"o11y-create-{name}.png")
-        return
+    # Tally what actually landed. This is the dashboard the defect emptied out, and the run
+    # exits 0 either way, so without a count at the end a future selector hop is just a green
+    # pipeline and 5 missing cards that only a screenshot would reveal.
+    # "complete" rather than "added" on purpose: an instant card that was applied but could not
+    # be RENAMED is physically on the dashboard, so calling it not-added would misreport what is
+    # there. It is still a failure - every instant card comes from the same catalog entry, so
+    # without the rename the dashboard shows five identical titles and the one thing it exists
+    # to show is gone.
+    expected, complete = 0, 0
     for card_name, query in spec["range_cards"]:
-        po_o11y.add_promql_widget(capability, submenu, card_name, query)
+        expected += 1
+        complete += 1 if po_o11y.add_promql_widget(capability, submenu, card_name, query) else 0
     for card_name, query, chart_type, title in spec["instant_cards"]:
-        po_o11y.add_promql_instant_widget(capability, submenu, card_name, query, chart_type, title)
+        expected += 1
+        complete += 1 if po_o11y.add_promql_instant_widget(capability, submenu, card_name, query, chart_type, title) else 0
+    if complete < expected:
+        Util.warning_screenshot(
+            f"Dashboard '{name}': only {complete} of {expected} cards are complete "
+            f"(added and correctly named)", po_o11y.page, f"o11y-{name}-incomplete.png")
+    else:
+        ColorLogger.success(f"Dashboard '{name}': all {expected} cards complete (added and correctly named)")
 
 
 def configure_dashboards(po_o11y):

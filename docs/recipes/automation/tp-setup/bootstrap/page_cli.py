@@ -16,19 +16,22 @@
 # CLI-based DP deployment orchestrator.
 #
 # This script mirrors the workflow of page_dp.py but uses the tibcop CLI
-# for DP operations instead of GUI (Playwright) automation where possible.
+# for DP operations instead of GUI (Playwright) automation.
 #
-# Steps that use GUI (Playwright): EMS capability provisioning, all O11Y resource
-#   configuration — Global resource creation plus switching the k8s DP and the BMDP to
-#   it (see O11Y_CONFIG_VIA_UI)
+# Steps that use GUI (Playwright): NONE. CLI mode is browser-free (PCP-24380).
+#   O11Y stopped being one when the Console API learned to link a data plane to the
+#   Global resource (PCP-21434, api_object/o11y_console.py); EMS was the last, and
+#   tibcop 1.21's --capability EMS retired it. The browser entry points page_dp.py /
+#   page_bmdp.py and the case/ scripts still drive both wizards - it is only CLI mode
+#   that no longer detours through them.
 #   (BMDP domain configs use REST via _run_api_bmdp_config; app-level
 #    status verification is deferred — only registration-level "Connected"
 #    is recorded, pending ct-auth-token sourcing for the BW5 v1 API)
 # Steps that use REST API: OAuth token bootstrap (IAT -> client -> token),
-#   Global + DP activation file upload, BMDP domain/agent/EMS-server registration,
-#   app endpoint testing
+#   O11Y global config + per-DP link, Global + DP activation file upload,
+#   BMDP domain/agent/EMS-server registration, app endpoint testing
 # Steps that use CLI (tibcop): DP registration, resource creation,
-#   capability provisioning, app build & deploy, BMDP registration
+#   capability provisioning (including EMS), app build & deploy, BMDP registration
 #
 # Usage:
 #   export TP_AUTO_USE_CLI=true
@@ -40,6 +43,7 @@
 #   TIBCOP_CLI_CPURL               - CP URL (auto-derived from TP_AUTO_LOGIN_URL if not set)
 #   TIBCOP_CLI_OAUTH_TOKEN         - OAuth token (auto-read from k8s secret if not set)
 
+import contextlib
 import os
 import sys
 import threading
@@ -54,64 +58,22 @@ from api_object import (
     BmdpEmsApi,
     ConsoleApiClient,
     LicenseApi,
-    OllyApi,
+    O11yConsoleApi,
 )
 from cli_object.facade import TibcopCLI
 from cli_object.orchestrator import THREAD_STAGGER_DELAY
-from page_object.po_auth import PageObjectAuth
-from page_object.po_bmdp_config import PageObjectBMDPConfiguration
-from page_object.po_dp_config import PageObjectDataPlaneConfiguration
-from page_object.po_dp_ems import PageObjectDataPlaneEMS
 from utils.color_logger import ColorLogger
 from utils.env import ENV
 from utils.helper import Helper
 from utils.report import ReportYaml
 from utils.util import Util
 
-# Serialize all GUI (Playwright) callbacks so concurrent threads
-# don't stomp on the shared browser/tracing/video state in Util.
-_gui_lock = threading.Lock()
-
-# O11Y configuration goes through the UI BY DESIGN (PCP-22010, pinned by PCP-23553).
-#
-# The contract a deploy must satisfy is: create ONE Global observability resource, then
-# switch every data plane (k8s DP and BMDP) TO that global resource. Only the UI can do
-# the second half — OllyApi exposes create_o11y_resources() and nothing that links a data
-# plane to the global resource. Taking the API path for a data plane therefore cannot
-# satisfy the contract; it can only create a second, DP-local resource set (the silent
-# degradation PCP-23553 was raised for).
-#
-# This is a code constant on purpose: it is deliberately NOT exposed as a recipe/guiEnv
-# key or an env var, so it cannot be misconfigured from the provisioner UI. It answers
-# HOW o11y is configured; GUI_TP_AUTO_ENABLE_CONFIG_O11Y (-> TP_AUTO_IS_CONFIG_O11Y)
-# answers WHETHER to configure it at all.
-#
-# The API branches below are kept (not deleted) so the structure is ready when the API
-# gains a switch-to-global operation. Do NOT flip this constant to False before that
-# operation exists — the data-plane API branches raise NotImplementedError rather than
-# silently falling back to create-local.
-O11Y_CONFIG_VIA_UI = True
-
-
-def _assert_dataplane_o11y_via_ui(dp_name):
-    """Guard the retained data-plane API branch (PCP-23553).
-
-    Fail loudly instead of falling back to create-local. `OllyApi` only exposes
-    `create_o11y_resources()`; for a data plane that creates a SECOND, DP-local resource
-    set rather than linking it to the Global one — the regression this ticket pins down.
-    Delete this guard only together with a real API switch-to-global implementation.
-
-    The Global subject is unaffected: creating the Global resource over the API is
-    correct and stays functional (see `_run_api_steps` Step 2).
-    """
-    if O11Y_CONFIG_VIA_UI:
-        return
-    raise NotImplementedError(
-        f"PCP-23553: cannot configure o11y for data plane '{dp_name}' over the API - "
-        "OllyApi has no switch-to-global operation, only create_o11y_resources(), which "
-        "would create a second DP-local resource set instead of linking the data plane "
-        "to the Global resource. Keep O11Y_CONFIG_VIA_UI = True until the API supports it."
-    )
+# No browser imports above, and no _gui_lock. Both existed solely for
+# _run_gui_ems_provision, the last browser step in CLI mode, which PCP-24380 replaced
+# with tibcop's EMS arm. tests/test_capability_ems_provision.py asserts at SOURCE level
+# that this module imports no page object - the property is invisible at runtime until
+# the one code path that would need one happens to run, so nothing else would catch a
+# regression. `import threading` stays: the DP/BMDP threads are still started here.
 
 
 def _assert_o11y_recorded(dp_name, report_key, failure_message):
@@ -126,6 +88,71 @@ def _assert_o11y_recorded(dp_name, report_key, failure_message):
     raise RuntimeError(f"{failure_message} ({report_key} not recorded)")
 
 
+def _o11y_console():
+    """Console-API client for the Global observability configuration."""
+    return O11yConsoleApi(ConsoleApiClient.from_auto_token())
+
+
+def _run_api_o11y(subject, is_bmdp=False):
+    """Configure o11y for `subject` over the Console API. Browser-free.
+
+    Same contract and same report keys as the wizard the browser entry points drive
+    (page_dp.py / page_bmdp.py), so the recorded outcome is comparable across modes:
+      - Global  -> CREATE the one observability resource set  (writes o11yConfig)
+      - any DP  -> LINK that data plane to it                 (writes switchGlobal)
+
+    `is_bmdp` is accepted for signature parity with the UI path and deliberately
+    unused: over the API a Control Tower data plane takes the identical contract —
+    same endpoint, same body, same semantics — and the only DP-type-dependent value
+    in the whole exchange is `dataPlaneId`. Verified on a live BMDP.
+    """
+    ColorLogger.info("=" * 60)
+    ColorLogger.info(f"CLI Mode - Configure o11y for '{subject}' (API)")
+    ColorLogger.info("=" * 60)
+    try:
+        console = _o11y_console()
+        if subject == ENV.TP_AUTO_DP_NAME_GLOBAL:
+            console.ensure_global_config()
+            ReportYaml.set_dataplane(subject)
+            ReportYaml.set_dataplane_info(subject, "o11yConfig", True)
+        else:
+            dp_id = console.client.resolve_dataplane_id(subject)
+            if not console.link_to_global(dp_id):
+                ColorLogger.error(f"o11y API link did not take effect for '{subject}'")
+                return False
+            ReportYaml.set_dataplane(subject)
+            ReportYaml.set_dataplane_info(subject, "switchGlobal", True)
+        ColorLogger.success(f"o11y configured via API for '{subject}'")
+        return True
+    except Exception as e:
+        ColorLogger.error(f"o11y API config failed for '{subject}': {e}")
+        traceback.print_exc()
+        return False
+
+
+def _configure_o11y(subject, is_bmdp=False):
+    """Configure o11y for one subject over the Console API.
+
+    The contract (PCP-23553) is unchanged: create ONE Global observability resource,
+    then switch every data plane — the k8s DP and the BMDP — TO that resource. A
+    DP-local resource set is never the right answer.
+
+    Success is decided here, in one place. It used to be spelled out separately at
+    three call sites, and every one of PCP-23553's three regressions was a path that
+    reported the call instead of the outcome — so the report key is read back, and
+    "nothing raised" is not success.
+    """
+    if not _run_api_o11y(subject, is_bmdp=is_bmdp):
+        return False
+    report_key = "o11yConfig" if subject == ENV.TP_AUTO_DP_NAME_GLOBAL else "switchGlobal"
+    try:
+        _assert_o11y_recorded(subject, report_key, f"o11y was not confirmed for '{subject}'")
+    except RuntimeError as e:
+        ColorLogger.error(str(e))
+        return False
+    return True
+
+
 def _run_api_steps():
     """Browser-free replacement for the old GUI bootstrap path.
 
@@ -136,7 +163,7 @@ def _run_api_steps():
 
     Steps:
       1. OAuth token: IAT -> client -> token (api-samples steps 8-9).
-      2. Global O11Y resources via OllyApi (SUBSCRIPTION scope).
+      2. Global O11Y resources via the Console API (SUBSCRIPTION scope).
       3. Global activation license file via LicenseApi (SUBSCRIPTION scope).
          Activation server URL handled separately in run() via tibcop CLI.
     """
@@ -163,23 +190,12 @@ def _run_api_steps():
     # cp_url is still needed by Step 3 (activation) regardless of the o11y path.
     cp_url = os.environ.get("TIBCOP_CLI_CPURL", "").rstrip("/") or (ApiAuth.get_subscription_url() or "").rstrip("/")
 
-    if O11Y_CONFIG_VIA_UI:
-        # Assemble Global o11y through the UI wizard, not the API (O11Y_CONFIG_VIA_UI).
-        # The wizard (o11y_config_dataplane_resource) writes ReportYaml o11yConfig itself.
-        ColorLogger.info("Step 2: Creating Global O11Y resources via UI (O11Y_CONFIG_VIA_UI)")
-        # Raise on failure: every data plane later SWITCHES to this resource, so
-        # continuing without it guarantees the PCP-23553 failure mode (each DP falling
-        # back to, or being reported as, something that is not the Global resource).
-        if not _run_gui_o11y(ENV.TP_AUTO_DP_NAME_GLOBAL):
-            raise RuntimeError("Global o11y UI configuration failed; data planes have nothing to switch to")
-    else:
-        if not cp_url:
-            raise RuntimeError("TIBCOP_CLI_CPURL or cp-iat subscription-url required for API-based O11Y config")
-        client = ConsoleApiClient(cp_url, token)
-        ColorLogger.info("Step 2: Creating Global O11Y resources via API")
-        OllyApi(client).create_o11y_resources("global")
-        ReportYaml.set_dataplane(ENV.TP_AUTO_DP_NAME_GLOBAL)
-        ReportYaml.set_dataplane_info(ENV.TP_AUTO_DP_NAME_GLOBAL, "o11yConfig", True)
+    # Raise on failure: every data plane later SWITCHES to this resource, so continuing
+    # without it guarantees the PCP-23553 failure mode (each data plane falling back to,
+    # or being reported as, something that is not the Global resource).
+    ColorLogger.info("Step 2: Creating Global O11Y resources")
+    if not _configure_o11y(ENV.TP_AUTO_DP_NAME_GLOBAL):
+        raise RuntimeError("Global o11y configuration failed; data planes have nothing to switch to")
 
     # Step 3: Global activation license file (optional)
     license_path = ENV.TP_AUTO_LICENSE_FILE_PATH
@@ -208,9 +224,8 @@ def _bootstrap_oauth_token_via_iat():
 def _run_dp_o11y(cli, dp_name):
     """DP-level O11Y configuration after DP is created via CLI.
 
-    O11Y resources: the DP is switched to the Global observability resource through the
-    UI (see O11Y_CONFIG_VIA_UI). Activation file: PUT /cp/api/v1/data-planes/{dpId}/license
-    over REST.
+    O11Y resources: the DP is switched to the Global observability resource over the
+    Console API. Activation file: PUT /cp/api/v1/data-planes/{dpId}/license over REST.
 
     The two are INDEPENDENT and are sequenced, not nested: a failed o11y switch must never
     skip the activation upload (PCP-23558).
@@ -225,23 +240,21 @@ def _run_dp_o11y(cli, dp_name):
         ColorLogger.success(f"DP '{dp_name}' O11Y already configured (report: o11yResources={o11y_done}, activation={activation}), skipping")
         return
 
-    # Raised outside the try below on purpose: a misconfigured path must abort the DP
-    # thread, not be logged as one more recoverable o11y warning.
-    _assert_dataplane_o11y_via_ui(dp_name)
-
-    report_lock = getattr(getattr(cli, "orchestrator", None), "report_lock", None)
+    # nullcontext when the orchestrator did not supply a lock (standalone runs), so every
+    # report write below goes through ONE code path. ReportYaml is not thread-safe - each
+    # setter is a whole-file `yq -i` read-modify-write whose CalledProcessError is
+    # swallowed - and with o11y no longer serialised behind _gui_lock the DP and BMDP
+    # threads reach these writes concurrently for the first time.
+    report_lock = getattr(getattr(cli, "orchestrator", None), "report_lock", None) or contextlib.nullcontext()
     try:
         ColorLogger.info("=" * 60)
-        ColorLogger.info(f"CLI Mode - DP O11Y switch to Global for '{dp_name}' (UI, O11Y_CONFIG_VIA_UI)")
+        ColorLogger.info(f"CLI Mode - DP O11Y switch to Global for '{dp_name}'")
         ColorLogger.info("=" * 60)
-        if not _run_gui_o11y(dp_name):
-            raise RuntimeError("o11y UI config returned False")
+        if not _configure_o11y(dp_name):
+            raise RuntimeError("o11y config did not confirm the switch to Global")
         # Record o11yResources so the idempotency guard above short-circuits on re-run,
         # regardless of which path (API or UI) configured it.
-        if report_lock:
-            with report_lock:
-                ReportYaml.set_dataplane_info(dp_name, "o11yResources", True)
-        else:
+        with report_lock:
             ReportYaml.set_dataplane_info(dp_name, "o11yResources", True)
     except (Exception, SystemExit) as e:
         # SystemExit is caught EXPLICITLY, same trap as po_bmdp_config.py:124/150.
@@ -315,102 +328,70 @@ def _run_dp_activation_upload(cli, dp_name, report_lock):
         ColorLogger.info(f"license file not found at {license_path}, skipping DP activation file upload")
 
 
-def _run_gui_ems_provision(dp_name):
-    """Run GUI-based EMS capability provisioning.
+def _run_cli_ems_provision(cli, dp_name):
+    """Provision the EMS capability through the tibcop CLI. Browser-free.
 
-    Opens a new browser session to provision EMS capability on the DataPlane.
-    EMS provisioning has no CLI equivalent.
+    This was `_run_gui_ems_provision`, the last function in CLI mode that opened a
+    browser: it launched Playwright, logged in, drove the EMS fresco wizard and logged
+    out again, purely because `tplatform:provision-capability` had no EMS arm. tibcop
+    1.21 added one (`--capability EMS` plus the `--ems-*` / `--msg-data-*` / `--log-data-*`
+    flags), so the detour is gone and with it the browser, the login round trip, the
+    `_gui_lock` that serialized it, and the ~3 minutes of wizard clicking (PCP-24380).
 
-    Acquires _gui_lock to prevent concurrent browser sessions.
+    The GUI wizard is NOT retired - page_dp.py and case/k8s_provision_capability.py still
+    drive it, and PCP-24380 fixes the `-dev` name bug that had been hard-failing it. It is
+    only CLI mode that no longer detours through it.
+
+    Failure handling is deliberately unchanged in SHAPE, because the reasoning behind it
+    survives the rewrite: raising here is what stops a data plane with no EMS from being
+    reported as a green run (the silent-green class of PCP-23553 / PCP-23558). The full
+    propagation chain, end to end:
+
+      on_ems_needed(dp_name)          orchestrator.py - NO try/except, propagates
+      _provision_and_deploy           EMS is its LAST step, so nothing is skipped
+      run_dataplane_setup             propagates
+      _run_dp_setup                   `except Exception` -> errors.append(e)
+      main                            `if errors: sys.exit(1)`
+
+    SystemExit is still caught explicitly even though nothing on this path calls
+    Util.exit_error() any more: `except Exception` does not catch it, and re-introducing
+    a sys.exit() anywhere below would otherwise kill the DP setup THREAD silently and
+    leave `errors` empty - a run that exits 0 with no EMS. Deliberately NOT BaseException:
+    KeyboardInterrupt must still abort the run.
+
+    The try covers ONLY the CLI call, which is the one thing that can fail for a reason
+    this function does not already know. The None check and the ReportYaml write sit
+    outside it: a None return is fully diagnosed (the CLI layer has already logged why),
+    so re-wrapping it printed a stack trace that pointed at the `raise` and nothing else,
+    and a ReportYaml failure inside the try was reported as "EMS provisioning failed" for
+    an EMS that had just provisioned fine. Both raise the same message text as before, so
+    log scraping and the propagation chain above are unaffected.
     """
-    with _gui_lock:
-        ColorLogger.info("=" * 60)
-        ColorLogger.info(f"CLI Mode - Provision EMS for '{dp_name}' (GUI)")
-        ColorLogger.info("=" * 60)
+    ColorLogger.info("=" * 60)
+    ColorLogger.info(f"CLI Mode - Provision EMS for '{dp_name}' (CLI)")
+    ColorLogger.info("=" * 60)
 
-        page = Util.browser_launch()
-        try:
-            po_auth = PageObjectAuth(page)
-            po_auth.login()
-            po_auth.login_check()
+    try:
+        result = cli.capability.provision_capability(
+            dp_name, "EMS",
+            ems_name=ENV.TP_AUTO_EMS_CAPABILITY_SERVER_NAME,
+            ems_sizing=ENV.TP_AUTO_EMS_CAPABILITY_SIZING,
+        )
+    except (Exception, SystemExit) as e:
+        ColorLogger.error(f"EMS provisioning failed: {e}")
+        traceback.print_exc()
+        raise RuntimeError(f"EMS provisioning failed for '{dp_name}': {e}") from e
 
-            po_dp_ems = PageObjectDataPlaneEMS(page)
-            po_dp_ems.goto_left_navbar_dataplane()
-            po_dp_ems.goto_dataplane(dp_name)
-            po_dp_ems.ems_provision_capability(dp_name, ENV.TP_AUTO_EMS_CAPABILITY_SERVER_NAME)
+    # provision_capability returns None on failure and never raises, so the return
+    # value IS the outcome - exactly the trap PCP-23553 was about. "ALREADY_PROVISIONED"
+    # is a success: the server the run asked for is there.
+    if result is None:
+        ColorLogger.error("EMS provisioning failed: provision-capability returned no result")
+        raise RuntimeError(
+            f"EMS provisioning failed for '{dp_name}': provision-capability returned no result")
 
-            ReportYaml.set_capability(dp_name, "ems")
-            po_auth.logout()
-            ColorLogger.success(f"EMS capability provisioned for '{dp_name}'")
-        except Exception as e:
-            ColorLogger.error(f"EMS provisioning failed: {e}")
-            traceback.print_exc()
-        finally:
-            Util.browser_close()
-
-
-def _run_gui_o11y(dp_name, is_bmdp=False):
-    """Configure o11y for dp_name through the UI (browser).
-
-    The contract (PCP-23553), identical to the browser-mode paths page_dp.py /
-    page_bmdp.py already implement:
-      - Global  -> CREATE the one observability resource set (o11y_config_dataplane_resource)
-      - any DP  -> SWITCH that data plane to the Global resource (o11y_config_switch_to_global)
-
-    A non-Global subject must NEVER go through o11y_config_dataplane_resource: that
-    creates a second, DP-local resource set instead of linking to the Global one.
-
-    `is_bmdp` selects the BMDP page object, whose config pages differ from a k8s DP's.
-    Both switch helpers self-navigate (data plane list -> DP -> Configuration ->
-    Observability), so no navigation prelude is needed here.
-
-    Mirrors _run_gui_ems_provision (browser_launch + login + page object + logout) and
-    drives the same page objects as the standalone cases (case/create_global_config.py,
-    case/k8s_config_dp_o11y.py, case/bmdp_config_dp_o11y.py).
-
-    Acquires _gui_lock to prevent concurrent browser sessions. Returns True on
-    success, False on failure (caller decides how to record/report).
-    """
-    with _gui_lock:
-        ColorLogger.info("=" * 60)
-        ColorLogger.info(f"CLI Mode - Configure o11y for '{dp_name}' (GUI, O11Y_CONFIG_VIA_UI)")
-        ColorLogger.info("=" * 60)
-
-        page = Util.browser_launch()
-        try:
-            po_auth = PageObjectAuth(page)
-            po_auth.login()
-            po_auth.login_check()
-
-            # Both wizards report failure by warning + returning, NOT by raising, so
-            # "nothing threw" does not mean "it worked". Each records its own report key
-            # ONLY on a confirmed success, so that key - not the absence of an exception
-            # - is what this function keys on. Without it a data plane that never got
-            # linked is still written down as o11yResources: true, which is the
-            # silent-green half of PCP-23553.
-            po_config = PageObjectBMDPConfiguration(page) if is_bmdp else PageObjectDataPlaneConfiguration(page)
-            if dp_name == ENV.TP_AUTO_DP_NAME_GLOBAL:
-                # Global: the wizard self-navigates (Global configuration -> Observability),
-                # mirroring case/create_global_config.py. o11yConfig is written only after
-                # the wizard saves without a .pl-notification--error.
-                po_config.o11y_config_dataplane_resource(dp_name)
-                _assert_o11y_recorded(dp_name, "o11yConfig", "the Global observability resource was not created")
-            else:
-                # switchGlobal is written only once "View in Global Configuration" is
-                # visible, i.e. the data plane really is linked to the Global resource.
-                po_config.o11y_config_switch_to_global(dp_name)
-                _assert_o11y_recorded(dp_name, "switchGlobal",
-                                      f"'{dp_name}' was not linked to the Global observability resource")
-
-            po_auth.logout()
-            ColorLogger.success(f"o11y configured via UI for '{dp_name}'")
-            return True
-        except Exception as e:
-            ColorLogger.error(f"o11y UI config failed for '{dp_name}': {e}")
-            traceback.print_exc()
-            return False
-        finally:
-            Util.browser_close()
+    ReportYaml.set_capability(dp_name, "ems")
+    ColorLogger.success(f"EMS capability provisioned for '{dp_name}'")
 
 
 def _run_api_bmdp_config(bmdp_name, report_lock):
@@ -532,15 +513,14 @@ def _run_api_bmdp_config(bmdp_name, report_lock):
             ColorLogger.error(f"BW6 Agent registration failed: {e}")
             traceback.print_exc()
 
-    # --- O11Y — mirror DP: switch to the Global resource (UI) + activation upload ---
+    # --- O11Y — mirror DP: switch to the Global resource + activation upload ---
     if ENV.TP_AUTO_IS_CONFIG_O11Y:
-        # PCP-23553: the BMDP used to create its own resource set over REST, bypassing the
-        # UI detour entirely and leaving a third, BMDP-local set. Same guard as the DP —
-        # raised outside the try so a misconfigured path aborts instead of being logged.
-        _assert_dataplane_o11y_via_ui(bmdp_name)
+        # PCP-23553: the BMDP used to create its own resource set, leaving a third,
+        # BMDP-local set. It now goes through the same _configure_o11y as the k8s DP, so
+        # "switch to Global" is structurally the only thing it can do.
         try:
-            if not _run_gui_o11y(bmdp_name, is_bmdp=True):
-                raise RuntimeError("o11y UI config returned False")
+            if not _configure_o11y(bmdp_name, is_bmdp=True):
+                raise RuntimeError("o11y config did not confirm the switch to Global")
             with report_lock:
                 ReportYaml.set_dataplane_info(bmdp_name, "o11yResources", True)
         except (Exception, SystemExit) as e:
@@ -586,7 +566,7 @@ def _run_dp_setup(cli, errors):
             ENV.TP_AUTO_K8S_DP_NAME,
             ENV.TP_AUTO_K8S_DP_NAMESPACE,
             on_o11y_needed=lambda dp: _run_dp_o11y(cli, dp),
-            on_ems_needed=_run_gui_ems_provision
+            on_ems_needed=lambda dp: _run_cli_ems_provision(cli, dp)
         )
     except Exception as e:
         ColorLogger.error(f"[DP] Setup failed: {e}")
@@ -635,10 +615,19 @@ def run():
         sys.exit(1)
 
     # Phase 2: CLI steps
-    cli = TibcopCLI.from_env()
+    try:
+        cli = TibcopCLI.from_env()
+    except RuntimeError as e:
+        # Raised by TibcopBase.assert_min_version: the image shipped a tibcop older
+        # than the command surface this automation targets. Exit non-zero - a wrong
+        # CLI produces "command not found" failures that look like platform bugs.
+        ColorLogger.error(str(e))
+        sys.exit(1)
     if not cli:
         ColorLogger.error("Failed to build CLI environment. Aborting.")
         return
+
+    ReportYaml.set(".ENV.TIBCOP_VERSION", cli.tibcop_version)
 
     # Global Activation Server (CLI fallback — only if GUI didn't configure)
     if ReportYaml.get_dataplane_info("Global", "activation"):
