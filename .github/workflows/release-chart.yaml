@@ -11,6 +11,8 @@ on:
 
 jobs:
   release:
+    # Only publish reviewed charts, even when dispatched on another branch
+    if: github.ref == 'refs/heads/main'
     permissions:
       contents: write # to push chart release and create a release (helm/chart-releaser-action)
       packages: write # needed for ghcr access
